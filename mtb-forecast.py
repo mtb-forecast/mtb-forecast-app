@@ -1,0 +1,2239 @@
+"""
+MTB Agent V6.4
+- Email HTML com visual organizado para Gmail
+- Cards por trilha, tabela D+1/D+2/D+3 com dados reais por dia, seções bem separadas
+- Análise gerada pelo Claude AI
+- Assunto: "Monitoramento de Trilhas para MTB — DD/MM/YYYY"
+
+Alterações V5.24:
+- Campo `bioma` lido do trilhas.csv (coluna opcional, ex: "Mata Atlântica")
+- fator_microclima(): threshold mais conservador para biomas com instabilidade orográfica
+  · Mata Atlântica + altitude >= 600m + fechada → threshold 25% menor (mais conservador)
+  · Mata Atlântica demais casos → threshold 10% menor
+  · Outros biomas → sem ajuste
+- Badge 🌿 Mata Atlântica exibido no card quando bioma identificado
+- threshold_solo_descansado() aceita trail= para aplicar fator de bioma
+
+Alterações V5.23:
+- One Call API 3.0 (OpenWeather) substitui /data/2.5/forecast como fonte principal
+  · fetch_onecall(): previsão horária das próximas 48h (/data/3.0/onecall)
+  · fetch_onecall_historico(): histórico real hora a hora 48h (/data/3.0/onecall/timemachine)
+  · Duas chamadas timemachine por trilha (48h atrás e 24h atrás) — sem janela cega
+  · Chuva da madrugada capturada integralmente ao rodar às 07:00 BRT
+- Média ponderada 70% OpenWeather / 30% Open-Meteo (era 50/50)
+- pico_3h calculado com granularidade horária (48 pontos vs 16 anteriores)
+- janela, horarios_chuva, resumo_12h e resumo_dia operando com dados horários
+- Open-Meteo mantido para previsão (30%) e vento histórico (rajadas)
+- Cron ajustado para 07:00 BRT (0 10 * * *)
+
+Alterações V5.22:
+- Sazonalidade: thresholds de acúmulo efetivo derivados de ERA5-Land 30 anos (Climatempo)
+- ENSO Nível 3: multiplicador sobre threshold sazonal via ONI NOAA (fetch_oni_atual)
+- Card do email exibe fase ENSO, ONI e threshold em vigor por trilha
+- Prompt Claude inclui fase ENSO para análise contextualizada
+
+Alterações V5.21:
+- Modelo de secagem do solo por decaimento exponencial
+- fetch_openmeteo_historico() retorna dict com bruto, efetivo, ultima_chuva_h, meia_vida_h
+- Tabela _MEIA_VIDA_SECAGEM: taxa de secagem por (solo_type, exposicao)
+
+Alterações V5.20:
+- Badge automático "⛏ Quadrilátero Ferrífero" no card da trilha
+
+Alterações V5.19:
+- Novo solo_type "misto_mg"
+
+Alterações V5.18:
+- Novo solo_type "ferro"
+
+Alterações V5.17:
+- Calibração do fator de absorção para bikepark em mata fechada
+
+Alterações V5.16:
+- Título do card de cada trilha é agora um hiperlink clicável
+
+Alterações V5.15:
+- Histórico de vento das últimas 48h via média Open-Meteo + OpenWeather
+- Alerta de árvores caídas no card da trilha
+
+Alterações V5.14:
+- Seção de doação via Pix entre o ranking e a tabela de previsão
+
+Alterações V5.13:
+- Envio segmentado por região
+
+Alterações V5.12:
+- Lista de BCC lida do arquivo emails.txt
+- Nova regra de aderência/veredicto para bikepark saturado
+
+Alterações V5.11:
+- Novo campo opcional `desnivel_m` e `extensao_km`
+
+Alterações V5.10:
+- Novo tipo de solo "preto"
+- trail_type simplificado para "natural" e "bikepark"
+- Nomenclatura: GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA
+- Veredicto: DROP LIBERADO / ATENÇÃO / MELHOR ESPERAR
+
+Alterações V5.4:
+- Histórico real de chuva das últimas 48h via Open-Meteo
+
+Alterações V5.3:
+- Integração com Open-Meteo como segunda fonte meteorológica
+
+Correções V5.2.2:
+- FIX: BCC funciona via envelope SMTP sem expor endereços no header
+- FIX: renomeado import html para html_lib para evitar conflito com variável local
+
+Remoção V6.5:
+- Campo trail_drainage removido do modelo — drenagem já capturada por solo_type,
+  exposicao, trail_type e inclinacao. Remoção evita dupla contagem de benefício.
+"""
+
+import os
+import json
+import html as html_lib
+import urllib.request
+import urllib.error
+import smtplib
+import time
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from datetime import datetime, timezone, timedelta, date
+
+# ---------------------------------------------------------------------------
+# Leitura de trilhas via CSV
+# ---------------------------------------------------------------------------
+import csv as _csv
+import pathlib as _pathlib
+
+_CAMPOS_OBRIGATORIOS = ("name", "lat", "lon", "solo_type", "exposicao", "altitude_m", "trail_type", "regiao")
+_SOLO_VALIDOS        = {"terra", "misto", "preto", "pedra", "ferro", "misto_mg"}
+_EXPOSICAO_VALIDOS   = {"aberta", "fechada"}
+_TRAIL_VALIDOS       = {"natural", "bikepark"}
+
+def _carregar_trilhas(csv_path: str = "trilhas.csv") -> list:
+    caminho = _pathlib.Path(__file__).parent / csv_path
+    if not caminho.exists():
+        raise FileNotFoundError(
+            "Arquivo de trilhas nao encontrado: " + str(caminho) + "\n"
+            "Crie o arquivo trilhas.csv na mesma pasta do script.\n"
+            "Consulte o README para o formato correto."
+        )
+
+    for enc in ("utf-8-sig", "utf-8", "latin-1"):
+        try:
+            with open(caminho, newline="", encoding=enc) as f:
+                f.read(4096)
+            encoding_ok = enc
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        encoding_ok = "latin-1"
+    print(f"[trilhas.csv] Encoding detectado: {encoding_ok}")
+
+    trilhas, erros = [], []
+    with open(caminho, newline="", encoding=encoding_ok) as f:
+        amostra = f.read(4096)
+        f.seek(0)
+        separador = ";" if amostra.count(";") > amostra.count(",") else ","
+        reader = _csv.DictReader(f, delimiter=separador)
+        faltando_header = [c for c in _CAMPOS_OBRIGATORIOS if c not in (reader.fieldnames or [])]
+        if faltando_header:
+            raise ValueError(
+                "trilhas.csv esta faltando colunas obrigatorias: "
+                + ", ".join(faltando_header)
+                + "\nColunas encontradas: "
+                + ", ".join(reader.fieldnames or [])
+            )
+        for linha, row in enumerate(reader, start=2):
+            nome = row.get("name", "").strip() or f"linha {linha}"
+            try:
+                for campo in _CAMPOS_OBRIGATORIOS:
+                    if not row.get(campo, "").strip():
+                        raise ValueError(f"campo '{campo}' vazio ou ausente")
+
+                def _coord(v: str) -> float:
+                    v = v.strip()
+                    if v.count(".") > 1:
+                        sinal = "-" if v.startswith("-") else ""
+                        partes = v.lstrip("-").split(".")
+                        v = f"{sinal}{partes[0]}.{''.join(partes[1:])}"
+                    return float(v)
+
+                lat = _coord(row["lat"])
+                lon = _coord(row["lon"])
+                if not (-90 <= lat <= 90):
+                    raise ValueError(f"lat invalida: {lat}")
+                if not (-180 <= lon <= 180):
+                    raise ValueError(f"lon invalida: {lon}")
+
+                altitude_m = int(row["altitude_m"])
+
+                solo_type  = row["solo_type"].strip().lower()
+                exposicao  = row["exposicao"].strip().lower()
+                trail_type = row["trail_type"].strip().lower()
+                regiao     = row["regiao"].strip().upper()
+
+                if solo_type not in _SOLO_VALIDOS:
+                    raise ValueError(f"solo_type '{solo_type}' invalido — use: {', '.join(sorted(_SOLO_VALIDOS))}")
+                if exposicao not in _EXPOSICAO_VALIDOS:
+                    raise ValueError(f"exposicao '{exposicao}' invalida — use: {', '.join(sorted(_EXPOSICAO_VALIDOS))}")
+                if trail_type not in _TRAIL_VALIDOS:
+                    raise ValueError(f"trail_type '{trail_type}' invalido — use: {', '.join(sorted(_TRAIL_VALIDOS))}")
+                if not regiao:
+                    raise ValueError("campo 'regiao' vazio — ex: SP, MG, RJ")
+
+                def _opcional_float(campo, row=row):
+                    v = row.get(campo, "").strip()
+                    if not v:
+                        return None
+                    try:
+                        return float(v)
+                    except ValueError:
+                        raise ValueError(f"campo '{campo}' nao e um numero valido: '{v}'")
+
+                desnivel_m  = _opcional_float("desnivel_m")
+                extensao_km = _opcional_float("extensao_km")
+                bioma       = row.get("bioma", "").strip() or "Desconhecido"
+
+                trilhas.append({
+                    "name":        row["name"].strip(),
+                    "lat":         lat,
+                    "lon":         lon,
+                    "solo_type":   solo_type,
+                    "exposicao":   exposicao,
+                    "altitude_m":  altitude_m,
+                    "trail_type":  trail_type,
+                    "regiao":      regiao,
+                    "desnivel_m":  desnivel_m,
+                    "extensao_km": extensao_km,
+                    "bioma":       bioma,
+                })
+
+            except (ValueError, KeyError) as exc:
+                msg = f"[trilhas.csv] Linha {linha} ('{nome}') ignorada: {exc}"
+                erros.append(msg)
+                print(msg)
+
+    if not trilhas:
+        raise RuntimeError(
+            "Nenhuma trilha valida encontrada em trilhas.csv. "
+            "Verifique o arquivo e corrija os erros acima."
+        )
+
+    regioes = sorted(set(t["regiao"] for t in trilhas))
+    if erros:
+        print(f"[trilhas.csv] {len(erros)} linha(s) ignorada(s), {len(trilhas)} trilha(s) carregada(s). Regiões: {', '.join(regioes)}")
+    else:
+        print(f"[trilhas.csv] {len(trilhas)} trilha(s) carregada(s). Regiões: {', '.join(regioes)}")
+
+    return trilhas
+
+TRAILS = []
+
+OPENWEATHER_KEY = os.getenv("OPENWEATHER_API_KEY")
+ANTHROPIC_KEY   = os.getenv("ANTHROPIC_API_KEY")
+OPENAI_KEY      = os.getenv("OPENAI_API_KEY")
+EMAIL_FROM      = os.getenv("EMAIL_FROM")
+EMAIL_PASSWORD  = os.getenv("EMAIL_PASSWORD")
+EMAIL_TO        = os.getenv("EMAIL_TO")
+EMAIL_BCC       = os.getenv("EMAIL_BCC", "")
+DEBUG_MODEL     = os.getenv("DEBUG_MODEL", "false").lower() == "true"
+
+# ---------------------------------------------------------------------------
+# Leitura de destinatários por região — emails_{REGIAO}.txt
+# ---------------------------------------------------------------------------
+
+def _ler_emails_arquivo(caminho: _pathlib.Path) -> list:
+    emails = []
+    for linha in caminho.read_text(encoding="utf-8").splitlines():
+        for parte in linha.split(","):
+            addr = parte.strip()
+            if addr and not addr.startswith("#"):
+                emails.append(addr)
+    return emails
+
+def _carregar_emails_por_regiao() -> dict:
+    base      = _pathlib.Path(__file__).parent
+    regioes   = sorted(set(t["regiao"] for t in TRAILS))
+    resultado = {}
+    algum_encontrado = False
+
+    for regiao in regioes:
+        arquivo = base / f"emails_{regiao}.txt"
+        if arquivo.exists():
+            emails = _ler_emails_arquivo(arquivo)
+            if emails:
+                resultado[regiao] = emails
+                print(f"[emails_{regiao}.txt] {len(emails)} destinatário(s) carregado(s).")
+                algum_encontrado = True
+            else:
+                print(f"[emails_{regiao}.txt] Arquivo encontrado mas vazio — região {regiao} será ignorada.")
+        else:
+            print(f"[AVISO] emails_{regiao}.txt não encontrado — região {regiao} não receberá email.")
+
+    if not algum_encontrado:
+        fallback = base / "emails.txt"
+        if fallback.exists():
+            emails = _ler_emails_arquivo(fallback)
+            if emails:
+                print(f"[emails.txt] Nenhum arquivo de região encontrado. Usando fallback global: {len(emails)} destinatário(s).")
+                for regiao in regioes:
+                    resultado[regiao] = emails
+            else:
+                print("[AVISO] emails.txt encontrado mas vazio. Nenhum email será enviado.")
+        else:
+            print("[AVISO] Nenhum arquivo de emails encontrado. Nenhum email será enviado.")
+
+    return resultado
+
+def _bcc_global() -> list:
+    return [e.strip() for e in EMAIL_BCC.split(",") if e.strip()]
+
+def _validar_env() -> None:
+    obrigatorias = {
+        "OPENWEATHER_API_KEY": OPENWEATHER_KEY,
+        "EMAIL_FROM":          EMAIL_FROM,
+        "EMAIL_PASSWORD":      EMAIL_PASSWORD,
+        "EMAIL_TO":            EMAIL_TO,
+    }
+    faltando = [k for k, v in obrigatorias.items() if not v]
+    if faltando:
+        raise EnvironmentError(
+            f"Variáveis de ambiente obrigatórias não definidas: {', '.join(faltando)}"
+        )
+
+BRT = timezone(timedelta(hours=-3))
+ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+
+# ---------------------------------------------------------------------------
+# Sazonalidade e ENSO — V5.22
+# ---------------------------------------------------------------------------
+
+_THRESHOLD_SAZONAL_REGIONAL: dict = {
+    "SP": {
+        1:  (3.0,  7.0),
+        2:  (2.0,  6.0),
+        3:  (3.0,  7.0),
+        4:  (5.0, 10.0),
+        5:  (6.0, 12.0),
+        6:  (8.0, 15.0),
+        7:  (8.0, 15.0),
+        8:  (8.0, 15.0),
+        9:  (8.0, 15.0),
+        10: (5.0, 10.0),
+        11: (4.0,  9.0),
+        12: (3.0,  7.0),
+    },
+    "MG": {
+        1:  (2.5,  6.5),
+        2:  (2.0,  6.0),
+        3:  (2.5,  6.5),
+        4:  (4.5,  9.0),
+        5:  (5.5, 11.0),
+        6:  (7.0, 13.5),
+        7:  (7.0, 13.5),
+        8:  (7.0, 13.5),
+        9:  (7.0, 13.5),
+        10: (4.5,  9.0),
+        11: (3.5,  8.0),
+        12: (2.5,  6.5),
+    },
+}
+# FIX #9: DEFAULT era idêntico a SP — usar SP como fallback direto
+_THRESHOLD_FALLBACK = "SP"
+
+_CACHE_ONI: dict = {}
+
+def fetch_oni_atual() -> float:
+    if "oni" in _CACHE_ONI:
+        return _CACHE_ONI["oni"]
+    try:
+        url = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
+        req = urllib.request.Request(url, headers={"User-Agent": "MTBAgent/5.23"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            linhas = r.read().decode("utf-8").splitlines()
+        oni_val = 0.0
+        for linha in reversed(linhas):
+            partes = linha.split()
+            if len(partes) >= 3:
+                try:
+                    oni_val = float(partes[2])
+                    break
+                except ValueError:
+                    continue
+        _CACHE_ONI["oni"] = oni_val
+        return oni_val
+    except Exception as exc:
+        print(f"[ENSO] Falha ao buscar ONI: {exc} — usando neutro (0.0)")
+        _CACHE_ONI["oni"] = 0.0
+        return 0.0
+
+
+def classificar_enso(oni: float) -> dict:
+    if oni >= 1.5:
+        return {"fase": "El Niño Forte",    "oni": oni, "mult": 0.75, "emoji": "🔴"}
+    elif oni >= 0.5:
+        return {"fase": "El Niño",          "oni": oni, "mult": 0.85, "emoji": "🟠"}
+    elif oni <= -1.5:
+        return {"fase": "La Niña Forte",    "oni": oni, "mult": 1.25, "emoji": "🔵"}
+    elif oni <= -0.5:
+        return {"fase": "La Niña",          "oni": oni, "mult": 1.15, "emoji": "🟦"}
+    else:
+        return {"fase": "ENSO Neutro",      "oni": oni, "mult": 1.00, "emoji": "⚪"}
+
+
+def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float:
+    """Threshold dinâmico: sazonalidade × ENSO × microclima de bioma."""
+    regiao = ((trail or {}).get("regiao") or _THRESHOLD_FALLBACK).upper()
+    tabela = _THRESHOLD_SAZONAL_REGIONAL.get(regiao, _THRESHOLD_SAZONAL_REGIONAL[_THRESHOLD_FALLBACK])
+    base, _ = tabela.get(mes, (5.0, 10.0))
+    valor = base * enso["mult"]
+    if trail is not None:
+        valor *= fator_microclima(trail)
+    return round(valor, 1)
+
+
+def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> float:
+    regiao = ((trail or {}).get("regiao") or _THRESHOLD_FALLBACK).upper()
+    tabela = _THRESHOLD_SAZONAL_REGIONAL.get(regiao, _THRESHOLD_SAZONAL_REGIONAL[_THRESHOLD_FALLBACK])
+    _, sat = tabela.get(mes, (5.0, 10.0))
+    valor = sat * enso["mult"]
+    if trail is not None:
+        valor *= fator_microclima(trail)
+    return round(valor, 1)
+
+
+def _bikepark_saturado(trail: dict, acumulo_ef: float,
+                       mes: int = None, enso: dict = None) -> bool:
+    if mes is None:
+        mes = datetime.now(timezone(timedelta(hours=-3))).month
+    if enso is None:
+        enso = {"mult": 1.0, "fase": "ENSO Neutro"}
+    limite = threshold_bikepark_saturado(mes, enso, trail)
+    return (
+        trail.get("trail_type") == "bikepark"
+        and acumulo_ef > limite
+    )
+
+def calcular_inclinacao(trail: dict) -> float | None:
+    d = trail.get("desnivel_m")
+    e = trail.get("extensao_km")
+    if d is not None and e is not None and e > 0:
+        return round((d / (e * 1000)) * 100, 1)
+    return None
+
+def proximos_dias() -> dict:
+    hoje = datetime.now(BRT).date()
+    d1   = hoje + timedelta(1)
+    d2   = hoje + timedelta(2)
+    d3   = hoje + timedelta(3)
+    dias_semana = {0: "Seg", 1: "Ter", 2: "Qua", 3: "Qui", 4: "Sex", 5: "Sáb", 6: "Dom"}
+    return {
+        "d1": d1, "d1_label": f"{dias_semana[d1.weekday()]} {d1.strftime('%d/%m')}",
+        "d2": d2, "d2_label": f"{dias_semana[d2.weekday()]} {d2.strftime('%d/%m')}",
+        "d3": d3, "d3_label": f"{dias_semana[d3.weekday()]} {d3.strftime('%d/%m')}",
+    }
+
+# ---------------------------------------------------------------------------
+# One Call API 3.0 — V5.23
+# ---------------------------------------------------------------------------
+
+def fetch_onecall(trail: dict) -> dict | None:
+    url = (
+        "https://api.openweathermap.org/data/3.0/onecall"
+        f"?lat={trail['lat']}&lon={trail['lon']}"
+        f"&appid={OPENWEATHER_KEY}&units=metric&lang=pt_br"
+        "&exclude=current,minutely,daily,alerts"
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError):
+            if attempt == 2:
+                return None
+            time.sleep(2 ** attempt)
+
+
+def resumo_onecall(data: dict) -> dict | None:
+    if not data:
+        return None
+    try:
+        hourly = data.get("hourly", [])[:48]
+        precip = [h.get("rain", {}).get("1h", 0.0) or 0.0 for h in hourly]
+        wind   = [h.get("wind_speed", 0.0) or 0.0 for h in hourly]
+        gusts  = [h.get("wind_gust", 0.0) or 0.0 for h in hourly]
+        pop    = [h.get("pop", 0.0) or 0.0 for h in hourly]
+
+        rain_mm  = round(sum(precip), 1)
+        wind_max = round(max(wind, default=0.0), 1)
+        gust_max = round(max(gusts, default=0.0), 1)
+        pop_max  = round(max(pop, default=0.0) * 100)
+        pico_3h  = round(
+            max((sum(precip[i:i+3]) for i in range(max(1, len(precip) - 2))), default=0.0), 1
+        )
+        tmax = round(max((h.get("temp", 0) for h in hourly), default=0))
+
+        return {
+            "rain":     rain_mm,
+            "wind":     wind_max,
+            "pop":      pop_max,
+            "pico_3h":  pico_3h,
+            "tmax":     tmax,
+            "gust_max": gust_max,
+        }
+    except (KeyError, TypeError):
+        return None
+
+
+def fetch_onecall_historico(trail: dict) -> dict:
+    agora = datetime.now(BRT)
+    meia_vida_base = _meia_vida(trail)
+    ultima_chuva_h = None
+    amostras_temp = []
+    amostras_wind = []
+    amostras_cloud = []
+    amostras_humidity = []
+
+    # FIX #2: deduplicar entradas por timestamp antes de acumular
+    # Três chamadas timemachine podem retornar horas sobrepostas
+    entradas_por_dt: dict = {}
+
+    for horas_offset in (48, 24, 0):
+        ts = int((agora - timedelta(hours=horas_offset)).timestamp())
+        url = (
+            "https://api.openweathermap.org/data/3.0/onecall/timemachine"
+            f"?lat={trail['lat']}&lon={trail['lon']}"
+            f"&dt={ts}&appid={OPENWEATHER_KEY}&units=metric"
+        )
+        data = None
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(url, timeout=20) as r:
+                    data = json.loads(r.read().decode("utf-8"))
+                break
+            except (urllib.error.URLError, OSError):
+                if attempt == 2:
+                    data = None
+                else:
+                    time.sleep(2 ** attempt)
+
+        if not data:
+            continue
+
+        for entry in data.get("data", []):
+            dt_ts = entry["dt"]
+            dt_entry = datetime.fromtimestamp(dt_ts, tz=BRT)
+            if dt_entry > agora:
+                continue
+            # Mantém apenas a primeira ocorrência de cada timestamp
+            if dt_ts not in entradas_por_dt:
+                entradas_por_dt[dt_ts] = entry
+
+    # Processar entradas deduplicadas em ordem cronológica
+    bruto = 0.0
+    historico = []
+    for dt_ts in sorted(entradas_por_dt):
+        entry = entradas_por_dt[dt_ts]
+        dt_entry = datetime.fromtimestamp(dt_ts, tz=BRT)
+        horas_atras = max(0, (agora - dt_entry).total_seconds() / 3600)
+        p = entry.get("rain", {}).get("1h", 0.0) or 0.0
+
+        historico.append((horas_atras, p))
+        bruto += p
+
+        temp = entry.get("temp")
+        wind = entry.get("wind_speed")
+        clouds = entry.get("clouds")
+        humidity = entry.get("humidity")
+
+        if temp is not None:
+            amostras_temp.append(temp)
+        if wind is not None:
+            amostras_wind.append(wind)
+        if clouds is not None:
+            amostras_cloud.append(clouds)
+        if humidity is not None:
+            amostras_humidity.append(humidity)
+
+        if p >= 0.5 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
+            ultima_chuva_h = round(horas_atras, 1)
+
+    temp_media = round(sum(amostras_temp) / len(amostras_temp), 1) if amostras_temp else None
+    vento_medio = round(sum(amostras_wind) / len(amostras_wind), 1) if amostras_wind else None
+    nublado_medio = round(sum(amostras_cloud) / len(amostras_cloud), 1) if amostras_cloud else None
+    umidade_media = round(sum(amostras_humidity) / len(amostras_humidity), 1) if amostras_humidity else None
+
+    # Vento máximo histórico em km/h — extraído das entradas já coletadas
+    # Elimina chamada extra ao timemachine em fetch_vento_historico
+    vento_max_kmh_ow = (
+        round(max(amostras_wind) * 3.6, 1) if amostras_wind else None
+    )
+
+    meia_vida = _ajustar_meia_vida_clima(
+        meia_vida_base,
+        trail,
+        temp_c=temp_media,
+        wind_ms=vento_medio,
+        cloud_pct=nublado_medio,
+        humidity_pct=umidade_media,
+    )
+
+    efetivo = 0.0
+    for horas_atras, p in historico:
+        peso = 0.5 ** (horas_atras / meia_vida)
+        efetivo += p * peso
+
+    return {
+        "bruto":            round(bruto, 1),
+        "efetivo":          round(efetivo, 1),
+        "ultima_chuva_h":   ultima_chuva_h,
+        "meia_vida_h":      meia_vida,
+        "temp_media_c":     temp_media,
+        "vento_medio_ms":   vento_medio,
+        "nublado_pct":      nublado_medio,
+        "umidade_pct":      umidade_media,
+        "vento_max_kmh_ow": vento_max_kmh_ow,  # vento sustentado máximo 48h (m/s→km/h)
+    }
+
+
+def fetch_openmeteo(trail: dict) -> dict | None:
+    url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={trail['lat']}&longitude={trail['lon']}"
+        "&hourly=precipitation,windspeed_10m,windgusts_10m,precipitation_probability,temperature_2m"
+        "&forecast_days=4&timezone=America%2FSao_Paulo"
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError):
+            if attempt == 2:
+                return None
+            time.sleep(2 ** attempt)
+
+# ---------------------------------------------------------------------------
+# Modelo de secagem do solo — V5.21
+# ---------------------------------------------------------------------------
+
+_MEIA_VIDA_SECAGEM: dict = {
+    ("ferro",    "aberta"):  8,
+    ("ferro",    "fechada"): 14,
+    ("pedra",    "aberta"):  6,
+    ("pedra",    "fechada"): 10,
+    ("preto",    "aberta"):  14,
+    ("preto",    "fechada"): 24,
+    ("misto_mg", "aberta"):  12,
+    ("misto_mg", "fechada"): 18,
+    ("misto",    "aberta"):  18,
+    ("misto",    "fechada"): 28,
+    ("terra",    "aberta"):  24,
+    ("terra",    "fechada"): 36,
+}
+_MEIA_VIDA_DEFAULT = 24
+
+# ---------------------------------------------------------------------------
+# Microclima por bioma — V5.24
+# ---------------------------------------------------------------------------
+
+_BIOMAS_MICROCLIMA = {"Mata Atlântica"}
+
+def fator_microclima(trail: dict) -> float:
+    bioma = trail.get("bioma", "Desconhecido")
+    if bioma not in _BIOMAS_MICROCLIMA:
+        return 1.0
+    if trail.get("altitude_m", 0) >= 600 and trail.get("exposicao") == "fechada":
+        return 0.75
+    return 0.90
+
+
+def _meia_vida(trail: dict) -> float:
+    solo = trail.get("solo_type", "terra")
+    expo = trail.get("exposicao", "fechada")
+    base = float(_MEIA_VIDA_SECAGEM.get((solo, expo), _MEIA_VIDA_DEFAULT))
+    # FIX #6 — Mata Atlântica retém umidade estruturalmente mais do que o solo_type sugere
+    bioma = trail.get("bioma", "Desconhecido")
+    if bioma == "Mata Atlântica":
+        if trail.get("altitude_m", 0) >= 600 and expo == "fechada":
+            base *= 1.20  # orografia + dossel fechado = secagem muito mais lenta
+        else:
+            base *= 1.10  # mata atlântica em geral retém mais umidade
+    return base
+
+def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
+                             temp_c: float | None = None,
+                             wind_ms: float | None = None,
+                             cloud_pct: float | None = None,
+                             humidity_pct: float | None = None) -> float:
+    meia_vida = float(meia_vida_base)
+
+    if temp_c is not None:
+        if temp_c >= 30:
+            meia_vida *= 0.78
+        elif temp_c >= 26:
+            meia_vida *= 0.86
+        elif temp_c <= 16:
+            meia_vida *= 1.12
+        elif temp_c <= 10:
+            meia_vida *= 1.22
+
+    if wind_ms is not None:
+        if wind_ms >= 6:
+            meia_vida *= 0.84
+        elif wind_ms >= 3:
+            meia_vida *= 0.92
+        elif wind_ms <= 1:
+            meia_vida *= 1.05
+
+    if cloud_pct is not None:
+        if cloud_pct >= 90:
+            meia_vida *= 1.12
+        elif cloud_pct >= 70:
+            meia_vida *= 1.06
+        elif cloud_pct <= 25:
+            meia_vida *= 0.94
+
+    if humidity_pct is not None:
+        if humidity_pct >= 95:
+            meia_vida *= 1.15
+        elif humidity_pct >= 85:
+            meia_vida *= 1.08
+        elif humidity_pct <= 45:
+            meia_vida *= 0.93
+
+    # FIX #5: exposicao removida daqui — já está na tabela _MEIA_VIDA_SECAGEM base
+    # Manter aqui causava double counting com a tabela (terra fechada=36h já embute o efeito)
+
+    return round(max(4.0, min(72.0, meia_vida)), 1)
+
+
+def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) -> dict:
+    """
+    Busca rajadas históricas (Open-Meteo /archive — ERA5 observado).
+    Vento sustentado OW é recebido como parâmetro já extraído de fetch_onecall_historico,
+    eliminando chamada redundante ao timemachine da One Call API.
+    """
+    agora     = datetime.now(BRT)
+    inicio    = (agora - timedelta(hours=48)).strftime("%Y-%m-%d")
+    fim       = agora.strftime("%Y-%m-%d")
+    agora_str = agora.strftime("%Y-%m-%dT%H:00")
+
+    # Open-Meteo /archive: única fonte de rajadas (windgusts_10m não disponível no timemachine OW)
+    om_rajada_max = None
+    om_vento_max  = None
+    try:
+        url_om = (
+            "https://archive-api.open-meteo.com/v1/archive"
+            f"?latitude={trail['lat']}&longitude={trail['lon']}"
+            f"&start_date={inicio}&end_date={fim}"
+            "&hourly=windspeed_10m,windgusts_10m"
+            "&timezone=America%2FSao_Paulo"
+        )
+        with urllib.request.urlopen(url_om, timeout=20) as r:
+            data_om = json.loads(r.read().decode("utf-8"))
+        times  = data_om.get("hourly", {}).get("time", [])
+        speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
+        gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
+        passados = [i for i, t in enumerate(times) if t <= agora_str]
+        if passados:
+            om_vento_max  = max((speeds[i] for i in passados if speeds[i] is not None), default=None)
+            om_rajada_max = max((gusts[i]  for i in passados if i < len(gusts) and gusts[i] is not None), default=None)
+    except Exception:
+        pass
+
+    # Vento sustentado: média entre OW (timemachine, já coletado) e OM (archive)
+    # OW fornece m/s → já convertido para km/h em fetch_onecall_historico
+    fontes_sustentado = [v for v in [ow_vento_max_kmh, om_vento_max] if v is not None]
+    vento_max_kmh  = round(sum(fontes_sustentado) / len(fontes_sustentado), 1) if fontes_sustentado else 0.0
+    rajada_max_kmh = round(om_rajada_max, 1) if om_rajada_max is not None else None
+
+    # Classificação graduada de risco de vento (3 níveis)
+    raj = rajada_max_kmh or 0.0
+    if vento_max_kmh > 90 or raj > 90:
+        nivel_vento = 3   # Tempestade — alto risco de queda de árvores pela raiz
+    elif vento_max_kmh > 65 or raj > 80:
+        nivel_vento = 2   # Ventos fortes — árvores saudáveis em risco
+    elif vento_max_kmh > 55 or raj > 60:
+        nivel_vento = 1   # Moderado a forte — galhos comprometidos
+    else:
+        nivel_vento = 0
+
+    fonte_str = ["OpenWeather (timemachine)"] if ow_vento_max_kmh is not None else []
+    if om_vento_max is not None or om_rajada_max is not None:
+        fonte_str.append("Open-Meteo (archive)")
+
+    return {
+        "vento_max_kmh":  vento_max_kmh,
+        "rajada_max_kmh": rajada_max_kmh,
+        "nivel_vento":    nivel_vento,
+        "alerta_arvores": nivel_vento >= 1,
+        "fonte":          " + ".join(fonte_str) if fonte_str else "indisponível",
+    }
+
+
+def resumo_openmeteo(data: dict) -> dict:
+    if not data:
+        return None
+    try:
+        hourly       = data["hourly"]
+        precip       = hourly.get("precipitation", [])[:48]
+        wind         = hourly.get("windspeed_10m", [])[:48]
+        gusts        = hourly.get("windgusts_10m", [])[:48]
+        pop          = hourly.get("precipitation_probability", [])[:48]
+        wind_ms      = [w / 3.6 for w in wind if w is not None]
+        gust_ms      = [g / 3.6 for g in gusts if g is not None]
+        rain_mm      = sum(p for p in precip if p is not None)
+        pop_max      = max((p for p in pop if p is not None), default=0)
+        wind_max     = max(wind_ms, default=0)
+        gust_max     = max(gust_ms, default=0)
+        precip_clean = [p if p is not None else 0.0 for p in precip]
+        pico_3h      = max(
+            (sum(precip_clean[i:i+3]) for i in range(max(1, len(precip_clean) - 2))),
+            default=0.0
+        )
+        return {
+            "rain":     round(rain_mm, 1),
+            "wind":     round(wind_max, 1),
+            "pop":      round(pop_max),
+            "pico_3h":  round(pico_3h, 1),
+            "gust_max": round(gust_max, 1),
+        }
+    except (KeyError, TypeError):
+        return None
+
+# ---------------------------------------------------------------------------
+# Solo API — OpenLandMap
+# ---------------------------------------------------------------------------
+
+_CACHE_SOLO: dict = {}
+
+def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
+    key = (round(lat, 4), round(lon, 4))
+    if key in _CACHE_SOLO:
+        return _CACHE_SOLO[key]
+
+    props = ["sol_clay_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2",
+             "sol_sand_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2",
+             "sol_silt_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"]
+    regex = "|".join(props)
+    url = (
+        f"http://api.openlandmap.org/query/point"
+        f"?lat={lat}&lon={lon}&coll=predicted250m&regex={regex}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+
+        props_data = data.get("properties", {})
+        clay_raw = sand_raw = silt_raw = None
+        for k, v in props_data.items():
+            vals = v if isinstance(v, list) else [v]
+            val = next((x for x in vals if x is not None), None)
+            if val is None:
+                continue
+            if "clay" in k:
+                clay_raw = val
+            elif "sand" in k:
+                sand_raw = val
+            elif "silt" in k:
+                silt_raw = val
+
+        if clay_raw is None or sand_raw is None:
+            _CACHE_SOLO[key] = None
+            return None
+
+        clay = round(clay_raw / 10, 1)
+        sand = round(sand_raw / 10, 1)
+        silt = round(silt_raw / 10, 1) if silt_raw is not None else round(100 - clay - sand, 1)
+
+        if clay > 40:
+            texture = "Argiloso"
+        elif clay > 30:
+            texture = "Argilo-arenoso"
+        elif sand > 70:
+            texture = "Arenoso"
+        elif clay > 20 and sand > 25:
+            texture = "Franco"
+        elif clay > 15:
+            texture = "Franco-argiloso"
+        else:
+            texture = "Franco-arenoso"
+
+        result = {"clay_pct": clay, "sand_pct": sand, "silt_pct": silt, "texture_class": texture}
+        _CACHE_SOLO[key] = result
+        return result
+
+    except Exception:
+        _CACHE_SOLO[key] = None
+        return None
+
+
+def fator_absorcao(trail: dict) -> float:
+    if trail.get("clay_pct") is not None:
+        base = round(0.20 + (trail["clay_pct"] / 100) * 1.60, 3)
+        base = max(0.25, min(0.90, base))
+    else:
+        base = {"terra": 0.80, "preto": 0.60, "misto": 0.55, "misto_mg": 0.45, "pedra": 0.25, "ferro": 0.30}[trail["solo_type"]]
+    # FIX #5: exposicao removida daqui — já está embutida na meia_vida base por (solo_type, exposicao)
+    # Manter aqui causava triple counting: fator_absorcao + _meia_vida + _ajustar_meia_vida_clima
+    if trail["altitude_m"] > 1200:
+        base += 0.05
+    if trail.get("trail_type") == "bikepark":
+        base += -0.10 if trail.get("exposicao") == "fechada" else -0.20
+
+    inclinacao = calcular_inclinacao(trail)
+    if inclinacao is not None:
+        if inclinacao >= 30:
+            base -= 0.22
+        elif inclinacao >= 20:
+            base -= 0.15
+        elif inclinacao >= 10:
+            base -= 0.08
+    elif trail.get("desnivel_m") is not None:
+        d = trail["desnivel_m"]
+        if d >= 800:
+            base -= 0.18
+        elif d >= 500:
+            base -= 0.10
+        elif d >= 300:
+            base -= 0.05
+
+    return max(0.05, min(1.0, base))
+
+def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
+                          trail: dict, mes: int, enso: dict) -> dict:
+    thresh = threshold_solo_descansado(mes, enso, trail)
+    fator = fator_absorcao(trail)
+    solo_descansado = acumulo_ef < thresh
+
+    if pico_3h >= 10.0:
+        impacto = pico_3h * (0.7 if solo_descansado else 1.0)
+    else:
+        impacto = rain_mm * 0.6 if solo_descansado else (rain_mm + acumulo_ef * 0.3)
+
+    impacto *= fator
+
+    # FIX #7: solo_mult só aplicado quando clay_pct NÃO disponível
+    # Quando OpenLandMap retornou clay_pct real, fator_absorcao já é calculado por ele
+    # aplicar solo_mult manual por cima contradiz o dado real de argila
+    if trail.get("clay_pct") is None:
+        solo_mult = {
+            "pedra": 0.80,
+            "ferro": 0.85,
+            "preto": 0.95,
+            "misto_mg": 0.92,
+            "misto": 1.00,
+            "terra": 1.05,
+        }.get(trail.get("solo_type", "terra"), 1.0)
+        impacto *= solo_mult
+
+    if trail.get("trail_type") == "bikepark":
+        impacto *= 0.90
+
+    score = max(0.0, min(100.0, impacto * 10.0))
+    return {
+        "score": round(score, 1),
+        "solo_descansado": solo_descansado,
+        "thresh": round(thresh, 1),
+        "impacto": round(impacto, 2),
+    }
+
+def _descricao_aderencia(status: str, trail: dict, saturado: bool = False) -> str:
+    solo_type = trail["solo_type"]
+    trail_type = trail.get("trail_type", "natural")
+    descricoes = {
+        ("SECO",            "terra"):    "Solo seco. Boa aderência para DH e Enduro.",
+        ("SECO",            "misto"):    "Solo seco. Boa aderência para DH e Enduro.",
+        ("SECO",            "misto_mg"): "Solo seco. Mistura de terra e minério oferece boa aderência.",
+        ("SECO",            "preto"):    "Solo seco. Terra preta oferece boa aderência.",
+        ("SECO",            "pedra"):    "Solo seco. Boa aderência sobre rocha.",
+        ("SECO",            "ferro"):    "Solo ferruginoso seco. Aderência excelente — grip firme sobre o minério.",
+        ("GRIP PERFEITO",   "terra"):    "Solo levemente úmido. Alta aderência — grip perfeito para DH e Enduro.",
+        ("GRIP PERFEITO",   "misto"):    "Solo levemente úmido. Grip excelente nos trechos de terra e pedra.",
+        ("GRIP PERFEITO",   "misto_mg"): "Solo levemente úmido. Minério úmido melhora o grip — condição favorável.",
+        ("GRIP PERFEITO",   "preto"):    "Terra preta levemente úmida. Grip perfeito — condição ideal.",
+        ("GRIP PERFEITO",   "pedra"):    "Rocha levemente úmida. Alta aderência — grip perfeito.",
+        ("GRIP PERFEITO",   "ferro"):    "Solo ferruginoso levemente úmido. Grip excelente — minério úmido oferece boa tração.",
+        ("BOA ADERÊNCIA",   "terra"):    "Solo úmido. Perda parcial de tração. Freios exigem antecipação.",
+        ("BOA ADERÊNCIA",   "misto"):    "Solo úmido. Trechos de terra com perda de tração.",
+        ("BOA ADERÊNCIA",   "misto_mg"): "Solo úmido. Trechos de terra com perda de tração — minério retém menos água mas atenção na lama.",
+        ("BOA ADERÊNCIA",   "preto"):    "Terra preta úmida. Aderência reduzida, especialmente na frenagem.",
+        ("BOA ADERÊNCIA",   "pedra"):    "Rocha molhada. Risco de escorregamento em curvas e frenagens.",
+        ("BOA ADERÊNCIA",   "ferro"):    "Solo ferruginoso úmido. Drena rápido, mas o minério molhado pode ficar traiçoeiro.",
+        ("BAIXA ADERÊNCIA", "terra"):    "Solo encharcado. Lama e poças — alto risco em curvas e descidas.",
+        ("BAIXA ADERÊNCIA", "misto"):    "Trechos encharcados com lama. Atenção máxima nas seções de terra.",
+        ("BAIXA ADERÊNCIA", "misto_mg"): "Solo encharcado. Terra misturada ao minério forma lama — alto risco em curvas e descidas.",
+        ("BAIXA ADERÊNCIA", "preto"):    "Terra preta encharcada. Solo muito liso e instável — alto risco em curvas e frenagens.",
+        ("BAIXA ADERÊNCIA", "pedra"):    "Rocha bem molhada. Sem lama, mas com escorregamento elevado e pouca margem de erro.",
+        ("BAIXA ADERÊNCIA", "ferro"):    "Solo ferruginoso muito molhado. Minério liso e imprevisível — alto risco em curvas e apoios.",
+    }
+    if trail_type == "bikepark" and saturado:
+        return "Bike park saturado. Drenagem insuficiente para o volume acumulado — risco de lama, valetas e perda de tração."
+    return descricoes.get((status, solo_type), f"Solo em condição de {status.lower()}.")
+
+def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
+                       pico_3h: float = 0.0, mes: int = None, enso: dict = None) -> dict:
+    if mes is None:
+        mes = datetime.now(timezone(timedelta(hours=-3))).month
+    if enso is None:
+        enso = {"mult": 1.0, "fase": "ENSO Neutro"}
+
+    base = calcular_score_trilha(rain_mm, acumulo_ef, pico_3h, trail, mes, enso)
+    s = base["score"]
+    saturado = _bikepark_saturado(trail, acumulo_ef, mes, enso)
+
+    if s < 10:
+        status = "SECO"
+    elif s < 35:
+        status = "GRIP PERFEITO"
+    elif s < 70:
+        status = "BOA ADERÊNCIA"
+    else:
+        status = "BAIXA ADERÊNCIA"
+
+    emojis = {"SECO": "🟡", "GRIP PERFEITO": "🟢", "BOA ADERÊNCIA": "🟠", "BAIXA ADERÊNCIA": "🔴"}
+    cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
+    desc = _descricao_aderencia(status, trail, saturado=saturado)
+
+    return {
+        "status": status,
+        "score": s,
+        "solo_descansado": base["solo_descansado"],
+        "thresh": base["thresh"],
+        "impacto": base["impacto"],
+        "saturado": saturado,
+        "emoji": emojis[status],
+        "cor": cores[status],
+        "desc": desc,
+    }
+
+def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 0.0,
+              inclinacao: float | None = None, trail: dict | None = None,
+              acumulo_ef: float = 0.0, vento_hist: dict | None = None) -> dict:
+    status = aderencia["status"]
+    risco = 0
+    motivos = []
+
+    if status == "BAIXA ADERÊNCIA":
+        risco += 3
+        motivos.append("aderência baixa")
+    elif status == "BOA ADERÊNCIA":
+        risco += 2
+        motivos.append("aderência moderada")
+    elif status == "GRIP PERFEITO":
+        risco += 1
+        motivos.append("aderência boa")
+
+    if pico_3h >= 15.0:
+        risco += 2
+        motivos.append("pico_3h muito alto")
+    elif pico_3h >= 10.0:
+        risco += 1
+        motivos.append("pico_3h alto")
+
+    if rain_mm >= 8.0:
+        risco += 1
+        motivos.append("chuva acumulada relevante")
+
+    if wind_ms >= 12.0:
+        risco += 1
+        motivos.append("vento forte")
+
+    if inclinacao is not None:
+        # FIX #4: inclinação só agrava risco quando há umidade real ou chuva prevista
+        solo_com_umidade = rain_mm > 0 or acumulo_ef > 0
+        if solo_com_umidade:
+            if inclinacao > 30:
+                risco += 2
+                motivos.append("inclinação muito alta")
+            elif inclinacao > 20:
+                risco += 1
+                motivos.append("inclinação alta")
+
+    if trail is not None and trail.get("trail_type") == "bikepark":
+        risco -= 1
+        motivos.append("bikepark reduz severidade")
+        if aderencia.get("saturado"):
+            risco += 2
+            motivos.append("bikepark saturado")
+
+    if trail is not None and trail.get("trail_type") == "natural":
+        if inclinacao is not None and inclinacao > 20 and rain_mm > 0 and status in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA"):
+            risco += 1
+            motivos.append("trilha natural inclinada com chuva")
+
+    # Vento histórico: impacto no veredicto por nível graduado
+    if vento_hist is not None:
+        nivel = vento_hist.get("nivel_vento", 0)
+        solo_encharcado = aderencia.get("solo_descansado") is False  # acumulo_ef >= threshold
+
+        if nivel >= 3:
+            # Tempestade (>90 km/h): sobe veredicto automaticamente +2 pontos
+            risco += 2
+            motivos.append("vento de tempestade — risco alto de queda de árvores")
+        elif nivel == 2:
+            # Ventos fortes (65–90 km/h): sobe +1 ponto
+            risco += 1
+            motivos.append("ventos fortes — árvores saudáveis em risco")
+            # Combinação solo encharcado + ventos fortes: raízes instáveis → +1 adicional
+            if solo_encharcado:
+                risco += 1
+                motivos.append("solo encharcado agrava risco de queda")
+        elif nivel == 1:
+            # Moderado a forte (55–65 km/h): impacto só se solo encharcado
+            if solo_encharcado:
+                risco += 1
+                motivos.append("vento moderado com solo encharcado — galhos comprometidos")
+
+    gust_kmh = trail.get("gust_max_kmh", 0.0) if trail else 0.0
+    exposicao = (trail or {}).get("exposicao", "aberta")
+    thresh_gust = 30.0 if exposicao == "aberta" else 50.0
+    if gust_kmh >= thresh_gust:
+        if risco < 2:
+            risco = 2
+        motivos.append(f"rajada prevista {gust_kmh} km/h ({exposicao})")
+
+    risco = max(0, risco)
+
+    if risco <= 1:
+        return {
+            "texto": "DROP LIBERADO",
+            "emoji": "✅",
+            "cor": "#16a34a",
+            "bg": "#f0fdf4",
+            "risco": risco,
+            "motivo": ", ".join(motivos) if motivos else "condição favorável"
+        }
+    elif risco <= 3:
+        return {
+            "texto": "ATENÇÃO",
+            "emoji": "⚠️",
+            "cor": "#d97706",
+            "bg": "#fffbeb",
+            "risco": risco,
+            "motivo": ", ".join(motivos) if motivos else "atenção por combinação de fatores"
+        }
+    return {
+        "texto": "MELHOR ESPERAR",
+        "emoji": "🛑",
+        "cor": "#ef4444",
+        "bg": "#fef2f2",
+        "risco": risco,
+        "motivo": ", ".join(motivos) if motivos else "risco elevado"
+    }
+
+
+def processar_trilha(trail: dict, datas: dict) -> dict:
+    oc_raw = fetch_onecall(trail)
+    oc     = resumo_onecall(oc_raw)
+
+    if oc is None:
+        oc = {"rain": 0.0, "wind": 0.0, "pop": 0, "pico_3h": 0.0, "tmax": 25}
+
+    om_raw = fetch_openmeteo(trail)
+    om     = resumo_openmeteo(om_raw)
+
+    if om:
+        rain    = round(oc["rain"]    * 0.7 + om["rain"]    * 0.3, 1)
+        wind    = round(oc["wind"]    * 0.7 + om["wind"]    * 0.3, 1)
+        pop     = round(oc["pop"]     * 0.7 + om["pop"]     * 0.3)
+        pico_3h = round(oc["pico_3h"] * 0.7 + om["pico_3h"] * 0.3, 1)
+        fonte   = "OpenWeather + Open-Meteo"
+        gust_max_ms = max(oc.get("gust_max", 0.0), om.get("gust_max", 0.0))
+    else:
+        rain    = oc["rain"]
+        wind    = oc["wind"]
+        pop     = oc["pop"]
+        pico_3h = oc["pico_3h"]
+        fonte   = "OpenWeather"
+        gust_max_ms = oc.get("gust_max", 0.0)
+
+    gust_max_kmh = round(gust_max_ms * 3.6, 1)
+
+    tmax = oc["tmax"]
+
+    hist         = fetch_onecall_historico(trail)
+    acumulo_48h  = hist["bruto"]
+    acumulo_ef   = hist["efetivo"]
+    ultima_chuva = hist["ultima_chuva_h"]
+    meia_vida_h  = hist["meia_vida_h"]
+
+    # Passa vento sustentado já extraído do timemachine — elimina chamada OW redundante
+    vento_hist = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
+    inclinacao = calcular_inclinacao(trail)
+
+    mes  = datetime.now(BRT).month
+    oni  = fetch_oni_atual()
+    enso = classificar_enso(oni)
+    thresh_desc = threshold_solo_descansado(mes, enso, trail)
+
+    aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso)
+    trail["gust_max_kmh"] = gust_max_kmh
+    vered = veredicto(aderencia, rain, wind, pico_3h, inclinacao, trail, acumulo_ef, vento_hist)
+
+    hourly_oc = (oc_raw or {}).get("hourly", [])[:48]
+
+    # Horas do Open-Meteo para fallback de D+3 (4 dias = ~96h)
+    # Estrutura diferente: chaves separadas por variável em vez de lista de dicts
+    _om_hourly_raw = (om_raw or {}).get("hourly", {})
+    _om_times  = _om_hourly_raw.get("time", [])
+    _om_precip = _om_hourly_raw.get("precipitation", [])
+    _om_wind   = _om_hourly_raw.get("windspeed_10m", [])
+    _om_pop    = _om_hourly_raw.get("precipitation_probability", [])
+    _om_temp   = _om_hourly_raw.get("temperature_2m", [])
+    # Montar lista de dicts compatível com o formato interno usado por resumo_dia_oc
+    hourly_om = [
+        {
+            "dt":    int(datetime.fromisoformat(t).replace(tzinfo=BRT).timestamp()),
+            "precip": float(_om_precip[i] or 0.0),
+            "wind":   float(_om_wind[i] or 0.0) / 3.6,   # km/h → m/s
+            "pop":    float(_om_pop[i] or 0.0) / 100.0,  # % → fração
+            "temp":   float(_om_temp[i]) if i < len(_om_temp) and _om_temp[i] is not None else 0.0,
+        }
+        for i, t in enumerate(_om_times)
+        if i < len(_om_precip)
+    ] if _om_times else []
+
+    def _precip_hora(h: dict) -> float:
+        return h.get("rain", {}).get("1h", 0.0) or 0.0
+
+    def acumulo_ate(alvo: date) -> float:
+        # FIX #8: aplicar decaimento exponencial sobre acumulo_ef até o dia alvo
+        # Sem isso, D+2 e D+3 superestimavam umidade residual pois ignoravam secagem
+        agora_dt = datetime.now(BRT)
+        alvo_dt  = datetime(alvo.year, alvo.month, alvo.day, 7, 0, tzinfo=BRT)
+        horas_ate_alvo = max(0, (alvo_dt - agora_dt).total_seconds() / 3600)
+        # Decaimento do acumulo_ef atual até o momento do alvo
+        ef_decaido = acumulo_ef * (0.5 ** (horas_ate_alvo / meia_vida_h)) if meia_vida_h > 0 else 0.0
+        alvo_str = str(alvo)
+        chuva_prevista = sum(
+            _precip_hora(h) for h in hourly_oc
+            if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") < alvo_str
+        )
+        return round(ef_decaido + chuva_prevista, 1)
+
+    def resumo_12h_oc() -> dict:
+        h12    = hourly_oc[:12]
+        r      = round(sum(_precip_hora(h) for h in h12), 1)
+        p3     = round(max((sum([_precip_hora(h) for h in h12][i:i+3])
+                            for i in range(max(1, len(h12) - 2))), default=0.0), 1)
+        pp     = round(max((h.get("pop", 0) or 0 for h in h12), default=0) * 100)
+        w      = round(max((h.get("wind_speed", 0) or 0 for h in h12), default=0), 1)
+        tm     = round(max((h.get("temp", 0) or 0 for h in h12), default=0))
+        inc    = calcular_inclinacao(trail)
+        ader = calcular_aderencia(r, trail, acumulo_ef, p3, mes, enso)
+        return {
+            "rain": r, "pico_3h": p3, "pop": pp, "wind": w, "temp_max": tm,
+            "veredicto": veredicto(ader, r, w, p3, inc, trail, acumulo_ef),
+        }
+
+    def resumo_dia_oc(alvo: date, acumulo_ate_val: float) -> dict:
+        alvo_str = str(alvo)
+
+        # Tenta One Call 3.0 primeiro (fonte primária, até ~48h)
+        dia_oc = [h for h in hourly_oc
+                  if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
+
+        if dia_oc:
+            # Fonte: One Call 3.0
+            precips = [_precip_hora(h) for h in dia_oc]
+            r    = round(sum(precips), 1)
+            p3   = round(max((sum(precips[i:i+3]) for i in range(max(1, len(precips) - 2))),
+                             default=0.0), 1)
+            pp   = round(max((h.get("pop", 0) or 0 for h in dia_oc), default=0) * 100)
+            tm   = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
+            w    = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
+            fonte_dia = "OC"
+        else:
+            # Fallback: Open-Meteo (cobre D+3 quando OC não alcança)
+            dia_om = [h for h in hourly_om
+                      if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
+            if not dia_om:
+                return {"disponivel": False}
+            precips = [h["precip"] for h in dia_om]
+            r    = round(sum(precips), 1)
+            p3   = round(max((sum(precips[i:i+3]) for i in range(max(1, len(precips) - 2))),
+                             default=0.0), 1)
+            pp   = round(max((h["pop"] for h in dia_om), default=0.0) * 100)
+            tm   = round(max((h["temp"] for h in dia_om if h["temp"] > 0), default=0))
+            w    = round(max((h["wind"] for h in dia_om), default=0.0), 1)
+            fonte_dia = "OM"
+
+        inc  = calcular_inclinacao(trail)
+        ader = calcular_aderencia(r, trail, acumulo_ate_val, p3, mes, enso)
+        return {
+            "disponivel": True, "rain": r, "pop": pp, "temp_max": tm, "wind": w,
+            "fonte_dia": fonte_dia,
+            "veredicto": veredicto(ader, r, w, p3, inc, trail, acumulo_ate_val, vento_hist),
+            "debug_model": {
+                "acumulo_bruto": acumulo_48h,
+                "acumulo_efetivo": acumulo_ef,
+                "threshold_descanso": thresh_desc,
+                "solo_descansado": aderencia["solo_descansado"],
+                "meia_vida_h": meia_vida_h,
+                "temp_media_c": hist.get("temp_media_c"),
+                "vento_medio_ms": hist.get("vento_medio_ms"),
+                "nublado_pct": hist.get("nublado_pct"),
+                "umidade_pct": hist.get("umidade_pct"),
+                "score": aderencia["score"],
+                "impacto": aderencia["impacto"],
+                "saturado": aderencia["saturado"],
+                "risco_final": vered.get("risco"),
+                "motivo_veredicto": vered.get("motivo"),
+            },
+        }
+
+    def calcular_janela_oc() -> str:
+        blocos = []
+        inicio = None
+        for h in hourly_oc:
+            p   = _precip_hora(h)
+            pp  = (h.get("pop", 0) or 0) * 100
+            w   = h.get("wind_speed", 0) or 0
+            dt  = datetime.fromtimestamp(h["dt"], tz=BRT)
+            ok  = pp < 30 and p < 1.0 and w < 15
+            if ok and inicio is None:
+                inicio = dt
+            elif not ok and inicio is not None:
+                blocos.append((inicio, dt))
+                inicio = None
+        if inicio and hourly_oc:
+            blocos.append((inicio, datetime.fromtimestamp(hourly_oc[-1]["dt"], tz=BRT)))
+        if not blocos:
+            return "Sem janela limpa nas próximas 48h"
+        melhor = max(blocos, key=lambda x: (x[1] - x[0]).total_seconds())
+        dur    = int((melhor[1] - melhor[0]).total_seconds() / 3600)
+        return f"{melhor[0].strftime('%d/%m %Hh')}–{melhor[1].strftime('%Hh')} ({dur}h)"
+
+    def calcular_horarios_chuva_oc() -> str:
+        # FIX #10: exibir blocos separados por gap > 3h em vez de intervalo contínuo enganoso
+        blocos_chuva = []
+        bloco_inicio = None
+        bloco_fim    = None
+        pop_max      = 0
+
+        for h in hourly_oc:
+            p  = _precip_hora(h)
+            pp = (h.get("pop", 0) or 0) * 100
+            dt = datetime.fromtimestamp(h["dt"], tz=BRT)
+            tem_chuva = p >= 1.0 or pp >= 40
+
+            if tem_chuva:
+                if bloco_inicio is None:
+                    bloco_inicio = dt
+                bloco_fim = dt + timedelta(hours=1)
+                if pp > pop_max:
+                    pop_max = pp
+            else:
+                if bloco_inicio is not None:
+                    # Gap detectado — fechar bloco atual
+                    gap = (dt - bloco_fim).total_seconds() / 3600 if bloco_fim else 0
+                    if gap > 3:
+                        blocos_chuva.append((bloco_inicio, bloco_fim))
+                        bloco_inicio = None
+                        bloco_fim    = None
+
+        if bloco_inicio is not None and bloco_fim is not None:
+            blocos_chuva.append((bloco_inicio, bloco_fim))
+
+        if not blocos_chuva:
+            return "Sem chuva prevista nas próximas 48h"
+
+        partes = []
+        for ini, fim in blocos_chuva:
+            if ini.date() == fim.date():
+                partes.append(f"{ini.strftime('%d/%m')} {ini.strftime('%Hh')}–{fim.strftime('%Hh')}")
+            else:
+                partes.append(f"{ini.strftime('%d/%m %Hh')}–{fim.strftime('%d/%m %Hh')}")
+
+        return " · ".join(partes) + f" · pico {round(pop_max)}%"
+
+    return {
+        "name":           trail["name"],
+        "lat":            trail["lat"],
+        "lon":            trail["lon"],
+        "regiao":         trail["regiao"],
+        "solo_type_raw":  trail["solo_type"],
+        "rain":           rain, "pop": pop, "temp_max": tmax, "wind": wind,
+        "pico_3h":        pico_3h,
+        "acumulo_48h":    acumulo_48h,
+        "acumulo_ef":     acumulo_ef,
+        "ultima_chuva_h": ultima_chuva,
+        "meia_vida_h":    meia_vida_h,
+        "temp_media_c":   hist.get("temp_media_c"),
+        "vento_medio_ms": hist.get("vento_medio_ms"),
+        "nublado_pct":    hist.get("nublado_pct"),
+        "umidade_pct":    hist.get("umidade_pct"),
+        "enso":           enso,
+        "thresh_desc":    thresh_desc,
+        "fonte":          fonte,
+        "bioma":          trail.get("bioma", "Desconhecido"),
+        "trail_type":     trail.get("trail_type", "natural"),
+        "exposicao_raw":  trail.get("exposicao", "aberta"),
+        "gust_max_kmh":   gust_max_kmh,
+        "desnivel_m":     trail.get("desnivel_m"),
+        "extensao_km":    trail.get("extensao_km"),
+        "inclinacao":     inclinacao,
+        "aderencia":      aderencia,
+        "veredicto":      vered,
+        "veredicto_12h":  resumo_12h_oc(),
+        "vento_hist":     vento_hist,
+        "janela":         calcular_janela_oc(),
+        "horarios_chuva": calcular_horarios_chuva_oc(),
+        "fds": {
+            "d1": resumo_dia_oc(datas["d1"], acumulo_ate(datas["d1"])),
+            "d2": resumo_dia_oc(datas["d2"], acumulo_ate(datas["d2"])),
+            "d3": resumo_dia_oc(datas["d3"], acumulo_ate(datas["d3"])),
+        },
+        **dict(zip(
+            ("resumo_secagem_frase", "resumo_secagem_cor", "resumo_secagem_bg"),
+            _gerar_frase_secagem_gpt({
+                "acumulo_48h":    acumulo_48h,
+                "acumulo_ef":     acumulo_ef,
+                "ultima_chuva_h": ultima_chuva,
+                "meia_vida_h":    meia_vida_h,
+                "thresh_desc":    thresh_desc,
+                "aderencia":      aderencia,
+                "veredicto":      vered,
+                "veredicto_12h":  resumo_12h_oc(),
+            })
+        )),
+    }
+
+
+def gerar_analise_claude(resultados: list, hoje: str, datas: dict, regiao: str) -> str:
+    if not ANTHROPIC_KEY:
+        return "Análise automática indisponível (ANTHROPIC_API_KEY não configurada)."
+
+    system = """Você é especialista em clima para mountain bike — DH e Enduro.
+Escreva 3 parágrafos curtos e diretos em português do Brasil:
+1. Condição geral do solo na região considerando o histórico de chuva das últimas 48h, a previsão e o contexto ENSO (El Niño/La Niña quando relevante)
+2. Impacto prático para quem vai pedalar (DH e Enduro) — mencione se o solo está descansado ou já encharcado; quando a inclinação da trilha for alta (>20%), mencione o risco adicional de perda de tração em descidas
+3. Melhor estratégia de horário para os próximos 3 dias
+Sem títulos, sem listas, sem markdown. Máximo 120 palavras no total."""
+
+    def desc_inclinacao(r: dict) -> str:
+        inc = r.get("inclinacao")
+        d   = r.get("desnivel_m")
+        e   = r.get("extensao_km")
+        if inc is not None:
+            return f"inclinação={inc}%"
+        if d is not None and e is not None:
+            return f"desnível={d}m/{e}km"
+        if d is not None:
+            return f"desnível={d}m"
+        return ""
+
+    enso_info = resultados[0].get("enso", {}) if resultados else {}
+    enso_str  = f"{enso_info.get('fase','neutro')} (ONI {enso_info.get('oni',0):+.2f})" if enso_info else "ENSO neutro"
+
+    user = (
+        f"Região: {regiao}. Data: {hoje}. ENSO: {enso_str}. "
+        f"Próximos 3 dias: {datas['d1_label']} / {datas['d2_label']} / {datas['d3_label']}.\n\n"
+        f"Dados resumidos:\n"
+        + "\n".join(
+            f"- {r['name']}: chuva 48h bruto={r['acumulo_48h']}mm efetivo={r['acumulo_ef']}mm"
+            f" (últ.chuva {r['ultima_chuva_h']}h atrás, meia-vida {r['meia_vida_h']}h)"
+            f", solo {r['aderencia']['status']}"
+            f", chuva 12h={r['veredicto_12h']['rain']}mm ({r['veredicto_12h']['veredicto']['texto']})"
+            f", chuva prev 48h={r['rain']}mm, vento {r['wind']}m/s"
+            + (f", {desc_inclinacao(r)}" if desc_inclinacao(r) else "")
+            + f", {r['veredicto']['texto']}"
+            for r in resultados
+        )
+    )
+
+    payload = json.dumps({
+        "model": "claude-sonnet-4-5",
+        "max_tokens": 300,
+        "system": system,
+        "messages": [{"role": "user", "content": user}]
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        headers={"Content-Type": "application/json",
+                 "x-api-key": ANTHROPIC_KEY,
+                 "anthropic-version": "2023-06-01"},
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.loads(r.read())["content"][0]["text"].strip()
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            print(f"[Claude API] HTTP {exc.code}: {body}")
+            if attempt == 2:
+                return f"Análise indisponível (HTTP {exc.code})."
+            time.sleep(2 ** attempt)
+        except (urllib.error.URLError, OSError) as exc:
+            print(f"[Claude API] Erro de rede: {exc}")
+            if attempt == 2:
+                return "Análise indisponível: erro de rede/timeout."
+            time.sleep(2 ** attempt)
+
+def _score_ranking(r: dict) -> tuple:
+    ordem_verd = {"DROP LIBERADO": 0, "ATENÇÃO": 1, "MELHOR ESPERAR": 2}
+    v12  = ordem_verd.get(r["veredicto_12h"]["veredicto"]["texto"], 2)
+    solo = ORDEM_CONDICAO.get(r["aderencia"]["status"], 3)
+    return (v12, solo)
+
+def _badge(texto, cor, bg):
+    return (f'<span style="display:inline-block;padding:3px 10px;border-radius:20px;'
+            f'font-size:11px;font-weight:700;letter-spacing:.5px;color:{cor};'
+            f'background:{bg};border:1px solid {cor}33;">{texto}</span>')
+
+def _pill_solo(a):
+    return _badge(a["status"], a["cor"], a["cor"] + "18")
+
+def _pill_verd(v):
+    return _badge(f"{v['emoji']} {v['texto']}", v["cor"], v["bg"])
+
+def _dia_cell(d):
+    if not d["disponivel"]:
+        return '<td style="padding:8px 12px;text-align:center;color:#9ca3af;font-size:13px;">—</td>'
+    v = d["veredicto"]
+    return (f'<td style="padding:8px 12px;text-align:center;border-left:1px solid #f1f5f9;">'
+            f'<div style="font-size:18px;margin-bottom:2px;">{v["emoji"]}</div>'
+            f'<div style="font-size:12px;font-weight:700;color:{v["cor"]};">{v["texto"]}</div>'
+            f'<div style="font-size:11px;color:#64748b;margin-top:2px;">'
+            f'🌧 {d["rain"]}mm &nbsp;💨 {d["wind"]}m/s &nbsp;🌡 {d["temp_max"]}°C</div>'
+            f'</td>')
+
+def _info_inclinacao_html(r: dict) -> str:
+    inc = r.get("inclinacao")
+    d   = r.get("desnivel_m")
+    e   = r.get("extensao_km")
+    if inc is not None:
+        badge_cor = "#ef4444" if inc > 30 else "#f97316" if inc > 20 else "#64748b"
+        return (f'<tr><td style="font-size:12px;color:#64748b;padding-top:4px;">'
+                f'⛰&nbsp;Desnível: <b>{d}m</b> em <b>{e}km</b> '
+                f'&nbsp;·&nbsp;<span style="color:{badge_cor};font-weight:700;">'
+                f'inclinação {inc}%</span></td></tr>')
+    if d is not None and e is not None:
+        return (f'<tr><td style="font-size:12px;color:#64748b;padding-top:4px;">'
+                f'⛰&nbsp;Desnível: <b>{d}m</b> em <b>{e}km</b></td></tr>')
+    if d is not None:
+        return (f'<tr><td style="font-size:12px;color:#64748b;padding-top:4px;">'
+                f'⛰&nbsp;Desnível: <b>{d}m</b></td></tr>')
+    return ""
+
+def _info_solo_html(r: dict) -> str:
+    clay = r.get("clay_pct")
+    texture = r.get("texture_class")
+    if clay is None or texture is None:
+        return ""
+    sand = r.get("sand_pct", "?")
+    return (f'<tr><td style="font-size:12px;color:#64748b;padding-top:4px;">'
+            f'🪨&nbsp;Solo: <b>{texture}</b>'
+            f'&nbsp;<span style="color:#94a3b8;">(argila {clay}%, areia {sand}%)</span>'
+            f'</td></tr>')
+
+
+def _badge_bioma(r: dict) -> str:
+    bioma = r.get("bioma", "")
+    if not bioma or bioma == "Desconhecido":
+        return ""
+    if bioma == "Mata Atlântica":
+        return (
+            '<span style="display:inline-block;margin-left:6px;padding:2px 8px;'
+            'border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;'
+            'color:#166534;background:#dcfce7;border:1px solid #86efac;">'
+            '🌿 Mata Atlântica</span>'
+        )
+    return (
+        f'<span style="display:inline-block;margin-left:6px;padding:2px 8px;'
+        f'border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;'
+        f'color:#374151;background:#f3f4f6;border:1px solid #d1d5db;">'
+        f'🌱 {bioma}</span>'
+    )
+
+
+def _badge_quadrilatero(r: dict) -> str:
+    if r.get("solo_type_raw") in ("ferro", "misto_mg"):
+        return (
+            '<span style="display:inline-block;margin-left:6px;padding:2px 8px;'
+            'border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.4px;'
+            'color:#92400e;background:#fef3c7;border:1px solid #f59e0b44;">'
+            '⛏ Quadrilátero Ferrífero</span>'
+        )
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Pix QR Code
+# ---------------------------------------------------------------------------
+
+PIX_CHAVE  = "dsantos83.mtb@gmail.com"
+PIX_NOME   = "Douglas Santos"
+PIX_CIDADE = "Sao Paulo"
+
+def _pix_payload(chave: str, nome: str, cidade: str) -> str:
+    def tlv(tag: str, valor: str) -> str:
+        return f"{tag}{len(valor):02d}{valor}"
+
+    merchant_account = tlv("00", "BR.GOV.BCB.PIX") + tlv("01", chave)
+    payload = (
+        tlv("00", "01")
+        + tlv("26", merchant_account)
+        + tlv("52", "0000")
+        + tlv("53", "986")
+        + tlv("58", "BR")
+        + tlv("59", nome[:25])
+        + tlv("60", cidade[:15])
+        + tlv("62", tlv("05", "***"))
+    )
+    payload += "6304"
+    crc = 0xFFFF
+    for byte in payload.encode("utf-8"):
+        crc ^= byte << 8
+        for _ in range(8):
+            crc = (crc << 1) ^ 0x1021 if crc & 0x8000 else crc << 1
+    crc &= 0xFFFF
+    return payload + f"{crc:04X}"
+
+def _url_qrcode(chave: str, nome: str, cidade: str, size: int = 160) -> str:
+    import urllib.parse
+    payload = _pix_payload(chave, nome, cidade)
+    encoded = urllib.parse.quote(payload)
+    return f"https://api.qrserver.com/v1/create-qr-code/?size={size}x{size}&data={encoded}&format=png&margin=4"
+
+def _secao_doacao_html() -> str:
+    qr_url = _url_qrcode(PIX_CHAVE, PIX_NOME, PIX_CIDADE)
+    return f"""
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin:8px 0 12px;">☕ Apoie o projeto</div>
+    <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:20px 24px;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="vertical-align:middle;padding-right:20px;" width="180">
+            <img src="{qr_url}"
+                 alt="QR Code Pix"
+                 width="160" height="160"
+                 style="display:block;border-radius:8px;border:1px solid #e2e8f0;" />
+          </td>
+          <td style="vertical-align:middle;">
+            <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:6px;">
+              Gostou do Agent MTB Forecast? 🚵
+            </div>
+            <div style="font-size:13px;color:#475569;line-height:1.6;margin-bottom:12px;">
+              Este projeto é gratuito e mantido por riders para riders.<br>
+              Se o report te ajudou a escolher a trilha certa, considere apoiar com um café!
+            </div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Chave Pix</div>
+            <div style="background:#f1f5f9;border-radius:6px;padding:8px 12px;font-size:13px;font-weight:700;color:#0f4c35;letter-spacing:.3px;display:inline-block;">
+              {PIX_CHAVE}
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:8px;">
+              Valor livre · Qualquer quantia é bem-vinda 🤙
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>"""
+
+
+def _resumo_secagem_local(r: dict) -> str:
+    bruto      = r.get("acumulo_48h", 0)
+    efetivo    = r.get("acumulo_ef", 0)
+    ult_h      = r.get("ultima_chuva_h")
+    meia_vida  = r.get("meia_vida_h", 24)
+    thresh     = r.get("thresh_desc", 5.0)
+    descansado = efetivo < thresh
+
+    if bruto < 0.5:
+        return "Não choveu nas últimas 48h. Solo seco e estável — condição ideal para pedalar.", "#16a34a", "#f0fdf4"
+
+    reducao_pct = round((1 - efetivo / bruto) * 100) if bruto > 0 else 0
+    if reducao_pct >= 70:
+        parte_chuva = f"Choveu {bruto}mm nas últimas 48h, mas a maior parte já escoou — impacto real no solo é de apenas {efetivo}mm"
+    elif reducao_pct >= 40:
+        parte_chuva = f"Choveu {bruto}mm nas últimas 48h. Com a secagem natural, o impacto efetivo no solo é de {efetivo}mm"
+    else:
+        parte_chuva = f"Choveu {bruto}mm nas últimas 48h e boa parte ainda está retida — acúmulo efetivo de {efetivo}mm"
+
+    if ult_h is None:     parte_tempo = ""
+    elif ult_h < 3:       parte_tempo = f", e a chuva parou há menos de {max(1,round(ult_h))}h"
+    elif ult_h < 12:      parte_tempo = f", com a última chuva há {round(ult_h)}h"
+    else:                 parte_tempo = f", com a última chuva há {round(ult_h)}h atrás"
+
+    if meia_vida <= 8:    parte_secagem = "Este solo drena muito rápido"
+    elif meia_vida <= 14: parte_secagem = "Este solo drena bem"
+    elif meia_vida <= 24: parte_secagem = "Este solo tem drenagem moderada"
+    else:                 parte_secagem = "Este solo retém umidade por bastante tempo"
+
+    if descansado:
+        conclusao = "O solo está descansado e em ótima condição para pedalar." if efetivo < thresh * 0.4 else "O solo está descansado — boa condição para pedalar."
+        cor, bg = "#16a34a", "#f0fdf4"
+    elif efetivo > thresh * 2:
+        conclusao = "O solo ainda está significativamente úmido — atenção na tração."
+        cor, bg = "#dc2626", "#fef2f2"
+    else:
+        conclusao = "O solo está úmido — avalie as condições antes de pedalar."
+        cor, bg = "#d97706", "#fffbeb"
+
+    return f"{parte_chuva}{parte_tempo}. {parte_secagem}. {conclusao}", cor, bg
+
+
+def _gerar_frase_secagem_gpt(r: dict) -> tuple:
+    if not OPENAI_KEY:
+        return _resumo_secagem_local(r)
+
+    bruto     = r.get("acumulo_48h", 0)
+    efetivo   = r.get("acumulo_ef", 0)
+    ult_h     = r.get("ultima_chuva_h")
+    meia_vida = r.get("meia_vida_h", 24)
+    thresh    = r.get("thresh_desc", 5.0)
+    descansado = efetivo < thresh
+
+    ult_h_str = f"{round(ult_h)}h atrás" if ult_h is not None else "não identificada"
+
+    aderencia_status  = r.get("aderencia", {}).get("status", "")
+    veredicto_texto   = r.get("veredicto", {}).get("texto", "")
+    veredicto_12h     = r.get("veredicto_12h", {}).get("veredicto", {}).get("texto", "")
+
+    prompt = (
+        "Você é um especialista em trilhas de mountain bike DH e Enduro no Brasil.\n"
+        "Escreva UMA frase curta (máximo 2 frases) em português do Brasil explicando "
+        "o processo de secagem do solo desta trilha para um rider.\n\n"
+        "REGRA CRÍTICA: sua frase DEVE ser totalmente consistente com a aderência e o "
+        "veredicto abaixo — eles já foram calculados pelo modelo e são a verdade absoluta. "
+        "Nunca contradiga nem sugira cautela extra se o veredicto for positivo.\n\n"
+        "Dados de secagem:\n"
+        f"- Chuva acumulada bruta (48h): {bruto}mm\n"
+        f"- Chuva efetiva no solo agora: {efetivo}mm (após secagem natural)\n"
+        f"- Última chuva: {ult_h_str}\n"
+        f"- Meia-vida de secagem deste solo: {meia_vida}h\n\n"
+        "Veredicto do modelo (use como base da sua conclusão):\n"
+        f"- Aderência: {aderencia_status}\n"
+        f"- Veredicto HOJE (12h): {veredicto_12h}\n"
+        f"- Veredicto 48h: {veredicto_texto}\n\n"
+        "Explique brevemente o processo de secagem e conclua com algo consistente "
+        "com o veredicto acima. Seja direto, use linguagem de rider. "
+        "Sem markdown, sem bullet points, sem título."
+    )
+
+    payload = json.dumps({
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 120,
+        "temperature": 0.4,
+        "messages": [{"role": "user", "content": prompt}]
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {OPENAI_KEY}",
+        },
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data    = json.loads(resp.read())
+                frase   = data["choices"][0]["message"]["content"].strip()
+                if descansado:
+                    cor, bg = "#16a34a", "#f0fdf4"
+                elif efetivo > thresh * 2:
+                    cor, bg = "#dc2626", "#fef2f2"
+                else:
+                    cor, bg = "#d97706", "#fffbeb"
+                return frase, cor, bg
+        except urllib.error.HTTPError as exc:
+            print(f"[OpenAI] HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}")
+            if attempt == 2:
+                return _resumo_secagem_local(r)
+            time.sleep(2 ** attempt)
+        except Exception as exc:
+            print(f"[OpenAI] Erro: {exc}")
+            if attempt == 2:
+                return _resumo_secagem_local(r)
+            time.sleep(2 ** attempt)
+
+
+def _resumo_secagem_html(r: dict) -> str:
+    frase = r.get("resumo_secagem_frase", "")
+    cor   = r.get("resumo_secagem_cor", "#16a34a")
+    bg    = r.get("resumo_secagem_bg", "#f0fdf4")
+
+    if not frase:
+        frase, cor, bg = _resumo_secagem_local(r)
+
+    return (
+        f'<tr><td style="padding-top:6px;">'
+        f'<div style="background:{bg};border-left:3px solid {cor};border-radius:0 6px 6px 0;'
+        f'padding:7px 10px;font-size:12px;color:#374151;line-height:1.5;">'
+        f'{html_lib.escape(frase)}</div></td></tr>'
+    )
+
+def _alerta_vento_html(r: dict) -> str:
+    vh     = r.get("vento_hist", {})
+    nivel  = vh.get("nivel_vento", 0)
+    if nivel == 0:
+        return ""
+
+    vento  = vh.get("vento_max_kmh", 0)
+    rajada = vh.get("rajada_max_kmh")
+    solo_encharcado = r.get("acumulo_ef", 0) >= r.get("thresh_desc", 5.0)
+
+    detalhes = f"{vento} km/h sustentado"
+    if rajada is not None:
+        detalhes += f" · rajada {rajada} km/h"
+
+    # Cores e textos por nível
+    if nivel >= 3:
+        bg     = "#fef2f2"
+        border = "#fca5a5"
+        cor_t  = "#7f1d1d"
+        cor_s  = "#b91c1c"
+        emoji  = "🔴"
+        titulo = "Risco alto — vento de tempestade nas últimas 48h"
+        msg    = ("Ventos acima de 90 km/h com alto potencial de arrancar árvores pela raiz "
+                  "e derrubar fiação. Avalie presencialmente antes de pedalar — "
+                  "risco severo de obstrução na trilha.")
+    elif nivel == 2:
+        bg     = "#fff7ed"
+        border = "#fdba74"
+        cor_t  = "#7c2d12"
+        cor_s  = "#c2410c"
+        emoji  = "🟠"
+        titulo = "Ventos fortes nas últimas 48h"
+        if solo_encharcado:
+            msg = ("Ventos entre 65–90 km/h podem derrubar árvores de médio e grande porte. "
+                   "O solo encharcado desestabiliza raízes — risco elevado de queda. "
+                   "Avalie as condições no local antes de pedalar.")
+        else:
+            msg = ("Ventos entre 65–90 km/h podem derrubar árvores mesmo aparentemente saudáveis. "
+                   "Possibilidade de galhos e troncos sobre a trilha. "
+                   "Avalie as condições no local antes de pedalar.")
+    else:  # nivel == 1
+        bg     = "#fefce8"
+        border = "#fde047"
+        cor_t  = "#713f12"
+        cor_s  = "#a16207"
+        emoji  = "🟡"
+        titulo = "Vento moderado a forte nas últimas 48h"
+        if solo_encharcado:
+            msg = ("Ventos entre 55–65 km/h com solo encharcado aumentam o risco de queda "
+                   "de galhos e árvores com saúde comprometida. "
+                   "Fique atento a obstruções na trilha.")
+        else:
+            msg = ("Ventos entre 55–65 km/h podem quebrar galhos de árvores "
+                   "com saúde comprometida. Fique atento a galhos soltos na trilha.")
+
+    return (
+        f'<div style="background:{bg};border:1px solid {border};border-radius:8px;'
+        f'padding:8px 12px;font-size:12px;color:{cor_t};font-weight:600;line-height:1.5;">'
+        f'{emoji}&nbsp;<b>{titulo}</b> ({detalhes})<br>'
+        f'<span style="font-weight:400;color:{cor_s};">{msg}</span>'
+        f'</div>'
+    )
+
+
+def _alerta_rajada_futura_html(r: dict) -> str:
+    gust_kmh = r.get("gust_max_kmh", 0.0)
+    expo     = r.get("exposicao_raw", "aberta")
+    thresh   = 30.0 if expo == "aberta" else 50.0
+    if gust_kmh < thresh:
+        return ""
+    if expo == "aberta":
+        msg = (f"Rajadas de até <b>{gust_kmh} km/h</b> previstas nas próximas 48h. "
+               f"Trilha exposta — risco de perda de controle em descidas rápidas, "
+               f"saltos e trechos de crista.")
+    else:
+        msg = (f"Rajadas de até <b>{gust_kmh} km/h</b> previstas nas próximas 48h. "
+               f"Mesmo em trilha fechada, rajadas acima de {int(thresh)} km/h "
+               f"podem atingir clareiras e trechos sem dossel.")
+    return (
+        f'<div style="background:#fefce8;border:1px solid #fde047;border-radius:8px;'
+        f'padding:8px 12px;font-size:12px;color:#713f12;font-weight:600;'
+        f'line-height:1.5;margin-bottom:6px;">'
+        f'🟡 <b>Rajadas previstas nas próximas 48h</b><br>'
+        f'<span style="font-weight:400;color:#a16207;">{msg}</span>'
+        f'</div>'
+    )
+
+
+def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: str) -> str:
+    ranking  = sorted(resultados, key=_score_ranking)
+    melhor   = ranking[0]
+    d1_str   = datas["d1_label"]
+    d2_str   = datas["d2_label"]
+    d3_str   = datas["d3_label"]
+
+    cards_html = ""
+    for i, r in enumerate(ranking, 1):
+        borda    = r["aderencia"]["cor"]
+        maps_url = f"https://www.google.com/maps?q={r['lat']},{r['lon']}"
+
+        # ── Cabeçalho: dados fixos da trilha ──────────────────────────────
+        inc  = r.get("inclinacao")
+        desn = r.get("desnivel_m")
+        ext  = r.get("extensao_km")
+
+        # Linha de características físicas
+        carac_partes = []
+        if inc is not None:
+            inc_cor = "#ef4444" if inc > 30 else "#f97316" if inc > 20 else "#64748b"
+            carac_partes.append(
+                f'⛰ <b>{desn}m</b> · <b>{ext}km</b> · '
+                f'<span style="color:{inc_cor};font-weight:700;">{inc}%</span>'
+            )
+        elif desn is not None and ext is not None:
+            carac_partes.append(f'⛰ <b>{desn}m</b> · <b>{ext}km</b>')
+        elif desn is not None:
+            carac_partes.append(f'⛰ <b>{desn}m</b>')
+
+        clay    = r.get("clay_pct")
+        texture = r.get("texture_class")
+        sand    = r.get("sand_pct", "?")
+        if clay is not None and texture is not None:
+            carac_partes.append(
+                f'🪨 {texture} <span style="color:#94a3b8;">(arg {clay}% · ar {sand}%)</span>'
+            )
+
+        carac_html = (
+            f'<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.6;">'
+            + ' &nbsp;·&nbsp; '.join(carac_partes)
+            + '</div>'
+        ) if carac_partes else ""
+
+        # Badges de bioma e quadrilátero
+        badges_html = _badge_quadrilatero(r) + _badge_bioma(r)
+        badges_div  = (
+            f'<div style="margin-top:4px;">{badges_html}</div>'
+        ) if badges_html.strip() else ""
+
+        # ── Seção: condição do solo ───────────────────────────────────────
+        frase_sec = r.get("resumo_secagem_frase", "")
+        cor_sec   = r.get("resumo_secagem_cor",   "#16a34a")
+        bg_sec    = r.get("resumo_secagem_bg",    "#f0fdf4")
+        if not frase_sec:
+            frase_sec, cor_sec, bg_sec = _resumo_secagem_local(r)
+
+        solo_desc_label = (
+            '<span style="color:#22c55e;font-weight:700;">solo descansado 🟢</span>'
+            if r["acumulo_ef"] < r["thresh_desc"] else
+            '<span style="color:#f97316;font-weight:700;">solo já úmido 🟠</span>'
+        )
+        ultima_str = (
+            f'⏱ Última chuva <b>{round(r["ultima_chuva_h"])}h</b> atrás'
+            if r.get("ultima_chuva_h") is not None else
+            '☀️ Sem chuva recente'
+        )
+
+        # ── Seção: previsão ───────────────────────────────────────────────
+        pico = r.get("pico_3h", 0)
+        pico_html = (
+            f'<div style="margin-top:4px;font-size:12px;color:#dc2626;font-weight:600;">'
+            f'⚡ Pico de chuva: <b>{pico}mm</b> em 3h</div>'
+        ) if pico >= 5 else ""
+
+        # ── Seção: fontes ─────────────────────────────────────────────────
+        fontes_lista = [f'📡 Previsão: {r["fonte"]}']
+        fontes_lista.append("🌱 Solo: OpenLandMap" if clay is not None else "🌱 Solo: manual (fallback)")
+        fontes_lista.append("📈 ENSO: NOAA ONI")
+        if r.get("vento_hist", {}).get("fonte"):
+            fontes_lista.append(f'💨 Vento hist.: {r["vento_hist"]["fonte"]}')
+        fontes_html = " &nbsp;·&nbsp; ".join(fontes_lista)
+
+        # ── Seção: alertas ────────────────────────────────────────────────
+        alerta_vento         = _alerta_vento_html(r)
+        alerta_rajada_futura = _alerta_rajada_futura_html(r)
+        alertas_combinados   = alerta_rajada_futura + alerta_vento
+        secao_alertas = (
+            '<div style="margin-top:10px;">'
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#94a3b8;'
+            'text-transform:uppercase;margin-bottom:6px;">⚠️ Alertas</div>'
+            + alertas_combinados +
+            '</div>'
+        ) if alertas_combinados.strip() else ""
+
+        cards_html += f'''
+        <tr><td style="padding:0 0 14px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="
+            background:#ffffff;border-radius:12px;border-left:4px solid {borda};
+            box-shadow:0 1px 6px rgba(0,0,0,.08);">
+            <tr><td style="padding:16px 18px 14px;">
+
+              <!-- CABEÇALHO: nome + dados fixos da trilha -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="width:28px;vertical-align:top;padding-top:2px;">
+                    <span style="font-size:12px;font-weight:700;color:#94a3b8;">#{i:02d}</span>
+                  </td>
+                  <td style="vertical-align:top;">
+                    <a href="{maps_url}" target="_blank"
+                       style="font-size:14px;font-weight:800;color:#1e293b;
+                              text-decoration:none;display:block;line-height:1.3;"
+                       title="Abrir no Google Maps">{r["name"]} 📍</a>
+                    <div style="font-size:10px;color:#94a3b8;font-weight:600;
+                                letter-spacing:.5px;text-transform:uppercase;margin-top:2px;">
+                      {"🏟 Bike Park" if r["trail_type"] == "bikepark" else "🏔 Trilha Natural"}
+                    </div>
+                    {carac_html}
+                    {badges_div}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- PILLS: aderência + veredicto -->
+              <div style="margin-top:10px;">
+                {_pill_solo(r["aderencia"])}
+                &nbsp;{_pill_verd(r["veredicto_12h"]["veredicto"])}
+                &nbsp;<span style="font-size:10px;color:#94a3b8;font-weight:600;">HOJE 12h</span>
+              </div>
+
+              <!-- SEÇÃO: condição do solo -->
+              <div style="margin-top:12px;border-top:1px solid #f1f5f9;padding-top:10px;">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#94a3b8;
+                            text-transform:uppercase;margin-bottom:6px;">🌍 Condição do Solo</div>
+                <div style="background:{bg_sec};border-left:3px solid {cor_sec};
+                            border-radius:0 6px 6px 0;padding:7px 10px;
+                            font-size:12px;color:#374151;line-height:1.6;">
+                  {html_lib.escape(frase_sec)}
+                </div>
+                <div style="font-size:11px;color:#64748b;margin-top:6px;line-height:1.8;">
+                  🕰 Chuva 48h: <b>{r["acumulo_48h"]}mm</b> bruto
+                  &nbsp;·&nbsp; efetivo: <b>{r["acumulo_ef"]}mm</b>
+                  &nbsp;·&nbsp; {solo_desc_label}<br>
+                  {ultima_str}
+                  &nbsp;·&nbsp; ⏳ meia-vida: <b>{r["meia_vida_h"]}h</b>
+                </div>
+              </div>
+
+              <!-- SEÇÃO: previsão -->
+              <div style="margin-top:10px;border-top:1px solid #f1f5f9;padding-top:10px;">
+                <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#94a3b8;
+                            text-transform:uppercase;margin-bottom:6px;">🌦 Previsão 48h</div>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="font-size:12px;color:#64748b;padding-bottom:3px;">
+                      <b style="color:#475569;">12h</b>&nbsp;
+                      🌧 <b>{r["veredicto_12h"]["rain"]}mm</b> &nbsp;
+                      ☁️ <b>{r["veredicto_12h"]["pop"]}%</b> &nbsp;
+                      💨 <b>{r["veredicto_12h"]["wind"]}m/s</b> &nbsp;
+                      🌡 <b>{r["veredicto_12h"].get("temp_max", r["temp_max"])}°C</b>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="font-size:12px;color:#64748b;padding-bottom:3px;">
+                      <b style="color:#475569;">24h</b>&nbsp;
+                      🌧 <b>{r["rain"]}mm</b> &nbsp;
+                      ☁️ <b>{r["pop"]}%</b> &nbsp;
+                      💨 <b>{r["wind"]}m/s</b> &nbsp;
+                      🌡 <b>{r["temp_max"]}°C</b>
+                    </td>
+                  </tr>
+                </table>
+                {pico_html}
+                <div style="font-size:12px;color:#64748b;margin-top:4px;">
+                  🕐 <b>Melhor janela:</b> {r["janela"]}
+                </div>
+                <div style="font-size:12px;color:#64748b;margin-top:3px;">
+                  🌦 <b>Chuva prevista:</b> {r["horarios_chuva"]}
+                </div>
+                <div style="font-size:12px;color:#475569;margin-top:5px;font-style:italic;">
+                  {r["aderencia"]["desc"]}
+                </div>
+              </div>
+
+              <!-- SEÇÃO: alertas (só aparece quando há alerta) -->
+              {secao_alertas}
+
+              <!-- RODAPÉ: fontes -->
+              <div style="margin-top:10px;border-top:1px solid #f1f5f9;padding-top:8px;
+                          font-size:10px;color:#94a3b8;line-height:1.8;">
+                {fontes_html}
+              </div>
+
+            </td></tr>
+          </table>
+        </td></tr>'''
+
+    fds_rows = ""
+    for r in ranking:
+        fds_rows += f"""
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:10px 14px;font-size:13px;color:#1e293b;font-weight:600;
+                     white-space:nowrap;border-right:1px solid #f1f5f9;">
+            {r['aderencia']['emoji']} {r['name']}
+          </td>
+          {_dia_cell(r['fds']['d1'])}
+          {_dia_cell(r['fds']['d2'])}
+          {_dia_cell(r['fds']['d3'])}
+        </tr>"""
+
+    paragrafos = "".join(
+        f'<p style="margin:0 0 10px 0;color:#475569;font-size:14px;line-height:1.7;">{html_lib.escape(p.strip())}</p>'
+        for p in analise.split("\n") if p.strip()
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
+<tr><td align="center">
+<table width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;">
+
+  <tr><td style="background:linear-gradient(135deg,#1e293b 0%,#0f4c35 100%);border-radius:14px 14px 0 0;padding:28px 32px 24px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#86efac;text-transform:uppercase;margin-bottom:6px;">🚵 MTB DH &amp; Enduro — Região {regiao}</div>
+    <div style="font-size:22px;font-weight:800;color:#ffffff;line-height:1.2;">Monitoramento de Trilhas</div>
+    <div style="font-size:13px;color:#94a3b8;margin-top:6px;">{hoje}</div>
+  </td></tr>
+
+  <tr><td style="background:#16a34a;padding:16px 32px;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#bbf7d0;text-transform:uppercase;">🏆 Melhor trilha do momento</div>
+    <div style="font-size:16px;font-weight:800;color:#ffffff;margin-top:4px;">{melhor['name']}</div>
+    <div style="font-size:12px;color:#dcfce7;margin-top:3px;">
+      Solo {melhor['aderencia']['status']} &nbsp;·&nbsp; {melhor['rain']}mm &nbsp;·&nbsp; {melhor['wind']}m/s &nbsp;·&nbsp; Janela: {melhor['janela']}
+    </div>
+  </td></tr>
+
+  <tr><td style="background:#f8fafc;padding:24px 24px 8px;">
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin-bottom:12px;">Análise técnica — {regiao}</div>
+    <div style="background:#ffffff;border-radius:10px;padding:18px 20px;margin-bottom:24px;border:1px solid #e2e8f0;">{paragrafos}</div>
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin-bottom:12px;">Ranking de trilhas — MTB DH &amp; Enduro</div>
+    <table width="100%" cellpadding="0" cellspacing="0">{cards_html}</table>
+
+    {_secao_doacao_html()}
+
+    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin:8px 0 12px;">Previsão — Próximos 3 dias</div>
+    <div style="border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+        <tr style="background:#1e293b;">
+          <th style="padding:10px 14px;text-align:left;font-size:12px;font-weight:700;color:#94a3b8;letter-spacing:.5px;">Trilha</th>
+          <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;color:#94a3b8;border-left:1px solid #334155;">{d1_str}</th>
+          <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;color:#94a3b8;border-left:1px solid #334155;">{d2_str}</th>
+          <th style="padding:10px 14px;text-align:center;font-size:12px;font-weight:700;color:#94a3b8;border-left:1px solid #334155;">{d3_str}</th>
+        </tr>
+        {fds_rows}
+      </table>
+    </div>
+
+  </td></tr>
+
+  <tr><td style="background:#1e293b;border-radius:0 0 14px 14px;padding:16px 32px;text-align:center;">
+    <div style="font-size:11px;color:#64748b;">MTB Agent V7.1 &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
+    <div style="margin-top:8px;font-size:11px;color:#475569;">
+      🚵 Guilherme Leal &nbsp;·&nbsp; MTB Rider &nbsp;&nbsp;|&nbsp;&nbsp; 🚵 Douglas Santos &nbsp;·&nbsp; MTB Rider
+    </div>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+def send_email(html_body: str, destinatarios: list, regiao: str) -> None:
+    hoje = datetime.now(BRT).strftime("%d/%m/%Y")
+    bcc  = _bcc_global()
+    msg  = MIMEMultipart("alternative")
+    msg["Subject"] = f"Monitoramento de Trilhas MTB — {regiao} — {hoje}"
+    msg["From"]    = EMAIL_FROM
+    msg["To"]      = ", ".join(destinatarios)
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+        smtp.login(EMAIL_FROM, EMAIL_PASSWORD)
+        smtp.sendmail(EMAIL_FROM, destinatarios + bcc, msg.as_string())
+    print(f"  ✉️  Email enviado para {len(destinatarios)} destinatário(s) da região {regiao}"
+          + (f" + {len(bcc)} BCC global" if bcc else ""))
+
+def main() -> None:
+    global TRAILS
+    TRAILS = _carregar_trilhas()
+
+    _validar_env()
+    hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
+    datas = proximos_dias()
+    print(f"[MTB V7.0] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
+
+    trails_por_regiao: dict[str, list] = {}
+    for trail in TRAILS:
+        trails_por_regiao.setdefault(trail["regiao"], []).append(trail)
+
+    emails_por_regiao = _carregar_emails_por_regiao()
+
+    print("[MTB V7.0] Buscando dados de solo via OpenLandMap...")
+    for trail in TRAILS:
+        dados_solo = buscar_solo_openlandmap(trail["lat"], trail["lon"])
+        if dados_solo:
+            trail.update(dados_solo)
+            fator_base = round(0.20 + (dados_solo["clay_pct"] / 100) * 1.60, 2)
+            fator_base = max(0.25, min(0.90, fator_base))
+            print(f"  [Solo] {trail['name']}: clay={dados_solo['clay_pct']}%, areia={dados_solo['sand_pct']}%, silte={dados_solo['silt_pct']}% → {dados_solo['texture_class']} (fator base: {fator_base})")
+        else:
+            print(f"  [Solo] {trail['name']}: API indisponível — usando fallback '{trail['solo_type']}'")
+
+    for regiao, trails in sorted(trails_por_regiao.items()):
+
+        if regiao not in emails_por_regiao:
+            print(f"[MTB V7.0] Região {regiao}: sem destinatários — pulando envio.")
+            continue
+
+        print(f"\n[MTB V7.0] Processando região {regiao} ({len(trails)} trilha(s))...")
+        resultados, falhas = [], []
+
+        for trail in trails:
+            try:
+                dados = processar_trilha(trail, datas)
+                resultados.append(dados)
+                inc_str = f" | inclinação={dados['inclinacao']}%" if dados['inclinacao'] is not None else ""
+                print(f"  ✓ {trail['name']} [{trail.get('trail_type','natural')} / {trail['solo_type']}]{inc_str} — {dados['aderencia']['status']} | pico={dados['pico_3h']}mm | 12h: {dados['veredicto_12h']['veredicto']['texto']} | 48h: {dados['veredicto']['texto']}")
+            except Exception as exc:
+                falhas.append(f"{trail['name']}: {exc}")
+                print(f"  ✗ {trail['name']}: {exc}")
+
+            if DEBUG_MODEL:
+                try:
+                    dbg = dados["fds"]["d1"].get("debug_model", {})
+                    print(
+                        f"  [DEBUG] {trail['name']} | "
+                        f"bruto={dbg.get('acumulo_bruto')} | "
+                        f"ef={dbg.get('acumulo_efetivo')} | "
+                        f"th={dbg.get('threshold_descanso')} | "
+                        f"solo_desc={dbg.get('solo_descansado')} | "
+                        f"meia_vida={dbg.get('meia_vida_h')}h | "
+                        f"temp={dbg.get('temp_media_c')}C | "
+                        f"vento={dbg.get('vento_medio_ms')}m/s | "
+                        f"umidade={dbg.get('umidade_pct')}% | "
+                        f"nuvens={dbg.get('nublado_pct')}% | "
+                        f"impacto={dbg.get('impacto')} | "
+                        f"score={dbg.get('score')} | "
+                        f"saturado={dbg.get('saturado')} | "
+                        f"risco={dbg.get('risco_final')} | "
+                        f"motivo={dbg.get('motivo_veredicto')}"
+                    )
+                except Exception:
+                    pass
+
+        if not resultados:
+            print(f"  [AVISO] Nenhuma trilha processada para a região {regiao} — email não enviado.")
+            continue
+
+        print(f"  [MTB V7.0] Gerando análise via Claude AI para região {regiao}...")
+        analise = gerar_analise_claude(resultados, hoje, datas, regiao)
+
+        print(f"  [MTB V7.0] Montando HTML para região {regiao}...")
+        html_body = gerar_html(resultados, analise, hoje, datas, regiao)
+
+        if falhas:
+            aviso     = "<br>".join(f"⚠️ {html_lib.escape(f)}" for f in falhas)
+            html_body = html_body.replace("</body>", f'<p style="text-align:center;font-size:11px;color:#ef4444;">{aviso}</p></body>')
+
+        send_email(html_body, emails_por_regiao[regiao], regiao)
+
+    print("\n[MTB V7.0] Concluído.")
+
+if __name__ == "__main__":
+    main()

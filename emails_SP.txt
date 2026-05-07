@@ -1,0 +1,22 @@
+# Destinatários para trilhas da região SP
+# Um ou mais endereços por linha, separados por vírgula.
+# Linhas em branco e comentários (#) são ignorados.
+Leal.guilhermeo@gmail.com,
+sadouglasdh@gmail.com,
+rodrigo@cafran.com.br,
+marcio@peakinvest.com.br,
+igr_marques@hotmail.com,
+daniel_fonseca@hotmail.com,
+parkshini@hotmail.com,
+antoniosenise@hotmail.com,
+thiagovelardi@hotmail.com,
+mbsuzuki76@hotmail.com,
+dino74br@gmail.com,
+luizaugusto50@hotmail.com,
+Renator9@uol.com.br,
+Fabinho.gouveia@gmail.com,
+lupavideos@gmail.com,
+Leandro.park@gmail.com,
+alx@xanddh8.com,
+carlosninodellaqua@gmail.com,
+irubrasil@gmail.com,

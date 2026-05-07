@@ -1,0 +1,9 @@
+{
+  "thresholds": {
+    "seco": 10,
+    "grip": 35,
+    "boa": 70
+  },
+  "vento_alerta": 12,
+  "pico_chuva": 10
+}

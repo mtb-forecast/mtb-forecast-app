@@ -1,0 +1,32 @@
+name: Agent MTB Forecast
+
+on:
+  schedule:
+    - cron: "0 8 * * *"   # 05:00 BRT todos os dias
+    - cron: "0 0 * * 6"   # Sexta às 21:00 BRT (sábado 00:00 UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    env:
+      OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+      ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+      EMAIL_FROM:          ${{ secrets.EMAIL_FROM }}
+      EMAIL_PASSWORD:      ${{ secrets.EMAIL_PASSWORD }}
+      EMAIL_TO:            ${{ secrets.EMAIL_TO }}
+      EMAIL_BCC:           ${{ secrets.EMAIL_BCC }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Agent MTB Forecast
+        run: python mtb-forecast.py

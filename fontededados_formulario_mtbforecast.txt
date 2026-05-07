@@ -1,0 +1,31 @@
+Estado,Cidade,Bairro,trailname,link_segment
+
+solo_type
+Terra (argila)
+Pedra (RockGardem)
+Misto (Terra+Pedra)
+Terra Preta (Organica)
+
+
+land exhibition
+Aberta (Mata Fechada, arvores encobre a trilha)
+Fechada (exposição ao sol)
+Mista (Aberta e Fechada)
+
+trail_type
+Bikepark (Manejo constante de drenos, dificilmente forma lama)
+Natural (Probalidade maior de lama e poças de agua)
+
+Trail_features
+Curvas
+Saltos
+Raizes
+RockGarden
+
+link_segment
+
+
+
+
+Strava/trailforks:
+Tamanhotrilha, Desnivel,CoordenasGeograficas
