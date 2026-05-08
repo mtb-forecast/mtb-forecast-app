@@ -4,58 +4,49 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Trilha, Condicao, VEREDICTO_CONFIG, SEM_DADOS_STYLE } from '@/lib/types'
+import {
+  Trilha, Condicao,
+  VEREDICTO_CONFIG, ADERENCIA_CONFIG, ADERENCIA_FRASE,
+} from '@/lib/types'
 
 type TrilhaDetalhada = Trilha & { condicoes?: Condicao[] }
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ── helpers de renderização ──────────────────────────────────────────────────
 
-function Pill({ text, className }: { text: string; className: string }) {
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${className}`}>
-      {text}
-    </span>
-  )
-}
-
-function MetricBox({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="bg-slate-700/50 rounded-lg p-3">
-      <p className="text-xs text-slate-400 mb-0.5">{label}</p>
-      <p className="text-white font-semibold text-sm">{value}</p>
-      {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+    <div style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: 1,
+      color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8,
+    }}>
+      {children}
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-5">
-      <div className="px-5 py-3 border-b border-slate-700">
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">{title}</h2>
-      </div>
-      <div className="p-5">{children}</div>
-    </div>
-  )
+function Divider() {
+  return <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, marginTop: 10 }} />
 }
 
-function parseHorarios(raw: string | null | undefined): string | null {
-  if (!raw) return null
+function parseHorarios(raw: string | null | undefined): string {
+  if (!raw) return '—'
   try {
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) return parsed.join(', ')
-    return String(parsed)
+    const p = JSON.parse(raw)
+    if (Array.isArray(p)) return p.join(', ')
+    return String(p)
   } catch {
     return raw
   }
 }
 
-function fdsVcfg(v: string | null | undefined) {
-  if (!v) return null
-  return VEREDICTO_CONFIG[v] ?? null
+function inclinacaoCor(inc: number | null | undefined): string {
+  if (inc == null) return '#64748b'
+  if (inc > 30) return '#ef4444'
+  if (inc > 20) return '#f97316'
+  return '#64748b'
 }
 
-// ─── page ───────────────────────────────────────────────────────────────────
+// ── page ────────────────────────────────────────────────────────────────────
 
 export default function TrilhaDetalhe() {
   const router = useRouter()
@@ -74,23 +65,20 @@ export default function TrilhaDetalhe() {
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
 
-      const [{ data: trilhaData }, { data: favData }] = await Promise.all([
-        supabase
-          .from('trilhas')
-          .select(`*, condicoes(*)`)
+      const [{ data: td }, { data: fav }] = await Promise.all([
+        supabase.from('trilhas').select(`*, condicoes(*)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .single(),
         supabase.from('favoritos').select('id').eq('user_id', user.id).eq('trilha_id', id).maybeSingle(),
       ])
 
-      if (!trilhaData) { router.replace('/trilhas'); return }
-
-      const t = trilhaData as TrilhaDetalhada
-      const condicoes = Array.isArray(t.condicoes) ? t.condicoes : []
+      if (!td) { router.replace('/trilhas'); return }
+      const t = td as TrilhaDetalhada
+      const conds = Array.isArray(t.condicoes) ? t.condicoes : []
       setTrilha(t)
-      setC(condicoes[0] ?? null)
-      setIsFavorito(!!favData)
+      setC(conds[0] ?? null)
+      setIsFavorito(!!fav)
       setLoading(false)
     }
     load()
@@ -109,7 +97,7 @@ export default function TrilhaDetalhe() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f1f5f9' }}>
         <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -117,342 +105,368 @@ export default function TrilhaDetalhe() {
 
   if (!trilha) return null
 
+  // Derive styling
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
-  const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-  const style = vcfg ?? SEM_DADOS_STYLE
+  const vcfg   = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
+  const acfg   = c?.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
+  const fraseStyle = ADERENCIA_FRASE[c?.aderencia_status ?? ''] ?? { bg: '#f8fafc', border: '#94a3b8' }
+  const bordaCor   = vcfg?.cor ?? '#94a3b8'
+
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
-  const horarios = parseHorarios(c?.horarios_chuva)
+  const isMatAtlantica = trilha.bioma === 'Mata Atlântica'
+  const mapsUrl = `https://www.google.com/maps?q=${trilha.lat},${trilha.lon}`
+
+  // Alertas
+  const alertaRajada = c?.alerta_rajada_kmh != null &&
+    ((trilha.exposicao?.toLowerCase() === 'aberta' && c.alerta_rajada_kmh >= 30) ||
+     (trilha.exposicao?.toLowerCase() !== 'aberta' && c.alerta_rajada_kmh >= 50))
+  const nivelVento = c?.alerta_vento_nivel ?? 0
+
+  // FDS — próximos 3 dias
+  const fdsDias = [
+    { label: 'D+1', v: c?.fds_d1_veredicto, rain: c?.fds_d1_rain },
+    { label: 'D+2', v: c?.fds_d2_veredicto, rain: c?.fds_d2_rain },
+    { label: 'D+3', v: c?.fds_d3_veredicto, rain: c?.fds_d3_rain },
+  ]
+  const hasFds = fdsDias.some(d => d.v)
+
+  // Fontes
+  const clay = c?.clay_pct
+  const fontes: string[] = []
+  if (c?.fonte)   fontes.push(`📡 Previsão: ${c.fonte}`)
+  fontes.push(clay != null ? '🌱 Solo: OpenLandMap' : '🌱 Solo: manual (fallback)')
+  if (c?.enso_fase || c?.enso_oni != null) {
+    const oniStr = c?.enso_oni != null ? ` · fase ${c.enso_fase ?? '—'} (ONI ${c.enso_oni.toFixed(2)})` : ''
+    fontes.push(`📈 ENSO: NOAA ONI${oniStr}`)
+  }
+  if (c?.alerta_vento_kmh) fontes.push('💨 Vento hist.: MERRA-2 / ERA5')
 
   return (
-    <div className="min-h-screen bg-slate-900 px-4 sm:px-6 py-6 max-w-3xl mx-auto">
+    <div style={{ background: '#f1f5f9', minHeight: '100vh', padding: '20px 16px 40px' }}>
+      <div style={{ maxWidth: 600, margin: '0 auto' }}>
 
-      {/* Breadcrumb / back */}
-      <Link
-        href="/trilhas"
-        className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-6 transition-colors"
-      >
-        <span>←</span>
-        <span>Voltar para trilhas</span>
-      </Link>
+        {/* ── Voltar ── */}
+        <Link
+          href="/trilhas"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 13, color: '#64748b', textDecoration: 'none',
+            marginBottom: 16, fontWeight: 600 }}
+        >
+          ← Voltar para trilhas
+        </Link>
 
-      {/* ── SEÇÃO 1 — Header ─────────────────────────────────────────────── */}
-      <div className={`bg-slate-800 border-l-4 ${style.leftBorder} border border-slate-700 rounded-xl p-5 mb-5`}>
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1 min-w-0">
-            <a
-              href={`https://www.google.com/maps?q=${trilha.lat},${trilha.lon}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xl font-extrabold text-white hover:text-green-400 transition-colors leading-tight block mb-1"
-            >
-              {trilha.name} <span className="text-base">📍</span>
-            </a>
-            <p className="text-xs text-slate-500">
-              {trilha.lat.toFixed(5)}, {trilha.lon.toFixed(5)} · {trilha.altitude_m}m alt.
-            </p>
-          </div>
-          <button
-            onClick={toggleFavorito}
-            className={`flex-shrink-0 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-              isFavorito
-                ? 'border-yellow-500 text-yellow-400 bg-yellow-500/10'
-                : 'border-slate-600 text-slate-400 hover:border-yellow-500 hover:text-yellow-400'
-            }`}
-          >
-            {isFavorito ? '★' : '☆'}
-          </button>
-        </div>
+        {/* ══ CARD PRINCIPAL ══════════════════════════════════════════════ */}
+        <div style={{
+          background: '#ffffff',
+          borderRadius: 12,
+          borderLeft: `4px solid ${bordaCor}`,
+          boxShadow: '0 1px 6px rgba(0,0,0,.08)',
+          padding: '16px 18px 14px',
+        }}>
 
-        {/* Badges */}
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          <span className="text-xs px-2.5 py-1 bg-slate-700 text-slate-300 rounded-full">
-            {trilha.trail_type === 'bikepark' ? '🏟 Bike Park' : '🌲 Trilha Natural'}
-          </span>
-          {trilha.bioma && (
-            <span className="text-xs px-2.5 py-1 bg-slate-700 text-slate-300 rounded-full">
-              🌿 {trilha.bioma}
-            </span>
-          )}
-          {isQuadrilatero && (
-            <span className="text-xs px-2.5 py-1 bg-orange-900/40 text-orange-300 border border-orange-800/50 rounded-full">
-              ⛏ Quadrilátero Ferrífero
-            </span>
-          )}
-          <span className="text-xs px-2.5 py-1 bg-slate-700 text-slate-300 rounded-full">
-            {trilha.regiao}
-          </span>
-        </div>
+          {/* ── HEADER ─────────────────────────────────────────────────── */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Nome + link Google Maps */}
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 14, fontWeight: 800, color: '#1e293b',
+                  textDecoration: 'none', display: 'block', lineHeight: 1.3 }}
+              >
+                {trilha.name} 📍
+              </a>
 
-        {/* Métricas da trilha */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <MetricBox
-            label="Desnível"
-            value={trilha.desnivel_m ? `${trilha.desnivel_m}m` : '—'}
-          />
-          <MetricBox
-            label="Extensão"
-            value={trilha.extensao_km ? `${trilha.extensao_km}km` : '—'}
-          />
-          <MetricBox
-            label="Inclinação"
-            value={c?.inclinacao != null ? `${c.inclinacao.toFixed(1)}%` : '—'}
-          />
-          <MetricBox
-            label="Exposição"
-            value={trilha.exposicao || '—'}
-          />
-        </div>
-
-        {/* Solo */}
-        {(c?.texture_class || c?.clay_pct != null || c?.sand_pct != null) && (
-          <div className="mt-3 pt-3 border-t border-slate-700 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-            {c?.texture_class && <span>Solo: <span className="text-slate-200">{c.texture_class}</span></span>}
-            {c?.clay_pct != null && <span>Argila: <span className="text-slate-200">{c.clay_pct.toFixed(0)}%</span></span>}
-            {c?.sand_pct != null && <span>Areia: <span className="text-slate-200">{c.sand_pct.toFixed(0)}%</span></span>}
-          </div>
-        )}
-      </div>
-
-      {/* ── SEÇÃO 2 — Veredicto atual ─────────────────────────────────────── */}
-      <Section title="Veredicto atual">
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <Pill
-            text={veredictoText ?? 'SEM DADOS'}
-            className={`text-sm ${style.pill}`}
-          />
-          {c?.aderencia_status && (
-            <Pill text={c.aderencia_status} className="bg-slate-700 text-slate-300 border border-slate-600" />
-          )}
-        </div>
-        {c?.aderencia_desc && (
-          <p className="text-slate-400 text-sm mb-2">{c.aderencia_desc}</p>
-        )}
-        {c?.gerado_em && (
-          <p className="text-xs text-slate-500">
-            Atualizado em {new Date(c.gerado_em).toLocaleString('pt-BR', {
-              day: '2-digit', month: '2-digit', year: 'numeric',
-              hour: '2-digit', minute: '2-digit',
-            })}
-          </p>
-        )}
-        {!c && (
-          <p className="text-slate-500 text-sm">Nenhuma condição calculada ainda para esta trilha.</p>
-        )}
-      </Section>
-
-      {/* ── SEÇÃO 3 — Condição do Solo ───────────────────────────────────── */}
-      {c && (
-        <Section title="Condição do Solo">
-          {/* Frase secagem */}
-          {c.frase_secagem && (
-            <p className={`text-sm font-medium mb-4 ${style.color}`}>{c.frase_secagem}</p>
-          )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-            <MetricBox
-              label="Chuva 48h (bruto)"
-              value={`${c.acumulo_48h?.toFixed(1) ?? '—'} mm`}
-            />
-            <MetricBox
-              label="Chuva efetiva"
-              value={`${c.acumulo_ef?.toFixed(1) ?? '—'} mm`}
-            />
-            <MetricBox
-              label="Última chuva"
-              value={c.ultima_chuva_h != null ? `${c.ultima_chuva_h}h atrás` : '—'}
-            />
-            <MetricBox
-              label="Meia-vida secagem"
-              value={`${c.meia_vida_h ?? '—'}h`}
-            />
-            {c.thresh_desc && (
-              <MetricBox label="Limiar" value={c.thresh_desc} />
-            )}
-          </div>
-
-          {/* Solo descansado */}
-          {c.solo_descansado != null && (
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium mb-4 ${
-              c.solo_descansado
-                ? 'bg-green-600/15 text-green-300'
-                : 'bg-orange-600/15 text-orange-300'
-            }`}>
-              {c.solo_descansado ? '🟢 Solo descansado' : '🟠 Solo úmido'}
-            </div>
-          )}
-
-          {/* ENSO */}
-          {(c.enso_fase || c.enso_oni != null) && (
-            <div className="bg-slate-700/40 rounded-lg px-4 py-3 text-sm">
-              <span className="text-slate-400">ENSO: </span>
-              {c.enso_fase && <span className="text-slate-200 font-medium">{c.enso_fase}</span>}
-              {c.enso_oni != null && (
-                <span className="text-slate-400"> · ONI: <span className="text-slate-200">{c.enso_oni.toFixed(2)}</span></span>
-              )}
-            </div>
-          )}
-        </Section>
-      )}
-
-      {/* ── SEÇÃO 4 — Previsão 48h ───────────────────────────────────────── */}
-      {c && (
-        <Section title="Previsão 48h">
-          {/* Grid de métricas */}
-          <div className="space-y-3 mb-4">
-            {/* Próximas 12h */}
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Próximas 12h</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <MetricBox label="🌧 Chuva" value={c.rain_12h != null ? `${c.rain_12h.toFixed(1)} mm` : '—'} />
-                <MetricBox label="☁️ Prob." value={c.pop_12h != null ? `${c.pop_12h}%` : '—'} />
-                <MetricBox label="💨 Vento" value={c.wind_12h != null ? `${c.wind_12h.toFixed(1)} m/s` : '—'} />
-                <MetricBox label="🌡 Temp. máx" value={c.temp_max != null ? `${c.temp_max.toFixed(0)}°C` : '—'} />
+              {/* Subtítulo tipo */}
+              <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600,
+                letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>
+                {trilha.trail_type === 'bikepark' ? '🏟 Bike Park' : '🏔 Trilha Natural'}
               </div>
-            </div>
 
-            {/* Acúmulo 48h */}
-            <div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Acúmulo 48h</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <MetricBox label="🌧 Total" value={`${c.acumulo_48h?.toFixed(1) ?? '—'} mm`} sub="bruto" />
-                <MetricBox label="🪣 Efetivo" value={`${c.acumulo_ef?.toFixed(1) ?? '—'} mm`} sub="absorção solo" />
-                <MetricBox label="☁️ Prob." value={c.pop_48h != null ? `${c.pop_48h}%` : '—'} />
-              </div>
-            </div>
-          </div>
+              {/* Características físicas */}
+              {(() => {
+                const parts: string[] = []
+                if (trilha.desnivel_m != null && trilha.extensao_km != null) {
+                  const inc = c?.inclinacao
+                  const incCor = inclinacaoCor(inc)
+                  const incPart = inc != null
+                    ? ` · <span style="color:${incCor};font-weight:700;">${inc}%</span>`
+                    : ''
+                  parts.push(`⛰ <b>${trilha.desnivel_m}m</b> em <b>${trilha.extensao_km}km</b>${incPart}`)
+                } else if (trilha.desnivel_m != null) {
+                  parts.push(`⛰ <b>${trilha.desnivel_m}m</b>`)
+                }
+                if (clay != null && c?.texture_class) {
+                  parts.push(`🪨 ${c.texture_class} <span style="color:#94a3b8;">(arg ${clay}% · ar ${c.sand_pct ?? '?'}%)</span>`)
+                }
+                if (parts.length === 0) return null
+                return (
+                  <div
+                    style={{ fontSize: 11, color: '#64748b', marginTop: 3, lineHeight: 1.6 }}
+                    dangerouslySetInnerHTML={{ __html: parts.join(' &nbsp;·&nbsp; ') }}
+                  />
+                )
+              })()}
 
-          {/* Pico 3h — destaque em vermelho se >= 5mm */}
-          {c.pico_3h != null && c.pico_3h > 0 && (
-            <div className={`flex items-center justify-between px-4 py-2.5 rounded-lg mb-3 ${
-              c.pico_3h >= 5
-                ? 'bg-red-500/10 border border-red-500/30'
-                : 'bg-slate-700/40 border border-slate-600'
-            }`}>
-              <span className={`text-sm font-medium ${c.pico_3h >= 5 ? 'text-red-300' : 'text-slate-300'}`}>
-                ⚡ Pico 3h
-              </span>
-              <span className={`font-bold ${c.pico_3h >= 5 ? 'text-red-300' : 'text-white'}`}>
-                {c.pico_3h.toFixed(1)} mm
-              </span>
-            </div>
-          )}
-
-          {/* Vento atual */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            <MetricBox label="💨 Vento atual" value={`${c.wind_ms?.toFixed(1) ?? '—'} m/s`} />
-            {c.gust_max_kmh != null && (
-              <MetricBox label="🌪 Rajada máx." value={`${c.gust_max_kmh.toFixed(0)} km/h`} />
-            )}
-          </div>
-
-          {/* Janela */}
-          {c.janela && (
-            <div className="bg-slate-700/40 rounded-lg px-4 py-3 mb-3">
-              <p className="text-xs text-slate-400 mb-0.5">Melhor janela de pedal</p>
-              <p className="text-white font-semibold">{c.janela}</p>
-            </div>
-          )}
-
-          {/* Horários de chuva */}
-          {horarios && (
-            <div className="bg-slate-700/40 rounded-lg px-4 py-3">
-              <p className="text-xs text-slate-400 mb-0.5">Horários de chuva previstos</p>
-              <p className="text-slate-200 text-sm">{horarios}</p>
-            </div>
-          )}
-        </Section>
-      )}
-
-      {/* ── SEÇÃO 5 — Próximos 3 dias ────────────────────────────────────── */}
-      {c && (c.fds_d1_veredicto || c.fds_d2_veredicto || c.fds_d3_veredicto) && (
-        <Section title="Próximos 3 dias">
-          <div className="space-y-2">
-            {[
-              { label: 'D+1', v: c.fds_d1_veredicto, rain: c.fds_d1_rain },
-              { label: 'D+2', v: c.fds_d2_veredicto, rain: c.fds_d2_rain },
-              { label: 'D+3', v: c.fds_d3_veredicto, rain: c.fds_d3_rain },
-            ].map(({ label, v, rain }) => {
-              const cfg = fdsVcfg(v)
-              return (
-                <div
-                  key={label}
-                  className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
-                    cfg ? `${cfg.bg} ${cfg.border}` : 'bg-slate-700/30 border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-400 text-sm font-mono w-8">{label}</span>
-                    <span className={`text-sm font-bold ${cfg?.color ?? 'text-slate-400'}`}>
-                      {v ?? 'SEM DADOS'}
+              {/* Badges bioma / quadrilátero */}
+              {(isMatAtlantica || isQuadrilatero) && (
+                <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {isQuadrilatero && (
+                    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                      fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                      color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b44' }}>
+                      ⛏ Quadrilátero Ferrífero
                     </span>
-                  </div>
-                  {rain != null && (
-                    <span className="text-slate-300 text-sm">🌧 {rain.toFixed(1)} mm</span>
+                  )}
+                  {isMatAtlantica && (
+                    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                      fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                      color: '#166534', background: '#dcfce7', border: '1px solid #86efac' }}>
+                      🌿 Mata Atlântica
+                    </span>
+                  )}
+                  {trilha.bioma && !isMatAtlantica && (
+                    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                      fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                      color: '#374151', background: '#f3f4f6', border: '1px solid #d1d5db' }}>
+                      🌱 {trilha.bioma}
+                    </span>
                   )}
                 </div>
-              )
-            })}
+              )}
+            </div>
+
+            {/* Botão favoritar */}
+            <button
+              onClick={toggleFavorito}
+              style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+                border: isFavorito ? '1px solid #eab308' : '1px solid #cbd5e1',
+                background: isFavorito ? '#fefce8' : 'transparent',
+                color: isFavorito ? '#92400e' : '#64748b',
+                fontSize: 16, fontWeight: 700, flexShrink: 0 }}
+            >
+              {isFavorito ? '★' : '☆'}
+            </button>
           </div>
-        </Section>
-      )}
 
-      {/* ── SEÇÃO 6 — Alertas ────────────────────────────────────────────── */}
-      {c && (c.alerta_vento_nivel || c.alerta_rajada_kmh != null) && (
-        <Section title="Alertas">
-          <div className="space-y-2">
-            {c.alerta_rajada_kmh != null && (
-              <div className="flex items-center justify-between bg-yellow-600/10 border border-yellow-600/30 rounded-lg px-4 py-3">
-                <span className="text-yellow-300 text-sm font-medium">⚠️ Rajada prevista</span>
-                <span className="text-yellow-200 font-bold">{c.alerta_rajada_kmh.toFixed(0)} km/h</span>
-              </div>
-            )}
+          {/* ── PILLS: aderência + veredicto ───────────────────────────── */}
+          {c && (
+            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+              {acfg && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                  letterSpacing: 0.5, color: acfg.cor,
+                  background: acfg.cor + '18', border: `1px solid ${acfg.cor}33` }}>
+                  {acfg.emoji} {c.aderencia_status}
+                </span>
+              )}
+              {vcfg && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                  letterSpacing: 0.5, color: vcfg.cor,
+                  background: vcfg.bg, border: `1px solid ${vcfg.cor}33` }}>
+                  {vcfg.emoji} {veredictoText}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>HOJE 12h</span>
+            </div>
+          )}
 
-            {c.alerta_vento_nivel && c.alerta_vento_kmh != null && (() => {
-              const nivelColors: Record<string, string> = {
-                BAIXO:   'bg-yellow-600/10 border-yellow-600/30 text-yellow-300',
-                MODERADO:'bg-orange-600/10 border-orange-600/30 text-orange-300',
-                ALTO:    'bg-red-600/10 border-red-600/30 text-red-300',
-              }
-              const colorClass = nivelColors[c.alerta_vento_nivel?.toUpperCase() ?? ''] ?? 'bg-yellow-600/10 border-yellow-600/30 text-yellow-300'
-              return (
-                <div className={`flex items-center justify-between border rounded-lg px-4 py-3 ${colorClass}`}>
-                  <span className="text-sm font-medium">
-                    💨 Vento histórico — Nível {c.alerta_vento_nivel}
-                  </span>
-                  <span className="font-bold">{c.alerta_vento_kmh.toFixed(0)} km/h</span>
+          {!c && (
+            <div style={{ marginTop: 12, color: '#94a3b8', fontSize: 12 }}>
+              Condição ainda não calculada para esta trilha.
+            </div>
+          )}
+
+          {/* ══ SEÇÃO 1 — Condição do Solo ═══════════════════════════════ */}
+          {c && (
+            <>
+              <Divider />
+              <SectionTitle>🌍 Condição do Solo</SectionTitle>
+
+              {/* Frase de secagem */}
+              {c.frase_secagem && (
+                <div style={{ background: fraseStyle.bg, borderLeft: `3px solid ${fraseStyle.border}`,
+                  borderRadius: '0 6px 6px 0', padding: '7px 10px',
+                  fontSize: 12, color: '#374151', lineHeight: 1.5, marginBottom: 8 }}>
+                  {c.frase_secagem}
                 </div>
-              )
-            })()}
-          </div>
-        </Section>
-      )}
+              )}
 
-      {/* ── SEÇÃO 7 — Fonte dos dados ────────────────────────────────────── */}
-      <Section title="Fonte dos dados">
-        <div className="space-y-1.5 text-sm text-slate-400">
-          <div className="flex items-start gap-2">
-            <span className="text-slate-500 w-20 flex-shrink-0">Previsão</span>
-            <span className="text-slate-300">
-              {c?.fonte === 'openmeteo'
-                ? 'Open-Meteo'
-                : c?.fonte === 'openweather'
-                ? 'OpenWeather One Call 3.0'
-                : 'OpenWeather One Call 3.0 + Open-Meteo'}
-            </span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-slate-500 w-20 flex-shrink-0">Solo</span>
-            <span className="text-slate-300">
-              {c?.texture_class ? 'OpenLandMap (SoilGrids)' : 'Configuração manual'}
-            </span>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="text-slate-500 w-20 flex-shrink-0">ENSO</span>
-            <span className="text-slate-300">NOAA ONI (Oceanic Niño Index)</span>
-          </div>
+              {/* Chuva 48h + solo descansado */}
+              <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.8 }}>
+                🕰 Chuva 48h:{' '}
+                <strong>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</strong> bruto
+                {' · '} efetivo: <strong>{c.acumulo_ef?.toFixed(1) ?? '—'}mm</strong>
+                {' · '}
+                {c.solo_descansado === true
+                  ? <span style={{ color: '#22c55e', fontWeight: 700 }}>solo descansado 🟢</span>
+                  : c.solo_descansado === false
+                  ? <span style={{ color: '#f97316', fontWeight: 700 }}>solo já úmido 🟠</span>
+                  : null}
+              </div>
+
+              <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.8 }}>
+                {c.ultima_chuva_h != null
+                  ? <>⏱ Última chuva <strong>{Math.round(c.ultima_chuva_h)}h</strong> atrás</>
+                  : '☀️ Sem chuva recente'}
+                {' · '}
+                ⏳ meia-vida: <strong>{c.meia_vida_h ?? '—'}h</strong>
+              </div>
+            </>
+          )}
+
+          {/* ══ SEÇÃO 2 — Previsão 48h ═══════════════════════════════════ */}
+          {c && (
+            <>
+              <Divider />
+              <SectionTitle>🌦 Previsão 48h</SectionTitle>
+
+              {/* 12h */}
+              <div style={{ fontSize: 12, color: '#64748b', paddingBottom: 3 }}>
+                <strong style={{ color: '#475569' }}>12h</strong>{' '}
+                🌧 <strong>{c.rain_12h?.toFixed(1) ?? '—'}mm</strong>{' '}
+                ☁️ <strong>{c.pop_12h ?? '—'}%</strong>{' '}
+                💨 <strong>{c.wind_12h?.toFixed(1) ?? '—'}m/s</strong>{' '}
+                🌡 <strong>{c.temp_max?.toFixed(0) ?? '—'}°C</strong>
+              </div>
+
+              {/* 24h */}
+              <div style={{ fontSize: 12, color: '#64748b', paddingBottom: 3 }}>
+                <strong style={{ color: '#475569' }}>24h</strong>{' '}
+                🌧 <strong>{c.rain_mm?.toFixed(1) ?? '—'}mm</strong>{' '}
+                ☁️ <strong>{c.pop_48h ?? '—'}%</strong>{' '}
+                💨 <strong>{c.wind_ms?.toFixed(1) ?? '—'}m/s</strong>{' '}
+                🌡 <strong>{c.temp_max?.toFixed(0) ?? '—'}°C</strong>
+              </div>
+
+              {/* Pico 3h */}
+              {c.pico_3h != null && c.pico_3h >= 5 && (
+                <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626', fontWeight: 600 }}>
+                  ⚡ Pico de chuva: <strong>{c.pico_3h}mm</strong> em 3h
+                </div>
+              )}
+
+              {/* Janela */}
+              {c.janela && (
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                  🕐 <strong>Melhor janela:</strong> {c.janela}
+                </div>
+              )}
+
+              {/* Chuva prevista */}
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+                🌦 <strong>Chuva prevista:</strong> {parseHorarios(c.horarios_chuva)}
+              </div>
+
+              {/* Descrição aderência */}
+              {c.aderencia_desc && (
+                <div style={{ fontSize: 12, color: '#475569', marginTop: 5, fontStyle: 'italic' }}>
+                  {c.aderencia_desc}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ══ SEÇÃO 3 — Alertas (condicional) ══════════════════════════ */}
+          {c && (alertaRajada || nivelVento > 0) && (
+            <>
+              <Divider />
+              <SectionTitle>⚠️ Alertas</SectionTitle>
+
+              {/* Alerta rajada futura */}
+              {alertaRajada && c.alerta_rajada_kmh != null && (
+                <div style={{ background: '#fefce8', border: '1px solid #fde047',
+                  borderRadius: 8, padding: '8px 12px', fontSize: 12,
+                  color: '#713f12', fontWeight: 600, lineHeight: 1.5, marginBottom: 6 }}>
+                  🟡 <strong>Rajadas previstas nas próximas 48h</strong><br />
+                  <span style={{ fontWeight: 400, color: '#a16207' }}>
+                    {trilha.exposicao?.toLowerCase() === 'aberta'
+                      ? `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h previstas. Trilha exposta — risco de perda de controle em descidas rápidas, saltos e trechos de crista.`
+                      : `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h previstas. Mesmo em trilha fechada, rajadas acima de 50 km/h podem atingir clareiras e trechos sem dossel.`}
+                  </span>
+                </div>
+              )}
+
+              {/* Alerta vento histórico */}
+              {nivelVento > 0 && c.alerta_vento_kmh != null && (() => {
+                const cfg3 = {
+                  1: { bg: '#fefce8', border: '#fde047', corT: '#713f12', corS: '#a16207', emoji: '🟡',
+                    titulo: 'Vento moderado a forte nas últimas 48h',
+                    msg: 'Ventos entre 55–65 km/h podem quebrar galhos de árvores com saúde comprometida. Fique atento a galhos soltos na trilha.' },
+                  2: { bg: '#fff7ed', border: '#fdba74', corT: '#7c2d12', corS: '#c2410c', emoji: '🟠',
+                    titulo: 'Ventos fortes nas últimas 48h',
+                    msg: 'Ventos entre 65–90 km/h podem derrubar árvores de médio e grande porte. Avalie as condições no local antes de pedalar.' },
+                  3: { bg: '#fef2f2', border: '#fca5a5', corT: '#7f1d1d', corS: '#b91c1c', emoji: '🔴',
+                    titulo: 'Risco alto — vento de tempestade nas últimas 48h',
+                    msg: 'Ventos acima de 90 km/h com alto potencial de arrancar árvores pela raiz. Avalie presencialmente antes de pedalar — risco severo de obstrução.' },
+                }
+                const n = Math.min(nivelVento as number, 3) as 1 | 2 | 3
+                const a = cfg3[n]
+                const rajada = c.alerta_rajada_kmh ? ` · rajada ${c.alerta_rajada_kmh.toFixed(0)} km/h` : ''
+                return (
+                  <div style={{ background: a.bg, border: `1px solid ${a.border}`,
+                    borderRadius: 8, padding: '8px 12px', fontSize: 12,
+                    color: a.corT, fontWeight: 600, lineHeight: 1.5 }}>
+                    {a.emoji} <strong>{a.titulo}</strong>{' '}
+                    ({c.alerta_vento_kmh.toFixed(0)} km/h sustentado{rajada})<br />
+                    <span style={{ fontWeight: 400, color: a.corS }}>{a.msg}</span>
+                  </div>
+                )
+              })()}
+            </>
+          )}
+
+          {/* ══ SEÇÃO 4 — Próximos 3 dias ════════════════════════════════ */}
+          {hasFds && (
+            <>
+              <Divider />
+              <SectionTitle>📅 Próximos 3 dias</SectionTitle>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                {fdsDias.map(({ label, v, rain }) => {
+                  const dvcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
+                  return (
+                    <div key={label} style={{
+                      background: dvcfg ? dvcfg.bg : '#f8fafc',
+                      border: `1px solid ${dvcfg ? dvcfg.cor + '44' : '#e2e8f0'}`,
+                      borderRadius: 8, padding: '8px 10px', textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginBottom: 2 }}>
+                        {label}
+                      </div>
+                      <div style={{ fontSize: 16, marginBottom: 2 }}>
+                        {dvcfg?.emoji ?? '—'}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: dvcfg?.cor ?? '#94a3b8', marginBottom: 3 }}>
+                        {v ?? 'SEM DADOS'}
+                      </div>
+                      {rain != null && (
+                        <div style={{ fontSize: 11, color: '#64748b' }}>
+                          🌧 {rain.toFixed(1)}mm
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {/* ══ RODAPÉ — Fontes ══════════════════════════════════════════ */}
+          {fontes.length > 0 && (
+            <>
+              <Divider />
+              <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.8 }}>
+                {fontes.join(' · ')}
+              </div>
+            </>
+          )}
+
         </div>
-      </Section>
+        {/* fim card principal */}
 
+      </div>
     </div>
   )
 }

@@ -25,7 +25,7 @@ export type Condicao = {
   aderencia_score: number
   aderencia_desc?: string | null
   solo_descansado?: boolean | null
-  thresh_desc?: string | null
+  thresh_desc?: number | null
 
   // Veredictos
   veredicto: string
@@ -69,11 +69,11 @@ export type Condicao = {
   fonte?: string | null
 
   // Alertas de vento
-  alerta_vento_nivel?: string | null
+  alerta_vento_nivel?: number | null
   alerta_vento_kmh?: number | null
   alerta_rajada_kmh?: number | null
 
-  // Fim de semana
+  // Fim de semana D+1/D+2/D+3
   fds_d1_veredicto?: string | null
   fds_d1_rain?: number | null
   fds_d2_veredicto?: string | null
@@ -95,49 +95,52 @@ export type TrilhaComCondicao = Trilha & {
   condicao?: Condicao
 }
 
-export type Veredicto = 'DROP LIBERADO' | 'ATENÇÃO' | 'MELHOR ESPERAR'
-
 export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS'] as const
 export type Regiao = typeof REGIOES[number]
 
+// ── Veredicto ────────────────────────────────────────────────────────────────
+// Cores fiéis ao email HTML do agente Python
 export const VEREDICTO_CONFIG: Record<string, {
-  color: string
-  border: string
-  bg: string
-  text: string
-  leftBorder: string
-  pill: string
+  cor: string        // hex, para inline style (email-fiel)
+  bg: string         // hex background
+  emoji: string
+  texto: string
+  // Tailwind para UI escura (TrilhaCard)
+  twColor: string
+  twBg: string
+  twBorder: string
+  twLeftBorder: string
 }> = {
   'DROP LIBERADO': {
-    color: 'text-green-400',
-    border: 'border-green-500',
-    bg: 'bg-green-500/10',
-    text: 'DROP LIBERADO',
-    leftBorder: 'border-l-green-500',
-    pill: 'bg-green-600/20 text-green-300 border border-green-600/40',
+    cor: '#16a34a', bg: '#f0fdf4', emoji: '✅', texto: 'DROP LIBERADO',
+    twColor: 'text-green-400', twBg: 'bg-green-500/10',
+    twBorder: 'border-green-500', twLeftBorder: 'border-l-green-500',
   },
   'ATENÇÃO': {
-    color: 'text-yellow-400',
-    border: 'border-yellow-500',
-    bg: 'bg-yellow-500/10',
-    text: 'ATENÇÃO',
-    leftBorder: 'border-l-yellow-500',
-    pill: 'bg-yellow-600/20 text-yellow-300 border border-yellow-600/40',
+    cor: '#d97706', bg: '#fffbeb', emoji: '⚠️', texto: 'ATENÇÃO',
+    twColor: 'text-yellow-400', twBg: 'bg-yellow-500/10',
+    twBorder: 'border-yellow-500', twLeftBorder: 'border-l-yellow-500',
   },
   'MELHOR ESPERAR': {
-    color: 'text-red-400',
-    border: 'border-red-500',
-    bg: 'bg-red-500/10',
-    text: 'MELHOR ESPERAR',
-    leftBorder: 'border-l-red-500',
-    pill: 'bg-red-500/20 text-red-300 border border-red-500/40',
+    cor: '#ef4444', bg: '#fef2f2', emoji: '🛑', texto: 'MELHOR ESPERAR',
+    twColor: 'text-red-400', twBg: 'bg-red-500/10',
+    twBorder: 'border-red-500', twLeftBorder: 'border-l-red-500',
   },
 }
 
-export const SEM_DADOS_STYLE = {
-  color: 'text-slate-400',
-  border: 'border-slate-600',
-  bg: '',
-  leftBorder: 'border-l-slate-600',
-  pill: 'bg-slate-700 text-slate-400 border border-slate-600',
+// ── Aderência ─────────────────────────────────────────────────────────────────
+// Cores e emojis fiéis ao agente Python
+export const ADERENCIA_CONFIG: Record<string, { cor: string; emoji: string }> = {
+  'SECO':            { cor: '#eab308', emoji: '🟡' },
+  'GRIP PERFEITO':   { cor: '#22c55e', emoji: '🟢' },
+  'BOA ADERÊNCIA':   { cor: '#f97316', emoji: '🟠' },
+  'BAIXA ADERÊNCIA': { cor: '#ef4444', emoji: '🔴' },
+}
+
+// Cores da caixa de frase de secagem, derivadas do status de aderência
+export const ADERENCIA_FRASE: Record<string, { bg: string; border: string }> = {
+  'SECO':            { bg: '#f0fdf4', border: '#16a34a' },
+  'GRIP PERFEITO':   { bg: '#f0fdf4', border: '#16a34a' },
+  'BOA ADERÊNCIA':   { bg: '#fffbeb', border: '#d97706' },
+  'BAIXA ADERÊNCIA': { bg: '#fef2f2', border: '#ef4444' },
 }

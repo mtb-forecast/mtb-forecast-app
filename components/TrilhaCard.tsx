@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { TrilhaComCondicao, VEREDICTO_CONFIG, SEM_DADOS_STYLE } from '@/lib/types'
+import { TrilhaComCondicao, VEREDICTO_CONFIG, ADERENCIA_CONFIG } from '@/lib/types'
 
 type Props = {
   trilha: TrilhaComCondicao
@@ -10,17 +10,16 @@ type Props = {
 export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
   const c = trilha.condicao
 
-  // veredicto_12h tem prioridade; cai em veredicto se não existir ainda
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
+  const acfg = c?.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
   const hasData = c != null && vcfg != null
-  const style = vcfg ?? SEM_DADOS_STYLE
 
   return (
     <div
-      className={`bg-slate-800 rounded-xl overflow-hidden border border-slate-700 border-l-4 ${style.leftBorder} hover:border-slate-600 transition-colors flex flex-col`}
+      className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 border-l-4 flex flex-col hover:shadow-lg transition-shadow"
+      style={{ borderLeftColor: vcfg?.cor ?? '#475569' }}
     >
-      {/* Body */}
       <div className="p-4 flex-1">
         {/* Nome + favoritar */}
         <div className="flex items-start justify-between gap-2 mb-2">
@@ -33,7 +32,6 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
               className={`text-lg flex-shrink-0 leading-none transition-colors ${
                 isFavorito ? 'text-yellow-400' : 'text-slate-600 hover:text-yellow-400'
               }`}
-              title={isFavorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             >
               {isFavorito ? '★' : '☆'}
             </button>
@@ -48,7 +46,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
             </span>
           )}
           <span className="text-xs px-2 py-0.5 bg-slate-700 text-slate-400 rounded-full">
-            {trilha.trail_type}
+            {trilha.trail_type === 'bikepark' ? '🏟 Bike Park' : '🏔 Natural'}
           </span>
           <span className="text-xs px-2 py-0.5 bg-slate-700 text-slate-400 rounded-full">
             {trilha.regiao}
@@ -57,49 +55,42 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
 
         {hasData && c ? (
           <>
-            {/* Veredicto 12h pill */}
-            <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold mb-1 ${style.pill}`}>
-              {veredictoText}
+            {/* Pills: aderência + veredicto 12h */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+              {acfg && (
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                  style={{ color: acfg.cor, background: acfg.cor + '18', border: `1px solid ${acfg.cor}33` }}
+                >
+                  {acfg.emoji} {c.aderencia_status}
+                </span>
+              )}
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                style={{ color: vcfg.cor, background: vcfg.bg, border: `1px solid ${vcfg.cor}33` }}
+              >
+                {vcfg.emoji} {veredictoText}
+              </span>
             </div>
 
-            {/* Aderência */}
-            {c.aderencia_status && (
-              <p className="text-slate-400 text-xs mb-3 leading-snug">{c.aderencia_status}</p>
-            )}
-
-            {/* Métricas */}
-            <div className="grid grid-cols-3 gap-1.5 mb-3">
-              <div className="bg-slate-700/60 rounded-lg p-2">
-                <p className="text-xs text-slate-500 leading-none mb-1">Chuva 48h</p>
-                <p className="text-white font-semibold text-xs">
-                  {c.acumulo_48h != null ? `${c.acumulo_48h.toFixed(1)} mm` : '—'}
-                </p>
-              </div>
-              <div className="bg-slate-700/60 rounded-lg p-2">
-                <p className="text-xs text-slate-500 leading-none mb-1">Pico 3h</p>
-                <p className="text-white font-semibold text-xs">
-                  {c.pico_3h != null ? `${c.pico_3h.toFixed(1)} mm` : '—'}
-                </p>
-              </div>
-              <div className="bg-slate-700/60 rounded-lg p-2">
-                <p className="text-xs text-slate-500 leading-none mb-1">Vento</p>
-                <p className="text-white font-semibold text-xs">
-                  {c.wind_ms != null ? `${c.wind_ms.toFixed(1)} m/s` : '—'}
-                </p>
-              </div>
+            {/* Métricas em linha */}
+            <div className="flex items-center gap-2 text-xs text-slate-300 mb-2 flex-wrap">
+              <span>🌧 <b>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b></span>
+              {c.pico_3h != null && c.pico_3h > 0 && (
+                <span className="text-red-400">⚡ <b>{c.pico_3h.toFixed(1)}mm</b> pico</span>
+              )}
+              <span>💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b></span>
             </div>
 
-            {/* Frase secagem — 1 linha */}
+            {/* Frase — 1 linha */}
             {c.frase_secagem && (
-              <p className={`text-xs truncate mb-2 ${style.color}`}>
-                {c.frase_secagem}
-              </p>
+              <p className="text-xs text-slate-400 truncate mb-2">{c.frase_secagem}</p>
             )}
 
             {/* Janela */}
             {c.janela && (
               <p className="text-xs text-slate-500">
-                Janela: <span className="text-slate-300">{c.janela}</span>
+                🕐 Janela: <span className="text-slate-300">{c.janela}</span>
               </p>
             )}
           </>
@@ -108,7 +99,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
         )}
       </div>
 
-      {/* Footer — Ver detalhes */}
+      {/* Footer */}
       <div className="px-4 py-2.5 border-t border-slate-700/60">
         <Link
           href={`/trilhas/${trilha.id}`}

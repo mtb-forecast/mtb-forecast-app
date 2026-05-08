@@ -20,7 +20,7 @@ export default function CondicaoCard({ condicao }: Props) {
   const vcfg = VEREDICTO_CONFIG[condicao.veredicto]
 
   return (
-    <div className={`bg-slate-800 border rounded-xl overflow-hidden ${vcfg?.border || 'border-slate-700'}`}>
+    <div className={`bg-slate-800 border rounded-xl overflow-hidden ${vcfg?.twBorder || 'border-slate-700'}`}>
       <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-300">Condição atual</h3>
         <span className="text-xs text-slate-500">
@@ -37,14 +37,14 @@ export default function CondicaoCard({ condicao }: Props) {
         {/* Score visual */}
         <div className="flex items-center gap-4 mb-5">
           <div
-            className={`w-16 h-16 rounded-full border-4 flex items-center justify-center flex-shrink-0 ${vcfg?.border || 'border-slate-600'}`}
+            className={`w-16 h-16 rounded-full border-4 flex items-center justify-center flex-shrink-0 ${vcfg?.twBorder || 'border-slate-600'}`}
           >
-            <span className={`text-xl font-extrabold ${vcfg?.color || 'text-white'}`}>
+            <span className={`text-xl font-extrabold ${vcfg?.twColor || 'text-white'}`}>
               {condicao.aderencia_score}
             </span>
           </div>
           <div>
-            <p className={`text-lg font-bold ${vcfg?.color || 'text-white'}`}>{condicao.veredicto}</p>
+            <p className={`text-lg font-bold ${vcfg?.twColor || 'text-white'}`}>{condicao.veredicto}</p>
             <p className="text-slate-400 text-sm">{condicao.aderencia_status}</p>
           </div>
         </div>
