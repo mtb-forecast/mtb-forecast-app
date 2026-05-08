@@ -92,7 +92,7 @@ export default function TrilhasPage() {
     <div className="min-h-screen px-4 sm:px-6 py-8 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-[#1e293b]">Trilhas</h1>
+          <h1 className="font-wheat text-3xl text-[#1e293b]">Trilhas</h1>
           <p className="text-[#64748b] mt-1">{filteredTrilhas.length} trilhas encontradas</p>
         </div>
         <Link

@@ -4,6 +4,14 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+@font-face {
+  font-family: 'WheatSmile';
+  src: url('/fonts/WheatSmile.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg-primary: #f5f0eb;
   --bg-card: #ffffff;
@@ -17,11 +25,35 @@
 
 html,
 body {
-  background-color: #f5f0eb;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 20 L10 10 L20 20 L10 30 Z' fill='%23d4c9bb' opacity='0.5'/%3E%3Cpath d='M20 20 L30 10 L40 20 L30 30 Z' fill='%23d4c9bb' opacity='0.5'/%3E%3C/svg%3E");
-  background-repeat: repeat;
+  background-image: url('/bg-mountains.avif');
+  background-attachment: fixed;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-color: #1a1a1a;
   color: #1e293b;
   font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Overlay sobre a imagem para garantir legibilidade */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(245, 240, 235, 0.82);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Todo conteúdo acima do overlay */
+#__next, main, nav, header, footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fonte Wheat Smile para logo e títulos principais */
+.font-wheat {
+  font-family: 'WheatSmile', serif;
 }
 
 @layer utilities {
@@ -40,12 +72,18 @@ body {
   }
 
   .card {
-    @apply bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm;
+    @apply rounded-xl overflow-hidden;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10);
   }
 
   .input-field {
-    @apply w-full bg-white border border-[#d4c9bb] rounded-lg px-4 py-3 text-slate-800 placeholder-slate-400
+    @apply w-full border rounded-lg px-4 py-3 text-slate-800 placeholder-slate-400
            focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors;
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(0, 0, 0, 0.12);
   }
 
   .badge {

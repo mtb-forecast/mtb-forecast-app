@@ -17,8 +17,16 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
 
   return (
     <div
-      className="bg-white rounded-xl overflow-hidden border border-[#d4c9bb] border-l-4 flex flex-col hover:shadow-md transition-shadow"
-      style={{ borderLeftColor: vcfg?.cor ?? '#94a3b8' }}
+      className="rounded-xl overflow-hidden border-l-4 flex flex-col transition-shadow hover:shadow-lg"
+      style={{
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(4px)',
+        borderTop: '1px solid rgba(0,0,0,0.08)',
+        borderRight: '1px solid rgba(0,0,0,0.08)',
+        borderBottom: '1px solid rgba(0,0,0,0.08)',
+        borderLeft: `4px solid ${vcfg?.cor ?? '#94a3b8'}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+      }}
     >
       <div className="p-4 flex-1">
         {/* Nome + favoritar */}
@@ -100,7 +108,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2.5 border-t border-[#d4c9bb]">
+      <div className="px-4 py-2.5" style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
         <Link
           href={`/trilhas/${trilha.id}`}
           className="block w-full text-center text-xs font-semibold text-green-600 hover:text-green-500 transition-colors"

@@ -50,14 +50,14 @@ export default function Navbar() {
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur"
-      style={{ background: 'rgba(245,240,235,0.95)', borderBottom: '1px solid #d4c9bb' }}
+      className="fixed top-0 left-0 right-0 z-50"
+      style={{ background: 'rgba(245,240,235,0.90)', backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(0,0,0,0.08)' }}
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href={isLoggedIn ? '/dashboard' : '/'} className="flex items-center gap-2">
           <span className="text-xl">🚵</span>
-          <span className="font-extrabold text-[#1e293b] text-lg">MTB Forecast</span>
+          <span className="font-wheat text-[#1e293b] text-xl">MTB Forecast</span>
         </Link>
 
         {/* Desktop nav */}
@@ -119,7 +119,7 @@ export default function Navbar() {
       {isMenuOpen && (
         <div
           className="sm:hidden px-4 py-3 space-y-1"
-          style={{ borderTop: '1px solid #d4c9bb', background: '#f5f0eb' }}
+          style={{ borderTop: '1px solid rgba(0,0,0,0.08)', background: 'rgba(245,240,235,0.90)' }}
         >
           {isLoggedIn ? (
             <>

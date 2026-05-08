@@ -94,7 +94,7 @@ export default function DashboardPage() {
     <div className="min-h-screen px-4 sm:px-6 py-8 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#1e293b]">
+        <h1 className="font-wheat text-3xl text-[#1e293b]">
           Olá, {profile?.nome?.split(' ')[0] || 'Rider'} 👋
         </h1>
         <p className="text-[#64748b] mt-1">
@@ -112,7 +112,7 @@ export default function DashboardPage() {
         </div>
 
         {favoritas.length === 0 ? (
-          <div className="bg-white border border-[#d4c9bb] border-dashed rounded-xl p-10 text-center shadow-sm">
+          <div className="rounded-xl p-10 text-center" style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(4px)', border: '1px dashed rgba(0,0,0,0.15)', boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
             <p className="text-[#64748b] mb-4">Você ainda não tem trilhas favoritas.</p>
             <Link
               href="/trilhas"
@@ -140,7 +140,7 @@ export default function DashboardPage() {
           </div>
 
           {ranking.length === 0 ? (
-            <div className="bg-white border border-[#d4c9bb] rounded-xl p-8 text-center shadow-sm">
+            <div className="rounded-xl p-8 text-center" style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(4px)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
               <p className="text-[#64748b]">Nenhuma trilha cadastrada para sua região ainda.</p>
             </div>
           ) : (

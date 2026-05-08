@@ -18,7 +18,7 @@ export default function LandingPage() {
             Atualizado em tempo real
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-[#1e293b] leading-tight mb-6">
+          <h1 className="font-wheat text-5xl sm:text-6xl md:text-7xl text-[#1e293b] leading-tight mb-6">
             MTB Forecast
           </h1>
           <p className="text-xl sm:text-2xl text-green-600 font-semibold mb-4">
@@ -75,7 +75,12 @@ export default function LandingPage() {
             <div
               key={v.label}
               className="rounded-xl border-2 p-5"
-              style={{ borderColor: v.border, background: v.bg }}
+              style={{
+                borderColor: v.border,
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(4px)',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+              }}
             >
               <p className="font-bold text-lg mb-1" style={{ color: v.color }}>{v.label}</p>
               <p className="text-[#64748b] text-sm">{v.desc}</p>
@@ -122,7 +127,13 @@ export default function LandingPage() {
           ].map((f) => (
             <div
               key={f.title}
-              className="bg-white border border-[#d4c9bb] rounded-xl p-5 hover:border-green-400 transition-colors shadow-sm"
+              className="rounded-xl p-5 transition-shadow hover:shadow-lg"
+              style={{
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(4px)',
+                border: '1px solid rgba(0,0,0,0.08)',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+              }}
             >
               <div className="text-3xl mb-3">{f.icon}</div>
               <h3 className="font-semibold text-[#1e293b] mb-1">{f.title}</h3>
@@ -134,7 +145,7 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <div className="bg-white border border-[#d4c9bb] rounded-2xl p-10 shadow-sm">
+        <div className="rounded-2xl p-10" style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(4px)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
           <h2 className="text-3xl font-bold text-[#1e293b] mb-4">
             Pronto para pedalar com segurança?
           </h2>

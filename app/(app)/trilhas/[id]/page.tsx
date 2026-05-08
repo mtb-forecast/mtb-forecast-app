@@ -157,10 +157,14 @@ export default function TrilhaDetalhe() {
 
         {/* ══ CARD PRINCIPAL ══════════════════════════════════════════════ */}
         <div style={{
-          background: '#ffffff',
+          background: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(4px)',
           borderRadius: 12,
+          borderTop: '1px solid rgba(0,0,0,0.08)',
+          borderRight: '1px solid rgba(0,0,0,0.08)',
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
           borderLeft: `4px solid ${bordaCor}`,
-          boxShadow: '0 1px 6px rgba(0,0,0,.08)',
+          boxShadow: '0 2px 12px rgba(0,0,0,.10)',
           padding: '16px 18px 14px',
         }}>
 
@@ -172,7 +176,8 @@ export default function TrilhaDetalhe() {
                 href={mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontSize: 14, fontWeight: 800, color: '#1e293b',
+                style={{ fontSize: 16, fontWeight: 800, color: '#1e293b',
+                  fontFamily: "'WheatSmile', serif",
                   textDecoration: 'none', display: 'block', lineHeight: 1.3 }}
               >
                 {trilha.name} 📍
