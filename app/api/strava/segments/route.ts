@@ -24,11 +24,21 @@ export async function GET(request: NextRequest) {
         const detailRes = await fetch(`https://www.strava.com/api/v3/segments/${seg.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
-        if (!detailRes.ok) return { ...seg, polyline: null, elevation_profile: null }
+        if (!detailRes.ok) {
+          console.log(`Segment ${seg.id} detail fetch failed: ${detailRes.status}`)
+          return { ...seg, polyline: null, elevation_profile: null }
+        }
         const data = await detailRes.json()
+        console.log('Segment detail:', JSON.stringify({
+          id: data.id,
+          name: data.name,
+          map: data.map,
+          polyline: data.map?.polyline,
+          summary_polyline: data.map?.summary_polyline,
+        }))
         return {
           ...seg,
-          polyline: data.map?.polyline || null,
+          polyline: data.map?.polyline || data.map?.summary_polyline || null,
           elevation_profile: data.elevation_profile || null,
         }
       } catch {
