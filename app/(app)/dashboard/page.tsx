@@ -304,12 +304,22 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                <div className="px-4 py-2.5" style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                <div
+                  className="px-4 py-2.5 flex items-center justify-between"
+                  style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}
+                >
+                  <Link
+                    href={`/trilhas/${t.id}`}
+                    className="text-xs font-semibold hover:opacity-75 transition-opacity"
+                    style={{ color: '#16a34a' }}
+                  >
+                    Ver detalhes →
+                  </Link>
                   <a
                     href={t.strava_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full text-center text-xs font-semibold hover:opacity-75 transition-opacity"
+                    className="text-xs font-semibold hover:opacity-75 transition-opacity"
                     style={{ color: '#FC4C02' }}
                   >
                     Ver no Strava ↗
