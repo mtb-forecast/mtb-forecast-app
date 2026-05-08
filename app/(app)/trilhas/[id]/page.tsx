@@ -3,15 +3,19 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import {
   Trilha, Condicao,
   VEREDICTO_CONFIG, ADERENCIA_CONFIG, ADERENCIA_FRASE,
 } from '@/lib/types'
+import ElevationProfile from '@/components/ElevationProfile'
+
+const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
 type TrilhaDetalhada = Trilha & { condicoes?: Condicao[] }
 
-// ── helpers de renderização ──────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────────
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -46,7 +50,7 @@ function inclinacaoCor(inc: number | null | undefined): string {
   return '#64748b'
 }
 
-// ── page ────────────────────────────────────────────────────────────────────
+// ── page ─────────────────────────────────────────────────────────────────────
 
 export default function TrilhaDetalhe() {
   const router = useRouter()
@@ -59,6 +63,12 @@ export default function TrilhaDetalhe() {
   const [isFavorito, setIsFavorito] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
+  // Personal trail extras
+  const [isTrilhaPessoal, setIsTrilhaPessoal] = useState(false)
+  const [polyline, setPolyline] = useState<string | null>(null)
+  const [elevationProfileUrl, setElevationProfileUrl] = useState<string | null>(null)
+  const [stravaUrl, setStravaUrl] = useState<string | null>(null)
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -69,23 +79,61 @@ export default function TrilhaDetalhe() {
         supabase.from('trilhas').select(`*, condicoes(*)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-          .single(),
+          .maybeSingle(),
         supabase.from('favoritos').select('id').eq('user_id', user.id).eq('trilha_id', id).maybeSingle(),
       ])
 
-      if (!td) { router.replace('/trilhas'); return }
-      const t = td as TrilhaDetalhada
-      const conds = Array.isArray(t.condicoes) ? t.condicoes : []
-      setTrilha(t)
-      setC(conds[0] ?? null)
-      setIsFavorito(!!fav)
+      if (td) {
+        const t = td as TrilhaDetalhada
+        const conds = Array.isArray(t.condicoes) ? t.condicoes : []
+        setTrilha(t)
+        setC(conds[0] ?? null)
+        setIsFavorito(!!fav)
+        setLoading(false)
+        return
+      }
+
+      // Fallback: personal trail
+      const { data: pt } = await supabase
+        .from('trilhas_pessoais')
+        .select(`*, condicoes_pessoais(*)`)
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!pt) { router.replace('/trilhas'); return }
+
+      const conds = Array.isArray(pt.condicoes_pessoais) ? pt.condicoes_pessoais : []
+      const latestC = [...conds].sort(
+        (a, b) => new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
+      )[0] ?? null
+
+      setTrilha({
+        id: pt.id,
+        name: pt.name,
+        lat: pt.lat,
+        lon: pt.lon,
+        solo_type: pt.solo_type,
+        exposicao: pt.exposicao,
+        altitude_m: pt.altitude_m ?? 0,
+        trail_type: pt.trail_type,
+        desnivel_m: pt.desnivel_m ?? undefined,
+        extensao_km: pt.extensao_km ?? undefined,
+        regiao: pt.regiao,
+        bioma: pt.bioma ?? undefined,
+      })
+      setC(latestC as Condicao ?? null)
+      setIsTrilhaPessoal(true)
+      setPolyline(pt.polyline ?? null)
+      setElevationProfileUrl(pt.strava_elevation_profile ?? null)
+      setStravaUrl(pt.strava_url ?? null)
       setLoading(false)
     }
     load()
   }, [id, router])
 
   async function toggleFavorito() {
-    if (!userId) return
+    if (!userId || isTrilhaPessoal) return
     if (isFavorito) {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', id)
       setIsFavorito(false)
@@ -105,24 +153,21 @@ export default function TrilhaDetalhe() {
 
   if (!trilha) return null
 
-  // Derive styling
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg   = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const acfg   = c?.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
   const fraseStyle = ADERENCIA_FRASE[c?.aderencia_status ?? ''] ?? { bg: '#f8fafc', border: '#94a3b8' }
-  const bordaCor   = vcfg?.cor ?? '#94a3b8'
+  const bordaCor   = isTrilhaPessoal ? '#FC4C02' : (vcfg?.cor ?? '#94a3b8')
 
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
   const isMatAtlantica = trilha.bioma === 'Mata Atlântica'
   const mapsUrl = `https://www.google.com/maps?q=${trilha.lat},${trilha.lon}`
 
-  // Alertas
   const alertaRajada = c?.alerta_rajada_kmh != null &&
     ((trilha.exposicao?.toLowerCase() === 'aberta' && c.alerta_rajada_kmh >= 30) ||
      (trilha.exposicao?.toLowerCase() !== 'aberta' && c.alerta_rajada_kmh >= 50))
   const nivelVento = c?.alerta_vento_nivel ?? 0
 
-  // FDS — próximos 3 dias com datas reais em pt-BR
   const formatarDia = (data: Date) => {
     const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
     const dd = String(data.getDate()).padStart(2, '0')
@@ -140,7 +185,6 @@ export default function TrilhaDetalhe() {
   ]
   const hasFds = fdsDias.some(d => d.v)
 
-  // Fontes
   const clay = c?.clay_pct
   const fontes: string[] = []
   if (c?.fonte)   fontes.push(`📡 Previsão: ${c.fonte}`)
@@ -178,49 +222,92 @@ export default function TrilhaDetalhe() {
           padding: '16px 18px 14px',
         }}>
 
-          {/* ── HEADER: nome + favoritar ───────────────────────────────── */}
+          {/* ── HEADER: nome + ação ────────────────────────────────────── */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <a
-              href={mapsUrl}
+              href={stravaUrl ?? mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{ fontSize: 16, fontWeight: 800, color: '#1e293b',
                 fontFamily: "'WheatSmile', serif",
                 textDecoration: 'none', display: 'block', lineHeight: 1.3, flex: 1, minWidth: 0 }}
             >
-              {trilha.name} 📍
+              {trilha.name} {isTrilhaPessoal ? '🟠' : '📍'}
             </a>
 
-            {/* Botão favoritar */}
-            <button
-              onClick={toggleFavorito}
-              style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
-                border: isFavorito ? '1px solid #eab308' : '1px solid #cbd5e1',
-                background: isFavorito ? '#fefce8' : 'transparent',
-                color: isFavorito ? '#92400e' : '#64748b',
-                fontSize: 16, fontWeight: 700, flexShrink: 0 }}
-            >
-              {isFavorito ? '★' : '☆'}
-            </button>
+            {isTrilhaPessoal ? (
+              <a
+                href={stravaUrl ?? '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, flexShrink: 0,
+                  fontSize: 11, fontWeight: 700, color: '#FC4C02',
+                  border: '1px solid rgba(252,76,2,0.3)',
+                  background: 'rgba(252,76,2,0.08)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                Ver no Strava ↗
+              </a>
+            ) : (
+              <button
+                onClick={toggleFavorito}
+                style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+                  border: isFavorito ? '1px solid #eab308' : '1px solid #cbd5e1',
+                  background: isFavorito ? '#fefce8' : 'transparent',
+                  color: isFavorito ? '#92400e' : '#64748b',
+                  fontSize: 16, fontWeight: 700, flexShrink: 0 }}
+              >
+                {isFavorito ? '★' : '☆'}
+              </button>
+            )}
           </div>
 
-          {/* ── MAPA SATÉLITE ──────────────────────────────────────────── */}
-          <div style={{ marginTop: 12, borderRadius: 8, overflow: 'hidden', height: 200 }}>
-            <iframe
-              src={`https://maps.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15&output=embed&t=k`}
-              width="100%"
-              height="200"
-              style={{ border: 'none', display: 'block' }}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+          {/* ── MAPA ──────────────────────────────────────────────────── */}
+          <div style={{ marginTop: 12 }}>
+            {isTrilhaPessoal && polyline ? (
+              <>
+                <StravaMap polyline={polyline} />
+                <div style={{ marginTop: 8 }}>
+                  <ElevationProfile
+                    elevationProfileUrl={elevationProfileUrl}
+                    desnivel_m={trilha.desnivel_m}
+                    extensao_km={trilha.extensao_km}
+                    altitude_m={trilha.altitude_m}
+                  />
+                </div>
+              </>
+            ) : (
+              <div style={{ borderRadius: 8, overflow: 'hidden', height: 200 }}>
+                <iframe
+                  src={`https://maps.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15&output=embed&t=k`}
+                  width="100%"
+                  height="200"
+                  style={{ border: 'none', display: 'block' }}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            )}
           </div>
 
-          {/* ── Subtítulo tipo ─────────────────────────────────────────── */}
+          {/* ── Badges de tipo ─────────────────────────────────────────── */}
           <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600,
             letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 10 }}>
             {trilha.trail_type === 'bikepark' ? '🏟 Bike Park' : '🏔 Trilha Natural'}
           </div>
+
+          {/* Badge Strava */}
+          {isTrilhaPessoal && (
+            <div style={{ marginTop: 4 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '2px 8px', borderRadius: 20,
+                fontSize: 10, fontWeight: 700,
+                color: '#FC4C02', background: 'rgba(252,76,2,0.12)', border: '1px solid rgba(252,76,2,0.25)',
+              }}>
+                🟠 Strava
+              </span>
+            </div>
+          )}
 
           {/* Características físicas */}
           {(() => {
@@ -309,7 +396,6 @@ export default function TrilhaDetalhe() {
               <Divider />
               <SectionTitle>🌍 Condição do Solo</SectionTitle>
 
-              {/* Frase de secagem */}
               {c.frase_secagem && (
                 <div style={{ background: fraseStyle.bg, borderLeft: `3px solid ${fraseStyle.border}`,
                   borderRadius: '0 6px 6px 0', padding: '7px 10px',
@@ -318,7 +404,6 @@ export default function TrilhaDetalhe() {
                 </div>
               )}
 
-              {/* Chuva 48h + solo descansado */}
               <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.8 }}>
                 🕰 Chuva 48h:{' '}
                 <strong>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</strong> bruto
@@ -347,7 +432,6 @@ export default function TrilhaDetalhe() {
               <Divider />
               <SectionTitle>🌦 Previsão 48h</SectionTitle>
 
-              {/* 12h */}
               <div style={{ fontSize: 12, color: '#64748b', paddingBottom: 3 }}>
                 <strong style={{ color: '#475569' }}>12h</strong>{' '}
                 🌧 <strong>{c.rain_12h?.toFixed(1) ?? '—'}mm</strong>{' '}
@@ -356,7 +440,6 @@ export default function TrilhaDetalhe() {
                 🌡 <strong>{c.temp_max?.toFixed(0) ?? '—'}°C</strong>
               </div>
 
-              {/* 24h */}
               <div style={{ fontSize: 12, color: '#64748b', paddingBottom: 3 }}>
                 <strong style={{ color: '#475569' }}>24h</strong>{' '}
                 🌧 <strong>{c.rain_mm?.toFixed(1) ?? '—'}mm</strong>{' '}
@@ -365,26 +448,22 @@ export default function TrilhaDetalhe() {
                 🌡 <strong>{c.temp_max?.toFixed(0) ?? '—'}°C</strong>
               </div>
 
-              {/* Pico 3h */}
               {c.pico_3h != null && c.pico_3h >= 5 && (
                 <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626', fontWeight: 600 }}>
                   ⚡ Pico de chuva: <strong>{c.pico_3h}mm</strong> em 3h
                 </div>
               )}
 
-              {/* Janela */}
               {c.janela && (
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
                   🕐 <strong>Melhor janela:</strong> {c.janela}
                 </div>
               )}
 
-              {/* Chuva prevista */}
               <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
                 🌦 <strong>Chuva prevista:</strong> {parseHorarios(c.horarios_chuva)}
               </div>
 
-              {/* Descrição aderência */}
               {c.aderencia_desc && (
                 <div style={{ fontSize: 12, color: '#475569', marginTop: 5, fontStyle: 'italic' }}>
                   {c.aderencia_desc}
@@ -393,13 +472,12 @@ export default function TrilhaDetalhe() {
             </>
           )}
 
-          {/* ══ SEÇÃO 3 — Alertas (condicional) ══════════════════════════ */}
+          {/* ══ SEÇÃO 3 — Alertas ════════════════════════════════════════ */}
           {c && (alertaRajada || nivelVento > 0) && (
             <>
               <Divider />
               <SectionTitle>⚠️ Alertas</SectionTitle>
 
-              {/* Alerta rajada futura */}
               {alertaRajada && c.alerta_rajada_kmh != null && (
                 <div style={{ background: '#fefce8', border: '1px solid #fde047',
                   borderRadius: 8, padding: '8px 12px', fontSize: 12,
@@ -413,7 +491,6 @@ export default function TrilhaDetalhe() {
                 </div>
               )}
 
-              {/* Alerta vento histórico */}
               {nivelVento > 0 && c.alerta_vento_kmh != null && (() => {
                 const cfg3 = {
                   1: { bg: '#fefce8', border: '#fde047', corT: '#713f12', corS: '#a16207', emoji: '🟡',
@@ -488,8 +565,6 @@ export default function TrilhaDetalhe() {
           )}
 
         </div>
-        {/* fim card principal */}
-
       </div>
     </div>
   )
