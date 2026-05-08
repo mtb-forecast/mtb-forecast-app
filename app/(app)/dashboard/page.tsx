@@ -42,13 +42,14 @@ export default function DashboardPage() {
           .select(`*, condicoes(*)`)
           .in('id', ids)
           .eq('aprovada', true)
+          .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
 
         if (trilhas) {
           setFavoritas(
-            trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => ({
-              ...t,
-              condicao: t.condicoes?.[0],
-            }))
+            trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+              const condicoesArr = Array.isArray(t.condicoes) ? t.condicoes : []
+              return { ...t, condicao: condicoesArr[0] ?? undefined }
+            })
           )
         }
       }
@@ -59,14 +60,15 @@ export default function DashboardPage() {
           .select(`*, condicoes(*)`)
           .eq('regiao', profileData.regiao)
           .eq('aprovada', true)
+          .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .limit(6)
 
         if (rankData) {
           setRanking(
-            rankData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => ({
-              ...t,
-              condicao: t.condicoes?.[0],
-            }))
+            rankData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+              const condicoesArr = Array.isArray(t.condicoes) ? t.condicoes : []
+              return { ...t, condicao: condicoesArr[0] ?? undefined }
+            })
           )
         }
       }

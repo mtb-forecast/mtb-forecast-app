@@ -27,15 +27,22 @@ export default function TrilhasPage() {
       setUserId(user.id)
 
       const [{ data: trilhasData }, { data: favData }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*)`).eq('aprovada', true).order('name'),
+        supabase
+          .from('trilhas')
+          .select(`*, condicoes(*)`)
+          .eq('aprovada', true)
+          .order('name')
+          .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
         supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
       ])
 
       if (trilhasData) {
-        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => ({
-          ...t,
-          condicao: t.condicoes?.[0],
-        }))
+        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+          // Pega a condição mais recente (já ordenada por gerado_em DESC)
+          const condicoesArr = Array.isArray(t.condicoes) ? t.condicoes : []
+          const latestCondicao = condicoesArr[0] ?? undefined
+          return { ...t, condicao: latestCondicao }
+        })
         setTrilhas(mapped)
         setFilteredTrilhas(mapped)
       }

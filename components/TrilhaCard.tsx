@@ -9,11 +9,17 @@ type Props = {
 
 export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
   const condicao = trilha.condicao
-  const vcfg = condicao ? VEREDICTO_CONFIG[condicao.veredicto] : null
 
-  const borderColor = vcfg?.border || 'border-slate-600'
-  const bgColor = vcfg?.bg || ''
-  const textColor = vcfg?.color || 'text-slate-400'
+  // Só considera a condição válida se o veredicto existir E mapeiar para um config conhecido.
+  // Isso evita mostrar 'ATENÇÃO' quando o agente inseriu um valor padrão com dados zerados.
+  const veredicto = condicao?.veredicto?.trim() || null
+  const vcfg = veredicto ? (VEREDICTO_CONFIG[veredicto] ?? null) : null
+  const hasValidCondicao = condicao != null && vcfg != null
+
+  const borderColor = vcfg?.border ?? 'border-slate-600'
+  const bgColor = vcfg?.bg ?? ''
+  const textColor = vcfg?.color ?? 'text-slate-400'
+  const displayVeredicto = hasValidCondicao ? veredicto! : 'SEM DADOS'
 
   return (
     <div
@@ -22,7 +28,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
       {/* Top bar with veredicto */}
       <div className={`px-4 py-2.5 flex items-center justify-between border-b border-slate-700`}>
         <span className={`font-bold text-sm ${textColor}`}>
-          {condicao?.veredicto || 'SEM DADOS'}
+          {displayVeredicto}
         </span>
         {onToggleFavorito && (
           <button
@@ -47,8 +53,8 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
             <span className="badge bg-slate-700 text-slate-300 text-xs">{trilha.regiao}</span>
           </div>
 
-          {/* Métricas da condição */}
-          {condicao ? (
+          {/* Métricas da condição — só exibe quando há dados válidos */}
+          {hasValidCondicao && condicao ? (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-slate-700/60 rounded-lg p-2.5">
