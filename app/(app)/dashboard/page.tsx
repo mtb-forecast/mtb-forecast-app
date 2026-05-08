@@ -4,8 +4,27 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { TrilhaComCondicao, Profile } from '@/lib/types'
+import { TrilhaComCondicao, Profile, VEREDICTO_CONFIG, ADERENCIA_CONFIG } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
+
+type CondicaoPessoal = {
+  aderencia_status: string | null
+  aderencia_score: number | null
+  veredicto: string | null
+  veredicto_12h: string | null
+  rain_mm: number | null
+  wind_ms: number | null
+  pico_3h: number | null
+  acumulo_48h: number | null
+  acumulo_ef: number | null
+  ultima_chuva_h: number | null
+  meia_vida_h: number | null
+  gust_max_kmh: number | null
+  janela: string | null
+  frase_secagem: string | null
+  solo_descansado: boolean | null
+  gerado_em: string
+}
 
 type TrilhaPessoalComCondicao = {
   id: string
@@ -14,12 +33,8 @@ type TrilhaPessoalComCondicao = {
   strava_url: string
   extensao_km?: number
   desnivel_m?: number
-  condicao?: {
-    veredicto?: string
-    aderencia_status?: string
-    frase_secagem?: string
-    janela?: string
-  }
+  condicoes_pessoais?: CondicaoPessoal[]
+  condicao?: CondicaoPessoal | null
 }
 
 export default function DashboardPage() {
@@ -74,19 +89,39 @@ export default function DashboardPage() {
         }
       }
 
-      // Trilhas pessoais do Strava (com condicoes_pessoais se disponível)
-      const { data: pessoais } = await supabase
+      // Trilhas pessoais do Strava com condição mais recente
+      const { data: trilhasStrava } = await supabase
         .from('trilhas_pessoais')
-        .select(`id, name, regiao, strava_url, extensao_km, desnivel_m, condicoes_pessoais(*)`)
+        .select(`
+          *,
+          condicoes_pessoais (
+            aderencia_status,
+            aderencia_score,
+            veredicto,
+            veredicto_12h,
+            rain_mm,
+            wind_ms,
+            pico_3h,
+            acumulo_48h,
+            acumulo_ef,
+            ultima_chuva_h,
+            meia_vida_h,
+            gust_max_kmh,
+            janela,
+            frase_secagem,
+            solo_descansado,
+            gerado_em
+          )
+        `)
         .eq('user_id', user.id)
-        .order('name')
+        .order('created_at', { ascending: false })
 
-      if (pessoais) {
-        setStravaTrails(pessoais.map((t: TrilhaPessoalComCondicao & { condicoes_pessoais?: TrilhaPessoalComCondicao['condicao'][] }) => {
-          const arr = Array.isArray(t.condicoes_pessoais) ? t.condicoes_pessoais : []
-          return { ...t, condicao: arr[0] ?? undefined }
-        }))
-      }
+      const trilhasComCondicao = (trilhasStrava || []).map((t: TrilhaPessoalComCondicao) => ({
+        ...t,
+        condicao: (Array.isArray(t.condicoes_pessoais) ? t.condicoes_pessoais : [])
+          .sort((a, b) => new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime())[0] || null,
+      }))
+      setStravaTrails(trilhasComCondicao)
 
       setLoading(false)
     }
@@ -201,11 +236,9 @@ export default function DashboardPage() {
                 }}
               >
                 <div className="p-4 flex-1">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="font-bold text-[#1e293b] text-sm leading-tight flex-1 line-clamp-2">
-                      {t.name}
-                    </h3>
-                  </div>
+                  <h3 className="font-bold text-[#1e293b] text-sm leading-tight line-clamp-2 mb-2">
+                    {t.name}
+                  </h3>
 
                   {/* Badge Strava + região */}
                   <div className="flex flex-wrap gap-1.5 mb-3">
@@ -220,10 +253,51 @@ export default function DashboardPage() {
                     </span>
                   </div>
 
-                  {/* Condição ou fallback */}
-                  {t.condicao ? (
-                    <p className="text-xs text-[#64748b] truncate">{t.condicao.frase_secagem}</p>
-                  ) : (
+                  {t.condicao ? (() => {
+                    const c = t.condicao!
+                    const veredictoText = c.veredicto_12h?.trim() || c.veredicto?.trim() || null
+                    const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
+                    const acfg = c.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
+                    return (
+                      <>
+                        {/* Pills aderência + veredicto */}
+                        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                          {acfg && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                              style={{ color: acfg.cor, background: acfg.cor + '18', border: `1px solid ${acfg.cor}33` }}
+                            >
+                              {acfg.emoji} {c.aderencia_status}
+                            </span>
+                          )}
+                          {vcfg && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
+                              style={{ color: vcfg.cor, background: vcfg.bg, border: `1px solid ${vcfg.cor}33` }}
+                            >
+                              {vcfg.emoji} {veredictoText}
+                            </span>
+                          )}
+                        </div>
+                        {/* Métricas */}
+                        <div className="flex items-center gap-2 text-xs text-[#64748b] mb-2 flex-wrap">
+                          <span>🌧 <b>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b></span>
+                          {c.pico_3h != null && c.pico_3h > 0 && (
+                            <span className="text-red-500">⚡ <b>{c.pico_3h.toFixed(1)}mm</b> pico</span>
+                          )}
+                          <span>💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b></span>
+                        </div>
+                        {c.frase_secagem && (
+                          <p className="text-xs text-[#64748b] truncate mb-2">{c.frase_secagem}</p>
+                        )}
+                        {c.janela && (
+                          <p className="text-xs text-slate-500">
+                            🕐 Janela: <span className="text-[#1e293b] font-medium">{c.janela}</span>
+                          </p>
+                        )}
+                      </>
+                    )
+                  })() : (
                     <p className="text-xs text-[#64748b] italic">
                       Condições serão calculadas no próximo relatório diário (07:00 BRT)
                     </p>
