@@ -42,13 +42,15 @@ export async function GET(request: NextRequest) {
     .slice(0, 15)
     .map((s: {
       id: number; name: string; distance: number;
-      total_elevation_gain: number; start_latlng: number[];
-      end_latlng: number[]; city?: string; state?: string; country?: string;
+      total_elevation_gain: number; elevation_high?: number;
+      start_latlng: number[]; end_latlng: number[];
+      city?: string; state?: string; country?: string;
     }) => ({
       id: s.id,
       name: s.name,
       distance: s.distance,
       total_elevation_gain: s.total_elevation_gain,
+      elevation_high: s.elevation_high ?? null,
       start_latlng: s.start_latlng,
       end_latlng: s.end_latlng,
       city: s.city ?? null,
