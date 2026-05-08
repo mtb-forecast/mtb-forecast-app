@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+type StarredSegment = {
+  id: number
+  name: string
+  map?: { summary_polyline?: string; polyline?: string }
+  elevation_profile?: string
+  [key: string]: unknown
+}
+
 export async function GET(request: NextRequest) {
   const token = request.cookies.get('strava_token')?.value
 
@@ -15,37 +23,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Erro ao buscar segmentos do Strava.' }, { status: listRes.status })
   }
 
-  const segments: { id: number }[] = await listRes.json()
+  const rawSegments: StarredSegment[] = await listRes.json()
 
-  // Busca detalhes de cada segmento em paralelo para obter polyline
-  const detailed = await Promise.all(
-    segments.map(async (seg) => {
-      try {
-        const detailRes = await fetch(`https://www.strava.com/api/v3/segments/${seg.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!detailRes.ok) {
-          console.log(`Segment ${seg.id} detail fetch failed: ${detailRes.status}`)
-          return { ...seg, polyline: null, elevation_profile: null }
-        }
-        const data = await detailRes.json()
-        console.log('Segment detail:', JSON.stringify({
-          id: data.id,
-          name: data.name,
-          map: data.map,
-          polyline: data.map?.polyline,
-          summary_polyline: data.map?.summary_polyline,
-        }))
-        return {
-          ...seg,
-          polyline: data.map?.polyline || data.map?.summary_polyline || null,
-          elevation_profile: data.elevation_profile || null,
-        }
-      } catch {
-        return { ...seg, polyline: null, elevation_profile: null }
-      }
-    })
-  )
+  const segments = rawSegments.map((segment) => {
+    console.log('Segment:', segment.name, 'summary_polyline length:', segment.map?.summary_polyline?.length)
+    return {
+      ...segment,
+      polyline: segment.map?.summary_polyline || segment.map?.polyline || null,
+      elevation_profile: segment.elevation_profile || null,
+    }
+  })
 
-  return NextResponse.json(detailed)
+  return NextResponse.json(segments)
 }

@@ -17,6 +17,7 @@ type StravaSegment = {
   city: string | null
   state: string | null
   country: string | null
+  map?: { summary_polyline?: string; polyline?: string }
   polyline: string | null
   elevation_profile: string | null
 }
@@ -231,7 +232,7 @@ function StravaPageInner() {
         bioma: form.bioma,
         regiao: form.regiao,
         strava_url: `https://www.strava.com/segments/${seg.id}`,
-        polyline: seg.polyline || null,
+        polyline: seg.map?.summary_polyline || seg.polyline || null,
         strava_elevation_profile: seg.elevation_profile || null,
       }
     })
