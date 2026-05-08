@@ -122,11 +122,21 @@ export default function TrilhaDetalhe() {
      (trilha.exposicao?.toLowerCase() !== 'aberta' && c.alerta_rajada_kmh >= 50))
   const nivelVento = c?.alerta_vento_nivel ?? 0
 
-  // FDS — próximos 3 dias
+  // FDS — próximos 3 dias com datas reais em pt-BR
+  const formatarDia = (data: Date) => {
+    const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+    const dd = String(data.getDate()).padStart(2, '0')
+    const mm = String(data.getMonth() + 1).padStart(2, '0')
+    return `${dd}/${mm} - ${dias[data.getDay()]}`
+  }
+  const hoje = new Date()
+  const d1 = new Date(hoje); d1.setDate(hoje.getDate() + 1)
+  const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
+  const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
   const fdsDias = [
-    { label: 'D+1', v: c?.fds_d1_veredicto, rain: c?.fds_d1_rain },
-    { label: 'D+2', v: c?.fds_d2_veredicto, rain: c?.fds_d2_rain },
-    { label: 'D+3', v: c?.fds_d3_veredicto, rain: c?.fds_d3_rain },
+    { label: formatarDia(d1), v: c?.fds_d1_veredicto, rain: c?.fds_d1_rain },
+    { label: formatarDia(d2), v: c?.fds_d2_veredicto, rain: c?.fds_d2_rain },
+    { label: formatarDia(d3), v: c?.fds_d3_veredicto, rain: c?.fds_d3_rain },
   ]
   const hasFds = fdsDias.some(d => d.v)
 
