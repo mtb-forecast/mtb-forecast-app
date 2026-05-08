@@ -10,6 +10,7 @@ import TrilhaCard from '@/components/TrilhaCard'
 export default function DashboardPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [favoritas, setFavoritas] = useState<TrilhaComCondicao[]>([])
   const [ranking, setRanking] = useState<TrilhaComCondicao[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +22,7 @@ export default function DashboardPage() {
         router.replace('/login')
         return
       }
+      setUserEmail(user.email ?? null)
 
       const { data: profileData } = await supabase
         .from('profiles')
@@ -95,7 +97,10 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-wheat text-3xl text-[#1e293b]">
-          Olá, {profile?.nome?.split(' ')[0] || 'Rider'} 👋
+          {(() => {
+            const name = profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
+            return name ? `Olá, ${name} 👋` : 'Olá! 👋'
+          })()}
         </h1>
         <p className="text-[#64748b] mt-1">
           Confira as condições de hoje nas suas trilhas
