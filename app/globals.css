@@ -5,8 +5,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-primary: #0f172a;
-  --bg-card: #1e293b;
+  --bg-primary: #f5f0eb;
+  --bg-card: #ffffff;
   --green: #16a34a;
   --green-light: #22c55e;
 }
@@ -17,8 +17,10 @@
 
 html,
 body {
-  background-color: #0f172a;
-  color: #f1f5f9;
+  background-color: #f5f0eb;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M0 20 L10 10 L20 20 L10 30 Z' fill='%23d4c9bb' opacity='0.5'/%3E%3Cpath d='M20 20 L30 10 L40 20 L30 30 Z' fill='%23d4c9bb' opacity='0.5'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  color: #1e293b;
   font-family: 'Inter', system-ui, sans-serif;
 }
 
@@ -34,15 +36,15 @@ body {
   }
 
   .btn-secondary {
-    @apply border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-medium px-6 py-3 rounded-lg transition-colors duration-200;
+    @apply border border-slate-300 hover:border-slate-400 text-slate-700 hover:text-slate-900 font-medium px-6 py-3 rounded-lg transition-colors duration-200;
   }
 
   .card {
-    @apply bg-slate-800 rounded-xl border border-slate-700 overflow-hidden;
+    @apply bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm;
   }
 
   .input-field {
-    @apply w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-400
+    @apply w-full bg-white border border-[#d4c9bb] rounded-lg px-4 py-3 text-slate-800 placeholder-slate-400
            focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors;
   }
 

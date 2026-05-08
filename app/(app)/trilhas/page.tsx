@@ -82,18 +82,18 @@ export default function TrilhasPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 px-4 sm:px-6 py-8 max-w-5xl mx-auto">
+    <div className="min-h-screen px-4 sm:px-6 py-8 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">Trilhas</h1>
-          <p className="text-slate-400 mt-1">{filteredTrilhas.length} trilhas encontradas</p>
+          <h1 className="text-2xl font-bold text-[#1e293b]">Trilhas</h1>
+          <p className="text-[#64748b] mt-1">{filteredTrilhas.length} trilhas encontradas</p>
         </div>
         <Link
           href="/trilhas/nova"
@@ -125,7 +125,7 @@ export default function TrilhasPage() {
       </div>
 
       {filteredTrilhas.length === 0 ? (
-        <div className="text-center py-20 text-slate-400">
+        <div className="text-center py-20 text-[#64748b]">
           Nenhuma trilha encontrada com esses filtros.
         </div>
       ) : (

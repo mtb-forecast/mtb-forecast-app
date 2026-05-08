@@ -28,7 +28,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-slate-900 text-slate-100 min-h-screen antialiased">
+      <body className="min-h-screen antialiased">
         <Navbar />
         <main className="pt-16">
           {children}

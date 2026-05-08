@@ -2,29 +2,29 @@ import Link from 'next/link'
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen">
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div
-          className="absolute inset-0 opacity-20"
+          className="absolute inset-0 opacity-10"
           style={{
             backgroundImage:
               'radial-gradient(ellipse at 60% 40%, #16a34a 0%, transparent 60%), radial-gradient(ellipse at 20% 80%, #15803d 0%, transparent 50%)',
           }}
         />
         <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 pb-24 text-center">
-          <div className="inline-flex items-center gap-2 bg-green-600/20 border border-green-600/30 text-green-400 px-4 py-1.5 rounded-full text-sm font-medium mb-8">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 bg-green-600/10 border border-green-600/20 text-green-700 px-4 py-1.5 rounded-full text-sm font-medium mb-8">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             Atualizado em tempo real
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-tight mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-[#1e293b] leading-tight mb-6">
             MTB Forecast
           </h1>
-          <p className="text-xl sm:text-2xl text-green-400 font-semibold mb-4">
+          <p className="text-xl sm:text-2xl text-green-600 font-semibold mb-4">
             Saiba antes de pedalar.
           </p>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-10">
+          <p className="text-[#64748b] text-lg max-w-2xl mx-auto mb-10">
             Condições de trilhas de mountain bike em tempo real. Análise de solo, chuva acumulada e
             janela de pedal — tudo num só lugar.
           </p>
@@ -32,13 +32,13 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/login"
-              className="bg-green-600 hover:bg-green-500 text-white font-bold px-8 py-4 rounded-xl text-lg transition-colors duration-200 shadow-lg shadow-green-900/30"
+              className="bg-green-600 hover:bg-green-500 text-white font-bold px-8 py-4 rounded-xl text-lg transition-colors duration-200 shadow-lg shadow-green-900/20"
             >
               Entrar
             </Link>
             <Link
               href="/cadastro"
-              className="border border-slate-600 hover:border-green-500 text-slate-300 hover:text-white font-semibold px-8 py-4 rounded-xl text-lg transition-colors duration-200"
+              className="border-2 border-[#1e293b] text-[#1e293b] hover:bg-[#1e293b] hover:text-white font-semibold px-8 py-4 rounded-xl text-lg transition-colors duration-200"
             >
               Criar conta grátis
             </Link>
@@ -53,28 +53,38 @@ export default function LandingPage() {
             {
               label: 'DROP LIBERADO',
               desc: 'Solo seco, condições ideais para pedalar.',
-              color: 'border-green-500 bg-green-500/10 text-green-400',
+              border: '#16a34a',
+              bg: '#f0fdf4',
+              color: '#16a34a',
             },
             {
               label: 'ATENÇÃO',
               desc: 'Solo úmido, pedal possível mas com cuidado.',
-              color: 'border-yellow-500 bg-yellow-500/10 text-yellow-400',
+              border: '#d97706',
+              bg: '#fffbeb',
+              color: '#d97706',
             },
             {
               label: 'MELHOR ESPERAR',
               desc: 'Solo encharcado, risco de dano à trilha.',
-              color: 'border-red-500 bg-red-500/10 text-red-400',
+              border: '#ef4444',
+              bg: '#fef2f2',
+              color: '#ef4444',
             },
           ].map((v) => (
-            <div key={v.label} className={`rounded-xl border-2 p-5 ${v.color}`}>
-              <p className="font-bold text-lg mb-1">{v.label}</p>
-              <p className="text-slate-400 text-sm">{v.desc}</p>
+            <div
+              key={v.label}
+              className="rounded-xl border-2 p-5"
+              style={{ borderColor: v.border, background: v.bg }}
+            >
+              <p className="font-bold text-lg mb-1" style={{ color: v.color }}>{v.label}</p>
+              <p className="text-[#64748b] text-sm">{v.desc}</p>
             </div>
           ))}
         </div>
 
         {/* Features */}
-        <h2 className="text-2xl font-bold text-white text-center mb-10">
+        <h2 className="text-2xl font-bold text-[#1e293b] text-center mb-10">
           Tudo que você precisa saber antes de sair
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -112,11 +122,11 @@ export default function LandingPage() {
           ].map((f) => (
             <div
               key={f.title}
-              className="bg-slate-800 border border-slate-700 rounded-xl p-5 hover:border-green-600/50 transition-colors"
+              className="bg-white border border-[#d4c9bb] rounded-xl p-5 hover:border-green-400 transition-colors shadow-sm"
             >
               <div className="text-3xl mb-3">{f.icon}</div>
-              <h3 className="font-semibold text-white mb-1">{f.title}</h3>
-              <p className="text-slate-400 text-sm">{f.desc}</p>
+              <h3 className="font-semibold text-[#1e293b] mb-1">{f.title}</h3>
+              <p className="text-[#64748b] text-sm">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -124,11 +134,11 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <div className="bg-gradient-to-r from-green-900/40 to-slate-800 border border-green-700/30 rounded-2xl p-10">
-          <h2 className="text-3xl font-bold text-white mb-4">
+        <div className="bg-white border border-[#d4c9bb] rounded-2xl p-10 shadow-sm">
+          <h2 className="text-3xl font-bold text-[#1e293b] mb-4">
             Pronto para pedalar com segurança?
           </h2>
-          <p className="text-slate-400 mb-8">
+          <p className="text-[#64748b] mb-8">
             Crie sua conta grátis e tenha acesso às condições das trilhas da sua região.
           </p>
           <Link
@@ -140,7 +150,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-slate-800 py-8 text-center text-slate-500 text-sm">
+      <footer className="border-t border-[#d4c9bb] py-8 text-center text-[#64748b] text-sm">
         © 2025 MTB Forecast — Feito por e para MTBers 🚵
       </footer>
     </div>

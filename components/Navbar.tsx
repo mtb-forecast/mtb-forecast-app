@@ -49,12 +49,15 @@ export default function Navbar() {
   ]
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-800">
+    <nav
+      className="fixed top-0 left-0 right-0 z-50 backdrop-blur"
+      style={{ background: 'rgba(245,240,235,0.95)', borderBottom: '1px solid #d4c9bb' }}
+    >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href={isLoggedIn ? '/dashboard' : '/'} className="flex items-center gap-2">
           <span className="text-xl">🚵</span>
-          <span className="font-extrabold text-white text-lg">MTB Forecast</span>
+          <span className="font-extrabold text-[#1e293b] text-lg">MTB Forecast</span>
         </Link>
 
         {/* Desktop nav */}
@@ -66,8 +69,8 @@ export default function Navbar() {
                 href={link.href}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   pathname === link.href
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'bg-slate-100 text-[#1e293b]'
+                    : 'text-[#1e293b] hover:text-[#16a34a] hover:bg-slate-100'
                 }`}
               >
                 {link.label}
@@ -75,14 +78,14 @@ export default function Navbar() {
             ))}
             <button
               onClick={handleLogout}
-              className="ml-2 text-slate-400 hover:text-red-400 text-sm font-medium transition-colors px-3 py-2"
+              className="ml-2 text-[#64748b] hover:text-red-500 text-sm font-medium transition-colors px-3 py-2"
             >
               Sair
             </button>
           </div>
         ) : (
           <div className="hidden sm:flex items-center gap-3">
-            <Link href="/login" className="text-slate-300 hover:text-white text-sm font-medium">
+            <Link href="/login" className="text-[#1e293b] hover:text-[#16a34a] text-sm font-medium transition-colors">
               Entrar
             </Link>
             <Link
@@ -96,7 +99,7 @@ export default function Navbar() {
 
         {/* Mobile hamburger */}
         <button
-          className="sm:hidden p-2 text-slate-400 hover:text-white"
+          className="sm:hidden p-2 text-[#1e293b] hover:text-[#16a34a]"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           aria-label="Menu"
         >
@@ -114,7 +117,10 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="sm:hidden border-t border-slate-800 bg-slate-900 px-4 py-3 space-y-1">
+        <div
+          className="sm:hidden px-4 py-3 space-y-1"
+          style={{ borderTop: '1px solid #d4c9bb', background: '#f5f0eb' }}
+        >
           {isLoggedIn ? (
             <>
               {navLinks.map((link) => (
@@ -124,8 +130,8 @@ export default function Navbar() {
                   onClick={() => setIsMenuOpen(false)}
                   className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     pathname === link.href
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      ? 'bg-slate-100 text-[#1e293b]'
+                      : 'text-[#1e293b] hover:text-[#16a34a] hover:bg-slate-100'
                   }`}
                 >
                   {link.label}
@@ -133,17 +139,17 @@ export default function Navbar() {
               ))}
               <button
                 onClick={handleLogout}
-                className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-slate-800 transition-colors"
+                className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-[#64748b] hover:bg-slate-100 transition-colors"
               >
                 Sair da conta
               </button>
             </>
           ) : (
             <>
-              <Link href="/login" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2.5 text-slate-300 text-sm">
+              <Link href="/login" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2.5 text-[#1e293b] text-sm">
                 Entrar
               </Link>
-              <Link href="/cadastro" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2.5 text-green-400 font-semibold text-sm">
+              <Link href="/cadastro" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2.5 text-green-600 font-semibold text-sm">
                 Criar conta grátis
               </Link>
             </>

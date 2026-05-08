@@ -97,7 +97,7 @@ export default function TrilhaDetalhe() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f1f5f9' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f0eb' }}>
         <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -142,7 +142,7 @@ export default function TrilhaDetalhe() {
   if (c?.alerta_vento_kmh) fontes.push('💨 Vento hist.: MERRA-2 / ERA5')
 
   return (
-    <div style={{ background: '#f1f5f9', minHeight: '100vh', padding: '20px 16px 40px' }}>
+    <div style={{ background: '#f5f0eb', minHeight: '100vh', padding: '20px 16px 40px' }}>
       <div style={{ maxWidth: 600, margin: '0 auto' }}>
 
         {/* ── Voltar ── */}
