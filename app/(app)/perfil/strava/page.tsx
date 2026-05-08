@@ -232,7 +232,7 @@ function StravaPageInner() {
         bioma: form.bioma,
         regiao: form.regiao,
         strava_url: `https://www.strava.com/segments/${seg.id}`,
-        polyline: seg.map?.summary_polyline || seg.polyline || null,
+        polyline: seg.polyline || seg.map?.summary_polyline || null,
         strava_elevation_profile: seg.elevation_profile || null,
       }
     })

@@ -3,9 +3,16 @@ import { NextRequest, NextResponse } from 'next/server'
 type StarredSegment = {
   id: number
   name: string
+  distance: number
+  total_elevation_gain: number
+  elevation_high?: number
+  city?: string
+  state?: string
+  country?: string
+  start_latlng: number[]
+  end_latlng: number[]
   map?: { summary_polyline?: string; polyline?: string }
   elevation_profile?: string
-  [key: string]: unknown
 }
 
 export async function GET(request: NextRequest) {
@@ -25,12 +32,22 @@ export async function GET(request: NextRequest) {
 
   const rawSegments: StarredSegment[] = await listRes.json()
 
-  const segments = rawSegments.map((segment) => {
-    console.log('Segment:', segment.name, 'summary_polyline length:', segment.map?.summary_polyline?.length)
+  const segments = rawSegments.map((s) => {
+    const polyline = s.map?.summary_polyline || s.map?.polyline || null
+    console.log('Segment:', s.name, 'summary_polyline length:', s.map?.summary_polyline?.length ?? 0)
     return {
-      ...segment,
-      polyline: segment.map?.summary_polyline || segment.map?.polyline || null,
-      elevation_profile: segment.elevation_profile || null,
+      id: s.id,
+      name: s.name,
+      distance: s.distance,
+      total_elevation_gain: s.total_elevation_gain,
+      elevation_high: s.elevation_high ?? null,
+      city: s.city ?? null,
+      state: s.state ?? null,
+      country: s.country ?? null,
+      start_latlng: s.start_latlng,
+      end_latlng: s.end_latlng,
+      polyline,
+      map: s.map ?? null,
     }
   })
 
