@@ -168,79 +168,18 @@ export default function TrilhaDetalhe() {
           padding: '16px 18px 14px',
         }}>
 
-          {/* ── HEADER ─────────────────────────────────────────────────── */}
+          {/* ── HEADER: nome + favoritar ───────────────────────────────── */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Nome + link Google Maps */}
-              <a
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: 16, fontWeight: 800, color: '#1e293b',
-                  fontFamily: "'WheatSmile', serif",
-                  textDecoration: 'none', display: 'block', lineHeight: 1.3 }}
-              >
-                {trilha.name} 📍
-              </a>
-
-              {/* Subtítulo tipo */}
-              <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600,
-                letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 2 }}>
-                {trilha.trail_type === 'bikepark' ? '🏟 Bike Park' : '🏔 Trilha Natural'}
-              </div>
-
-              {/* Características físicas */}
-              {(() => {
-                const parts: string[] = []
-                if (trilha.desnivel_m != null && trilha.extensao_km != null) {
-                  const inc = c?.inclinacao
-                  const incCor = inclinacaoCor(inc)
-                  const incPart = inc != null
-                    ? ` · <span style="color:${incCor};font-weight:700;">${inc}%</span>`
-                    : ''
-                  parts.push(`⛰ <b>${trilha.desnivel_m}m</b> em <b>${trilha.extensao_km}km</b>${incPart}`)
-                } else if (trilha.desnivel_m != null) {
-                  parts.push(`⛰ <b>${trilha.desnivel_m}m</b>`)
-                }
-                if (clay != null && c?.texture_class) {
-                  parts.push(`🪨 ${c.texture_class} <span style="color:#94a3b8;">(arg ${clay}% · ar ${c.sand_pct ?? '?'}%)</span>`)
-                }
-                if (parts.length === 0) return null
-                return (
-                  <div
-                    style={{ fontSize: 11, color: '#64748b', marginTop: 3, lineHeight: 1.6 }}
-                    dangerouslySetInnerHTML={{ __html: parts.join(' &nbsp;·&nbsp; ') }}
-                  />
-                )
-              })()}
-
-              {/* Badges bioma / quadrilátero */}
-              {(isMatAtlantica || isQuadrilatero) && (
-                <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {isQuadrilatero && (
-                    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                      fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                      color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b44' }}>
-                      ⛏ Quadrilátero Ferrífero
-                    </span>
-                  )}
-                  {isMatAtlantica && (
-                    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                      fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                      color: '#166534', background: '#dcfce7', border: '1px solid #86efac' }}>
-                      🌿 Mata Atlântica
-                    </span>
-                  )}
-                  {trilha.bioma && !isMatAtlantica && (
-                    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                      fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                      color: '#374151', background: '#f3f4f6', border: '1px solid #d1d5db' }}>
-                      🌱 {trilha.bioma}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: 16, fontWeight: 800, color: '#1e293b',
+                fontFamily: "'WheatSmile', serif",
+                textDecoration: 'none', display: 'block', lineHeight: 1.3, flex: 1, minWidth: 0 }}
+            >
+              {trilha.name} 📍
+            </a>
 
             {/* Botão favoritar */}
             <button
@@ -254,6 +193,76 @@ export default function TrilhaDetalhe() {
               {isFavorito ? '★' : '☆'}
             </button>
           </div>
+
+          {/* ── MAPA SATÉLITE ──────────────────────────────────────────── */}
+          <div style={{ marginTop: 12, borderRadius: 8, overflow: 'hidden', height: 200 }}>
+            <iframe
+              src={`https://maps.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15&output=embed&t=k`}
+              width="100%"
+              height="200"
+              style={{ border: 'none', display: 'block' }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+
+          {/* ── Subtítulo tipo ─────────────────────────────────────────── */}
+          <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600,
+            letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 10 }}>
+            {trilha.trail_type === 'bikepark' ? '🏟 Bike Park' : '🏔 Trilha Natural'}
+          </div>
+
+          {/* Características físicas */}
+          {(() => {
+            const parts: string[] = []
+            if (trilha.desnivel_m != null && trilha.extensao_km != null) {
+              const inc = c?.inclinacao
+              const incCor = inclinacaoCor(inc)
+              const incPart = inc != null
+                ? ` · <span style="color:${incCor};font-weight:700;">${inc}%</span>`
+                : ''
+              parts.push(`⛰ <b>${trilha.desnivel_m}m</b> em <b>${trilha.extensao_km}km</b>${incPart}`)
+            } else if (trilha.desnivel_m != null) {
+              parts.push(`⛰ <b>${trilha.desnivel_m}m</b>`)
+            }
+            if (clay != null && c?.texture_class) {
+              parts.push(`🪨 ${c.texture_class} <span style="color:#94a3b8;">(arg ${clay}% · ar ${c.sand_pct ?? '?'}%)</span>`)
+            }
+            if (parts.length === 0) return null
+            return (
+              <div
+                style={{ fontSize: 11, color: '#64748b', marginTop: 3, lineHeight: 1.6 }}
+                dangerouslySetInnerHTML={{ __html: parts.join(' &nbsp;·&nbsp; ') }}
+              />
+            )
+          })()}
+
+          {/* Badges bioma / quadrilátero */}
+          {(isMatAtlantica || isQuadrilatero) && (
+            <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {isQuadrilatero && (
+                <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                  fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                  color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b44' }}>
+                  ⛏ Quadrilátero Ferrífero
+                </span>
+              )}
+              {isMatAtlantica && (
+                <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                  fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                  color: '#166534', background: '#dcfce7', border: '1px solid #86efac' }}>
+                  🌿 Mata Atlântica
+                </span>
+              )}
+              {trilha.bioma && !isMatAtlantica && (
+                <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
+                  fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                  color: '#374151', background: '#f3f4f6', border: '1px solid #d1d5db' }}>
+                  🌱 {trilha.bioma}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* ── PILLS: aderência + veredicto ───────────────────────────── */}
           {c && (
