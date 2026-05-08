@@ -34,6 +34,17 @@ export async function GET(request: NextRequest) {
 
   const rawSegments = segRes.ok ? await segRes.json() : []
 
+  console.log('Starred segments count:', (Array.isArray(rawSegments) ? rawSegments : []).length)
+  console.log('First segment keys:', Object.keys(rawSegments[0] || {}))
+  console.log('First segment map:', rawSegments[0]?.map)
+
+  // Callback não faz chamadas individuais a /segments/{id} — polyline vem do campo
+  // map.summary_polyline da resposta do starred list diretamente.
+  console.log('Fetching segment detail for: (not applicable — using starred map data)')
+  console.log('Segment detail map:', rawSegments[0]?.map)
+  console.log('Segment polyline:', rawSegments[0]?.map?.polyline)
+  console.log('Segment summary_polyline:', rawSegments[0]?.map?.summary_polyline)
+
   // Filtra segmentos relevantes e reduz payload para a URL
   const segments = (Array.isArray(rawSegments) ? rawSegments : [])
     .filter((s: { kom_rank?: number | null; distance?: number }) =>
@@ -45,6 +56,8 @@ export async function GET(request: NextRequest) {
       total_elevation_gain: number; elevation_high?: number;
       start_latlng: number[]; end_latlng: number[];
       city?: string; state?: string; country?: string;
+      map?: { summary_polyline?: string; polyline?: string };
+      elevation_profile?: string;
     }) => ({
       id: s.id,
       name: s.name,
@@ -56,6 +69,8 @@ export async function GET(request: NextRequest) {
       city: s.city ?? null,
       state: s.state ?? null,
       country: s.country ?? null,
+      polyline: s.map?.summary_polyline || s.map?.polyline || null,
+      elevation_profile: s.elevation_profile || null,
     }))
 
   const redirectUrl = new URL('/perfil/strava', request.url)
