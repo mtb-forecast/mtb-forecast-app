@@ -104,6 +104,7 @@ function StravaPageInner() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [forms, setForms] = useState<Record<number, SegmentForm>>({})
   const [soilStatus, setSoilStatus] = useState<Record<number, SoilStatus>>({})
+  const [configWarnings, setConfigWarnings] = useState<Record<number, string>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [existingCount, setExistingCount] = useState(0)
@@ -157,7 +158,6 @@ function StravaPageInner() {
       if (next.size >= slotsLeft) return prev
       next.add(id)
 
-      // Initialize form if not yet done
       setForms(f => {
         if (f[id]) return f
         const newForm: SegmentForm = {
@@ -172,7 +172,6 @@ function StravaPageInner() {
         return { ...f, [id]: newForm }
       })
 
-      // Fetch soil suggestion
       const lat = seg.start_latlng[0]
       const lon = seg.start_latlng[1]
       if (lat != null && lon != null) {
@@ -214,10 +213,50 @@ function StravaPageInner() {
     }
 
     setSaving(true)
-    const rows = Array.from(selected).map(id => {
-      const seg = segments.find(s => s.id === id)!
-      const form = forms[id]
-      return {
+    const newWarnings: Record<number, string> = {}
+
+    for (const segId of Array.from(selected)) {
+      const seg = segments.find(s => s.id === segId)!
+      const form = forms[segId]
+
+      // Verifica se já existe config para este segmento
+      const { data: configExistente } = await supabase
+        .from('strava_segmentos_config')
+        .select('strava_segment_id, owner_user_id, solo_type, exposicao, trail_type')
+        .eq('strava_segment_id', seg.id)
+        .maybeSingle()
+
+      if (!configExistente) {
+        // Cria config como owner
+        const { error: configErr } = await supabase.from('strava_segmentos_config').insert({
+          strava_segment_id: seg.id,
+          owner_user_id: user.id,
+          name: form.nome || seg.name,
+          lat: seg.start_latlng[0],
+          lon: seg.start_latlng[1],
+          extensao_km: parseFloat((seg.distance / 1000).toFixed(2)),
+          desnivel_m: seg.total_elevation_gain || null,
+          altitude_m: Math.round(seg.elevation_high || 0),
+          solo_type: form.solo_type,
+          exposicao: form.exposicao,
+          trail_type: form.trail_type,
+          bioma: form.bioma,
+          regiao: form.regiao,
+        })
+        if (configErr) {
+          setSaving(false)
+          setError(`Erro ao salvar configuração: ${configErr.message}`)
+          return
+        }
+      } else {
+        newWarnings[segId] = `Este segmento já foi cadastrado por outro rider. Usando configuração existente: solo=${configExistente.solo_type}, exposição=${configExistente.exposicao}, tipo=${configExistente.trail_type}. Você pode sugerir alterações após o cadastro.`
+      }
+
+      const soloType = configExistente?.solo_type || form.solo_type
+      const exposicao = configExistente?.exposicao || form.exposicao
+      const trailType = configExistente?.trail_type || form.trail_type
+
+      const { error: trilhaErr } = await supabase.from('trilhas_pessoais').insert({
         user_id: user.id,
         strava_segment_id: seg.id,
         name: form.nome || seg.name,
@@ -226,21 +265,31 @@ function StravaPageInner() {
         extensao_km: parseFloat((seg.distance / 1000).toFixed(2)),
         desnivel_m: seg.total_elevation_gain != null ? Math.round(Number(seg.total_elevation_gain) * 10) / 10 : null,
         altitude_m: Math.round(Number(form.altitude_m) || 0),
-        solo_type: form.solo_type,
-        exposicao: form.exposicao,
-        trail_type: form.trail_type,
+        solo_type: soloType,
+        exposicao: exposicao,
+        trail_type: trailType,
         bioma: form.bioma,
         regiao: form.regiao,
         strava_url: `https://www.strava.com/segments/${seg.id}`,
         polyline: seg.polyline || seg.map?.summary_polyline || null,
         strava_elevation_profile: seg.elevation_profile || null,
-      }
-    })
+      })
 
-    const { error: dbErr } = await supabase.from('trilhas_pessoais').insert(rows)
+      if (trilhaErr) {
+        setSaving(false)
+        setError(`Erro ao salvar trilha: ${trilhaErr.message}`)
+        return
+      }
+    }
+
     setSaving(false)
-    if (dbErr) { setError(`Erro ao salvar: ${dbErr.message}`); return }
-    router.replace('/perfil')
+
+    if (Object.keys(newWarnings).length > 0) {
+      setConfigWarnings(newWarnings)
+      setTimeout(() => router.replace('/perfil'), 4000)
+    } else {
+      router.replace('/perfil')
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -273,6 +322,21 @@ function StravaPageInner() {
       {error && (
         <div className="mb-4 rounded-lg px-4 py-3 text-sm text-red-700 bg-red-50 border border-red-200">
           {error}
+        </div>
+      )}
+
+      {/* Avisos de config compartilhada */}
+      {Object.keys(configWarnings).length > 0 && (
+        <div className="mb-4 space-y-2">
+          {Object.entries(configWarnings).map(([segId, msg]) => {
+            const seg = segments.find(s => s.id === Number(segId))
+            return (
+              <div key={segId} className="rounded-lg px-4 py-3 text-sm text-amber-700 bg-amber-50 border border-amber-200">
+                <strong>{seg?.name}:</strong> {msg}
+              </div>
+            )
+          })}
+          <p className="text-xs text-[#64748b]">Redirecionando para o perfil em instantes...</p>
         </div>
       )}
 
@@ -395,7 +459,7 @@ function StravaPageInner() {
                       </div>
                     </div>
 
-                    {/* Tipo de Solo com badge de sugestão */}
+                    {/* Tipo de Solo */}
                     <div>
                       <RequiredLabel>Tipo de solo</RequiredLabel>
                       {soil === 'loading' && (
@@ -472,7 +536,6 @@ function StravaPageInner() {
                       </div>
                     </div>
 
-                    {/* Indicador de completude do form */}
                     {!isFormValid(seg.id) && (
                       <p className="text-xs text-amber-600">
                         ⚠ Preencha todos os campos marcados com * para habilitar o botão salvar.

@@ -96,17 +96,22 @@ export default function TrilhaDetalhe() {
       // Fallback: personal trail
       const { data: pt } = await supabase
         .from('trilhas_pessoais')
-        .select(`*, condicoes_pessoais(*)`)
+        .select('*')
         .eq('id', id)
         .eq('user_id', user.id)
         .maybeSingle()
 
       if (!pt) { router.replace('/trilhas'); return }
 
-      const conds = Array.isArray(pt.condicoes_pessoais) ? pt.condicoes_pessoais : []
-      const latestC = [...conds].sort(
-        (a, b) => new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
-      )[0] ?? null
+      const { data: condicaoStrava } = await supabase
+        .from('condicoes_strava')
+        .select('*')
+        .eq('strava_segment_id', pt.strava_segment_id)
+        .order('gerado_em', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const latestC = condicaoStrava ?? null
 
       setTrilha({
         id: pt.id,

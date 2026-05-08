@@ -31,9 +31,9 @@ type TrilhaPessoalComCondicao = {
   name: string
   regiao: string
   strava_url: string
+  strava_segment_id: number
   extensao_km?: number
   desnivel_m?: number
-  condicoes_pessoais?: CondicaoPessoal[]
   condicao?: CondicaoPessoal | null
 }
 
@@ -89,38 +89,30 @@ export default function DashboardPage() {
         }
       }
 
-      // Trilhas pessoais do Strava com condição mais recente
+      // Trilhas pessoais do Strava com condição mais recente via condicoes_strava
       const { data: trilhasStrava } = await supabase
         .from('trilhas_pessoais')
-        .select(`
-          *,
-          condicoes_pessoais (
-            aderencia_status,
-            aderencia_score,
-            veredicto,
-            veredicto_12h,
-            rain_mm,
-            wind_ms,
-            pico_3h,
-            acumulo_48h,
-            acumulo_ef,
-            ultima_chuva_h,
-            meia_vida_h,
-            gust_max_kmh,
-            janela,
-            frase_secagem,
-            solo_descansado,
-            gerado_em
-          )
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      const trilhasComCondicao = (trilhasStrava || []).map((t: TrilhaPessoalComCondicao) => ({
-        ...t,
-        condicao: (Array.isArray(t.condicoes_pessoais) ? t.condicoes_pessoais : [])
-          .sort((a, b) => new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime())[0] || null,
-      }))
+      const trilhasComCondicao = await Promise.all(
+        (trilhasStrava || []).map(async (t: TrilhaPessoalComCondicao) => {
+          const { data: cond } = await supabase
+            .from('condicoes_strava')
+            .select(`
+              aderencia_status, aderencia_score, veredicto, veredicto_12h,
+              rain_mm, wind_ms, pico_3h, acumulo_48h, acumulo_ef,
+              ultima_chuva_h, meia_vida_h, gust_max_kmh,
+              janela, frase_secagem, solo_descansado, gerado_em
+            `)
+            .eq('strava_segment_id', t.strava_segment_id)
+            .order('gerado_em', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          return { ...t, condicao: cond || null }
+        })
+      )
       setStravaTrails(trilhasComCondicao)
 
       setLoading(false)

@@ -224,7 +224,7 @@ export default function PerfilPage() {
                   <span style={{ color: '#FC4C02' }} className="text-sm">🟠</span>
                   <div className="min-w-0">
                     <p className="font-medium text-[#1e293b] text-sm truncate">{t.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-xs text-[#64748b]">{t.regiao}</span>
                       <a
                         href={t.strava_url}
@@ -235,6 +235,12 @@ export default function PerfilPage() {
                       >
                         Ver no Strava ↗
                       </a>
+                      <Link
+                        href={`/perfil/strava/sugestao/${t.strava_segment_id}`}
+                        className="text-xs text-[#64748b] hover:text-[#1e293b] transition-colors underline underline-offset-2"
+                      >
+                        Sugerir alteração
+                      </Link>
                     </div>
                   </div>
                 </div>
