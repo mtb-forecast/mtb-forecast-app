@@ -10,7 +10,7 @@ type StravaSegment = {
   id: number
   name: string
   distance: number
-  total_elevation_gain: number
+  total_elevation_gain: number | null
   elevation_high: number | null
   start_latlng: number[]
   end_latlng: number[]
@@ -221,7 +221,7 @@ function StravaPageInner() {
         lat: seg.start_latlng[0] ?? 0,
         lon: seg.start_latlng[1] ?? 0,
         extensao_km: parseFloat((seg.distance / 1000).toFixed(2)),
-        desnivel_m: Math.round(Number(seg.total_elevation_gain) * 10) / 10,
+        desnivel_m: seg.total_elevation_gain != null ? Math.round(Number(seg.total_elevation_gain) * 10) / 10 : null,
         altitude_m: Math.round(Number(form.altitude_m) || 0),
         solo_type: form.solo_type,
         exposicao: form.exposicao,
@@ -341,7 +341,7 @@ function StravaPageInner() {
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-xs text-[#64748b]">
                         <span>📏 <b>{distKm} km</b></span>
-                        <span>⛰ <b>{Math.round(seg.total_elevation_gain)}m</b> desnível</span>
+                        <span>⛰ <b>{seg.total_elevation_gain != null ? `${Math.round(seg.total_elevation_gain)}m` : '—'}</b> desnível</span>
                         {seg.elevation_high != null && (
                           <span>🏔 <b>{Math.round(seg.elevation_high)}m</b> alt. máx.</span>
                         )}
@@ -376,7 +376,7 @@ function StravaPageInner() {
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-[#64748b] mb-1">Desnível</label>
-                        <input readOnly value={`${Math.round(seg.total_elevation_gain)}m`} className="input-field text-sm py-2 opacity-60 cursor-not-allowed" />
+                        <input readOnly value={seg.total_elevation_gain != null ? `${Math.round(seg.total_elevation_gain)}m` : '—'} className="input-field text-sm py-2 opacity-60 cursor-not-allowed" />
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-[#64748b] mb-1">Altitude máx.</label>
