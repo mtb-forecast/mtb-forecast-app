@@ -185,6 +185,8 @@ export default function TrilhaDetalhe() {
   ]
   const hasFds = fdsDias.some(d => d.v)
 
+  console.log('isTrilhaPessoal:', isTrilhaPessoal, 'polyline:', polyline)
+
   const clay = c?.clay_pct
   const fontes: string[] = []
   if (c?.fonte)   fontes.push(`📡 Previsão: ${c.fonte}`)
@@ -263,7 +265,7 @@ export default function TrilhaDetalhe() {
 
           {/* ── MAPA ──────────────────────────────────────────────────── */}
           <div style={{ marginTop: 12 }}>
-            {isTrilhaPessoal && polyline ? (
+            {isTrilhaPessoal === true && polyline !== null && polyline !== '' ? (
               <>
                 <StravaMap polyline={polyline} />
                 <div style={{ marginTop: 8 }}>
@@ -306,6 +308,17 @@ export default function TrilhaDetalhe() {
               }}>
                 🟠 Strava
               </span>
+            </div>
+          )}
+
+          {/* Desnível — exibido diretamente para trilhas pessoais */}
+          {isTrilhaPessoal && (trilha.desnivel_m != null || trilha.extensao_km != null) && (
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+              {trilha.desnivel_m != null && trilha.extensao_km != null
+                ? `⛰ Desnível: ${trilha.desnivel_m}m em ${trilha.extensao_km}km`
+                : trilha.desnivel_m != null
+                ? `⛰ Desnível: ${trilha.desnivel_m}m`
+                : `📏 ${trilha.extensao_km}km`}
             </div>
           )}
 
