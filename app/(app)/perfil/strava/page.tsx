@@ -164,7 +164,7 @@ function StravaPageInner() {
           trail_type: '',
           bioma: '',
           regiao: guessRegiao(seg.state),
-          altitude_m: seg.elevation_high,
+          altitude_m: Math.round(seg.elevation_high || 0),
         }
         return { ...f, [id]: newForm }
       })
@@ -221,8 +221,8 @@ function StravaPageInner() {
         lat: seg.start_latlng[0] ?? 0,
         lon: seg.start_latlng[1] ?? 0,
         extensao_km: parseFloat((seg.distance / 1000).toFixed(2)),
-        desnivel_m: Math.round(seg.total_elevation_gain),
-        altitude_m: form.altitude_m,
+        desnivel_m: Math.round(Number(seg.total_elevation_gain) * 10) / 10,
+        altitude_m: Math.round(Number(form.altitude_m) || 0),
         solo_type: form.solo_type,
         exposicao: form.exposicao,
         trail_type: form.trail_type,
