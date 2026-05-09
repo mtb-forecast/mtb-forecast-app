@@ -12,67 +12,41 @@
   font-display: swap;
 }
 
-:root {
-  --preto: #111111;
-  --branco: #ffffff;
-  --amarelo: #FFE000;
-  --cinza-claro: #F5F5F5;
-  --cinza-medio: #E0E0E0;
-  --cinza-texto: #555555;
-}
-
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body {
-  background: var(--cinza-claro);
-  color: var(--preto);
-  font-family: 'Inter', system-ui, sans-serif;
-  font-weight: 400;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f7f7f5;
+  color: #111111;
+  -webkit-font-smoothing: antialiased;
 }
 
-.font-wheat { font-family: 'WheatSmile', serif; }
+.font-wheat { font-family: 'WheatSmile', Georgia, serif !important; }
 
-@layer utilities {
-  .text-balance { text-wrap: balance; }
-}
+a { text-decoration: none; color: inherit; }
+
+input, select, textarea, button { font-family: inherit; }
 
 @layer components {
-  .btn-primary {
-    @apply inline-block font-semibold px-6 py-3 rounded-lg transition-all duration-200;
-    background: var(--amarelo);
-    color: var(--preto);
-  }
-  .btn-primary:hover { filter: brightness(0.93); }
-
-  .btn-secondary {
-    @apply inline-block border font-medium px-6 py-3 rounded-lg transition-colors duration-200;
-    border-color: rgba(255,255,255,0.3);
-    color: var(--branco);
-    background: transparent;
-  }
-  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-
-  .card {
-    @apply rounded-xl overflow-hidden;
-    background: var(--branco);
-    border: 1px solid var(--cinza-medio);
-  }
-
   .input-field {
-    @apply w-full rounded-lg px-4 py-3 transition-colors;
-    background: var(--branco);
-    border: 1px solid var(--cinza-medio);
-    color: var(--preto);
-    outline: none;
-    font-family: 'Inter', system-ui, sans-serif;
+    @apply w-full outline-none;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 14px;
+    background: #fff;
+    color: #111;
+    transition: border-color 0.15s;
   }
-  .input-field:focus {
-    border-color: var(--preto);
-    box-shadow: 0 0 0 2px rgba(17,17,17,0.06);
-  }
-  .input-field::placeholder { color: #999; }
+  .input-field:focus { border-color: #111; }
+  .input-field::placeholder { color: #888; }
+  .input-field:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+    @apply inline-flex items-center;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
   }
 }

@@ -1,171 +1,224 @@
 import Link from 'next/link'
 
-const veredictos = [
+const exampleCards = [
   {
-    label: 'DROP LIBERADO',
-    desc: 'Solo seco — condições ideais para pedalar.',
-    cor: '#16a34a',
+    name: 'Serra do Japi — Trilha da Cana',
+    regiao: 'SP',
+    veredicto: 'DROP LIBERADO',
+    info: '0.0mm · 48h sem chuva',
+    cor: '#22c55e',
+    badgeBg: '#dcfce7',
+    badgeColor: '#166534',
   },
   {
-    label: 'ATENÇÃO',
-    desc: 'Solo úmido — pedal possível mas com cuidado.',
-    cor: '#d97706',
+    name: 'Quebra Queixo — Linha B',
+    regiao: 'MG',
+    veredicto: 'ATENÇÃO',
+    info: '12.4mm acumulado',
+    cor: '#FFE000',
+    badgeBg: '#FFE000',
+    badgeColor: '#111',
   },
   {
-    label: 'MELHOR ESPERAR',
-    desc: 'Solo encharcado — risco de dano à trilha.',
+    name: 'Paraibuna Bike Trail',
+    regiao: 'SP',
+    veredicto: 'MELHOR ESPERAR',
+    info: '38.1mm · solo encharcado',
     cor: '#ef4444',
+    badgeBg: '#fee2e2',
+    badgeColor: '#991b1b',
   },
 ]
 
-const features = [
-  { icon: '🌧️', title: 'Chuva acumulada', desc: 'Análise das últimas 48h e pico das 3h mais recentes.' },
-  { icon: '🪨', title: 'Tipo de solo', desc: 'Considera terra batida, granito, barro e outros tipos.' },
-  { icon: '⏱️', title: 'Meia-vida de secagem', desc: 'Calcula quanto tempo falta para o solo secar.' },
-  { icon: '🏔️', title: 'Múltiplas trilhas', desc: 'Acompanhe suas trilhas favoritas de SP, MG, RJ e mais.' },
-  { icon: '📱', title: 'Mobile-first', desc: 'Consulte as condições de qualquer lugar, no celular.' },
-  { icon: '🔔', title: 'Alertas Telegram', desc: 'Receba notificações direto no seu Telegram.' },
+const howItWorks = [
+  {
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.5">
+        <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364-.707.707M6.343 17.657l-.707.707m12.728 0-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" strokeLinecap="round" />
+        <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" opacity="0.2" />
+        <path d="M8 12s0-4 4-4" strokeLinecap="round" />
+        <path d="M16 16s-1 2-4 2-4-2-4-2" strokeLinecap="round" />
+      </svg>
+    ),
+    title: 'Chuva acumulada',
+    desc: 'Análise das últimas 48h e pico das 3h mais recentes para calcular a saturação real do solo.',
+  },
+  {
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.5">
+        <path d="M3 17l4-8 4 4 4-6 4 10" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M21 17H3" strokeLinecap="round" />
+      </svg>
+    ),
+    title: 'Tipo de solo',
+    desc: 'Considera terra batida, granito, barro e outros tipos com seus coeficientes de secagem específicos.',
+  },
+  {
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.5">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    title: 'Janela de pedal',
+    desc: 'Calcula a meia-vida de secagem e indica a melhor janela para pedalar com segurança.',
+  },
 ]
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen" style={{ background: '#F5F5F5' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#111' }}>
 
-      {/* ── HERO split-screen ─────────────────────────────────────────── */}
-      <section style={{ background: '#111111' }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      {/* ── Split-screen hero ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2" style={{ minHeight: '100vh' }}>
 
-          {/* Left: brand + CTA */}
-          <div>
-            <div
-              className="inline-block text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded mb-6"
-              style={{ background: '#FFE000', color: '#111111' }}
-            >
-              Atualizado diariamente
+        {/* Left: black panel */}
+        <div style={{ background: '#111', padding: '48px', display: 'flex', flexDirection: 'column' }}>
+
+          {/* Inline header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 80 }}>
+            <span className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
+              MTB FORECAST
+            </span>
+            <div style={{ display: 'flex', gap: 24 }}>
+              <Link href="/login" style={{ color: '#888', fontSize: 13 }}>Entrar</Link>
+              <Link href="/cadastro" style={{ color: '#888', fontSize: 13 }}>Cadastrar</Link>
             </div>
-            <h1 className="font-wheat text-5xl sm:text-6xl text-white leading-tight mb-4">
-              MTB Forecast
+          </div>
+
+          {/* Hero text */}
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 11, letterSpacing: '2px', color: '#FFE000', textTransform: 'uppercase', marginBottom: 16 }}>
+              DH &amp; ENDURO · SP E MG
+            </p>
+            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 'clamp(40px, 6vw, 56px)', lineHeight: 1.05, marginBottom: 20 }}>
+              Saiba antes<br />de pedalar.
             </h1>
-            <p className="text-xl font-semibold mb-3" style={{ color: '#FFE000' }}>
-              Saiba antes de pedalar.
+            <p style={{ color: '#888', fontSize: 15, lineHeight: 1.7, maxWidth: 360, marginBottom: 44 }}>
+              Condições de solo, chuva acumulada e janela de pedal em tempo real para trilhas de mountain bike em SP e MG.
             </p>
-            <p className="text-lg mb-10" style={{ color: 'rgba(255,255,255,0.65)' }}>
-              Condições de trilhas de mountain bike em tempo real. Análise de solo,
-              chuva acumulada e janela de pedal — tudo num só lugar.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/login"
-                className="font-bold px-8 py-4 rounded-xl text-center text-lg transition-all"
-                style={{ background: '#FFE000', color: '#111111' }}
-              >
-                Entrar
-              </Link>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 320 }}>
               <Link
                 href="/cadastro"
-                className="font-semibold px-8 py-4 rounded-xl text-center text-lg transition-all text-white"
-                style={{ border: '1px solid rgba(255,255,255,0.25)' }}
+                style={{
+                  background: '#FFE000', color: '#111',
+                  border: '1.5px solid #111', borderRadius: 4,
+                  padding: '14px 24px', fontSize: 14, fontWeight: 500,
+                  textAlign: 'center', display: 'block',
+                }}
               >
                 Criar conta grátis
+              </Link>
+              <Link
+                href="/login"
+                style={{
+                  background: 'transparent', color: '#fff',
+                  border: '1px solid #444', borderRadius: 4,
+                  padding: '14px 24px', fontSize: 14,
+                  textAlign: 'center', display: 'block',
+                }}
+              >
+                Já tenho conta
               </Link>
             </div>
           </div>
 
-          {/* Right: veredicto preview */}
-          <div className="hidden lg:flex flex-col gap-3">
-            {veredictos.map((v) => (
+          {/* Footer info */}
+          <p style={{ color: '#444', fontSize: 12, marginTop: 60 }}>
+            27 trilhas monitoradas · SP e MG · Atualizado às 07:00 BRT
+          </p>
+        </div>
+
+        {/* Right: image panel */}
+        <div
+          className="hidden lg:flex"
+          style={{
+            position: 'relative',
+            backgroundImage: 'url(https://images.unsplash.com/photo-1544191696-102dbeb9e5ce?w=1200&q=80)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: 40,
+          }}
+        >
+          {/* Dark overlay */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.58)' }} />
+
+          {/* Cards */}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <p style={{ fontSize: 11, letterSpacing: '2px', color: '#FFE000', textTransform: 'uppercase', marginBottom: 16 }}>
+              CONDIÇÕES AGORA
+            </p>
+            {exampleCards.map(card => (
               <div
-                key={v.label}
-                className="rounded-xl p-4 flex items-start gap-4"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+                key={card.name}
+                style={{
+                  background: 'rgba(255,255,255,0.97)',
+                  borderRadius: 4,
+                  padding: '12px 16px',
+                  borderLeft: `3px solid ${card.cor}`,
+                  marginBottom: 8,
+                }}
               >
-                <div
-                  className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
-                  style={{ background: v.cor }}
-                />
-                <div>
-                  <p className="font-bold text-sm text-white">{v.label}</p>
-                  <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{v.desc}</p>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: '#111', lineHeight: 1.3 }}>{card.name}</p>
+                  <span style={{
+                    background: card.badgeBg, color: card.badgeColor,
+                    borderRadius: 2, fontSize: 11, fontWeight: 500,
+                    padding: '2px 6px', flexShrink: 0,
+                  }}>
+                    {card.veredicto}
+                  </span>
                 </div>
+                <p style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{card.info} · {card.regiao}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ── Yellow ticker ──────────────────────────────────────────────── */}
-      <div style={{ background: '#FFE000', borderBottom: '1px solid #E0E0E0' }} className="py-3 overflow-hidden">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center gap-6 text-xs font-semibold text-[#111111] uppercase tracking-widest">
-          <span>🚵 Mountain Bike</span>
-          <span>·</span>
-          <span>📡 Previsão em tempo real</span>
-          <span>·</span>
-          <span>🌧 Acúmulo 48h</span>
-          <span>·</span>
-          <span>⏳ Meia-vida de secagem</span>
-          <span>·</span>
-          <span>🏔 SP · MG · RJ · RS</span>
+      {/* ── Yellow ticker ───────────────────────────────────────────────── */}
+      <div style={{ background: '#FFE000', padding: '12px 48px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        {['27 trilhas monitoradas', 'Chuva acumulada 48h', 'Meia-vida de secagem', 'Atualizado às 07:00 BRT'].map(t => (
+          <span key={t} style={{ fontSize: 12, fontWeight: 500, color: '#111' }}>{t}</span>
+        ))}
+      </div>
+
+      {/* ── Como funciona ───────────────────────────────────────────────── */}
+      <div style={{ background: '#fff', padding: '80px 48px', textAlign: 'center' }}>
+        <h2 className="font-wheat" style={{ fontSize: 36, color: '#111', marginBottom: 48 }}>Como funciona</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 40, maxWidth: 900, margin: '0 auto', textAlign: 'left' }}>
+          {howItWorks.map(f => (
+            <div key={f.title}>
+              <div style={{ marginBottom: 16 }}>{f.icon}</div>
+              <h3 style={{ fontSize: 16, fontWeight: 500, color: '#111', marginBottom: 8 }}>{f.title}</h3>
+              <p style={{ fontSize: 14, color: '#888', lineHeight: 1.6 }}>{f.desc}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── Veredictos — mobile ─────────────────────────────────────────── */}
-      <section className="lg:hidden py-10 px-4 sm:px-6 max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {veredictos.map((v) => (
-            <div
-              key={v.label}
-              className="rounded-xl p-4"
-              style={{ background: '#ffffff', border: `2px solid ${v.cor}` }}
-            >
-              <p className="font-bold text-sm mb-1" style={{ color: v.cor }}>{v.label}</p>
-              <p className="text-[#555555] text-sm">{v.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Como funciona ─────────────────────────────────────────────── */}
-      <section className="py-16 px-4 sm:px-6 max-w-5xl mx-auto">
-        <h2 className="text-2xl font-bold text-[#111111] mb-2">
-          Tudo que você precisa saber antes de sair
-        </h2>
-        <p className="text-[#555555] mb-10">Análise automática atualizada todos os dias às 7h BRT.</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="rounded-xl p-5"
-              style={{ background: '#ffffff', border: '1px solid #E0E0E0' }}
-            >
-              <div className="text-2xl mb-3">{f.icon}</div>
-              <h3 className="font-semibold text-[#111111] mb-1 text-sm">{f.title}</h3>
-              <p className="text-[#555555] text-sm">{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── CTA final ─────────────────────────────────────────────────── */}
-      <section style={{ background: '#111111' }} className="py-16 px-4 sm:px-6 text-center">
-        <h2 className="text-3xl font-bold text-white mb-4">
+      {/* ── CTA final ───────────────────────────────────────────────────── */}
+      <div style={{ background: '#111', padding: '80px 48px', textAlign: 'center' }}>
+        <h2 className="font-wheat" style={{ fontSize: 36, color: '#fff', marginBottom: 16 }}>
           Pronto para pedalar com segurança?
         </h2>
-        <p className="mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
-          Crie sua conta grátis e acompanhe as trilhas da sua região.
+        <p style={{ color: '#888', fontSize: 15, marginBottom: 32 }}>
+          Crie sua conta grátis e acompanhe as condições da sua região.
         </p>
         <Link
           href="/cadastro"
-          className="inline-block font-bold px-10 py-4 rounded-xl text-lg transition-all"
-          style={{ background: '#FFE000', color: '#111111' }}
+          style={{
+            background: '#FFE000', color: '#111',
+            border: '1.5px solid #FFE000', borderRadius: 4,
+            padding: '16px 40px', fontSize: 15, fontWeight: 500,
+            display: 'inline-block',
+          }}
         >
           Criar conta grátis
         </Link>
-      </section>
-
-      <footer style={{ background: '#111111', borderTop: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }} className="py-6 text-center text-sm">
-        © 2025 MTB Forecast — Feito por e para MTBers 🚵
-      </footer>
+      </div>
     </div>
   )
 }

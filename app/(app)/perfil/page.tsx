@@ -16,15 +16,18 @@ type TrilhaPessoal = {
 
 function StravaIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+    <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
       <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
     </svg>
   )
 }
 
-const cardStyle = {
-  background: '#ffffff',
-  border: '1px solid #E0E0E0',
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 12 }}>
+      {children}
+    </p>
+  )
 }
 
 export default function PerfilPage() {
@@ -107,8 +110,9 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F5' }}>
-        <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#111111', borderTopColor: 'transparent' }} />
+      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
   }
@@ -118,214 +122,244 @@ export default function PerfilPage() {
   const stravaLleno = slotsUsados >= slotsLimite
 
   return (
-    <div style={{ background: '#F5F5F5', minHeight: '100vh' }}>
-      <div style={{ background: '#111111' }} className="px-4 sm:px-6 py-8">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="font-wheat text-3xl text-white">Meu Perfil</h1>
+    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+
+      {/* ── Page header preto ─────────────────────────────────────────── */}
+      <div style={{ background: '#111', padding: '40px 32px' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Perfil</h1>
+          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
+            {profile?.nome || profile?.email || 'Minha conta'}
+          </p>
         </div>
       </div>
-    <div className="px-4 sm:px-6 py-8 max-w-3xl mx-auto">
+      <div style={{ background: '#FFE000', height: 3 }} />
 
-      {/* Dados pessoais */}
-      <div className="rounded-xl p-6 mb-6" style={cardStyle}>
-        <h2 className="text-lg font-semibold text-[#1e293b] mb-5">Dados pessoais</h2>
+      {/* ── Conteúdo ─────────────────────────────────────────────────── */}
+      <div style={{ padding: 32, maxWidth: 720, margin: '0 auto' }}>
 
-        {saved && (
-          <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-3 mb-5 text-sm">
-            Perfil atualizado com sucesso!
-          </div>
-        )}
+        {/* Dados pessoais */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
+          <SectionLabel>Dados pessoais</SectionLabel>
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[#64748b] mb-2">E-mail</label>
-            <input type="email" value={profile?.email || ''} disabled className="input-field opacity-60 cursor-not-allowed" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#64748b] mb-2">Nome</label>
-            <input type="text" value={nome} onChange={e => setNome(e.target.value)} className="input-field" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#64748b] mb-2">Região</label>
-            <select value={regiao} onChange={e => setRegiao(e.target.value)} className="input-field">
-              <option value="">Selecione</option>
-              {REGIOES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#64748b] mb-2">
-              Username Telegram <span className="text-slate-400 font-normal">(opcional)</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#64748b]">@</span>
-              <input
-                type="text"
-                value={telegram}
-                onChange={e => setTelegram(e.target.value)}
-                placeholder="seu_username"
-                className="input-field pl-8"
-              />
+          {saved && (
+            <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#166534', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+              Perfil atualizado com sucesso!
             </div>
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors"
-          >
-            {saving ? 'Salvando...' : 'Salvar alterações'}
-          </button>
-        </form>
-      </div>
-
-      {/* Trilhas do Strava */}
-      <div className="rounded-xl p-6 mb-6" style={cardStyle}>
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-[#1e293b]">Minhas trilhas do Strava</h2>
-          <span className="text-xs text-[#64748b] font-medium">{slotsUsados} de {slotsLimite} utilizadas</span>
-        </div>
-        <p className="text-xs text-[#64748b] mb-5">
-          Importe segmentos favoritos do Strava para receber previsões de condições personalizadas.
-        </p>
-
-        {/* Botão conectar */}
-        <div className="mb-4">
-          {stravaLleno ? (
-            <button
-              disabled
-              title="Limite de 3 trilhas atingido"
-              className="inline-flex items-center gap-2 font-semibold text-white px-4 py-2.5 rounded-lg opacity-50 cursor-not-allowed text-sm"
-              style={{ background: '#FC4C02' }}
-            >
-              <StravaIcon />
-              Conectar com Strava
-              <span className="text-xs font-normal">(limite atingido)</span>
-            </button>
-          ) : (
-            <a
-              href="/api/strava/auth"
-              className="inline-flex items-center gap-2 font-semibold text-white px-4 py-2.5 rounded-lg transition-opacity hover:opacity-90 text-sm"
-              style={{ background: '#FC4C02' }}
-            >
-              <StravaIcon />
-              Conectar com Strava
-            </a>
           )}
+
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>E-mail</label>
+              <input type="email" value={profile?.email || ''} disabled className="input-field" style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Nome</label>
+              <input type="text" value={nome} onChange={e => setNome(e.target.value)} className="input-field" />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Região</label>
+              <select value={regiao} onChange={e => setRegiao(e.target.value)} className="input-field">
+                <option value="">Selecione</option>
+                {REGIOES.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
+                Telegram <span style={{ color: '#bbb' }}>(opcional)</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#888', fontSize: 14 }}>@</span>
+                <input
+                  type="text"
+                  value={telegram}
+                  onChange={e => setTelegram(e.target.value)}
+                  placeholder="seu_username"
+                  className="input-field"
+                  style={{ paddingLeft: 28 }}
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              style={{
+                background: '#FFE000', color: '#111',
+                border: '1.5px solid #111', borderRadius: 4,
+                padding: '10px 20px', fontSize: 14, fontWeight: 500,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.7 : 1,
+                alignSelf: 'flex-start',
+              }}
+            >
+              {saving ? 'Salvando...' : 'Salvar alterações'}
+            </button>
+          </form>
         </div>
 
-        {/* Lista de trilhas pessoais */}
-        {trilhasPessoais.length === 0 ? (
-          <p className="text-[#64748b] text-sm">Nenhuma trilha do Strava conectada ainda.</p>
-        ) : (
-          <ul className="space-y-2">
-            {trilhasPessoais.map(t => (
-              <li
-                key={t.id}
-                className="flex items-center justify-between p-3 rounded-lg"
-                style={{ background: 'rgba(252,76,2,0.06)', border: '1px solid rgba(252,76,2,0.15)' }}
+        {/* Trilhas do Strava */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <SectionLabel>Trilhas do Strava</SectionLabel>
+            <span style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>{slotsUsados} de {slotsLimite}</span>
+          </div>
+          <p style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>
+            Importe segmentos favoritos do Strava para receber previsões personalizadas.
+          </p>
+
+          <div style={{ marginBottom: 16 }}>
+            {stravaLleno ? (
+              <button
+                disabled
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  background: '#FC4C02', color: '#fff',
+                  borderRadius: 4, padding: '10px 20px',
+                  fontSize: 13, fontWeight: 500, opacity: 0.5, cursor: 'not-allowed',
+                }}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span style={{ color: '#FC4C02' }} className="text-sm">🟠</span>
-                  <div className="min-w-0">
-                    <p className="font-medium text-[#1e293b] text-sm truncate">{t.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-xs text-[#64748b]">{t.regiao}</span>
-                      <a
-                        href={t.strava_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs hover:underline"
-                        style={{ color: '#FC4C02' }}
-                      >
+                <StravaIcon />
+                Conectar com Strava (limite atingido)
+              </button>
+            ) : (
+              <a
+                href="/api/strava/auth"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  background: '#FC4C02', color: '#fff',
+                  borderRadius: 4, padding: '10px 20px',
+                  fontSize: 13, fontWeight: 500, textDecoration: 'none',
+                }}
+              >
+                <StravaIcon />
+                Conectar com Strava
+              </a>
+            )}
+          </div>
+
+          {trilhasPessoais.length === 0 ? (
+            <p style={{ fontSize: 13, color: '#888' }}>Nenhuma trilha do Strava conectada ainda.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {trilhasPessoais.map(t => (
+                <div
+                  key={t.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'rgba(252,76,2,0.05)', border: '0.5px solid rgba(252,76,2,0.2)',
+                    borderLeft: '3px solid #FC4C02',
+                    borderRadius: 4, padding: '10px 14px',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: '#111', marginBottom: 2 }}>{t.name}</p>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 12, color: '#888' }}>{t.regiao}</span>
+                      <a href={t.strava_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#FC4C02' }}>
                         Ver no Strava ↗
                       </a>
                       <Link
                         href={`/perfil/strava/sugestao/${t.strava_segment_id}`}
-                        className="text-xs text-[#64748b] hover:text-[#1e293b] transition-colors underline underline-offset-2"
+                        style={{ fontSize: 12, color: '#888', textDecoration: 'underline' }}
                       >
                         Sugerir alteração
                       </Link>
                     </div>
                   </div>
+                  <button
+                    onClick={() => handleDeletePessoal(t.id)}
+                    disabled={deletingId === t.id}
+                    style={{ fontSize: 12, color: '#bbb', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 12, flexShrink: 0 }}
+                  >
+                    {deletingId === t.id ? '...' : 'Excluir'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDeletePessoal(t.id)}
-                  disabled={deletingId === t.id}
-                  className="text-slate-400 hover:text-red-500 transition-colors text-xs font-medium ml-3 flex-shrink-0"
-                >
-                  {deletingId === t.id ? '...' : 'Excluir'}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Trilhas favoritas */}
-      <div className="rounded-xl p-6 mb-6" style={cardStyle}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#1e293b]">Trilhas favoritas</h2>
-          <span className="text-xs bg-slate-100 text-[#64748b] px-2.5 py-0.5 rounded-full font-medium">
-            {trilhasFavoritas.length}
-          </span>
+              ))}
+            </div>
+          )}
         </div>
-        {trilhasFavoritas.length === 0 ? (
-          <p className="text-[#64748b] text-sm">Nenhuma trilha favoritada ainda.</p>
-        ) : (
-          <ul className="space-y-1">
-            {trilhasFavoritas.map(t => (
-              <li key={t.id}>
-                <Link
-                  href={`/trilhas/${t.id}`}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors"
-                >
-                  <span className="text-[#1e293b] font-medium text-sm">{t.name}</span>
-                  <span className="text-[#64748b] text-xs">{t.regiao}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
-      {/* Trilhas cadastradas */}
-      <div className="rounded-xl p-6 mb-8" style={cardStyle}>
-        <h2 className="text-lg font-semibold text-[#1e293b] mb-4">Trilhas que cadastrei</h2>
-        {trilhasUsuario.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-[#64748b] text-sm mb-3">Você ainda não cadastrou trilhas.</p>
-            <Link href="/trilhas" className="text-green-600 hover:text-green-500 text-sm font-medium">
-              Cadastrar trilha →
-            </Link>
+        {/* Trilhas favoritas */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <SectionLabel>Trilhas favoritas</SectionLabel>
+            <span style={{ fontSize: 12, background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 6px', color: '#888', marginBottom: 12 }}>
+              {trilhasFavoritas.length}
+            </span>
           </div>
-        ) : (
-          <ul className="space-y-1">
-            {trilhasUsuario.map(t => (
-              <li key={t.id}>
+          {trilhasFavoritas.length === 0 ? (
+            <p style={{ fontSize: 13, color: '#888' }}>Nenhuma trilha favoritada ainda.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {trilhasFavoritas.map(t => (
                 <Link
+                  key={t.id}
                   href={`/trilhas/${t.id}`}
-                  className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 12px', borderRadius: 4, textDecoration: 'none',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f5')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <span className="text-[#1e293b] font-medium text-sm">{t.name}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.aprovada ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>{t.name}</span>
+                  <span style={{ fontSize: 12, color: '#888' }}>{t.regiao}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Trilhas cadastradas */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 24 }}>
+          <SectionLabel>Trilhas que cadastrei</SectionLabel>
+          {trilhasUsuario.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <p style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>Você ainda não cadastrou trilhas.</p>
+              <Link
+                href="/trilhas"
+                style={{ fontSize: 13, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}
+              >
+                Cadastrar trilha →
+              </Link>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {trilhasUsuario.map(t => (
+                <Link
+                  key={t.id}
+                  href={`/trilhas/${t.id}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 12px', borderRadius: 4, textDecoration: 'none',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f5')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>{t.name}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 6px',
+                    background: t.aprovada ? '#dcfce7' : '#fef9c3',
+                    color: t.aprovada ? '#166534' : '#854d0e',
+                  }}>
                     {t.aprovada ? 'Aprovada' : 'Pendente'}
                   </span>
                 </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* Logout */}
-      <div className="text-center">
-        <button
-          onClick={handleLogout}
-          className="text-red-500 hover:text-red-600 font-medium text-sm transition-colors"
-        >
-          Sair da conta
-        </button>
+        {/* Logout */}
+        <div style={{ textAlign: 'center' }}>
+          <button
+            onClick={handleLogout}
+            style={{ fontSize: 13, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+          >
+            Sair da conta
+          </button>
+        </div>
       </div>
-    </div>
     </div>
   )
 }

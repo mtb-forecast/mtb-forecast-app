@@ -16,9 +16,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-
     if (error) {
       setError('E-mail ou senha inválidos. Tente novamente.')
       setLoading(false)
@@ -29,66 +27,101 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <span className="text-3xl">🚵</span>
-            <span className="text-2xl font-extrabold text-white">MTB Forecast</span>
-          </div>
-          <p className="text-slate-400">Saiba antes de pedalar</p>
-        </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2" style={{ minHeight: '100vh' }}>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-xl font-bold text-white mb-6">Entrar na conta</h1>
+      {/* Left: black branding panel */}
+      <div
+        className="hidden lg:flex"
+        style={{ background: '#111', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
+      >
+        <Link href="/" className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
+          MTB FORECAST
+        </Link>
+        <div>
+          <h1 className="font-wheat" style={{ color: '#fff', fontSize: 36, lineHeight: 1.1, marginBottom: 16 }}>
+            Bem-vindo<br />de volta.
+          </h1>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.7, maxWidth: 320 }}>
+            Verifique as condições das suas trilhas favoritas antes de sair de casa.
+          </p>
+        </div>
+        <p style={{ color: '#444', fontSize: 12 }}>MTB Forecast © 2025</p>
+      </div>
+
+      {/* Right: form panel */}
+      <div style={{ background: '#fff', padding: '48px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+
+        {/* Mobile logo */}
+        <Link href="/" className="font-wheat lg:hidden" style={{ color: '#111', fontSize: 18, letterSpacing: '1.5px', display: 'block', marginBottom: 40 }}>
+          MTB FORECAST
+        </Link>
+
+        <div style={{ maxWidth: 400, width: '100%' }}>
+          <h2 className="font-wheat" style={{ fontSize: 28, color: '#111', marginBottom: 32 }}>Entrar</h2>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm">
+            <div style={{
+              background: '#fee2e2', border: '1px solid #fca5a5',
+              color: '#991b1b', borderRadius: 4,
+              padding: '10px 14px', marginBottom: 20, fontSize: 14,
+            }}>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">E-mail</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>E-mail</label>
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 required
                 placeholder="seu@email.com"
                 className="input-field"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Senha</label>
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Senha</label>
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
                 className="input-field"
               />
+              <div style={{ textAlign: 'right', marginTop: 8 }}>
+                <span style={{ fontSize: 13, color: '#888', cursor: 'pointer' }}>Esqueci minha senha</span>
+              </div>
             </div>
-
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors duration-200"
+              style={{
+                background: '#FFE000', color: '#111',
+                border: '1.5px solid #111', borderRadius: 4,
+                padding: '10px 20px', fontSize: 14, fontWeight: 500,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+                width: '100%', marginTop: 8,
+              }}
             >
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
 
-          <p className="text-center text-slate-400 text-sm mt-6">
-            Não tem conta?{' '}
-            <Link href="/cadastro" className="text-green-400 hover:text-green-300 font-medium">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0' }}>
+            <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+            <span style={{ fontSize: 13, color: '#888' }}>ou</span>
+            <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+          </div>
+
+          <div style={{ textAlign: 'center' }}>
+            <Link href="/cadastro" style={{ fontSize: 14, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
               Criar conta grátis
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>

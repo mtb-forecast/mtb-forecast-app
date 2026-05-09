@@ -59,7 +59,6 @@ export default function AdminPage() {
 
       setPendentes(trilhasPendentes || [])
 
-      // Enrich sugestões with segment name and current config
       const enriched = await Promise.all(
         (sugestoesPendentes || []).map(async (s: Sugestao) => {
           const { data: config } = await supabase
@@ -87,12 +86,12 @@ export default function AdminPage() {
 
   async function aprovar(id: string) {
     await supabase.from('trilhas').update({ aprovada: true }).eq('id', id)
-    setPendentes((prev) => prev.filter((t) => t.id !== id))
+    setPendentes(prev => prev.filter(t => t.id !== id))
   }
 
   async function rejeitar(id: string) {
     await supabase.from('trilhas').delete().eq('id', id)
-    setPendentes((prev) => prev.filter((t) => t.id !== id))
+    setPendentes(prev => prev.filter(t => t.id !== id))
   }
 
   async function aprovarSugestao(s: Sugestao) {
@@ -119,8 +118,9 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
   }
@@ -128,111 +128,136 @@ export default function AdminPage() {
   if (!isAdmin) return null
 
   return (
-    <div className="min-h-screen bg-slate-900 px-4 sm:px-6 py-8 max-w-4xl mx-auto">
-      <div className="flex items-center gap-3 mb-8">
-        <h1 className="text-2xl font-bold text-white">Painel Admin</h1>
-        <span className="badge bg-purple-500/20 text-purple-400 border border-purple-500/30">
-          Admin
-        </span>
-      </div>
+    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
 
-      {/* Contador trilhas pendentes */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 mb-6">
-        <div className="flex items-center gap-4">
-          <div className="bg-yellow-500/20 rounded-lg p-3">
-            <span className="text-2xl">⏳</span>
+      {/* ── Page header preto ─────────────────────────────────────────── */}
+      <div style={{ background: '#111', padding: '40px 32px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Painel Admin</h1>
+            <span style={{
+              fontSize: 11, fontWeight: 600, letterSpacing: '1px',
+              background: '#FFE000', color: '#111',
+              borderRadius: 2, padding: '3px 8px',
+            }}>
+              ADMIN
+            </span>
           </div>
-          <div>
-            <p className="text-slate-400 text-sm">Trilhas pendentes</p>
-            <p className="text-3xl font-bold text-white">{pendentes.length}</p>
-          </div>
+          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
+            {pendentes.length} trilha{pendentes.length !== 1 ? 's' : ''} pendente{pendentes.length !== 1 ? 's' : ''} · {sugestoes.length} sugestão{sugestoes.length !== 1 ? 'ões' : ''} pendente{sugestoes.length !== 1 ? 's' : ''}
+          </p>
         </div>
       </div>
+      <div style={{ background: '#FFE000', height: 3 }} />
 
-      <AdminPanel trilhas={pendentes} onAprovar={aprovar} onRejeitar={rejeitar} />
+      {/* ── Conteúdo ─────────────────────────────────────────────────── */}
+      <div style={{ padding: 32, maxWidth: 900, margin: '0 auto' }}>
 
-      {/* ── Sugestões de configuração Strava ─────────────────────────────────── */}
-      <div className="mt-10">
-        <h2 className="text-lg font-bold text-white mb-4">
-          Sugestões de configuração Strava
-          {sugestoes.length > 0 && (
-            <span className="ml-2 text-sm font-normal bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
-              {sugestoes.length} pendente{sugestoes.length > 1 ? 's' : ''}
-            </span>
+        {/* Stats */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1 }}>
+            <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Trilhas pendentes</p>
+            <p style={{ fontSize: 32, fontWeight: 700, color: '#111' }}>{pendentes.length}</p>
+          </div>
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1 }}>
+            <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Sugestões Strava</p>
+            <p style={{ fontSize: 32, fontWeight: 700, color: '#111' }}>{sugestoes.length}</p>
+          </div>
+        </div>
+
+        {/* Trilhas pendentes */}
+        <div style={{ marginBottom: 24 }}>
+          <AdminPanel trilhas={pendentes} onAprovar={aprovar} onRejeitar={rejeitar} />
+        </div>
+
+        {/* Sugestões Strava */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 500, color: '#111' }}>Sugestões de configuração Strava</h2>
+            {sugestoes.length > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 600, background: '#fef9c3', color: '#854d0e', borderRadius: 2, padding: '2px 8px' }}>
+                {sugestoes.length} pendente{sugestoes.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {sugestaoMsg && (
+            <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#166534', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+              {sugestaoMsg}
+            </div>
           )}
-        </h2>
 
-        {sugestaoMsg && (
-          <div className="mb-4 rounded-lg px-4 py-3 text-sm text-green-300 bg-green-900/40 border border-green-700">
-            {sugestaoMsg}
-          </div>
-        )}
-
-        {sugestoes.length === 0 ? (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center text-slate-400 text-sm">
-            Nenhuma sugestão pendente.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {sugestoes.map(s => (
-              <div key={s.id} className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div>
-                    <p className="text-white font-semibold">{s.segmento_nome}</p>
-                    <p className="text-slate-400 text-xs mt-0.5">
-                      Segmento #{s.strava_segment_id} · {new Date(s.created_at).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                  <span className="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full flex-shrink-0">
-                    pendente
-                  </span>
-                </div>
-
-                {/* Config atual vs sugerida */}
-                {s.config_atual && (
-                  <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
-                    <div className="bg-slate-700/50 rounded-lg p-3">
-                      <p className="text-slate-400 font-medium mb-2 uppercase tracking-wider text-[10px]">Config atual</p>
-                      <p className="text-slate-300">Solo: <span className="text-white">{s.config_atual.solo_type}</span></p>
-                      <p className="text-slate-300">Exposição: <span className="text-white">{s.config_atual.exposicao}</span></p>
-                      <p className="text-slate-300">Tipo: <span className="text-white">{s.config_atual.trail_type}</span></p>
-                      <p className="text-slate-300">Bioma: <span className="text-white">{s.config_atual.bioma}</span></p>
+          {sugestoes.length === 0 ? (
+            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 40, textAlign: 'center' }}>
+              <p style={{ fontSize: 13, color: '#888' }}>Nenhuma sugestão pendente.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {sugestoes.map(s => (
+                <div key={s.id} style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{s.segmento_nome}</p>
+                      <p style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                        Segmento #{s.strava_segment_id} · {new Date(s.created_at).toLocaleDateString('pt-BR')}
+                      </p>
                     </div>
-                    <div className="bg-amber-900/30 border border-amber-700/40 rounded-lg p-3">
-                      <p className="text-amber-400 font-medium mb-2 uppercase tracking-wider text-[10px]">Sugestão</p>
-                      <p className="text-slate-300">Solo: <span className="text-amber-300">{s.solo_type}</span></p>
-                      <p className="text-slate-300">Exposição: <span className="text-amber-300">{s.exposicao}</span></p>
-                      <p className="text-slate-300">Tipo: <span className="text-amber-300">{s.trail_type}</span></p>
-                      <p className="text-slate-300">Bioma: <span className="text-amber-300">{s.bioma}</span></p>
-                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 500, background: '#fef9c3', color: '#854d0e', borderRadius: 2, padding: '2px 8px', flexShrink: 0 }}>
+                      pendente
+                    </span>
                   </div>
-                )}
 
-                {/* Motivo */}
-                <div className="mb-4 bg-slate-700/40 rounded-lg px-3 py-2">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Motivo</p>
-                  <p className="text-slate-200 text-sm">{s.motivo}</p>
-                </div>
+                  {s.config_atual && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                      <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: 12 }}>
+                        <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>Config atual</p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Solo: <b style={{ color: '#111' }}>{s.config_atual.solo_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Exposição: <b style={{ color: '#111' }}>{s.config_atual.exposicao}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Tipo: <b style={{ color: '#111' }}>{s.config_atual.trail_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Bioma: <b style={{ color: '#111' }}>{s.config_atual.bioma}</b></p>
+                      </div>
+                      <div style={{ background: '#fef9c3', border: '0.5px solid #fde047', borderRadius: 4, padding: 12 }}>
+                        <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', color: '#854d0e', textTransform: 'uppercase', marginBottom: 8 }}>Sugestão</p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Solo: <b style={{ color: '#111' }}>{s.solo_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Exposição: <b style={{ color: '#111' }}>{s.exposicao}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Tipo: <b style={{ color: '#111' }}>{s.trail_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Bioma: <b style={{ color: '#111' }}>{s.bioma}</b></p>
+                      </div>
+                    </div>
+                  )}
 
-                {/* Ações */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => aprovarSugestao(s)}
-                    className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
-                  >
-                    Aprovar
-                  </button>
-                  <button
-                    onClick={() => rejeitarSugestao(s.id)}
-                    className="flex-1 bg-slate-700 hover:bg-red-900/60 text-slate-300 hover:text-red-300 text-sm font-semibold py-2 rounded-lg transition-colors border border-slate-600"
-                  >
-                    Rejeitar
-                  </button>
+                  <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '10px 14px', marginBottom: 14 }}>
+                    <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 6 }}>Motivo</p>
+                    <p style={{ fontSize: 13, color: '#111' }}>{s.motivo}</p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => aprovarSugestao(s)}
+                      style={{
+                        flex: 1, background: '#FFE000', color: '#111',
+                        border: '1.5px solid #111', borderRadius: 4,
+                        padding: '9px 0', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      }}
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      onClick={() => rejeitarSugestao(s.id)}
+                      style={{
+                        flex: 1, background: '#fff', color: '#888',
+                        border: '0.5px solid #e5e5e5', borderRadius: 4,
+                        padding: '9px 0', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      }}
+                    >
+                      Rejeitar
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -20,17 +20,11 @@ export default function TrilhasPage() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.replace('/login')
-        return
-      }
+      if (!user) { router.replace('/login'); return }
       setUserId(user.id)
 
       const [{ data: trilhasData }, { data: favData }] = await Promise.all([
-        supabase
-          .from('trilhas')
-          .select(`*, condicoes(*)`)
-          .eq('aprovada', true)
+        supabase.from('trilhas').select(`*, condicoes(*)`).eq('aprovada', true)
           .order('name')
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
         supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
@@ -38,18 +32,14 @@ export default function TrilhasPage() {
 
       if (trilhasData) {
         const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
-          const condicoesArr = Array.isArray(t.condicoes) ? t.condicoes : []
-          const latestCondicao = condicoesArr[0] ?? undefined
-          return { ...t, condicao: latestCondicao }
+          const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+          return { ...t, condicao: arr[0] ?? undefined }
         })
         setTrilhas(mapped)
         setFilteredTrilhas(mapped)
       }
 
-      if (favData) {
-        setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
-      }
-
+      if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
       setLoading(false)
     }
     load()
@@ -57,14 +47,8 @@ export default function TrilhasPage() {
 
   useEffect(() => {
     let result = trilhas
-    if (search) {
-      result = result.filter((t) =>
-        t.name.toLowerCase().includes(search.toLowerCase())
-      )
-    }
-    if (regiaoFilter) {
-      result = result.filter((t) => t.regiao === regiaoFilter)
-    }
+    if (search) result = result.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    if (regiaoFilter) result = result.filter(t => t.regiao === regiaoFilter)
     setFilteredTrilhas(result)
   }, [search, regiaoFilter, trilhas])
 
@@ -72,73 +56,80 @@ export default function TrilhasPage() {
     if (!userId) return
     if (favoritos.has(trilhaId)) {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
-      setFavoritos((prev) => { const s = new Set(prev); s.delete(trilhaId); return s })
+      setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
     } else {
       await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
-      setFavoritos((prev) => new Set([...prev, trilhaId]))
+      setFavoritos(prev => new Set([...prev, trilhaId]))
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F5' }}>
-        <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#111111', borderTopColor: 'transparent' }} />
+      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
   }
 
   return (
-    <div style={{ background: '#F5F5F5', minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
 
-      {/* ── Header preto ─────────────────────────────────────────────────── */}
-      <div style={{ background: '#111111' }} className="px-4 sm:px-6 py-8">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      {/* ── Page header preto ─────────────────────────────────────────── */}
+      <div style={{ background: '#111', padding: '40px 32px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <h1 className="font-wheat text-3xl text-white">Trilhas</h1>
-            <p className="mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              {filteredTrilhas.length} trilhas encontradas
+            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Trilhas</h1>
+            <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
+              {filteredTrilhas.length} trilha{filteredTrilhas.length !== 1 ? 's' : ''} encontrada{filteredTrilhas.length !== 1 ? 's' : ''}
             </p>
           </div>
           <Link
             href="/trilhas/nova"
-            className="font-semibold px-5 py-2.5 rounded-lg text-sm whitespace-nowrap transition-all"
-            style={{ background: '#FFE000', color: '#111111' }}
+            style={{
+              background: '#FFE000', color: '#111',
+              border: '1.5px solid #111', borderRadius: 4,
+              padding: '10px 20px', fontSize: 13, fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
           >
             + Cadastrar trilha
           </Link>
         </div>
       </div>
+      <div style={{ background: '#FFE000', height: 3 }} />
 
-      {/* ── Conteúdo ─────────────────────────────────────────────────────── */}
-      <div className="px-4 sm:px-6 py-8 max-w-5xl mx-auto">
+      {/* ── Conteúdo ─────────────────────────────────────────────────── */}
+      <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
+
         {/* Filtros */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3" style={{ marginBottom: 24 }}>
           <input
             type="text"
             placeholder="Buscar por nome..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input-field flex-1"
+            onChange={e => setSearch(e.target.value)}
+            className="input-field"
+            style={{ flex: 1 }}
           />
           <select
             value={regiaoFilter}
-            onChange={(e) => setRegiaoFilter(e.target.value)}
-            className="input-field sm:w-40"
+            onChange={e => setRegiaoFilter(e.target.value)}
+            className="input-field"
+            style={{ width: 160 }}
           >
             <option value="">Todos estados</option>
-            {REGIOES.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
+            {REGIOES.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
 
         {filteredTrilhas.length === 0 ? (
-          <div className="text-center py-20" style={{ color: '#555555' }}>
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#888', fontSize: 14 }}>
             Nenhuma trilha encontrada com esses filtros.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredTrilhas.map((t) => (
+            {filteredTrilhas.map(t => (
               <TrilhaCard
                 key={t.id}
                 trilha={t}

@@ -17,19 +17,12 @@ type TrilhaDetalhada = Trilha & { condicoes?: Condicao[] }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      fontSize: 10, fontWeight: 700, letterSpacing: 1,
-      color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8,
-    }}>
+    <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 12 }}>
       {children}
-    </div>
+    </p>
   )
-}
-
-function Divider() {
-  return <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, marginTop: 10 }} />
 }
 
 function parseHorarios(raw: string | null | undefined): string {
@@ -44,10 +37,10 @@ function parseHorarios(raw: string | null | undefined): string {
 }
 
 function inclinacaoCor(inc: number | null | undefined): string {
-  if (inc == null) return '#64748b'
+  if (inc == null) return '#888'
   if (inc > 30) return '#ef4444'
   if (inc > 20) return '#f97316'
-  return '#64748b'
+  return '#888'
 }
 
 // ── page ─────────────────────────────────────────────────────────────────────
@@ -63,7 +56,6 @@ export default function TrilhaDetalhe() {
   const [isFavorito, setIsFavorito] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
-  // Personal trail extras
   const [isTrilhaPessoal, setIsTrilhaPessoal] = useState(false)
   const [polyline, setPolyline] = useState<string | null>(null)
   const [elevationProfileUrl, setElevationProfileUrl] = useState<string | null>(null)
@@ -93,7 +85,6 @@ export default function TrilhaDetalhe() {
         return
       }
 
-      // Fallback: personal trail
       const { data: pt } = await supabase
         .from('trilhas_pessoais')
         .select('*')
@@ -111,8 +102,6 @@ export default function TrilhaDetalhe() {
         .limit(1)
         .maybeSingle()
 
-      const latestC = condicaoStrava ?? null
-
       setTrilha({
         id: pt.id,
         name: pt.name,
@@ -127,7 +116,7 @@ export default function TrilhaDetalhe() {
         regiao: pt.regiao,
         bioma: pt.bioma ?? undefined,
       })
-      setC(latestC as Condicao ?? null)
+      setC(condicaoStrava as Condicao ?? null)
       setIsTrilhaPessoal(true)
       setPolyline(pt.polyline ?? null)
       setElevationProfileUrl(pt.strava_elevation_profile ?? null)
@@ -150,8 +139,9 @@ export default function TrilhaDetalhe() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F5' }}>
-        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
   }
@@ -161,8 +151,8 @@ export default function TrilhaDetalhe() {
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg   = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const acfg   = c?.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
-  const fraseStyle = ADERENCIA_FRASE[c?.aderencia_status ?? ''] ?? { bg: '#f8fafc', border: '#94a3b8' }
-  const bordaCor   = isTrilhaPessoal ? '#FC4C02' : (vcfg?.cor ?? '#94a3b8')
+  const fraseStyle = ADERENCIA_FRASE[c?.aderencia_status ?? ''] ?? { bg: '#f7f7f5', border: '#e5e5e5' }
+  const borderCor = isTrilhaPessoal ? '#FC4C02' : (vcfg?.cor ?? '#e5e5e5')
 
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
   const isMatAtlantica = trilha.bioma === 'Mata Atlântica'
@@ -190,11 +180,9 @@ export default function TrilhaDetalhe() {
   ]
   const hasFds = fdsDias.some(d => d.v)
 
-  console.log('isTrilhaPessoal:', isTrilhaPessoal, 'polyline:', polyline)
-
   const clay = c?.clay_pct
   const fontes: string[] = []
-  if (c?.fonte)   fontes.push(`📡 Previsão: ${c.fonte}`)
+  if (c?.fonte) fontes.push(`📡 Previsão: ${c.fonte}`)
   fontes.push(clay != null ? '🌱 Solo: OpenLandMap' : '🌱 Solo: manual (fallback)')
   if (c?.enso_fase || c?.enso_oni != null) {
     const oniStr = c?.enso_oni != null ? ` · fase ${c.enso_fase ?? '—'} (ONI ${c.enso_oni.toFixed(2)})` : ''
@@ -203,382 +191,299 @@ export default function TrilhaDetalhe() {
   if (c?.alerta_vento_kmh) fontes.push('💨 Vento hist.: MERRA-2 / ERA5')
 
   return (
-    <div style={{ background: '#F5F5F5', minHeight: '100vh', padding: '20px 16px 40px' }}>
-      <div style={{ maxWidth: 600, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
 
-        {/* ── Voltar ── */}
-        <Link
-          href="/trilhas"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 13, color: '#555555', textDecoration: 'none',
-            marginBottom: 16, fontWeight: 600 }}
-        >
-          ← Voltar para trilhas
-        </Link>
+      {/* ── Page header preto ─────────────────────────────────────────── */}
+      <div style={{ background: '#111', padding: '40px 32px' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
-        {/* ══ CARD PRINCIPAL ══════════════════════════════════════════════ */}
-        <div style={{
-          background: '#ffffff',
-          borderRadius: 12,
-          border: '1px solid #E0E0E0',
-          borderLeft: `3px solid ${bordaCor}`,
-          padding: '16px 18px 14px',
-        }}>
+          {/* Voltar */}
+          <Link
+            href="/trilhas"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none' }}
+          >
+            ← Voltar para trilhas
+          </Link>
 
-          {/* ── HEADER: nome + ação ────────────────────────────────────── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <a
-              href={stravaUrl ?? mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontSize: 16, fontWeight: 800, color: '#1e293b',
-                fontFamily: "'WheatSmile', serif",
-                textDecoration: 'none', display: 'block', lineHeight: 1.3, flex: 1, minWidth: 0 }}
-            >
-              {trilha.name} {isTrilhaPessoal ? '🟠' : '📍'}
-            </a>
-
+          {/* Nome + ação */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 28, lineHeight: 1.2, flex: 1 }}>
+              {trilha.name}
+            </h1>
             {isTrilhaPessoal ? (
               <a
                 href={stravaUrl ?? '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, flexShrink: 0,
-                  fontSize: 11, fontWeight: 700, color: '#FC4C02',
-                  border: '1px solid rgba(252,76,2,0.3)',
-                  background: 'rgba(252,76,2,0.08)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                style={{ fontSize: 13, color: '#FC4C02', fontWeight: 500, flexShrink: 0, background: 'rgba(252,76,2,0.12)', padding: '6px 12px', borderRadius: 4 }}
               >
                 Ver no Strava ↗
               </a>
             ) : (
               <button
                 onClick={toggleFavorito}
-                style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
-                  border: isFavorito ? '1px solid #FFE000' : '1px solid #E0E0E0',
-                  background: isFavorito ? '#FFFDE0' : 'transparent',
-                  color: isFavorito ? '#111111' : '#999999',
-                  fontSize: 16, fontWeight: 700, flexShrink: 0 }}
+                style={{
+                  background: 'none', border: '1px solid', cursor: 'pointer', flexShrink: 0,
+                  borderColor: isFavorito ? '#FFE000' : '#444',
+                  color: isFavorito ? '#FFE000' : '#888',
+                  fontSize: 18, padding: '4px 10px', borderRadius: 4,
+                }}
               >
                 {isFavorito ? '★' : '☆'}
               </button>
             )}
           </div>
 
-          {/* ── MAPA ──────────────────────────────────────────────────── */}
-          <div style={{ marginTop: 12 }}>
-            {isTrilhaPessoal === true && polyline !== null && polyline !== '' ? (
-              <>
-                <StravaMap polyline={polyline} />
-                <div style={{ marginTop: 8 }}>
-                  <ElevationProfile
-                    elevationProfileUrl={elevationProfileUrl}
-                    desnivel_m={trilha.desnivel_m}
-                    extensao_km={trilha.extensao_km}
-                    altitude_m={trilha.altitude_m}
-                  />
-                </div>
-              </>
-            ) : (
-              <div style={{ borderRadius: 8, overflow: 'hidden', height: 200 }}>
-                <iframe
-                  src={`https://maps.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15&output=embed&t=k`}
-                  width="100%"
-                  height="200"
-                  style={{ border: 'none', display: 'block' }}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
+          {/* Tags */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+            {isTrilhaPessoal && (
+              <span style={{ fontSize: 11, fontWeight: 500, color: '#FC4C02', background: 'rgba(252,76,2,0.15)', borderRadius: 2, padding: '2px 6px' }}>
+                Strava
+              </span>
+            )}
+            <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
+              {trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
+            </span>
+            <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
+              {trilha.regiao}
+            </span>
+            {trilha.bioma && (
+              <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
+                {trilha.bioma}
+              </span>
+            )}
+            {isQuadrilatero && (
+              <span style={{ fontSize: 11, fontWeight: 500, color: '#FFE000', background: 'rgba(255,224,0,0.12)', border: '0.5px solid rgba(255,224,0,0.3)', borderRadius: 2, padding: '2px 6px' }}>
+                ⛏ Quadrilátero Ferrífero
+              </span>
             )}
           </div>
 
-          {/* ── Badges de tipo ─────────────────────────────────────────── */}
-          <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600,
-            letterSpacing: 0.5, textTransform: 'uppercase', marginTop: 10 }}>
-            {trilha.trail_type === 'bikepark' ? '🏟 Bike Park' : '🏔 Trilha Natural'}
-          </div>
-
-          {/* Badge Strava */}
-          {isTrilhaPessoal && (
-            <div style={{ marginTop: 4 }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '2px 8px', borderRadius: 20,
-                fontSize: 10, fontWeight: 700,
-                color: '#FC4C02', background: 'rgba(252,76,2,0.12)', border: '1px solid rgba(252,76,2,0.25)',
-              }}>
-                🟠 Strava
-              </span>
-            </div>
-          )}
-
-          {/* Desnível — exibido diretamente para trilhas pessoais */}
-          {isTrilhaPessoal && (trilha.desnivel_m != null || trilha.extensao_km != null) && (
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-              {trilha.desnivel_m != null && trilha.extensao_km != null
-                ? `⛰ Desnível: ${trilha.desnivel_m}m em ${trilha.extensao_km}km`
-                : trilha.desnivel_m != null
-                ? `⛰ Desnível: ${trilha.desnivel_m}m`
-                : `📏 ${trilha.extensao_km}km`}
-            </div>
-          )}
-
-          {/* Características físicas */}
-          {(() => {
-            const parts: string[] = []
-            if (trilha.desnivel_m != null && trilha.extensao_km != null) {
-              const inc = c?.inclinacao
-              const incCor = inclinacaoCor(inc)
-              const incPart = inc != null
-                ? ` · <span style="color:${incCor};font-weight:700;">${inc}%</span>`
-                : ''
-              parts.push(`⛰ <b>${trilha.desnivel_m}m</b> em <b>${trilha.extensao_km}km</b>${incPart}`)
-            } else if (trilha.desnivel_m != null) {
-              parts.push(`⛰ <b>${trilha.desnivel_m}m</b>`)
-            }
-            if (clay != null && c?.texture_class) {
-              parts.push(`🪨 ${c.texture_class} <span style="color:#94a3b8;">(arg ${clay}% · ar ${c.sand_pct ?? '?'}%)</span>`)
-            }
-            if (parts.length === 0) return null
-            return (
-              <div
-                style={{ fontSize: 11, color: '#64748b', marginTop: 3, lineHeight: 1.6 }}
-                dangerouslySetInnerHTML={{ __html: parts.join(' &nbsp;·&nbsp; ') }}
-              />
-            )
-          })()}
-
-          {/* Badges bioma / quadrilátero */}
-          {(isMatAtlantica || isQuadrilatero) && (
-            <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {isQuadrilatero && (
-                <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                  fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                  color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b44' }}>
-                  ⛏ Quadrilátero Ferrífero
-                </span>
+          {/* Dados físicos */}
+          {(trilha.desnivel_m != null || trilha.extensao_km != null) && (
+            <div style={{ fontSize: 12, color: '#888', marginTop: 10, display: 'flex', gap: 16 }}>
+              {trilha.desnivel_m != null && trilha.extensao_km != null && (
+                <>
+                  <span>⛰ <b style={{ color: '#ccc' }}>{trilha.desnivel_m}m</b> desnível</span>
+                  <span>📏 <b style={{ color: '#ccc' }}>{trilha.extensao_km}km</b></span>
+                </>
               )}
-              {isMatAtlantica && (
-                <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                  fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                  color: '#166534', background: '#dcfce7', border: '1px solid #86efac' }}>
-                  🌿 Mata Atlântica
-                </span>
-              )}
-              {trilha.bioma && !isMatAtlantica && (
-                <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20,
-                  fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                  color: '#374151', background: '#f3f4f6', border: '1px solid #d1d5db' }}>
-                  🌱 {trilha.bioma}
-                </span>
+              {clay != null && c?.texture_class && (
+                <span>🪨 <b style={{ color: '#ccc' }}>{c.texture_class}</b></span>
               )}
             </div>
           )}
 
-          {/* ── PILLS: aderência + veredicto ───────────────────────────── */}
+          {/* Badges veredicto / aderência */}
           {c && (
-            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
               {acfg && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                  letterSpacing: 0.5, color: acfg.cor,
-                  background: acfg.cor + '18', border: `1px solid ${acfg.cor}33` }}>
+                <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '3px 8px', background: acfg.cor + '20', color: acfg.cor }}>
                   {acfg.emoji} {c.aderencia_status}
                 </span>
               )}
               {vcfg && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                  letterSpacing: 0.5, color: vcfg.cor,
-                  background: vcfg.bg, border: `1px solid ${vcfg.cor}33` }}>
+                <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '3px 8px', background: vcfg.bg, color: vcfg.cor }}>
                   {vcfg.emoji} {veredictoText}
                 </span>
               )}
-              <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>HOJE 12h</span>
+              <span style={{ fontSize: 11, color: '#666', alignSelf: 'center' }}>HOJE 12h</span>
             </div>
           )}
+        </div>
+      </div>
 
-          {!c && (
-            <div style={{ marginTop: 12, color: '#94a3b8', fontSize: 12 }}>
-              Condição ainda não calculada para esta trilha.
-            </div>
-          )}
+      {/* ── Faixa amarela ─────────────────────────────────────────────── */}
+      <div style={{ background: '#FFE000', height: 3 }} />
 
-          {/* ══ SEÇÃO 1 — Condição do Solo ═══════════════════════════════ */}
-          {c && (
+      {/* ── Conteúdo ─────────────────────────────────────────────────── */}
+      <div style={{ padding: '32px 32px 48px', maxWidth: 720, margin: '0 auto' }}>
+
+        {/* Mapa */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderLeft: `3px solid ${borderCor}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
+          {isTrilhaPessoal && polyline ? (
             <>
-              <Divider />
-              <SectionTitle>🌍 Condição do Solo</SectionTitle>
+              <StravaMap polyline={polyline} />
+              <div style={{ padding: '0 0 0 0' }}>
+                <ElevationProfile
+                  elevationProfileUrl={elevationProfileUrl}
+                  desnivel_m={trilha.desnivel_m}
+                  extensao_km={trilha.extensao_km}
+                  altitude_m={trilha.altitude_m}
+                />
+              </div>
+            </>
+          ) : (
+            <iframe
+              src={`https://maps.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15&output=embed&t=k`}
+              width="100%"
+              height="220"
+              style={{ border: 'none', display: 'block' }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          )}
+          <div style={{ padding: '8px 14px', borderTop: '0.5px solid #e5e5e5' }}>
+            <a
+              href={stravaUrl ?? mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: 12, color: '#888' }}
+            >
+              Ver no mapa ↗
+            </a>
+          </div>
+        </div>
 
-              {c.frase_secagem && (
-                <div style={{ background: fraseStyle.bg, borderLeft: `3px solid ${fraseStyle.border}`,
-                  borderRadius: '0 6px 6px 0', padding: '7px 10px',
-                  fontSize: 12, color: '#374151', lineHeight: 1.5, marginBottom: 8 }}>
-                  {c.frase_secagem}
-                </div>
-              )}
+        {/* Sem condição */}
+        {!c && (
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, textAlign: 'center' }}>
+            <p style={{ fontSize: 13, color: '#bbb', fontStyle: 'italic' }}>Condições no próximo relatório (07:00 BRT)</p>
+          </div>
+        )}
 
-              <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.8 }}>
-                🕰 Chuva 48h:{' '}
-                <strong>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</strong> bruto
-                {' · '} efetivo: <strong>{c.acumulo_ef?.toFixed(1) ?? '—'}mm</strong>
-                {' · '}
+        {/* ── Card: Condição do Solo ──────────────────────────────────── */}
+        {c && (
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+            <SectionLabel>Condição do Solo</SectionLabel>
+
+            {c.frase_secagem && (
+              <div style={{ background: fraseStyle.bg, borderLeft: `3px solid ${fraseStyle.border}`, borderRadius: '0 4px 4px 0', padding: '8px 12px', fontSize: 13, color: '#374151', lineHeight: 1.5, marginBottom: 12 }}>
+                {c.frase_secagem}
+              </div>
+            )}
+
+            <div style={{ fontSize: 12, color: '#888', lineHeight: 2 }}>
+              <div>🕰 Chuva 48h: <b style={{ color: '#111' }}>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b> bruto · efetivo: <b style={{ color: '#111' }}>{c.acumulo_ef?.toFixed(1) ?? '—'}mm</b>
+                {' '}
                 {c.solo_descansado === true
-                  ? <span style={{ color: '#22c55e', fontWeight: 700 }}>solo descansado 🟢</span>
+                  ? <span style={{ color: '#22c55e', fontWeight: 600 }}>solo descansado 🟢</span>
                   : c.solo_descansado === false
-                  ? <span style={{ color: '#f97316', fontWeight: 700 }}>solo já úmido 🟠</span>
+                  ? <span style={{ color: '#f97316', fontWeight: 600 }}>solo já úmido 🟠</span>
                   : null}
               </div>
-
-              <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.8 }}>
+              <div>
                 {c.ultima_chuva_h != null
-                  ? <>⏱ Última chuva <strong>{Math.round(c.ultima_chuva_h)}h</strong> atrás</>
+                  ? <>⏱ Última chuva <b style={{ color: '#111' }}>{Math.round(c.ultima_chuva_h)}h</b> atrás</>
                   : '☀️ Sem chuva recente'}
-                {' · '}
-                ⏳ meia-vida: <strong>{c.meia_vida_h ?? '—'}h</strong>
+                {' · '}⏳ meia-vida: <b style={{ color: '#111' }}>{c.meia_vida_h ?? '—'}h</b>
               </div>
-            </>
-          )}
+              {trilha.desnivel_m != null && trilha.extensao_km != null && c.inclinacao != null && (
+                <div>
+                  📐 Inclinação média: <b style={{ color: inclinacaoCor(c.inclinacao) }}>{c.inclinacao}%</b>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-          {/* ══ SEÇÃO 2 — Previsão 48h ═══════════════════════════════════ */}
-          {c && (
-            <>
-              <Divider />
-              <SectionTitle>🌦 Previsão 48h</SectionTitle>
+        {/* ── Card: Previsão 48h ──────────────────────────────────────── */}
+        {c && (
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+            <SectionLabel>Previsão 48h</SectionLabel>
 
-              <div style={{ fontSize: 12, color: '#64748b', paddingBottom: 3 }}>
-                <strong style={{ color: '#475569' }}>12h</strong>{' '}
-                🌧 <strong>{c.rain_12h?.toFixed(1) ?? '—'}mm</strong>{' '}
-                ☁️ <strong>{c.pop_12h ?? '—'}%</strong>{' '}
-                💨 <strong>{c.wind_12h?.toFixed(1) ?? '—'}m/s</strong>{' '}
-                🌡 <strong>{c.temp_max?.toFixed(0) ?? '—'}°C</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#888' }}>
+              <div>
+                <b style={{ color: '#111' }}>12h</b>{' '}
+                🌧 <b>{c.rain_12h?.toFixed(1) ?? '—'}mm</b>{' '}
+                ☁️ <b>{c.pop_12h ?? '—'}%</b>{' '}
+                💨 <b>{c.wind_12h?.toFixed(1) ?? '—'}m/s</b>{' '}
+                🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
               </div>
-
-              <div style={{ fontSize: 12, color: '#64748b', paddingBottom: 3 }}>
-                <strong style={{ color: '#475569' }}>24h</strong>{' '}
-                🌧 <strong>{c.rain_mm?.toFixed(1) ?? '—'}mm</strong>{' '}
-                ☁️ <strong>{c.pop_48h ?? '—'}%</strong>{' '}
-                💨 <strong>{c.wind_ms?.toFixed(1) ?? '—'}m/s</strong>{' '}
-                🌡 <strong>{c.temp_max?.toFixed(0) ?? '—'}°C</strong>
+              <div>
+                <b style={{ color: '#111' }}>24h</b>{' '}
+                🌧 <b>{c.rain_mm?.toFixed(1) ?? '—'}mm</b>{' '}
+                ☁️ <b>{c.pop_48h ?? '—'}%</b>{' '}
+                💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b>{' '}
+                🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
               </div>
-
               {c.pico_3h != null && c.pico_3h >= 5 && (
-                <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626', fontWeight: 600 }}>
-                  ⚡ Pico de chuva: <strong>{c.pico_3h}mm</strong> em 3h
+                <div style={{ color: '#dc2626', fontWeight: 600 }}>
+                  ⚡ Pico de chuva: <b>{c.pico_3h}mm</b> em 3h
                 </div>
               )}
-
               {c.janela && (
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-                  🕐 <strong>Melhor janela:</strong> {c.janela}
-                </div>
+                <div>🕐 <b style={{ color: '#111' }}>Melhor janela:</b> {c.janela}</div>
               )}
-
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-                🌦 <strong>Chuva prevista:</strong> {parseHorarios(c.horarios_chuva)}
-              </div>
-
+              <div>🌦 <b style={{ color: '#111' }}>Chuva prevista:</b> {parseHorarios(c.horarios_chuva)}</div>
               {c.aderencia_desc && (
-                <div style={{ fontSize: 12, color: '#475569', marginTop: 5, fontStyle: 'italic' }}>
-                  {c.aderencia_desc}
-                </div>
+                <div style={{ color: '#555', fontStyle: 'italic', marginTop: 4 }}>{c.aderencia_desc}</div>
               )}
-            </>
-          )}
+            </div>
+          </div>
+        )}
 
-          {/* ══ SEÇÃO 3 — Alertas ════════════════════════════════════════ */}
-          {c && (alertaRajada || nivelVento > 0) && (
-            <>
-              <Divider />
-              <SectionTitle>⚠️ Alertas</SectionTitle>
+        {/* ── Card: Alertas ───────────────────────────────────────────── */}
+        {c && (alertaRajada || nivelVento > 0) && (
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+            <SectionLabel>Alertas</SectionLabel>
 
-              {alertaRajada && c.alerta_rajada_kmh != null && (
-                <div style={{ background: '#fefce8', border: '1px solid #fde047',
-                  borderRadius: 8, padding: '8px 12px', fontSize: 12,
-                  color: '#713f12', fontWeight: 600, lineHeight: 1.5, marginBottom: 6 }}>
-                  🟡 <strong>Rajadas previstas nas próximas 48h</strong><br />
-                  <span style={{ fontWeight: 400, color: '#a16207' }}>
-                    {trilha.exposicao?.toLowerCase() === 'aberta'
-                      ? `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h previstas. Trilha exposta — risco de perda de controle em descidas rápidas, saltos e trechos de crista.`
-                      : `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h previstas. Mesmo em trilha fechada, rajadas acima de 50 km/h podem atingir clareiras e trechos sem dossel.`}
-                  </span>
+            {alertaRajada && c.alerta_rajada_kmh != null && (
+              <div style={{ background: '#fefce8', borderLeft: '3px solid #fde047', borderRadius: '0 4px 4px 0', padding: '10px 14px', fontSize: 12, color: '#713f12', fontWeight: 600, lineHeight: 1.5, marginBottom: 8 }}>
+                🟡 <b>Rajadas previstas nas próximas 48h</b><br />
+                <span style={{ fontWeight: 400, color: '#a16207' }}>
+                  {trilha.exposicao?.toLowerCase() === 'aberta'
+                    ? `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h. Trilha exposta — risco em descidas rápidas e cristas.`
+                    : `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h. Mesmo em trilha fechada, rajadas acima de 50 km/h podem atingir clareiras.`}
+                </span>
+              </div>
+            )}
+
+            {nivelVento > 0 && c.alerta_vento_kmh != null && (() => {
+              const cfg3 = {
+                1: { bg: '#fefce8', border: '#fde047', corT: '#713f12', corS: '#a16207', emoji: '🟡',
+                  titulo: 'Vento moderado a forte nas últimas 48h',
+                  msg: 'Ventos entre 55–65 km/h podem quebrar galhos de árvores com saúde comprometida.' },
+                2: { bg: '#fff7ed', border: '#fdba74', corT: '#7c2d12', corS: '#c2410c', emoji: '🟠',
+                  titulo: 'Ventos fortes nas últimas 48h',
+                  msg: 'Ventos entre 65–90 km/h podem derrubar árvores. Avalie as condições antes de pedalar.' },
+                3: { bg: '#fef2f2', border: '#fca5a5', corT: '#7f1d1d', corS: '#b91c1c', emoji: '🔴',
+                  titulo: 'Risco alto — vento de tempestade',
+                  msg: 'Ventos acima de 90 km/h com risco severo de obstrução. Avalie presencialmente.' },
+              }
+              const n = Math.min(nivelVento as number, 3) as 1 | 2 | 3
+              const a = cfg3[n]
+              const rajada = c.alerta_rajada_kmh ? ` · rajada ${c.alerta_rajada_kmh.toFixed(0)} km/h` : ''
+              return (
+                <div style={{ background: a.bg, borderLeft: `3px solid ${a.border}`, borderRadius: '0 4px 4px 0', padding: '10px 14px', fontSize: 12, color: a.corT, fontWeight: 600, lineHeight: 1.5 }}>
+                  {a.emoji} <b>{a.titulo}</b> ({c.alerta_vento_kmh.toFixed(0)} km/h sustentado{rajada})<br />
+                  <span style={{ fontWeight: 400, color: a.corS }}>{a.msg}</span>
                 </div>
-              )}
+              )
+            })()}
+          </div>
+        )}
 
-              {nivelVento > 0 && c.alerta_vento_kmh != null && (() => {
-                const cfg3 = {
-                  1: { bg: '#fefce8', border: '#fde047', corT: '#713f12', corS: '#a16207', emoji: '🟡',
-                    titulo: 'Vento moderado a forte nas últimas 48h',
-                    msg: 'Ventos entre 55–65 km/h podem quebrar galhos de árvores com saúde comprometida. Fique atento a galhos soltos na trilha.' },
-                  2: { bg: '#fff7ed', border: '#fdba74', corT: '#7c2d12', corS: '#c2410c', emoji: '🟠',
-                    titulo: 'Ventos fortes nas últimas 48h',
-                    msg: 'Ventos entre 65–90 km/h podem derrubar árvores de médio e grande porte. Avalie as condições no local antes de pedalar.' },
-                  3: { bg: '#fef2f2', border: '#fca5a5', corT: '#7f1d1d', corS: '#b91c1c', emoji: '🔴',
-                    titulo: 'Risco alto — vento de tempestade nas últimas 48h',
-                    msg: 'Ventos acima de 90 km/h com alto potencial de arrancar árvores pela raiz. Avalie presencialmente antes de pedalar — risco severo de obstrução.' },
-                }
-                const n = Math.min(nivelVento as number, 3) as 1 | 2 | 3
-                const a = cfg3[n]
-                const rajada = c.alerta_rajada_kmh ? ` · rajada ${c.alerta_rajada_kmh.toFixed(0)} km/h` : ''
+        {/* ── Card: Próximos 3 dias ───────────────────────────────────── */}
+        {hasFds && (
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+            <SectionLabel>Próximos 3 dias</SectionLabel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              {fdsDias.map(({ label, v, rain }) => {
+                const dvcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
                 return (
-                  <div style={{ background: a.bg, border: `1px solid ${a.border}`,
-                    borderRadius: 8, padding: '8px 12px', fontSize: 12,
-                    color: a.corT, fontWeight: 600, lineHeight: 1.5 }}>
-                    {a.emoji} <strong>{a.titulo}</strong>{' '}
-                    ({c.alerta_vento_kmh.toFixed(0)} km/h sustentado{rajada})<br />
-                    <span style={{ fontWeight: 400, color: a.corS }}>{a.msg}</span>
+                  <div key={label} style={{
+                    background: dvcfg ? dvcfg.bg : '#f7f7f5',
+                    border: `0.5px solid ${dvcfg ? dvcfg.cor + '44' : '#e5e5e5'}`,
+                    borderRadius: 8, padding: '12px 10px', textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 10, color: '#888', fontWeight: 500, marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{dvcfg?.emoji ?? '—'}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: dvcfg?.cor ?? '#888', marginBottom: 4 }}>{v ?? 'SEM DADOS'}</div>
+                    {rain != null && <div style={{ fontSize: 11, color: '#888' }}>🌧 {rain.toFixed(1)}mm</div>}
                   </div>
                 )
-              })()}
-            </>
-          )}
+              })}
+            </div>
+          </div>
+        )}
 
-          {/* ══ SEÇÃO 4 — Próximos 3 dias ════════════════════════════════ */}
-          {hasFds && (
-            <>
-              <Divider />
-              <SectionTitle>📅 Próximos 3 dias</SectionTitle>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-                {fdsDias.map(({ label, v, rain }) => {
-                  const dvcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
-                  return (
-                    <div key={label} style={{
-                      background: dvcfg ? dvcfg.bg : '#f8fafc',
-                      border: `1px solid ${dvcfg ? dvcfg.cor + '44' : '#e2e8f0'}`,
-                      borderRadius: 8, padding: '8px 10px', textAlign: 'center',
-                    }}>
-                      <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginBottom: 2 }}>
-                        {label}
-                      </div>
-                      <div style={{ fontSize: 16, marginBottom: 2 }}>
-                        {dvcfg?.emoji ?? '—'}
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: dvcfg?.cor ?? '#94a3b8', marginBottom: 3 }}>
-                        {v ?? 'SEM DADOS'}
-                      </div>
-                      {rain != null && (
-                        <div style={{ fontSize: 11, color: '#64748b' }}>
-                          🌧 {rain.toFixed(1)}mm
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-
-          {/* ══ RODAPÉ — Fontes ══════════════════════════════════════════ */}
-          {fontes.length > 0 && (
-            <>
-              <Divider />
-              <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.8 }}>
-                {fontes.join(' · ')}
-              </div>
-            </>
-          )}
-
-        </div>
+        {/* ── Fontes ─────────────────────────────────────────────────── */}
+        {fontes.length > 0 && (
+          <div style={{ fontSize: 11, color: '#bbb', lineHeight: 1.8 }}>
+            {fontes.join(' · ')}
+          </div>
+        )}
       </div>
     </div>
   )

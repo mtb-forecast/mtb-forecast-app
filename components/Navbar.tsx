@@ -17,18 +17,13 @@ export default function Navbar() {
       setIsLoggedIn(!!session)
       if (session?.user) {
         const { data } = await supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', session.user.id)
-          .single()
+          .from('profiles').select('is_admin').eq('id', session.user.id).single()
         setIsAdmin(!!data?.is_admin)
       }
     })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setIsLoggedIn(!!session)
     })
-
     return () => subscription.unsubscribe()
   }, [])
 
@@ -38,8 +33,8 @@ export default function Navbar() {
     router.refresh()
   }
 
-  const isAuthPage = pathname?.startsWith('/login') || pathname?.startsWith('/cadastro')
-  if (isAuthPage) return null
+  // Hide on landing and auth pages (they have their own headers)
+  if (!pathname || pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/cadastro')) return null
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },
@@ -48,115 +43,154 @@ export default function Navbar() {
     ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+
   return (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50"
-      style={{ background: '#ffffff', borderBottom: '1px solid #E0E0E0' }}
-    >
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <nav style={{
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+      background: '#fff',
+      borderBottom: '1px solid #e5e5e5',
+      height: 56,
+    }}>
+      <div style={{
+        maxWidth: 1200,
+        margin: '0 auto',
+        padding: '0 32px',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
         {/* Logo */}
-        <Link href={isLoggedIn ? '/dashboard' : '/'} className="flex items-center gap-2">
-          <span className="text-xl">🚵</span>
-          <span className="font-wheat text-[#111111] text-xl">MTB Forecast</span>
+        <Link
+          href={isLoggedIn ? '/dashboard' : '/'}
+          className="font-wheat"
+          style={{ fontSize: 18, letterSpacing: '1.5px', color: '#111' }}
+        >
+          MTB FORECAST
         </Link>
 
-        {/* Desktop nav */}
-        {isLoggedIn ? (
-          <div className="hidden sm:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="px-4 py-2 text-sm font-medium transition-colors text-[#111111] hover:text-[#555555]"
-                style={pathname === link.href ? {
-                  borderBottom: '2px solid #FFE000',
-                  paddingBottom: '6px',
-                } : {}}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <button
-              onClick={handleLogout}
-              className="ml-2 text-[#555555] hover:text-[#111111] text-sm font-medium transition-colors px-3 py-2"
-            >
-              Sair
-            </button>
-          </div>
-        ) : (
-          <div className="hidden sm:flex items-center gap-3">
-            <Link href="/login" className="text-[#111111] hover:text-[#555555] text-sm font-medium transition-colors">
-              Entrar
-            </Link>
-            <Link
-              href="/cadastro"
-              className="text-[#111111] text-sm font-semibold px-4 py-2 rounded-lg transition-all"
-              style={{ background: '#FFE000' }}
-            >
-              Criar conta
-            </Link>
-          </div>
-        )}
-
-        {/* Mobile hamburger */}
-        <button
-          className="sm:hidden p-2 text-[#111111]"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Menu"
-        >
-          {isMenuOpen ? (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      {isMenuOpen && (
-        <div
-          className="sm:hidden px-4 py-3 space-y-1"
-          style={{ borderTop: '1px solid #E0E0E0', background: '#ffffff' }}
-        >
+        {/* Desktop links */}
+        <div className="hidden sm:flex" style={{ alignItems: 'center', gap: 24 }}>
           {isLoggedIn ? (
             <>
-              {navLinks.map((link) => (
+              {navLinks.map(link => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block px-4 py-2.5 rounded-lg text-sm font-medium transition-colors text-[#111111] hover:bg-[#F5F5F5]"
-                  style={pathname === link.href ? { background: '#FFE000' } : {}}
+                  style={{
+                    fontSize: 13,
+                    color: isActive(link.href) ? '#111' : '#888',
+                    fontWeight: isActive(link.href) ? 500 : 400,
+                    borderBottom: isActive(link.href) ? '2px solid #FFE000' : 'none',
+                    paddingBottom: isActive(link.href) ? 2 : 0,
+                    transition: 'color 0.15s',
+                  }}
                 >
                   {link.label}
                 </Link>
               ))}
               <button
                 onClick={handleLogout}
-                className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-[#555555] hover:bg-[#F5F5F5] transition-colors"
+                style={{
+                  background: 'none', border: 'none',
+                  color: '#888', fontSize: 13, cursor: 'pointer',
+                }}
               >
-                Sair da conta
+                Sair
               </button>
             </>
           ) : (
             <>
-              <Link href="/login" onClick={() => setIsMenuOpen(false)} className="block px-4 py-2.5 text-[#111111] text-sm font-medium">
-                Entrar
-              </Link>
+              <Link href="/login" style={{ fontSize: 13, color: '#888' }}>Entrar</Link>
               <Link
                 href="/cadastro"
-                onClick={() => setIsMenuOpen(false)}
-                className="block px-4 py-2.5 text-[#111111] font-semibold text-sm rounded-lg"
-                style={{ background: '#FFE000' }}
+                style={{
+                  background: '#FFE000', color: '#111',
+                  border: '1.5px solid #111', borderRadius: 4,
+                  padding: '7px 16px', fontSize: 13, fontWeight: 500,
+                }}
               >
-                Criar conta grátis
+                Criar conta
               </Link>
             </>
           )}
+        </div>
+
+        {/* Mobile hamburger */}
+        <button
+          className="sm:hidden"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}
+          aria-label="Menu"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2">
+            {isMenuOpen
+              ? <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
+              : <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />}
+          </svg>
+        </button>
+      </div>
+
+      {/* Mobile menu */}
+      {isMenuOpen && (
+        <div className="sm:hidden" style={{ background: '#111', borderTop: '1px solid #222' }}>
+          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {isLoggedIn ? (
+              <>
+                {navLinks.map(link => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMenuOpen(false)}
+                    style={{
+                      color: isActive(link.href) ? '#FFE000' : '#fff',
+                      fontSize: 14,
+                      fontWeight: isActive(link.href) ? 500 : 400,
+                      padding: '10px 0',
+                      borderBottom: '1px solid #222',
+                    }}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    background: 'none', border: 'none',
+                    color: '#888', fontSize: 14,
+                    textAlign: 'left', padding: '10px 0', cursor: 'pointer',
+                  }}
+                >
+                  Sair da conta
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setIsMenuOpen(false)}
+                  style={{ color: '#888', fontSize: 14, padding: '10px 0', borderBottom: '1px solid #222' }}
+                >
+                  Entrar
+                </Link>
+                <Link
+                  href="/cadastro"
+                  onClick={() => setIsMenuOpen(false)}
+                  style={{
+                    background: '#FFE000', color: '#111',
+                    fontSize: 14, fontWeight: 500,
+                    padding: '10px 16px', borderRadius: 4,
+                    textAlign: 'center', marginTop: 10,
+                  }}
+                >
+                  Criar conta grátis
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       )}
     </nav>

@@ -25,45 +25,30 @@ export default function CadastroPage() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          nome,
-          regiao,
-          telegram_username: telegram || null,
-        },
-      },
+      options: { data: { nome, regiao, telegram_username: telegram || null } },
     })
 
-    if (signUpError) {
-      setError(signUpError.message)
-      setLoading(false)
-      return
-    }
+    if (signUpError) { setError(signUpError.message); setLoading(false); return }
 
     if (data.user) {
       await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        nome,
-        regiao,
-        telegram_username: telegram || null,
-        is_admin: false,
+        id: data.user.id, email, nome, regiao,
+        telegram_username: telegram || null, is_admin: false,
       })
     }
 
     setSuccess(true)
     setLoading(false)
-
     setTimeout(() => router.push('/login'), 3000)
   }
 
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-white mb-3">Conta criada!</h2>
-          <p className="text-slate-400">
+      <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', maxWidth: 400, padding: 48 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <h2 className="font-wheat" style={{ color: '#fff', fontSize: 28, marginBottom: 12 }}>Conta criada!</h2>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6 }}>
             Verifique seu e-mail para confirmar o cadastro. Redirecionando para o login...
           </p>
         </div>
@@ -72,113 +57,106 @@ export default function CadastroPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <span className="text-3xl">🚵</span>
-            <span className="text-2xl font-extrabold text-white">MTB Forecast</span>
-          </div>
-          <p className="text-slate-400">Crie sua conta grátis</p>
-        </div>
+    <div className="grid grid-cols-1 lg:grid-cols-2" style={{ minHeight: '100vh' }}>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-xl font-bold text-white mb-6">Criar conta</h1>
+      {/* Left: black branding panel */}
+      <div
+        className="hidden lg:flex"
+        style={{ background: '#111', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
+      >
+        <Link href="/" className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
+          MTB FORECAST
+        </Link>
+        <div>
+          <h1 className="font-wheat" style={{ color: '#fff', fontSize: 36, lineHeight: 1.1, marginBottom: 16 }}>
+            Junte-se<br />aos riders.
+          </h1>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.7, maxWidth: 320 }}>
+            Crie sua conta grátis e nunca mais vá pedalar numa trilha encharcada por falta de informação.
+          </p>
+        </div>
+        <p style={{ color: '#444', fontSize: 12 }}>MTB Forecast © 2025</p>
+      </div>
+
+      {/* Right: form panel */}
+      <div style={{ background: '#fff', padding: '48px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+
+        {/* Mobile logo */}
+        <Link href="/" className="font-wheat lg:hidden" style={{ color: '#111', fontSize: 18, letterSpacing: '1.5px', display: 'block', marginBottom: 32 }}>
+          MTB FORECAST
+        </Link>
+
+        <div style={{ maxWidth: 400, width: '100%' }}>
+          <h2 className="font-wheat" style={{ fontSize: 28, color: '#111', marginBottom: 32 }}>Criar conta</h2>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm">
+            <div style={{
+              background: '#fee2e2', border: '1px solid #fca5a5',
+              color: '#991b1b', borderRadius: 4,
+              padding: '10px 14px', marginBottom: 20, fontSize: 14,
+            }}>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleCadastro} className="space-y-5">
+          <form onSubmit={handleCadastro} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Nome</label>
-              <input
-                type="text"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                required
-                placeholder="Seu nome"
-                className="input-field"
-              />
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Nome</label>
+              <input type="text" value={nome} onChange={e => setNome(e.target.value)} required placeholder="Seu nome" className="input-field" />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="seu@email.com"
-                className="input-field"
-              />
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>E-mail</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" className="input-field" />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Senha</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                placeholder="Mínimo 6 caracteres"
-                className="input-field"
-              />
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Senha</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="Mínimo 6 caracteres" className="input-field" />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Região</label>
-              <select
-                value={regiao}
-                onChange={(e) => setRegiao(e.target.value)}
-                required
-                className="input-field"
-              >
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Região</label>
+              <select value={regiao} onChange={e => setRegiao(e.target.value)} required className="input-field">
                 <option value="" disabled>Selecione seu estado</option>
-                {REGIOES.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
+                {REGIOES.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Username Telegram{' '}
-                <span className="text-slate-500 font-normal">(opcional)</span>
+              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
+                Telegram <span style={{ color: '#bbb' }}>(opcional)</span>
               </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">@</span>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#888', fontSize: 14 }}>@</span>
                 <input
                   type="text"
                   value={telegram}
-                  onChange={(e) => setTelegram(e.target.value)}
+                  onChange={e => setTelegram(e.target.value)}
                   placeholder="seu_username"
-                  className="input-field pl-8"
+                  className="input-field"
+                  style={{ paddingLeft: 28 }}
                 />
               </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Para receber alertas via Telegram Bot
-              </p>
             </div>
-
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors duration-200"
+              style={{
+                background: '#FFE000', color: '#111',
+                border: '1.5px solid #111', borderRadius: 4,
+                padding: '10px 20px', fontSize: 14, fontWeight: 500,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+                width: '100%', marginTop: 8,
+              }}
             >
               {loading ? 'Criando conta...' : 'Criar conta grátis'}
             </button>
           </form>
 
-          <p className="text-center text-slate-400 text-sm mt-6">
-            Já tem conta?{' '}
-            <Link href="/login" className="text-green-400 hover:text-green-300 font-medium">
+          <div style={{ marginTop: 24, textAlign: 'center' }}>
+            <span style={{ fontSize: 14, color: '#888' }}>Já tem conta? </span>
+            <Link href="/login" style={{ fontSize: 14, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
               Entrar
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
