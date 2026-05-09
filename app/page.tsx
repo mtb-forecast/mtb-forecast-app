@@ -89,13 +89,13 @@ export default function LandingPage() {
           {/* Hero text */}
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: 11, letterSpacing: '2px', color: '#FFE000', textTransform: 'uppercase', marginBottom: 16 }}>
-              DH &amp; ENDURO | XC | XCM · BRASIL
+              DH | ENDURO | XCC | XCM · BRASIL
             </p>
             <h1 className="font-wheat" style={{ color: '#fff', fontSize: 'clamp(40px, 6vw, 56px)', lineHeight: 1.05, marginBottom: 20 }}>
               Saiba antes<br />de pedalar.
             </h1>
             <p style={{ color: '#888', fontSize: 15, lineHeight: 1.7, maxWidth: 360, marginBottom: 44 }}>
-              Condições de solo, chuva acumulada e janela de pedal em tempo real para trilhas de mountain bike em SP e MG.
+              Condições de solo, chuva acumulada e janela de pedal em tempo real para trilhas de mountain bike no Brasil.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 320 }}>
               <Link
