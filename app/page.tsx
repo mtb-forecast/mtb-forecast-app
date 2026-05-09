@@ -89,7 +89,7 @@ export default function LandingPage() {
           {/* Hero text */}
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: 11, letterSpacing: '2px', color: '#FFE000', textTransform: 'uppercase', marginBottom: 16 }}>
-              DH &amp; ENDURO · SP E MG
+              DH &amp; ENDURO | XC | XCM · BRASIL
             </p>
             <h1 className="font-wheat" style={{ color: '#fff', fontSize: 'clamp(40px, 6vw, 56px)', lineHeight: 1.05, marginBottom: 20 }}>
               Saiba antes<br />de pedalar.
@@ -125,7 +125,7 @@ export default function LandingPage() {
 
           {/* Footer info */}
           <p style={{ color: '#444', fontSize: 12, marginTop: 60 }}>
-            27 trilhas monitoradas · SP e MG · Atualizado às 07:00 BRT
+            +5000 Trilhas monitoradas · BRASIL · Atualizado Diariamente
           </p>
         </div>
 

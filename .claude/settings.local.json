@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx next *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(python populate_trilhas.py)",
+      "Bash(npx plugins *)",
+      "Bash(git commit -m 'Fix: veredicto exibindo ATENCAO incorretamente quando sem dados *)",
+      "Bash(git commit -m 'Card resumido + pagina de detalhe completa com todos os dados do email *)",
+      "Bash(git pull *)",
+      "Bash(git commit -m 'Pagina de detalhe fiel ao card do email + card resumido *)",
+      "Read(//mnt/user-data/**)",
+      "Read(//c/Users/sadou/AppData/Local/Temp\" 2>/dev/**)",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\public\\\\fonts\")",
+      "PowerShell(Copy-Item \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\ImagensFonts\\\\1778210517619_image.png\" \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\public\\\\bg-mountains.jpg\")",
+      "PowerShell(Copy-Item \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\ImagensFonts\\\\Wheat Smile.ttf\" \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\public\\\\fonts\\\\WheatSmile.ttf\")",
+      "Bash(xxd /c/ClaudeCode/mtb-forecast-app/public/bg-mountains.jpg)",
+      "Bash(npx tsc *)",
+      "Bash(git commit -m 'Fix: adiciona botão Ver detalhes nas trilhas Strava do dashboard *)",
+      "Bash(git commit -m 'Fix: mapa Strava + alertas duplicados + desnível no header *)",
+      "Bash(git commit -m 'Debug: investiga polyline null nos segmentos Strava *)",
+      "Bash(git commit -m 'Debug: rastreia polyline no callback Strava *)",
+      "Bash(git commit -m 'Fix: usa summary_polyline direto dos starred segments *)",
+      "Bash(git commit -m 'Fix definitivo: polyline salvo corretamente no import Strava *)",
+      "Bash(mkdir -p \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\\\(app\\)\\\\perfil\\\\strava\\\\sugestao\\\\[segment_id]\" 2>&1; echo \"done\")",
+      "Bash(git commit -m 'Nova arquitetura Strava: segmentos únicos + sugestão de config + painel admin *)"
+    ],
+    "additionalDirectories": [
+      "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao"
+    ]
+  }
+}
