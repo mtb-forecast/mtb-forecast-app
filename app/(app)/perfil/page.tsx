@@ -23,10 +23,8 @@ function StravaIcon() {
 }
 
 const cardStyle = {
-  background: 'rgba(255,255,255,0.92)',
-  backdropFilter: 'blur(4px)',
-  border: '1px solid rgba(0,0,0,0.08)',
-  boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+  background: '#ffffff',
+  border: '1px solid #E0E0E0',
 }
 
 export default function PerfilPage() {
@@ -109,8 +107,8 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F5' }}>
+        <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#111111', borderTopColor: 'transparent' }} />
       </div>
     )
   }
@@ -120,8 +118,13 @@ export default function PerfilPage() {
   const stravaLleno = slotsUsados >= slotsLimite
 
   return (
-    <div className="min-h-screen px-4 sm:px-6 py-8 max-w-3xl mx-auto">
-      <h1 className="font-wheat text-3xl text-[#1e293b] mb-8">Meu Perfil</h1>
+    <div style={{ background: '#F5F5F5', minHeight: '100vh' }}>
+      <div style={{ background: '#111111' }} className="px-4 sm:px-6 py-8">
+        <div className="max-w-3xl mx-auto">
+          <h1 className="font-wheat text-3xl text-white">Meu Perfil</h1>
+        </div>
+      </div>
+    <div className="px-4 sm:px-6 py-8 max-w-3xl mx-auto">
 
       {/* Dados pessoais */}
       <div className="rounded-xl p-6 mb-6" style={cardStyle}>
@@ -322,6 +325,7 @@ export default function PerfilPage() {
           Sair da conta
         </button>
       </div>
+    </div>
     </div>
   )
 }

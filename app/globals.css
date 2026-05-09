@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @font-face {
   font-family: 'WheatSmile';
@@ -13,80 +13,66 @@
 }
 
 :root {
-  --bg-primary: #f5f0eb;
-  --bg-card: #ffffff;
-  --green: #16a34a;
-  --green-light: #22c55e;
+  --preto: #111111;
+  --branco: #ffffff;
+  --amarelo: #FFE000;
+  --cinza-claro: #F5F5F5;
+  --cinza-medio: #E0E0E0;
+  --cinza-texto: #555555;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html,
-body {
-  background-image: url('/bg-mountains.avif');
-  background-attachment: fixed;
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
-  background-color: #1a1a1a;
-  color: #1e293b;
+html, body {
+  background: var(--cinza-claro);
+  color: var(--preto);
   font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 400;
 }
 
-/* Overlay sobre a imagem para garantir legibilidade */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: rgba(245, 240, 235, 0.82);
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* Todo conteúdo acima do overlay */
-#__next, main, nav, header, footer {
-  position: relative;
-  z-index: 1;
-}
-
-/* Fonte Wheat Smile para logo e títulos principais */
-.font-wheat {
-  font-family: 'WheatSmile', serif;
-}
+.font-wheat { font-family: 'WheatSmile', serif; }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .text-balance { text-wrap: balance; }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-3 rounded-lg transition-colors duration-200;
+    @apply inline-block font-semibold px-6 py-3 rounded-lg transition-all duration-200;
+    background: var(--amarelo);
+    color: var(--preto);
   }
+  .btn-primary:hover { filter: brightness(0.93); }
 
   .btn-secondary {
-    @apply border border-slate-300 hover:border-slate-400 text-slate-700 hover:text-slate-900 font-medium px-6 py-3 rounded-lg transition-colors duration-200;
+    @apply inline-block border font-medium px-6 py-3 rounded-lg transition-colors duration-200;
+    border-color: rgba(255,255,255,0.3);
+    color: var(--branco);
+    background: transparent;
   }
+  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
 
   .card {
     @apply rounded-xl overflow-hidden;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10);
+    background: var(--branco);
+    border: 1px solid var(--cinza-medio);
   }
 
   .input-field {
-    @apply w-full border rounded-lg px-4 py-3 text-slate-800 placeholder-slate-400
-           focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors;
-    background: rgba(255, 255, 255, 0.92);
-    border-color: rgba(0, 0, 0, 0.12);
+    @apply w-full rounded-lg px-4 py-3 transition-colors;
+    background: var(--branco);
+    border: 1px solid var(--cinza-medio);
+    color: var(--preto);
+    outline: none;
+    font-family: 'Inter', system-ui, sans-serif;
   }
+  .input-field:focus {
+    border-color: var(--preto);
+    box-shadow: 0 0 0 2px rgba(17,17,17,0.06);
+  }
+  .input-field::placeholder { color: #999; }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
   }
 }

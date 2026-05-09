@@ -37,6 +37,12 @@ type TrilhaPessoalComCondicao = {
   condicao?: CondicaoPessoal | null
 }
 
+const cardStyle = {
+  background: '#ffffff',
+  border: '1px solid #E0E0E0',
+  borderRadius: 12,
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -89,7 +95,6 @@ export default function DashboardPage() {
         }
       }
 
-      // Trilhas pessoais do Strava com condição mais recente via condicoes_strava
       const { data: trilhasStrava } = await supabase
         .from('trilhas_pessoais')
         .select('*')
@@ -122,227 +127,214 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F5' }}>
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#64748b]">Carregando condições...</p>
+          <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4" style={{ borderColor: '#111111', borderTopColor: 'transparent' }} />
+          <p style={{ color: '#555555' }}>Carregando condições...</p>
         </div>
       </div>
     )
   }
 
-  const emptyCardStyle = {
-    background: 'rgba(255,255,255,0.92)',
-    backdropFilter: 'blur(4px)',
-    border: '1px dashed rgba(0,0,0,0.15)',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-  }
-
-  const filledCardStyle = {
-    background: 'rgba(255,255,255,0.92)',
-    backdropFilter: 'blur(4px)',
-    border: '1px solid rgba(0,0,0,0.08)',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-  }
-
   return (
-    <div className="min-h-screen px-4 sm:px-6 py-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="font-wheat text-3xl text-[#1e293b]">
-          {(() => {
-            const name = profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
-            return name ? `Olá, ${name} 👋` : 'Olá! 👋'
-          })()}
-        </h1>
-        <p className="text-[#64748b] mt-1">
-          Confira as condições de hoje nas suas trilhas
-        </p>
+    <div style={{ background: '#F5F5F5', minHeight: '100vh' }}>
+
+      {/* ── Header preto ────────────────────────────────────────────────── */}
+      <div style={{ background: '#111111' }} className="px-4 sm:px-6 py-8">
+        <div className="max-w-5xl mx-auto">
+          <h1 className="font-wheat text-3xl text-white">
+            {(() => {
+              const name = profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
+              return name ? `Olá, ${name} 👋` : 'Olá! 👋'
+            })()}
+          </h1>
+          <p className="mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            Confira as condições de hoje nas suas trilhas
+          </p>
+        </div>
       </div>
 
-      {/* Favoritas */}
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#1e293b]">Minhas trilhas favoritas</h2>
-          <Link href="/trilhas" className="text-green-600 hover:text-green-500 text-sm">
-            Ver todas →
-          </Link>
-        </div>
+      {/* ── Conteúdo ────────────────────────────────────────────────────── */}
+      <div className="px-4 sm:px-6 py-8 max-w-5xl mx-auto">
 
-        {favoritas.length === 0 ? (
-          <div className="rounded-xl p-10 text-center" style={emptyCardStyle}>
-            <p className="text-[#64748b] mb-4">Você ainda não tem trilhas favoritas.</p>
-            <Link
-              href="/trilhas"
-              className="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors inline-block"
-            >
-              Explorar trilhas
+        {/* Favoritas */}
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-[#111111]">Minhas trilhas favoritas</h2>
+            <Link href="/trilhas" className="text-sm font-medium" style={{ color: '#555555' }}>
+              Ver todas →
             </Link>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {favoritas.map(t => <TrilhaCard key={t.id} trilha={t} />)}
-          </div>
-        )}
-      </section>
 
-      {/* Trilhas Strava */}
-      <section className="mb-10">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#1e293b]">Minhas trilhas Strava</h2>
-          <Link href="/perfil" className="text-sm" style={{ color: '#FC4C02' }}>
-            Gerenciar →
-          </Link>
-        </div>
-
-        {stravaTrails.length === 0 ? (
-          <div className="rounded-xl p-8 text-center" style={emptyCardStyle}>
-            <p className="text-[#64748b] mb-4">
-              Conecte seus segmentos favoritos do Strava para acompanhar as condições.
-            </p>
-            <a
-              href="/api/strava/auth"
-              className="inline-flex items-center gap-2 font-semibold text-white px-5 py-2.5 rounded-lg transition-opacity hover:opacity-90 text-sm"
-              style={{ background: '#FC4C02' }}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-              </svg>
-              Conectar com Strava
-            </a>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {stravaTrails.map(t => (
-              <div
-                key={t.id}
-                className="rounded-xl overflow-hidden flex flex-col"
-                style={{
-                  background: 'rgba(255,255,255,0.92)',
-                  backdropFilter: 'blur(4px)',
-                  borderTop: '1px solid rgba(0,0,0,0.08)',
-                  borderRight: '1px solid rgba(0,0,0,0.08)',
-                  borderBottom: '1px solid rgba(0,0,0,0.08)',
-                  borderLeft: '4px solid #FC4C02',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-                }}
+          {favoritas.length === 0 ? (
+            <div className="rounded-xl p-10 text-center" style={cardStyle}>
+              <p className="mb-4" style={{ color: '#555555' }}>Você ainda não tem trilhas favoritas.</p>
+              <Link
+                href="/trilhas"
+                className="inline-block font-semibold px-6 py-2.5 rounded-lg transition-all text-sm"
+                style={{ background: '#FFE000', color: '#111111' }}
               >
-                <div className="p-4 flex-1">
-                  <h3 className="font-bold text-[#1e293b] text-sm leading-tight line-clamp-2 mb-2">
-                    {t.name}
-                  </h3>
-
-                  {/* Badge Strava + região */}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    <span
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
-                      style={{ color: '#FC4C02', background: 'rgba(252,76,2,0.15)', border: '1px solid rgba(252,76,2,0.25)' }}
-                    >
-                      🟠 Strava
-                    </span>
-                    <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">
-                      {t.regiao}
-                    </span>
-                  </div>
-
-                  {t.condicao ? (() => {
-                    const c = t.condicao!
-                    const veredictoText = c.veredicto_12h?.trim() || c.veredicto?.trim() || null
-                    const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-                    const acfg = c.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
-                    return (
-                      <>
-                        {/* Pills aderência + veredicto */}
-                        <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                          {acfg && (
-                            <span
-                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
-                              style={{ color: acfg.cor, background: acfg.cor + '18', border: `1px solid ${acfg.cor}33` }}
-                            >
-                              {acfg.emoji} {c.aderencia_status}
-                            </span>
-                          )}
-                          {vcfg && (
-                            <span
-                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
-                              style={{ color: vcfg.cor, background: vcfg.bg, border: `1px solid ${vcfg.cor}33` }}
-                            >
-                              {vcfg.emoji} {veredictoText}
-                            </span>
-                          )}
-                        </div>
-                        {/* Métricas */}
-                        <div className="flex items-center gap-2 text-xs text-[#64748b] mb-2 flex-wrap">
-                          <span>🌧 <b>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b></span>
-                          {c.pico_3h != null && c.pico_3h > 0 && (
-                            <span className="text-red-500">⚡ <b>{c.pico_3h.toFixed(1)}mm</b> pico</span>
-                          )}
-                          <span>💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b></span>
-                        </div>
-                        {c.frase_secagem && (
-                          <p className="text-xs text-[#64748b] truncate mb-2">{c.frase_secagem}</p>
-                        )}
-                        {c.janela && (
-                          <p className="text-xs text-slate-500">
-                            🕐 Janela: <span className="text-[#1e293b] font-medium">{c.janela}</span>
-                          </p>
-                        )}
-                      </>
-                    )
-                  })() : (
-                    <p className="text-xs text-[#64748b] italic">
-                      Condições serão calculadas no próximo relatório diário (07:00 BRT)
-                    </p>
-                  )}
-                </div>
-
-                <div
-                  className="px-4 py-2.5 flex items-center justify-between"
-                  style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}
-                >
-                  <Link
-                    href={`/trilhas/${t.id}`}
-                    className="text-xs font-semibold hover:opacity-75 transition-opacity"
-                    style={{ color: '#16a34a' }}
-                  >
-                    Ver detalhes →
-                  </Link>
-                  <a
-                    href={t.strava_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-semibold hover:opacity-75 transition-opacity"
-                    style={{ color: '#FC4C02' }}
-                  >
-                    Ver no Strava ↗
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Ranking da região */}
-      {profile?.regiao && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-[#1e293b]">
-              Melhores trilhas em {profile.regiao}
-            </h2>
-          </div>
-
-          {ranking.length === 0 ? (
-            <div className="rounded-xl p-8 text-center" style={filledCardStyle}>
-              <p className="text-[#64748b]">Nenhuma trilha cadastrada para sua região ainda.</p>
+                Explorar trilhas
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {ranking.map(t => <TrilhaCard key={t.id} trilha={t} />)}
+              {favoritas.map(t => <TrilhaCard key={t.id} trilha={t} />)}
             </div>
           )}
         </section>
-      )}
+
+        {/* Trilhas Strava */}
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-[#111111]">Minhas trilhas Strava</h2>
+            <Link href="/perfil" className="text-sm font-medium" style={{ color: '#FC4C02' }}>
+              Gerenciar →
+            </Link>
+          </div>
+
+          {stravaTrails.length === 0 ? (
+            <div className="rounded-xl p-8 text-center" style={cardStyle}>
+              <p className="mb-4" style={{ color: '#555555' }}>
+                Conecte seus segmentos favoritos do Strava para acompanhar as condições.
+              </p>
+              <a
+                href="/api/strava/auth"
+                className="inline-flex items-center gap-2 font-semibold text-white px-5 py-2.5 rounded-lg transition-opacity hover:opacity-90 text-sm"
+                style={{ background: '#FC4C02' }}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                </svg>
+                Conectar com Strava
+              </a>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {stravaTrails.map(t => (
+                <div
+                  key={t.id}
+                  className="rounded-xl overflow-hidden flex flex-col"
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #E0E0E0',
+                    borderLeft: '3px solid #FC4C02',
+                  }}
+                >
+                  <div className="p-4 flex-1">
+                    <h3 className="font-bold text-[#111111] text-sm leading-tight line-clamp-2 mb-2">
+                      {t.name}
+                    </h3>
+
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold"
+                        style={{ color: '#FC4C02', background: 'rgba(252,76,2,0.10)', border: '1px solid rgba(252,76,2,0.25)' }}
+                      >
+                        🟠 Strava
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#F5F5F5', color: '#555555', border: '1px solid #E0E0E0' }}>
+                        {t.regiao}
+                      </span>
+                    </div>
+
+                    {t.condicao ? (() => {
+                      const c = t.condicao!
+                      const veredictoText = c.veredicto_12h?.trim() || c.veredicto?.trim() || null
+                      const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
+                      const acfg = c.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
+                      return (
+                        <>
+                          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                            {acfg && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold"
+                                style={{ color: acfg.cor, background: acfg.cor + '18', border: `1px solid ${acfg.cor}33` }}
+                              >
+                                {acfg.emoji} {c.aderencia_status}
+                              </span>
+                            )}
+                            {vcfg && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold"
+                                style={{ color: vcfg.cor, background: vcfg.bg, border: `1px solid ${vcfg.cor}33` }}
+                              >
+                                {vcfg.emoji} {veredictoText}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs mb-2 flex-wrap" style={{ color: '#555555' }}>
+                            <span>🌧 <b>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b></span>
+                            {c.pico_3h != null && c.pico_3h > 0 && (
+                              <span className="text-red-500">⚡ <b>{c.pico_3h.toFixed(1)}mm</b> pico</span>
+                            )}
+                            <span>💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b></span>
+                          </div>
+                          {c.frase_secagem && (
+                            <p className="text-xs truncate mb-2" style={{ color: '#555555' }}>{c.frase_secagem}</p>
+                          )}
+                          {c.janela && (
+                            <p className="text-xs" style={{ color: '#555555' }}>
+                              🕐 Janela: <span className="font-medium text-[#111111]">{c.janela}</span>
+                            </p>
+                          )}
+                        </>
+                      )
+                    })() : (
+                      <p className="text-xs italic" style={{ color: '#999999' }}>
+                        Condições serão calculadas no próximo relatório diário (07:00 BRT)
+                      </p>
+                    )}
+                  </div>
+
+                  <div
+                    className="px-4 py-2.5 flex items-center justify-between"
+                    style={{ borderTop: '1px solid #E0E0E0' }}
+                  >
+                    <Link
+                      href={`/trilhas/${t.id}`}
+                      className="text-xs font-semibold hover:opacity-75 transition-opacity"
+                      style={{ color: '#111111' }}
+                    >
+                      Ver detalhes →
+                    </Link>
+                    <a
+                      href={t.strava_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold hover:opacity-75 transition-opacity"
+                      style={{ color: '#FC4C02' }}
+                    >
+                      Ver no Strava ↗
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Ranking da região */}
+        {profile?.regiao && (
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-[#111111]">
+                Melhores trilhas em {profile.regiao}
+              </h2>
+            </div>
+
+            {ranking.length === 0 ? (
+              <div className="rounded-xl p-8 text-center" style={cardStyle}>
+                <p style={{ color: '#555555' }}>Nenhuma trilha cadastrada para sua região ainda.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {ranking.map(t => <TrilhaCard key={t.id} trilha={t} />)}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   )
 }

@@ -150,7 +150,7 @@ export default function TrilhaDetalhe() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f5f0eb' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F5' }}>
         <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -203,14 +203,14 @@ export default function TrilhaDetalhe() {
   if (c?.alerta_vento_kmh) fontes.push('💨 Vento hist.: MERRA-2 / ERA5')
 
   return (
-    <div style={{ background: '#f5f0eb', minHeight: '100vh', padding: '20px 16px 40px' }}>
+    <div style={{ background: '#F5F5F5', minHeight: '100vh', padding: '20px 16px 40px' }}>
       <div style={{ maxWidth: 600, margin: '0 auto' }}>
 
         {/* ── Voltar ── */}
         <Link
           href="/trilhas"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontSize: 13, color: '#64748b', textDecoration: 'none',
+            fontSize: 13, color: '#555555', textDecoration: 'none',
             marginBottom: 16, fontWeight: 600 }}
         >
           ← Voltar para trilhas
@@ -218,14 +218,10 @@ export default function TrilhaDetalhe() {
 
         {/* ══ CARD PRINCIPAL ══════════════════════════════════════════════ */}
         <div style={{
-          background: 'rgba(255,255,255,0.92)',
-          backdropFilter: 'blur(4px)',
+          background: '#ffffff',
           borderRadius: 12,
-          borderTop: '1px solid rgba(0,0,0,0.08)',
-          borderRight: '1px solid rgba(0,0,0,0.08)',
-          borderBottom: '1px solid rgba(0,0,0,0.08)',
-          borderLeft: `4px solid ${bordaCor}`,
-          boxShadow: '0 2px 12px rgba(0,0,0,.10)',
+          border: '1px solid #E0E0E0',
+          borderLeft: `3px solid ${bordaCor}`,
           padding: '16px 18px 14px',
         }}>
 
@@ -258,9 +254,9 @@ export default function TrilhaDetalhe() {
               <button
                 onClick={toggleFavorito}
                 style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
-                  border: isFavorito ? '1px solid #eab308' : '1px solid #cbd5e1',
-                  background: isFavorito ? '#fefce8' : 'transparent',
-                  color: isFavorito ? '#92400e' : '#64748b',
+                  border: isFavorito ? '1px solid #FFE000' : '1px solid #E0E0E0',
+                  background: isFavorito ? '#FFFDE0' : 'transparent',
+                  color: isFavorito ? '#111111' : '#999999',
                   fontSize: 16, fontWeight: 700, flexShrink: 0 }}
               >
                 {isFavorito ? '★' : '☆'}
