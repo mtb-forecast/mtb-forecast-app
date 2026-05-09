@@ -98,6 +98,21 @@ export type TrilhaComCondicao = Trilha & {
   condicao?: Condicao
 }
 
+export type Observacao = {
+  id: string
+  trilha_id: string
+  user_id: string
+  estrelas: number
+  texto: string
+  veredicto_sistema?: string
+  created_at: string
+  profiles?: {
+    apelido?: string
+    nome?: string
+    email?: string
+  }
+}
+
 export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'outros'] as const
 export type Regiao = typeof REGIOES[number]
 

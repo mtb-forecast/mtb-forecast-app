@@ -10,6 +10,7 @@ import {
   VEREDICTO_CONFIG, ADERENCIA_CONFIG, ADERENCIA_FRASE,
 } from '@/lib/types'
 import ElevationProfile from '@/components/ElevationProfile'
+import TrailObservations from '@/components/TrailObservations'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
@@ -453,6 +454,9 @@ export default function TrilhaDetalhe() {
             })()}
           </div>
         )}
+
+        {/* ── Avaliações dos riders ───────────────────────────────────── */}
+        <TrailObservations trilhaId={trilha.id} veredictoAtual={veredictoText || ''} />
 
         {/* ── Card: Próximos 3 dias ───────────────────────────────────── */}
         {hasFds && (
