@@ -157,7 +157,7 @@ export default function DashboardPage() {
     )
   }
 
-  const name = profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
+  const name = profile?.apelido || profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>

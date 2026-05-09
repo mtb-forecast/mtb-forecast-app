@@ -86,6 +86,9 @@ export type Profile = {
   id: string
   email: string
   nome?: string
+  apelido?: string
+  telefone?: string
+  telefone_whatsapp?: boolean
   telegram_username?: string
   regiao?: string
   is_admin: boolean
@@ -95,7 +98,7 @@ export type TrilhaComCondicao = Trilha & {
   condicao?: Condicao
 }
 
-export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS'] as const
+export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'outros'] as const
 export type Regiao = typeof REGIOES[number]
 
 // ── Veredicto ────────────────────────────────────────────────────────────────
