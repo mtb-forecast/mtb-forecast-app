@@ -175,9 +175,9 @@ export default function TrilhaDetalhe() {
   const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
   const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
   const fdsDias = [
-    { label: formatarDia(d1), v: c?.fds_d1_veredicto, rain: c?.fds_d1_rain },
-    { label: formatarDia(d2), v: c?.fds_d2_veredicto, rain: c?.fds_d2_rain },
-    { label: formatarDia(d3), v: c?.fds_d3_veredicto, rain: c?.fds_d3_rain },
+    { label: formatarDia(d1), v: c?.fds_d1_veredicto, rain: c?.fds_d1_rain, wind: c?.fds_d1_wind, temp: c?.fds_d1_temp },
+    { label: formatarDia(d2), v: c?.fds_d2_veredicto, rain: c?.fds_d2_rain, wind: c?.fds_d2_wind, temp: c?.fds_d2_temp },
+    { label: formatarDia(d3), v: c?.fds_d3_veredicto, rain: c?.fds_d3_rain, wind: c?.fds_d3_wind, temp: c?.fds_d3_temp },
   ]
   const hasFds = fdsDias.some(d => d.v)
 
@@ -270,25 +270,44 @@ export default function TrilhaDetalhe() {
                 </>
               )}
               {clay != null && c?.texture_class && (
-                <span>🪨 <b style={{ color: '#ccc' }}>{c.texture_class}</b></span>
+                <span>
+                  🪨 <b style={{ color: '#ccc' }}>{c.texture_class}</b>
+                  <span style={{ color: '#666' }}> (arg {clay}% · ar {c?.sand_pct ?? '?'}%)</span>
+                </span>
               )}
             </div>
           )}
 
-          {/* Badges veredicto / aderência */}
+          {/* Aderência + veredicto (3 linhas como no email) */}
           {c && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 14 }}>
               {acfg && (
-                <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '3px 8px', background: acfg.cor + '20', color: acfg.cor }}>
-                  {acfg.emoji} {c.aderencia_status}
-                </span>
+                <div style={{ fontSize: 13, color: '#999' }}>
+                  ADERÊNCIA ATUAL:&nbsp;
+                  <span style={{ color: acfg.cor, fontWeight: 700 }}>{acfg.emoji} {c.aderencia_status}</span>
+                </div>
               )}
+              {c.aderencia_futura_status && c.aderencia_futura_label && (() => {
+                const afcfg = ADERENCIA_CONFIG[c.aderencia_futura_status!] ?? null
+                const _sev: Record<string, number> = { 'SECO': 0, 'GRIP PERFEITO': 1, 'BOA ADERÊNCIA': 2, 'BAIXA ADERÊNCIA': 3 }
+                const futPior = (_sev[c.aderencia_futura_status!] ?? 0) > (_sev[c.aderencia_status] ?? 0)
+                return (
+                  <div style={{ fontSize: 13, color: '#999' }}>
+                    ADERÊNCIA {c.aderencia_futura_label}:&nbsp;
+                    {afcfg && <span style={{ color: afcfg.cor, fontWeight: 700 }}>{afcfg.emoji} {c.aderencia_futura_status}</span>}
+                    {futPior && c.aderencia_futura_rain != null && c.aderencia_futura_rain > 0
+                      ? <span style={{ color: '#666', fontSize: 11 }}> ({c.aderencia_futura_rain.toFixed(1)}mm previstos)</span>
+                      : <span style={{ color: '#555', fontSize: 11 }}> — estável</span>}
+                  </div>
+                )
+              })()}
               {vcfg && (
-                <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '3px 8px', background: vcfg.bg, color: vcfg.cor }}>
-                  {vcfg.emoji} {veredictoText}
-                </span>
+                <div style={{ fontSize: 14 }}>
+                  <span style={{ color: vcfg.cor, fontWeight: 700 }}>{vcfg.emoji} {veredictoText}</span>
+                  {c.texto_dinamico && <span style={{ color: '#aaa', fontSize: 12 }}> — {c.texto_dinamico}</span>}
+                </div>
               )}
-              <span style={{ fontSize: 11, color: '#666', alignSelf: 'center' }}>HOJE 12h</span>
+              <span style={{ fontSize: 11, color: '#555', marginTop: 2 }}>HOJE 12h</span>
             </div>
           )}
         </div>
@@ -378,26 +397,40 @@ export default function TrilhaDetalhe() {
           </div>
         )}
 
-        {/* ── Card: Previsão 48h ──────────────────────────────────────── */}
+        {/* ── Card: Previsão 24h ──────────────────────────────────────── */}
         {c && (
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
-            <SectionLabel>Previsão 48h</SectionLabel>
+            <SectionLabel>Previsão 24h</SectionLabel>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#888' }}>
-              <div>
-                <b style={{ color: '#111' }}>12h</b>{' '}
-                🌧 <b>{c.rain_12h?.toFixed(1) ?? '—'}mm</b>{' '}
-                ☁️ <b>{c.pop_12h ?? '—'}%</b>{' '}
-                💨 <b>{c.wind_12h?.toFixed(1) ?? '—'}m/s</b>{' '}
-                🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
-              </div>
-              <div>
-                <b style={{ color: '#111' }}>24h</b>{' '}
-                🌧 <b>{c.rain_mm?.toFixed(1) ?? '—'}mm</b>{' '}
-                ☁️ <b>{c.pop_48h ?? '—'}%</b>{' '}
-                💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b>{' '}
-                🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
-              </div>
+              {c.previsao_24h && c.previsao_24h.length > 0 ? (
+                c.previsao_24h.map(b => (
+                  <div key={b.label}>
+                    <b style={{ color: '#475569' }}>{b.label}</b>{' '}
+                    🌧 <b>{b.rain_mm}mm</b>{' '}
+                    ☁️ <b>{b.pop_max}%</b>{' '}
+                    💨 <b>{b.wind_max}m/s</b>{' '}
+                    🌡 <b>{b.temp_med}°C</b>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div>
+                    <b style={{ color: '#111' }}>12h</b>{' '}
+                    🌧 <b>{c.rain_12h?.toFixed(1) ?? '—'}mm</b>{' '}
+                    ☁️ <b>{c.pop_12h ?? '—'}%</b>{' '}
+                    💨 <b>{c.wind_12h?.toFixed(1) ?? '—'}m/s</b>{' '}
+                    🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
+                  </div>
+                  <div>
+                    <b style={{ color: '#111' }}>24h</b>{' '}
+                    🌧 <b>{c.rain_mm?.toFixed(1) ?? '—'}mm</b>{' '}
+                    ☁️ <b>{c.pop_48h ?? '—'}%</b>{' '}
+                    💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b>{' '}
+                    🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
+                  </div>
+                </>
+              )}
               {c.pico_3h != null && c.pico_3h >= 5 && (
                 <div style={{ color: '#dc2626', fontWeight: 600 }}>
                   ⚡ Pico de chuva: <b>{c.pico_3h}mm</b> em 3h
@@ -463,8 +496,13 @@ export default function TrilhaDetalhe() {
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
             <SectionLabel>Próximos 3 dias</SectionLabel>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-              {fdsDias.map(({ label, v, rain }) => {
+              {fdsDias.map(({ label, v, rain, wind, temp }) => {
                 const dvcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
+                const statsLine = [
+                  rain != null && `🌧 ${rain.toFixed(1)}mm`,
+                  wind != null && `💨 ${wind.toFixed(1)}m/s`,
+                  temp != null && `🌡 ${temp}°C`,
+                ].filter(Boolean).join(' · ')
                 return (
                   <div key={label} style={{
                     background: dvcfg ? dvcfg.bg : '#f7f7f5',
@@ -474,7 +512,7 @@ export default function TrilhaDetalhe() {
                     <div style={{ fontSize: 10, color: '#888', fontWeight: 500, marginBottom: 4 }}>{label}</div>
                     <div style={{ fontSize: 20, marginBottom: 4 }}>{dvcfg?.emoji ?? '—'}</div>
                     <div style={{ fontSize: 11, fontWeight: 600, color: dvcfg?.cor ?? '#888', marginBottom: 4 }}>{v ?? 'SEM DADOS'}</div>
-                    {rain != null && <div style={{ fontSize: 11, color: '#888' }}>🌧 {rain.toFixed(1)}mm</div>}
+                    {statsLine && <div style={{ fontSize: 10, color: '#888' }}>{statsLine}</div>}
                   </div>
                 )
               })}

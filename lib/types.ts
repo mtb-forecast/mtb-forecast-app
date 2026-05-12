@@ -73,13 +73,30 @@ export type Condicao = {
   alerta_vento_kmh?: number | null
   alerta_rajada_kmh?: number | null
 
+  // Aderência futura
+  aderencia_futura_status?: string | null
+  aderencia_futura_label?: string | null
+  aderencia_futura_rain?: number | null
+
+  // Veredicto dinâmico
+  texto_dinamico?: string | null
+
+  // Previsão 24h em blocos de 6h
+  previsao_24h?: Array<{ label: string; rain_mm: number; pop_max: number; wind_max: number; temp_med: number }> | null
+
   // Fim de semana D+1/D+2/D+3
   fds_d1_veredicto?: string | null
   fds_d1_rain?: number | null
+  fds_d1_wind?: number | null
+  fds_d1_temp?: number | null
   fds_d2_veredicto?: string | null
   fds_d2_rain?: number | null
+  fds_d2_wind?: number | null
+  fds_d2_temp?: number | null
   fds_d3_veredicto?: string | null
   fds_d3_rain?: number | null
+  fds_d3_wind?: number | null
+  fds_d3_temp?: number | null
 }
 
 export type Profile = {
