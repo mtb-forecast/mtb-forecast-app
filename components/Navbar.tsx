@@ -4,25 +4,40 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import type { Profile } from '@/lib/types'
 
 export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setIsLoggedIn(!!session)
-      if (session?.user) {
+    async function fetchProfile() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setIsLoggedIn(!!user)
+        if (!user) { setLoadingProfile(false); return }
         const { data } = await supabase
-          .from('profiles').select('is_admin').eq('id', session.user.id).single()
-        setIsAdmin(!!data?.is_admin)
+          .from('profiles')
+          .select('is_admin, nome, apelido')
+          .eq('id', user.id)
+          .single()
+        setProfile(data as Profile | null)
+      } catch (err) {
+        console.error('Erro ao carregar perfil:', err)
+      } finally {
+        setLoadingProfile(false)
       }
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setIsLoggedIn(!!session)
+    }
+
+    fetchProfile()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      setLoadingProfile(true)
+      fetchProfile()
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -40,7 +55,7 @@ export default function Navbar() {
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/trilhas', label: 'Trilhas' },
     { href: '/perfil', label: 'Perfil' },
-    ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
+    ...(!loadingProfile && profile?.is_admin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
