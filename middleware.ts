@@ -7,8 +7,9 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res })
   const { data: { session } } = await supabase.auth.getSession()
 
-  const protectedRoutes = ['/dashboard', '/trilhas/cadastrar', '/perfil', '/admin']
-  const isProtected = protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))
+  const publicRoutes = ['/login', '/cadastro', '/auth/callback']
+  const isPublic = publicRoutes.some(route => req.nextUrl.pathname.startsWith(route))
+  const isProtected = !isPublic && req.nextUrl.pathname !== '/'
 
   if (isProtected && !session) {
     return NextResponse.redirect(new URL('/login', req.url))

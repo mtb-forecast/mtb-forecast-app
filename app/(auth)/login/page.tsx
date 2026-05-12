@@ -26,7 +26,10 @@ export default function LoginPage() {
   async function handleGoogleLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: {
+        redirectTo: 'https://mtb-forecast-app.vercel.app/auth/callback',
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
     })
     if (error) console.error('Erro Google login:', error)
   }
