@@ -84,17 +84,34 @@ export default function TrilhasPage() {
               {filteredTrilhas.length} trilha{filteredTrilhas.length !== 1 ? 's' : ''} encontrada{filteredTrilhas.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <Link
-            href="/trilhas/cadastrar"
-            style={{
-              background: '#FFE000', color: '#111',
-              border: '1.5px solid #111', borderRadius: 4,
-              padding: '10px 20px', fontSize: 13, fontWeight: 500,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            + Cadastrar trilha
-          </Link>
+          <div className="flex flex-col sm:flex-row" style={{ gap: 10, alignItems: 'center' }}>
+            <a
+              href="/api/strava/auth"
+              style={{
+                background: '#FC4C02', color: '#fff',
+                border: 'none', borderRadius: 4,
+                padding: '10px 20px', fontSize: 13, fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: 8,
+                textDecoration: 'none', whiteSpace: 'nowrap', width: '100%', justifyContent: 'center',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+              </svg>
+              Conectar com Strava
+            </a>
+            <Link
+              href="/trilhas/cadastrar"
+              style={{
+                background: '#FFE000', color: '#111',
+                border: '1.5px solid #111', borderRadius: 4,
+                padding: '10px 20px', fontSize: 13, fontWeight: 500,
+                whiteSpace: 'nowrap', width: '100%', textAlign: 'center',
+              }}
+            >
+              + Cadastrar trilha
+            </Link>
+          </div>
         </div>
       </div>
       <div style={{ background: '#FFE000', height: 3 }} />
