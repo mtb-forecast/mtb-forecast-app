@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Profile, Trilha, REGIOES } from '@/lib/types'
+import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
 
 type TrilhaPendenteSimples = {
   id: string
@@ -132,6 +132,53 @@ export default function PerfilPage() {
     } else {
       setSaveStatus('success')
       setTimeout(() => setSaveStatus('idle'), 3000)
+    }
+  }
+
+  const handleDesconectarStrava = async () => {
+    const confirmar = window.confirm(
+      'Desconectar o Strava irá remover todas as suas trilhas pessoais importadas e suas condições. Deseja continuar?'
+    )
+    if (!confirmar) return
+
+    setLoading(true)
+    try {
+      await supabase
+        .from('trilhas_pessoais')
+        .delete()
+        .eq('user_id', profile!.id)
+
+      const { data: trilhasUser } = await supabase
+        .from('strava_segmentos_config')
+        .select('strava_segment_id')
+        .eq('owner_user_id', profile!.id)
+
+      if (trilhasUser) {
+        for (const t of trilhasUser) {
+          const { count } = await supabase
+            .from('trilhas_pessoais')
+            .select('id', { count: 'exact' })
+            .eq('strava_segment_id', t.strava_segment_id)
+
+          if (!count || count === 0) {
+            await supabase
+              .from('strava_segmentos_config')
+              .delete()
+              .eq('strava_segment_id', t.strava_segment_id)
+              .eq('owner_user_id', profile!.id)
+          }
+        }
+      }
+
+      await fetch('/api/strava/disconnect', { method: 'POST' })
+
+      setTrilhasPessoais([])
+      alert('Strava desconectado com sucesso.')
+    } catch (err) {
+      console.error('Erro ao desconectar Strava:', err)
+      alert('Erro ao desconectar. Tente novamente.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -267,7 +314,7 @@ export default function PerfilPage() {
               <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Região</label>
               <select value={regiao} onChange={e => setRegiao(e.target.value)} className="input-field">
                 <option value="">Selecione</option>
-                {REGIOES.map(r => <option key={r} value={r}>{r === 'outros' ? 'Outros' : r}</option>)}
+                {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
               </select>
             </div>
 
@@ -321,7 +368,7 @@ export default function PerfilPage() {
             Importe segmentos favoritos do Strava para receber previsões personalizadas.
           </p>
 
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {stravaLleno ? (
               <button
                 disabled
@@ -349,6 +396,23 @@ export default function PerfilPage() {
                 <StravaIcon />
                 Conectar com Strava
               </a>
+            )}
+            {trilhasPessoais.length > 0 && (
+              <button
+                onClick={handleDesconectarStrava}
+                disabled={loading}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  background: 'transparent', color: '#ef4444',
+                  border: '1px solid #ef4444', borderRadius: 4,
+                  padding: '8px 16px', fontSize: 13,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.6 : 1,
+                }}
+              >
+                <i className="ti ti-brand-strava" style={{ fontSize: 16 }} />
+                Desconectar Strava
+              </button>
             )}
           </div>
 
