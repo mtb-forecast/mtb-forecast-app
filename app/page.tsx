@@ -199,6 +199,114 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* ── Strava integration ──────────────────────────────────────────── */}
+      <div style={{ background: '#FC4C02', height: 3 }} />
+      <div style={{ background: '#111', padding: '80px 48px' }}>
+        <div
+          className="grid grid-cols-1 lg:grid-cols-2"
+          style={{ gap: '80px', alignItems: 'center', maxWidth: 1100, margin: '0 auto' }}
+        >
+          {/* Esquerda — texto */}
+          <div>
+            <p style={{ fontSize: 11, letterSpacing: '2px', color: '#FC4C02', textTransform: 'uppercase', marginBottom: 16 }}>
+              INTEGRAÇÃO OFICIAL
+            </p>
+            <h2 className="font-wheat" style={{ color: '#fff', fontSize: 36, lineHeight: 1.1 }}>
+              Monitore suas trilhas do Strava.
+            </h2>
+            <p style={{ color: '#888', fontSize: 15, lineHeight: 1.6, marginTop: 16, maxWidth: 480 }}>
+              Conecte sua conta Strava e importe seus segmentos favoritos. O MTB Forecast monitora as condições de cada trilha diariamente e te avisa quando é hora de pedalar.
+            </p>
+            <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                'Importe segmentos favoritos com um clique',
+                'Condições calculadas diariamente para cada trilha',
+                'Até 3 trilhas pessoais monitoradas',
+                'Dados compartilhados entre riders do mesmo segmento',
+              ].map(item => (
+                <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ color: '#22c55e', fontSize: 16 }}>✅</span>
+                  <span style={{ fontSize: 14, color: '#fff' }}>{item}</span>
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/cadastro"
+              style={{
+                display: 'inline-block', marginTop: 32,
+                background: '#FC4C02', color: '#fff',
+                border: 'none', borderRadius: 4,
+                padding: '14px 28px', fontSize: 14, fontWeight: 500,
+                textDecoration: 'none',
+              }}
+            >
+              Criar conta grátis
+            </Link>
+          </div>
+
+          {/* Direita — mockup */}
+          <div style={{ background: '#1a1a1a', borderRadius: 12, padding: 24, border: '1px solid #333' }}>
+            {/* Header mockup */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <svg viewBox="0 0 24 24" fill="#FC4C02" width={20} height={20}>
+                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+              </svg>
+              <span style={{ color: '#FC4C02', fontSize: 15, fontWeight: 600 }}>Strava</span>
+            </div>
+            <p style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Seus segmentos favoritos</p>
+
+            {/* Cards mockados */}
+            {[
+              {
+                name: 'DH Saracura - Mairiporã SP',
+                veredicto: 'DROP LIBERADO',
+                info: '0.0mm · Solo seco · Janela: hoje 06h–22h',
+                borderCor: '#22c55e',
+                badgeBg: '#dcfce7',
+                badgeColor: '#166534',
+              },
+              {
+                name: 'ZigZag - Campos do Jordão',
+                veredicto: 'DROP LIBERADO - Veja os alertas',
+                info: '2.1mm · Rajada 42km/h prevista',
+                borderCor: '#FFE000',
+                badgeBg: '#FFE000',
+                badgeColor: '#111',
+              },
+              {
+                name: 'DH Trilha da Vaca - Mairiporã',
+                veredicto: 'MELHOR ESPERAR',
+                info: '18mm acumulados · Solo encharcado',
+                borderCor: '#ef4444',
+                badgeBg: '#fee2e2',
+                badgeColor: '#991b1b',
+              },
+            ].map(card => (
+              <div
+                key={card.name}
+                style={{
+                  background: '#111', borderRadius: 6,
+                  padding: '10px 14px', marginBottom: 8,
+                  borderLeft: `3px solid ${card.borderCor}`,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#fff', lineHeight: 1.3 }}>{card.name}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, flexShrink: 0,
+                    background: card.badgeBg, color: card.badgeColor,
+                    borderRadius: 2, padding: '2px 6px',
+                  }}>
+                    {card.veredicto}
+                  </span>
+                </div>
+                <p style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{card.info}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* ── CTA final ───────────────────────────────────────────────────── */}
       <div style={{ background: '#111', padding: '80px 48px', textAlign: 'center' }}>
         <h2 className="font-wheat" style={{ fontSize: 36, color: '#fff', marginBottom: 16 }}>
