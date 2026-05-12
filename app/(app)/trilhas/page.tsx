@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao, ESTADOS_BRASIL } from '@/lib/types'
@@ -26,14 +26,22 @@ function rankTrilhas(trilhas: TrilhaComCondicao[]): TrilhaComCondicao[] {
   })
 }
 
-export default function TrilhasPage() {
+function TrilhasContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const estadoInicial = searchParams.get('estado') || ''
+
+  const [mounted, setMounted] = useState(false)
   const [trilhas, setTrilhas] = useState<TrilhaComCondicao[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
-  const [regiaoFilter, setRegiaoFilter] = useState('')
+  const [estadoSelecionado, setEstadoSelecionado] = useState(estadoInicial)
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Auth + favoritos
   useEffect(() => {
@@ -49,12 +57,12 @@ export default function TrilhasPage() {
 
   // Busca trilhas quando estado muda
   useEffect(() => {
-    if (!regiaoFilter) { setTrilhas([]); return }
+    if (!estadoSelecionado) { setTrilhas([]); return }
     setLoading(true)
     setSearch('')
     supabase
       .from('trilhas').select(`*, condicoes(*)`)
-      .eq('aprovada', true).eq('regiao', regiaoFilter)
+      .eq('aprovada', true).eq('regiao', estadoSelecionado)
       .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
       .then(({ data }) => {
         if (data) {
@@ -66,7 +74,16 @@ export default function TrilhasPage() {
         }
         setLoading(false)
       })
-  }, [regiaoFilter])
+  }, [estadoSelecionado])
+
+  const handleEstadoChange = (estado: string) => {
+    setEstadoSelecionado(estado)
+    if (estado) {
+      router.push(`/trilhas?estado=${estado}`, { scroll: false })
+    } else {
+      router.push('/trilhas', { scroll: false })
+    }
+  }
 
   async function toggleFavorito(trilhaId: string) {
     if (!userId) return
@@ -79,11 +96,13 @@ export default function TrilhasPage() {
     }
   }
 
+  if (!mounted) return null
+
   const filtered = search
     ? trilhas.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
     : trilhas
 
-  const estadoLabel = regiaoFilter === 'outros' ? 'Outros' : regiaoFilter
+  const estadoLabel = estadoSelecionado === 'outros' ? 'Outros' : estadoSelecionado
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
@@ -94,7 +113,7 @@ export default function TrilhasPage() {
           <div>
             <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Trilhas</h1>
             <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
-              {regiaoFilter
+              {estadoSelecionado
                 ? `${filtered.length} trilha${filtered.length !== 1 ? 's' : ''} em ${estadoLabel}`
                 : 'Selecione um estado para ver as trilhas'}
             </p>
@@ -137,8 +156,8 @@ export default function TrilhasPage() {
         {/* Filtros */}
         <div className="flex flex-col sm:flex-row gap-3" style={{ marginBottom: 24 }}>
           <select
-            value={regiaoFilter}
-            onChange={e => setRegiaoFilter(e.target.value)}
+            value={estadoSelecionado}
+            onChange={e => handleEstadoChange(e.target.value)}
             className="input-field"
             style={{ width: 200 }}
           >
@@ -146,7 +165,7 @@ export default function TrilhasPage() {
             {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>
 
-          {regiaoFilter && (
+          {estadoSelecionado && (
             <input
               type="text"
               placeholder="Buscar por nome..."
@@ -159,30 +178,24 @@ export default function TrilhasPage() {
         </div>
 
         {/* Estado: sem filtro — seção de dicas */}
-        {!regiaoFilter && (
+        {!estadoSelecionado && (
           <div>
             {/* Grid de imagens */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 12,
-              marginBottom: 32,
-            }}
-            className="trilhas-img-grid"
+            <div
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 32 }}
+              className="trilhas-img-grid"
             >
               {[
                 { src: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80', dica: 'Verifique sempre as condições antes de sair' },
                 { src: 'https://images.unsplash.com/photo-1571333250630-f0230c320b6d?w=600&q=80', dica: 'Solo molhado = trilha fechada. Respeite o verde.' },
                 { src: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=600&q=80', dica: 'Favorite trilhas para acompanhar diariamente' },
               ].map(({ src, dica }, i) => (
-                <div key={i} style={{ position: 'relative', height: 200, borderRadius: 8, overflow: 'hidden', border: '0.5px solid #e5e5e5' }}
+                <div
+                  key={i}
+                  style={{ position: 'relative', height: 200, borderRadius: 8, overflow: 'hidden', border: '0.5px solid #e5e5e5' }}
                   className="trilha-img-wrap"
                 >
-                  <img
-                    src={src}
-                    alt="Trilha MTB"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
+                  <img src={src} alt="Trilha MTB" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   <div className="trilha-img-overlay" style={{
                     position: 'absolute', inset: 0,
                     background: 'rgba(0,0,0,0.55)',
@@ -205,13 +218,9 @@ export default function TrilhasPage() {
             `}</style>
 
             {/* Como usar — 4 cards */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: 12,
-              marginBottom: 24,
-            }}
-            className="trilhas-dicas-grid"
+            <div
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}
+              className="trilhas-dicas-grid"
             >
               {[
                 { icon: <i className="ti ti-map-2" style={{ fontSize: 32, color: '#111' }} />, title: 'Selecione seu estado', text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
@@ -219,12 +228,7 @@ export default function TrilhasPage() {
                 { icon: <i className="ti ti-brand-strava" style={{ fontSize: 32, color: '#FC4C02' }} />, title: 'Importe do Strava', text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
                 { icon: <i className="ti ti-message-star" style={{ fontSize: 32, color: '#111' }} />, title: 'Avalie as trilhas', text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
               ].map(({ icon, title, text }) => (
-                <div key={title} style={{
-                  background: '#fff',
-                  border: '0.5px solid #e5e5e5',
-                  borderRadius: 8,
-                  padding: 16,
-                }}>
+                <div key={title} style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 16 }}>
                   <div style={{ marginBottom: 8 }}>{icon}</div>
                   <p style={{ fontSize: 14, fontWeight: 500, color: '#111', marginBottom: 4 }}>{title}</p>
                   <p style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>{text}</p>
@@ -236,24 +240,16 @@ export default function TrilhasPage() {
             <div
               className="trilhas-strava-banner"
               style={{
-                background: 'rgba(252,76,2,0.08)',
-                border: '1px solid #FC4C02',
-                borderRadius: 8,
-                padding: '20px 24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                background: 'rgba(252,76,2,0.08)', border: '1px solid #FC4C02',
+                borderRadius: 8, padding: '20px 24px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <i className="ti ti-brand-strava" style={{ fontSize: 24, color: '#FC4C02', marginTop: 2, flexShrink: 0 }} />
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: '#111', marginBottom: 4 }}>
-                    Monitore suas trilhas do Strava
-                  </p>
-                  <p style={{ fontSize: 13, color: '#888' }}>
-                    Importe segmentos favoritos e receba condições diárias
-                  </p>
+                  <p style={{ fontSize: 15, fontWeight: 500, color: '#111', marginBottom: 4 }}>Monitore suas trilhas do Strava</p>
+                  <p style={{ fontSize: 13, color: '#888' }}>Importe segmentos favoritos e receba condições diárias</p>
                 </div>
               </div>
               <a
@@ -272,7 +268,7 @@ export default function TrilhasPage() {
         )}
 
         {/* Carregando */}
-        {regiaoFilter && loading && (
+        {estadoSelecionado && loading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
             <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -280,7 +276,7 @@ export default function TrilhasPage() {
         )}
 
         {/* Trilhas */}
-        {regiaoFilter && !loading && (
+        {estadoSelecionado && !loading && (
           filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#888', fontSize: 14 }}>
               Nenhuma trilha encontrada{search ? ` para "${search}"` : ` em ${estadoLabel}`}.
@@ -300,5 +296,13 @@ export default function TrilhasPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function TrilhasPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f7f7f5' }} />}>
+      <TrilhasContent />
+    </Suspense>
   )
 }
