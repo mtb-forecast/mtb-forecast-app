@@ -28,10 +28,18 @@
       "Bash(git commit -m 'Fix: usa summary_polyline direto dos starred segments *)",
       "Bash(git commit -m 'Fix definitivo: polyline salvo corretamente no import Strava *)",
       "Bash(mkdir -p \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\\\(app\\)\\\\perfil\\\\strava\\\\sugestao\\\\[segment_id]\" 2>&1; echo \"done\")",
-      "Bash(git commit -m 'Nova arquitetura Strava: segmentos únicos + sugestão de config + painel admin *)"
+      "Bash(git commit -m 'Nova arquitetura Strava: segmentos únicos + sugestão de config + painel admin *)",
+      "Bash(ls \"C:\\\\ClaudeCode\\\\agent-mtb-forecast\\\\\" 2>&1)",
+      "Read(//c/ClaudeCode/**)",
+      "Bash(trilhas)",
+      "Bash(requirements)",
+      "Bash(emails)",
+      "Bash(\\\\.github\")",
+      "Bash(cp C:/ClaudeCode/agent-mtb-forecast/mtb-forecast.py C:/ClaudeCode/mtb-forecast-app/mtb-forecast.py && echo \"mtb-forecast.py copiado\")"
     ],
     "additionalDirectories": [
-      "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao"
+      "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
+      "C:\\ClaudeCode\\agent-mtb-forecast"
     ]
   }
 }
