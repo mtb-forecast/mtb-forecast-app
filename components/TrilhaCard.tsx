@@ -9,7 +9,7 @@ type Props = {
 
 const VEREDICTO_BORDER: Record<string, string> = {
   'DROP LIBERADO': '#22c55e',
-  'ATENÇÃO': '#FFE000',
+  'DROP LIBERADO - Veja os alertas': '#FFE000',
   'MELHOR ESPERAR': '#ef4444',
 }
 
@@ -19,7 +19,7 @@ const VEREDICTO_BADGE: Record<string, { bg: string; color: string }> = {
   'BOA ADERÊNCIA': { bg: '#fff7ed', color: '#9a3412' },
   'BAIXA ADERÊNCIA': { bg: '#fee2e2', color: '#991b1b' },
   'SECO': { bg: '#fef9c3', color: '#854d0e' },
-  'ATENÇÃO': { bg: '#FFE000', color: '#111' },
+  'DROP LIBERADO - Veja os alertas': { bg: '#FFE000', color: '#111' },
   'MELHOR ESPERAR': { bg: '#fee2e2', color: '#991b1b' },
   'SEM DADOS': { bg: '#f3f4f6', color: '#6b7280' },
 }

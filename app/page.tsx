@@ -13,7 +13,7 @@ const exampleCards = [
   {
     name: 'Quebra Queixo — Linha B',
     regiao: 'MG',
-    veredicto: 'ATENÇÃO',
+    veredicto: 'DROP LIBERADO - Veja os alertas',
     info: '12.4mm acumulado',
     cor: '#FFE000',
     badgeBg: '#FFE000',

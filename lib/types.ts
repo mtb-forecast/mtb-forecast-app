@@ -151,8 +151,8 @@ export const VEREDICTO_CONFIG: Record<string, {
     twColor: 'text-green-400', twBg: 'bg-green-500/10',
     twBorder: 'border-green-500', twLeftBorder: 'border-l-green-500',
   },
-  'ATENÇÃO': {
-    cor: '#d97706', bg: '#fffbeb', emoji: '⚠️', texto: 'ATENÇÃO',
+  'DROP LIBERADO - Veja os alertas': {
+    cor: '#d97706', bg: '#fffbeb', emoji: '⚠️', texto: 'DROP LIBERADO - Veja os alertas',
     twColor: 'text-yellow-400', twBg: 'bg-yellow-500/10',
     twBorder: 'border-yellow-500', twLeftBorder: 'border-l-yellow-500',
   },

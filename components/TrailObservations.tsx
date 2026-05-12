@@ -11,7 +11,7 @@ type Props = {
 
 const VEREDICTO_BADGE: Record<string, { bg: string; color: string }> = {
   'DROP LIBERADO': { bg: '#dcfce7', color: '#166534' },
-  'ATENÇÃO':       { bg: '#fef9c3', color: '#854d0e' },
+  'DROP LIBERADO - Veja os alertas': { bg: '#fef9c3', color: '#854d0e' },
   'MELHOR ESPERAR': { bg: '#fee2e2', color: '#991b1b' },
 }
 

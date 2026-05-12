@@ -73,7 +73,7 @@ Alterações V5.10:
 - Novo tipo de solo "preto"
 - trail_type simplificado para "natural" e "bikepark"
 - Nomenclatura: GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA
-- Veredicto: DROP LIBERADO / ATENÇÃO / MELHOR ESPERAR
+- Veredicto: DROP LIBERADO / DROP LIBERADO - Veja os alertas / MELHOR ESPERAR
 
 Alterações V5.4:
 - Histórico real de chuva das últimas 48h via Open-Meteo
@@ -1230,13 +1230,13 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         }
     elif risco <= 3:
         return {
-            "texto": "ATENÇÃO",
+            "texto": "DROP LIBERADO - Veja os alertas",
             "emoji": "⚠️",
             "cor": "#d97706",
             "bg": "#fffbeb",
             "risco": risco,
             "motivo": ", ".join(motivos) if motivos else "atenção por combinação de fatores",
-            "texto_dinamico": _tdyn("ATENÇÃO"),
+            "texto_dinamico": _tdyn("DROP LIBERADO - Veja os alertas"),
         }
     return {
         "texto": "MELHOR ESPERAR",
@@ -1959,7 +1959,7 @@ Sem títulos, sem listas, sem markdown. Máximo 120 palavras no total."""
             time.sleep(2 ** attempt)
 
 def _score_ranking(r: dict) -> tuple:
-    ordem_verd = {"DROP LIBERADO": 0, "ATENÇÃO": 1, "MELHOR ESPERAR": 2}
+    ordem_verd = {"DROP LIBERADO": 0, "DROP LIBERADO - Veja os alertas": 1, "MELHOR ESPERAR": 2}
     v12  = ordem_verd.get(r["veredicto_12h"]["veredicto"]["texto"], 2)
     solo = ORDEM_CONDICAO.get(r["aderencia"]["status"], 3)
     return (v12, solo)
@@ -2617,7 +2617,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
   </td></tr>
 
   <tr><td style="background:#1e293b;border-radius:0 0 14px 14px;padding:16px 32px;text-align:center;">
-    <div style="font-size:11px;color:#64748b;">MTB Agent V7.7 — Web App &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
+    <div style="font-size:11px;color:#64748b;">MTB Agent V7.8 — Web App &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
     <div style="margin-top:8px;font-size:11px;color:#475569;">
       🚵 Guilherme Leal &nbsp;·&nbsp; MTB Rider &nbsp;&nbsp;|&nbsp;&nbsp; 🚵 Douglas Santos &nbsp;·&nbsp; MTB Rider
     </div>
