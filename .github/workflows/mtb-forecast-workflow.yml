@@ -27,6 +27,10 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Test OpenLandMap connectivity
+        run: |
+          curl -v --max-time 15 "https://api.openlandmap.org/query/point?lat=-23.3&lon=-46.6&coll=predicted250m&regex=sol_clay_usda" 2>&1 | head -50 || echo "FALHOU"
+
       - name: Run Agent MTB Forecast
         run: python mtb-forecast.py 2>&1 | tee debug_$(date +%Y-%m-%d).log
 

@@ -875,7 +875,7 @@ def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
              "sol_silt_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"]
     regex = "|".join(props)
     url = (
-        f"http://api.openlandmap.org/query/point"
+        f"https://api.openlandmap.org/query/point"
         f"?lat={lat}&lon={lon}&coll=predicted250m&regex={regex}"
     )
     for attempt in range(2):
@@ -884,7 +884,8 @@ def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read())
             break
-        except Exception:
+        except Exception as e:
+            print(f"  [OpenLandMap] Tentativa {attempt+1}/2 falhou para ({lat},{lon}): {type(e).__name__}: {e}")
             if attempt == 1:
                 _CACHE_SOLO[key] = None
                 return None
