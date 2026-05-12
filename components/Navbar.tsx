@@ -34,7 +34,7 @@ export default function Navbar() {
   }
 
   // Hide on landing and auth pages (they have their own headers)
-  if (!pathname || pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/cadastro')) return null
+  if (!pathname || pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/cadastro') || pathname.startsWith('/t/')) return null
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },

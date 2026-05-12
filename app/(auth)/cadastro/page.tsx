@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { REGIOES } from '@/lib/types'
+import { ESTADOS_BRASIL } from '@/lib/types'
 
 type FormData = {
   nome: string
@@ -65,6 +65,13 @@ function GoogleIcon() {
 
 export default function CadastroPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const refParam = searchParams.get('ref')
+  const trilhaParam = searchParams.get('trilha')
+  const postSignupRedirect = refParam === 'whatsapp' && trilhaParam
+    ? `/login?redirect=/trilhas/${trilhaParam}`
+    : '/login'
+
   const [form, setForm] = useState<FormData>({
     nome: '',
     apelido: '',
@@ -147,7 +154,7 @@ export default function CadastroPage() {
     localStorage.setItem('show-pwa-prompt', 'true')
     setSuccess(true)
     setLoading(false)
-    setTimeout(() => router.push('/login'), 3000)
+    setTimeout(() => router.push(postSignupRedirect), 3000)
   }
 
   if (success) {
@@ -333,7 +340,7 @@ export default function CadastroPage() {
                 style={{ borderColor: submitted && errors.regiao ? '#ef4444' : undefined }}
               >
                 <option value="" disabled>Selecione sua região</option>
-                {REGIOES.map(r => <option key={r} value={r}>{r === 'outros' ? 'Outros' : r}</option>)}
+                {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
               </select>
               {submitted && <FieldError msg={errors.regiao} />}
             </div>
