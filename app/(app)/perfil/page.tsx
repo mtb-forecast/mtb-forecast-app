@@ -6,6 +6,15 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Profile, Trilha, REGIOES } from '@/lib/types'
 
+type TrilhaPendenteSimples = {
+  id: string
+  name: string
+  regiao: string
+  status: string
+  motivo_rejeicao?: string | null
+  created_at: string
+}
+
 type TrilhaPessoal = {
   id: string
   name: string
@@ -42,7 +51,7 @@ function formatPhone(raw: string): string {
 export default function PerfilPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [trilhasUsuario, setTrilhasUsuario] = useState<Trilha[]>([])
+  const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaPendenteSimples[]>([])
   const [trilhasFavoritas, setTrilhasFavoritas] = useState<Trilha[]>([])
   const [trilhasPessoais, setTrilhasPessoais] = useState<TrilhaPessoal[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,7 +85,10 @@ export default function PerfilPage() {
       }
 
       const [{ data: minhas }, { data: favIds }, { data: pessoais }] = await Promise.all([
-        supabase.from('trilhas').select('*').eq('criada_por', user.id).order('name'),
+        supabase.from('trilhas_pendentes')
+          .select('id, name, regiao, status, motivo_rejeicao, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
         supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
         supabase.from('trilhas_pessoais')
           .select('id, name, regiao, strava_url, strava_segment_id')
@@ -84,7 +96,7 @@ export default function PerfilPage() {
           .order('name'),
       ])
 
-      if (minhas) setTrilhasUsuario(minhas)
+      if (minhas) setMinhasTrilhas(minhas)
       if (pessoais) setTrilhasPessoais(pessoais)
 
       if (favIds && favIds.length > 0) {
@@ -406,34 +418,47 @@ export default function PerfilPage() {
 
         {/* Trilhas cadastradas */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 24 }}>
-          <SectionLabel>Trilhas que cadastrei</SectionLabel>
-          {trilhasUsuario.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <SectionLabel>Trilhas que cadastrei</SectionLabel>
+            {minhasTrilhas.length > 0 && (
+              <span style={{ fontSize: 12, background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 6px', color: '#888' }}>
+                {minhasTrilhas.length}
+              </span>
+            )}
+          </div>
+          {minhasTrilhas.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <p style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>Você ainda não cadastrou trilhas.</p>
-              <Link href="/trilhas" style={{ fontSize: 13, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
+              <Link href="/trilhas/cadastrar" style={{ fontSize: 13, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
                 Cadastrar trilha →
               </Link>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {trilhasUsuario.map(t => (
-                <Link
-                  key={t.id}
-                  href={`/trilhas/${t.id}`}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 4, textDecoration: 'none' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f5')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>{t.name}</span>
-                  <span style={{
-                    fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 6px',
-                    background: t.aprovada ? '#dcfce7' : '#fef9c3',
-                    color: t.aprovada ? '#166534' : '#854d0e',
-                  }}>
-                    {t.aprovada ? 'Aprovada' : 'Pendente'}
-                  </span>
-                </Link>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {minhasTrilhas.map(t => {
+                const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
+                  pendente:  { bg: '#fef9c3', color: '#854d0e', label: 'Pendente' },
+                  aprovada:  { bg: '#dcfce7', color: '#166534', label: 'Aprovada' },
+                  rejeitada: { bg: '#fee2e2', color: '#991b1b', label: 'Rejeitada' },
+                }
+                const cfg = statusConfig[t.status] ?? statusConfig.pendente
+                return (
+                  <div key={t.id} style={{ borderRadius: 4, padding: '10px 12px', background: '#f7f7f5' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>{t.name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 6px', background: cfg.bg, color: cfg.color, flexShrink: 0, marginLeft: 12 }}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, color: '#888', marginTop: 3 }}>{t.regiao} · {new Date(t.created_at).toLocaleDateString('pt-BR')}</p>
+                    {t.status === 'rejeitada' && t.motivo_rejeicao && (
+                      <p style={{ fontSize: 12, color: '#991b1b', marginTop: 6, background: '#fee2e2', borderRadius: 3, padding: '6px 10px' }}>
+                        Motivo: {t.motivo_rejeicao}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

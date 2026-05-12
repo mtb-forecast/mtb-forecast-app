@@ -85,7 +85,7 @@ export default function TrilhasPage() {
             </p>
           </div>
           <Link
-            href="/trilhas/nova"
+            href="/trilhas/cadastrar"
             style={{
               background: '#FFE000', color: '#111',
               border: '1.5px solid #111', borderRadius: 4,

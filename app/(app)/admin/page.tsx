@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Trilha } from '@/lib/types'
-import AdminPanel from '@/components/AdminPanel'
+import AdminPanel, { TrilhaPendente } from '@/components/AdminPanel'
 
 type Sugestao = {
   id: string
@@ -29,7 +28,7 @@ type Sugestao = {
 export default function AdminPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
-  const [pendentes, setPendentes] = useState<Trilha[]>([])
+  const [pendentes, setPendentes] = useState<TrilhaPendente[]>([])
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
   const [loading, setLoading] = useState(true)
   const [sugestaoMsg, setSugestaoMsg] = useState<string | null>(null)
@@ -53,7 +52,7 @@ export default function AdminPage() {
       setIsAdmin(true)
 
       const [{ data: trilhasPendentes }, { data: sugestoesPendentes }] = await Promise.all([
-        supabase.from('trilhas').select('*').eq('aprovada', false).order('created_at', { ascending: false }),
+        supabase.from('trilhas_pendentes').select('*').eq('status', 'pendente').order('created_at', { ascending: false }),
         supabase.from('strava_config_sugestoes').select('*').eq('status', 'pendente').order('created_at', { ascending: false }),
       ])
 
@@ -84,13 +83,30 @@ export default function AdminPage() {
     load()
   }, [router])
 
-  async function aprovar(id: string) {
-    await supabase.from('trilhas').update({ aprovada: true }).eq('id', id)
-    setPendentes(prev => prev.filter(t => t.id !== id))
+  async function aprovar(p: TrilhaPendente) {
+    await Promise.all([
+      supabase.from('trilhas').insert({
+        name: p.name,
+        regiao: p.regiao,
+        lat: p.lat,
+        lon: p.lon,
+        altitude_m: p.altitude_m,
+        solo_type: p.solo_type,
+        exposicao: p.exposicao,
+        trail_type: p.trail_type,
+        bioma: p.bioma,
+        desnivel_m: p.desnivel_m,
+        extensao_km: p.extensao_km,
+        aprovada: true,
+        criada_por: p.user_id,
+      }),
+      supabase.from('trilhas_pendentes').update({ status: 'aprovada' }).eq('id', p.id),
+    ])
+    setPendentes(prev => prev.filter(t => t.id !== p.id))
   }
 
-  async function rejeitar(id: string) {
-    await supabase.from('trilhas').delete().eq('id', id)
+  async function rejeitar(id: string, motivo: string) {
+    await supabase.from('trilhas_pendentes').update({ status: 'rejeitada', motivo_rejeicao: motivo }).eq('id', id)
     setPendentes(prev => prev.filter(t => t.id !== id))
   }
 
