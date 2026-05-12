@@ -141,6 +141,7 @@ export default function CadastroPage() {
       })
     }
 
+    localStorage.setItem('show-pwa-prompt', 'true')
     setSuccess(true)
     setLoading(false)
     setTimeout(() => router.push('/login'), 3000)

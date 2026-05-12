@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao, Profile, VEREDICTO_CONFIG, ADERENCIA_CONFIG } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 type CondicaoPessoal = {
   aderencia_status: string | null
@@ -335,6 +336,7 @@ export default function DashboardPage() {
           </section>
         )}
       </div>
+      <PWAInstallPrompt />
     </div>
   )
 }

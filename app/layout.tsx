@@ -3,12 +3,12 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 
 export const metadata: Metadata = {
-  title: 'MTB Forecast — Saiba antes de pedalar',
-  description: 'Condições de trilhas de mountain bike em tempo real. Verifique antes de sair.',
+  title: 'MTB Forecaster',
+  description: 'Condições de trilhas DH e Enduro em tempo real',
   keywords: ['mountain bike', 'trilhas', 'previsão', 'condições', 'MTB'],
   openGraph: {
-    title: 'MTB Forecast',
-    description: 'Saiba antes de pedalar',
+    title: 'MTB Forecaster',
+    description: 'Condições de trilhas DH e Enduro em tempo real',
     type: 'website',
   },
 }
@@ -27,12 +27,27 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#111111" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="MTB Forecaster" />
+        <link rel="apple-touch-icon" href="/icons/icon.svg" />
       </head>
       <body className="min-h-screen antialiased">
         <Navbar />
         <main>
           {children}
         </main>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+              })
+            }
+          `
+        }} />
       </body>
     </html>
   )
