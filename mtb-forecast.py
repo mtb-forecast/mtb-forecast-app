@@ -299,9 +299,6 @@ def _bcc_global() -> list:
 def _validar_env() -> None:
     obrigatorias = {
         "OPENWEATHER_API_KEY": OPENWEATHER_KEY,
-        "EMAIL_FROM":          EMAIL_FROM,
-        "EMAIL_PASSWORD":      EMAIL_PASSWORD,
-        "EMAIL_TO":            EMAIL_TO,
     }
     faltando = [k for k, v in obrigatorias.items() if not v]
     if faltando:
@@ -2619,7 +2616,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
   </td></tr>
 
   <tr><td style="background:#1e293b;border-radius:0 0 14px 14px;padding:16px 32px;text-align:center;">
-    <div style="font-size:11px;color:#64748b;">MTB Agent V7.6 &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
+    <div style="font-size:11px;color:#64748b;">MTB Agent V7.7 — Web App &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
     <div style="margin-top:8px;font-size:11px;color:#475569;">
       🚵 Guilherme Leal &nbsp;·&nbsp; MTB Rider &nbsp;&nbsp;|&nbsp;&nbsp; 🚵 Douglas Santos &nbsp;·&nbsp; MTB Rider
     </div>
@@ -2728,10 +2725,7 @@ def main() -> None:
             aviso     = "<br>".join(f"⚠️ {html_lib.escape(f)}" for f in falhas)
             html_body = html_body.replace("</body>", f'<p style="text-align:center;font-size:11px;color:#ef4444;">{aviso}</p></body>')
 
-        try:
-            send_email(html_body, emails_por_regiao[regiao], regiao)
-        except Exception as e:
-            print(f"  [AVISO] Email nao enviado para {regiao}: {e}")
+        print(f"  [MTB] Envio de email desativado — dados gravados no Supabase.")
 
     # Processa segmentos Strava únicos (independente do fluxo principal)
     print("\n[MTB V7.6] Iniciando processamento de segmentos Strava únicos...")
