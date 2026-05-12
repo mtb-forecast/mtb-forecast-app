@@ -171,9 +171,9 @@ export default function TrilhasPage() {
             className="trilhas-img-grid"
             >
               {[
-                { src: 'https://images.unsplash.com/photo-1544191696-102dbeb9e5ce?w=600&q=80', dica: 'Verifique sempre as condições antes de sair' },
-                { src: 'https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=600&q=80', dica: 'Solo molhado = trilha fechada. Respeite o verde.' },
-                { src: 'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?w=600&q=80', dica: 'Favorite trilhas para acompanhar diariamente' },
+                { src: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80', dica: 'Verifique sempre as condições antes de sair' },
+                { src: 'https://images.unsplash.com/photo-1571333250630-f0230c320b6d?w=600&q=80', dica: 'Solo molhado = trilha fechada. Respeite o verde.' },
+                { src: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=600&q=80', dica: 'Favorite trilhas para acompanhar diariamente' },
               ].map(({ src, dica }, i) => (
                 <div key={i} style={{ position: 'relative', height: 200, borderRadius: 8, overflow: 'hidden', border: '0.5px solid #e5e5e5' }}
                   className="trilha-img-wrap"
@@ -214,10 +214,10 @@ export default function TrilhasPage() {
             className="trilhas-dicas-grid"
             >
               {[
-                { icon: '🗺️', title: 'Selecione seu estado', text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
-                { icon: '⭐', title: 'Favorite suas trilhas', text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
-                { icon: '🟠', title: 'Importe do Strava', text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
-                { icon: '⭐', title: 'Avalie as trilhas', text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
+                { icon: <i className="ti ti-map-2" style={{ fontSize: 32, color: '#111' }} />, title: 'Selecione seu estado', text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
+                { icon: <i className="ti ti-star" style={{ fontSize: 32, color: '#111' }} />, title: 'Favorite suas trilhas', text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
+                { icon: <i className="ti ti-brand-strava" style={{ fontSize: 32, color: '#FC4C02' }} />, title: 'Importe do Strava', text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
+                { icon: <i className="ti ti-message-star" style={{ fontSize: 32, color: '#111' }} />, title: 'Avalie as trilhas', text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
               ].map(({ icon, title, text }) => (
                 <div key={title} style={{
                   background: '#fff',
@@ -225,7 +225,7 @@ export default function TrilhasPage() {
                   borderRadius: 8,
                   padding: 16,
                 }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
+                  <div style={{ marginBottom: 8 }}>{icon}</div>
                   <p style={{ fontSize: 14, fontWeight: 500, color: '#111', marginBottom: 4 }}>{title}</p>
                   <p style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>{text}</p>
                 </div>
@@ -245,13 +245,16 @@ export default function TrilhasPage() {
                 justifyContent: 'space-between',
               }}
             >
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 500, color: '#111', marginBottom: 4 }}>
-                  Monitore suas trilhas do Strava
-                </p>
-                <p style={{ fontSize: 13, color: '#888' }}>
-                  Importe segmentos favoritos e receba condições diárias
-                </p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <i className="ti ti-brand-strava" style={{ fontSize: 24, color: '#FC4C02', marginTop: 2, flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 500, color: '#111', marginBottom: 4 }}>
+                    Monitore suas trilhas do Strava
+                  </p>
+                  <p style={{ fontSize: 13, color: '#888' }}>
+                    Importe segmentos favoritos e receba condições diárias
+                  </p>
+                </div>
               </div>
               <a
                 href="/perfil/strava"
