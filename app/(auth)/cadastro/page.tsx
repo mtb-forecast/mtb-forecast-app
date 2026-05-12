@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -63,7 +63,7 @@ function GoogleIcon() {
   )
 }
 
-export default function CadastroPage() {
+function CadastroContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const refParam = searchParams.get('ref')
@@ -389,5 +389,23 @@ export default function CadastroPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CadastroPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh',
+        background: '#111',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{ color: '#888', fontSize: 14 }}>Carregando...</div>
+      </div>
+    }>
+      <CadastroContent />
+    </Suspense>
   )
 }
