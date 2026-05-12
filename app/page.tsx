@@ -185,20 +185,6 @@ export default function LandingPage() {
         ))}
       </div>
 
-      {/* ── Como funciona ───────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', padding: '80px 48px', textAlign: 'center' }}>
-        <h2 className="font-wheat" style={{ fontSize: 36, color: '#111', marginBottom: 48 }}>Como funciona</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 40, maxWidth: 900, margin: '0 auto', textAlign: 'left' }}>
-          {howItWorks.map(f => (
-            <div key={f.title}>
-              <div style={{ marginBottom: 16 }}>{f.icon}</div>
-              <h3 style={{ fontSize: 16, fontWeight: 500, color: '#111', marginBottom: 8 }}>{f.title}</h3>
-              <p style={{ fontSize: 14, color: '#888', lineHeight: 1.6 }}>{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* ── Strava integration ──────────────────────────────────────────── */}
       <div style={{ background: '#FC4C02', height: 3 }} />
       <div style={{ background: '#111', padding: '80px 48px' }}>
@@ -304,6 +290,20 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ── Como funciona ───────────────────────────────────────────────── */}
+      <div style={{ background: '#fff', padding: '80px 48px', textAlign: 'center' }}>
+        <h2 className="font-wheat" style={{ fontSize: 36, color: '#111', marginBottom: 48 }}>Como funciona</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 40, maxWidth: 900, margin: '0 auto', textAlign: 'left' }}>
+          {howItWorks.map(f => (
+            <div key={f.title}>
+              <div style={{ marginBottom: 16 }}>{f.icon}</div>
+              <h3 style={{ fontSize: 16, fontWeight: 500, color: '#111', marginBottom: 8 }}>{f.title}</h3>
+              <p style={{ fontSize: 14, color: '#888', lineHeight: 1.6 }}>{f.desc}</p>
+            </div>
+          ))}
         </div>
       </div>
 
