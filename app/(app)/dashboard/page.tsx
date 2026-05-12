@@ -175,6 +175,28 @@ export default function DashboardPage() {
       </div>
       <div style={{ background: '#FFE000', height: 3 }} />
 
+      {/* Banner de perfil incompleto */}
+      {!(profile?.nome && profile?.apelido && profile?.telefone && profile?.regiao) && (
+        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 32px' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <p style={{ fontSize: 13, color: '#92400e' }}>
+              ⚠️ Complete seu perfil para aproveitar todos os recursos
+            </p>
+            <Link
+              href="/perfil"
+              style={{
+                fontSize: 13, fontWeight: 500, color: '#111',
+                background: '#FFE000', border: '1.5px solid #111',
+                borderRadius: 4, padding: '6px 16px',
+                whiteSpace: 'nowrap', textDecoration: 'none',
+              }}
+            >
+              Completar perfil
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
 
