@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { TrilhaComCondicao } from '@/lib/types'
+import { TrilhaComCondicao, ESTADOS_BRASIL } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
-
-const ESTADOS = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'ES', 'BA', 'outros'] as const
 
 const VEREDICTO_ORDER: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -145,7 +143,7 @@ export default function TrilhasPage() {
             style={{ width: 200 }}
           >
             <option value="">Selecione o estado</option>
-            {ESTADOS.map(r => <option key={r} value={r}>{r === 'outros' ? 'Outros' : r}</option>)}
+            {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>
 
           {regiaoFilter && (
@@ -160,16 +158,113 @@ export default function TrilhasPage() {
           )}
         </div>
 
-        {/* Estado: sem filtro */}
+        {/* Estado: sem filtro — seção de dicas */}
         {!regiaoFilter && (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <div style={{ fontSize: 48, marginBottom: 20 }}>🗺️</div>
-            <h2 className="font-wheat" style={{ fontSize: 24, color: '#111', marginBottom: 12 }}>
-              Selecione um estado
-            </h2>
-            <p style={{ fontSize: 14, color: '#888' }}>
-              Escolha um estado para ver as trilhas e condições em tempo real
-            </p>
+          <div>
+            {/* Grid de imagens */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              marginBottom: 32,
+            }}
+            className="trilhas-img-grid"
+            >
+              {[
+                { src: 'https://images.unsplash.com/photo-1544191696-102dbeb9e5ce?w=600&q=80', dica: 'Verifique sempre as condições antes de sair' },
+                { src: 'https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=600&q=80', dica: 'Solo molhado = trilha fechada. Respeite o verde.' },
+                { src: 'https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?w=600&q=80', dica: 'Favorite trilhas para acompanhar diariamente' },
+              ].map(({ src, dica }, i) => (
+                <div key={i} style={{ position: 'relative', height: 200, borderRadius: 8, overflow: 'hidden', border: '0.5px solid #e5e5e5' }}
+                  className="trilha-img-wrap"
+                >
+                  <img
+                    src={src}
+                    alt="Trilha MTB"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                  <div className="trilha-img-overlay" style={{
+                    position: 'absolute', inset: 0,
+                    background: 'rgba(0,0,0,0.55)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: 16, opacity: 0, transition: 'opacity 0.2s',
+                  }}>
+                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 500, textAlign: 'center', lineHeight: 1.5 }}>{dica}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <style>{`
+              @media (max-width: 768px) {
+                .trilhas-img-grid { grid-template-columns: 1fr !important; }
+                .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
+                .trilhas-strava-banner { flex-direction: column !important; gap: 16px !important; }
+              }
+              .trilha-img-wrap:hover .trilha-img-overlay { opacity: 1 !important; }
+            `}</style>
+
+            {/* Como usar — 4 cards */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 12,
+              marginBottom: 24,
+            }}
+            className="trilhas-dicas-grid"
+            >
+              {[
+                { icon: '🗺️', title: 'Selecione seu estado', text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
+                { icon: '⭐', title: 'Favorite suas trilhas', text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
+                { icon: '🟠', title: 'Importe do Strava', text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
+                { icon: '⭐', title: 'Avalie as trilhas', text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
+              ].map(({ icon, title, text }) => (
+                <div key={title} style={{
+                  background: '#fff',
+                  border: '0.5px solid #e5e5e5',
+                  borderRadius: 8,
+                  padding: 16,
+                }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: '#111', marginBottom: 4 }}>{title}</p>
+                  <p style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>{text}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Banner Strava */}
+            <div
+              className="trilhas-strava-banner"
+              style={{
+                background: 'rgba(252,76,2,0.08)',
+                border: '1px solid #FC4C02',
+                borderRadius: 8,
+                padding: '20px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 500, color: '#111', marginBottom: 4 }}>
+                  Monitore suas trilhas do Strava
+                </p>
+                <p style={{ fontSize: 13, color: '#888' }}>
+                  Importe segmentos favoritos e receba condições diárias
+                </p>
+              </div>
+              <a
+                href="/perfil/strava"
+                style={{
+                  background: '#FC4C02', color: '#fff',
+                  border: 'none', borderRadius: 4,
+                  padding: '8px 16px', fontSize: 13, fontWeight: 500,
+                  textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                }}
+              >
+                Conectar com Strava
+              </a>
+            </div>
           </div>
         )}
 
