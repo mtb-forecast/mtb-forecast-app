@@ -20,6 +20,7 @@ jobs:
       EMAIL_PASSWORD:      ${{ secrets.EMAIL_PASSWORD }}
       EMAIL_TO:            ${{ secrets.EMAIL_TO }}
       EMAIL_BCC:           ${{ secrets.EMAIL_BCC }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,4 +30,12 @@ jobs:
           python-version: "3.11"
 
       - name: Run Agent MTB Forecast
-        run: python mtb-forecast.py
+        run: python mtb-forecast.py 2>&1 | tee debug_$(date +%Y-%m-%d).log
+
+      - name: Upload debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-log-${{ github.run_id }}
+          path: debug_*.log
+          retention-days: 30

@@ -95,6 +95,7 @@ import json
 import html as html_lib
 import urllib.request
 import urllib.error
+import urllib.parse
 import smtplib
 import time
 from email.mime.multipart import MIMEMultipart
@@ -241,6 +242,9 @@ EMAIL_PASSWORD  = os.getenv("EMAIL_PASSWORD")
 EMAIL_TO        = os.getenv("EMAIL_TO")
 EMAIL_BCC       = os.getenv("EMAIL_BCC", "")
 DEBUG_MODEL     = os.getenv("DEBUG_MODEL", "false").lower() == "true"
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://eydlkvrjopffyqpdstzh.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 # ---------------------------------------------------------------------------
 # Leitura de destinatários por região — emails_{REGIAO}.txt
@@ -533,21 +537,13 @@ def fetch_onecall_historico(trail: dict) -> dict:
             if dt_ts not in entradas_por_dt:
                 entradas_por_dt[dt_ts] = entry
 
-    # Processar entradas deduplicadas em ordem cronológica
-    bruto = 0.0
-    historico = []
+    # Processar entradas deduplicadas — apenas clima (temp/vento/nuvens/umidade)
+    # Precipitação histórica vem exclusivamente de fetch_historico_chuva_om (Open-Meteo archive)
     for dt_ts in sorted(entradas_por_dt):
-        entry = entradas_por_dt[dt_ts]
-        dt_entry = datetime.fromtimestamp(dt_ts, tz=BRT)
-        horas_atras = max(0, (agora - dt_entry).total_seconds() / 3600)
-        p = entry.get("rain", {}).get("1h", 0.0) or 0.0
-
-        historico.append((horas_atras, p))
-        bruto += p
-
-        temp = entry.get("temp")
-        wind = entry.get("wind_speed")
-        clouds = entry.get("clouds")
+        entry    = entradas_por_dt[dt_ts]
+        temp     = entry.get("temp")
+        wind     = entry.get("wind_speed")
+        clouds   = entry.get("clouds")
         humidity = entry.get("humidity")
 
         if temp is not None:
@@ -559,16 +555,12 @@ def fetch_onecall_historico(trail: dict) -> dict:
         if humidity is not None:
             amostras_humidity.append(humidity)
 
-        if p >= 0.5 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
-            ultima_chuva_h = round(horas_atras, 1)
-
-    temp_media = round(sum(amostras_temp) / len(amostras_temp), 1) if amostras_temp else None
-    vento_medio = round(sum(amostras_wind) / len(amostras_wind), 1) if amostras_wind else None
-    nublado_medio = round(sum(amostras_cloud) / len(amostras_cloud), 1) if amostras_cloud else None
+    temp_media    = round(sum(amostras_temp)     / len(amostras_temp),     1) if amostras_temp     else None
+    vento_medio   = round(sum(amostras_wind)     / len(amostras_wind),     1) if amostras_wind     else None
+    nublado_medio = round(sum(amostras_cloud)    / len(amostras_cloud),    1) if amostras_cloud    else None
     umidade_media = round(sum(amostras_humidity) / len(amostras_humidity), 1) if amostras_humidity else None
 
     # Vento máximo histórico em km/h — extraído das entradas já coletadas
-    # Elimina chamada extra ao timemachine em fetch_vento_historico
     vento_max_kmh_ow = (
         round(max(amostras_wind) * 3.6, 1) if amostras_wind else None
     )
@@ -582,21 +574,75 @@ def fetch_onecall_historico(trail: dict) -> dict:
         humidity_pct=umidade_media,
     )
 
-    efetivo = 0.0
-    for horas_atras, p in historico:
-        peso = 0.5 ** (horas_atras / meia_vida)
-        efetivo += p * peso
-
+    # bruto, efetivo e ultima_chuva_h agora vêm de fetch_historico_chuva_om
     return {
-        "bruto":            round(bruto, 1),
-        "efetivo":          round(efetivo, 1),
-        "ultima_chuva_h":   ultima_chuva_h,
+        "bruto":            0.0,
+        "efetivo":          0.0,
+        "ultima_chuva_h":   None,
         "meia_vida_h":      meia_vida,
         "temp_media_c":     temp_media,
         "vento_medio_ms":   vento_medio,
         "nublado_pct":      nublado_medio,
         "umidade_pct":      umidade_media,
-        "vento_max_kmh_ow": vento_max_kmh_ow,  # vento sustentado máximo 48h (m/s→km/h)
+        "vento_max_kmh_ow": vento_max_kmh_ow,
+    }
+
+
+def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
+    """
+    Busca precipitação hora a hora no Open-Meteo archive (ERA5) para as últimas 48h.
+    Calcula bruto, efetivo (decaimento exponencial) e ultima_chuva_h.
+    Substitui o histórico do One Call timemachine, que retorna apenas 1 ponto por chamada.
+    """
+    agora     = datetime.now(BRT)
+    inicio    = (agora - timedelta(hours=48)).strftime("%Y-%m-%d")
+    fim       = agora.strftime("%Y-%m-%d")
+    agora_str = agora.strftime("%Y-%m-%dT%H:00")
+
+    for attempt in range(3):
+        try:
+            url = (
+                "https://archive-api.open-meteo.com/v1/archive"
+                f"?latitude={trail['lat']}&longitude={trail['lon']}"
+                f"&start_date={inicio}&end_date={fim}"
+                "&hourly=precipitation"
+                "&timezone=America%2FSao_Paulo"
+            )
+            with urllib.request.urlopen(url, timeout=30) as r:
+                data = json.loads(r.read())
+            break
+        except Exception as exc:
+            if attempt == 2:
+                print(f"  [OM archive] Falha após 3 tentativas: {exc}")
+                return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
+            print(f"  [OM archive] Tentativa {attempt+1} falhou: {exc} — retentando...")
+            time.sleep(2 ** attempt)
+
+    times   = data.get("hourly", {}).get("time", [])
+    precips = data.get("hourly", {}).get("precipitation", [])
+
+    bruto          = 0.0
+    efetivo        = 0.0
+    ultima_chuva_h = None
+
+    for i, t in enumerate(times):
+        if t > agora_str:
+            continue
+        p           = float(precips[i] or 0.0) if i < len(precips) else 0.0
+        dt_entry    = datetime.fromisoformat(t).replace(tzinfo=BRT)
+        horas_atras = max(0, (agora - dt_entry).total_seconds() / 3600)
+
+        bruto   += p
+        peso     = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
+        efetivo += p * peso
+
+        if p >= 0.5 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
+            ultima_chuva_h = round(horas_atras, 1)
+
+    return {
+        "bruto":          round(bruto, 1),
+        "efetivo":        round(efetivo, 1),
+        "ultima_chuva_h": ultima_chuva_h,
     }
 
 
@@ -672,8 +718,10 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
     meia_vida = float(meia_vida_base)
 
     if temp_c is not None:
-        if temp_c >= 30:
-            meia_vida *= 0.78
+        if temp_c >= 35:
+            meia_vida *= 0.65
+        elif temp_c >= 30:
+            meia_vida *= 0.75
         elif temp_c >= 26:
             meia_vida *= 0.86
         elif temp_c <= 16:
@@ -682,12 +730,21 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
             meia_vida *= 1.22
 
     if wind_ms is not None:
-        if wind_ms >= 6:
-            meia_vida *= 0.84
-        elif wind_ms >= 3:
+        wind_kmh = wind_ms * 3.6
+        if wind_kmh >= 40:
+            meia_vida *= 0.75
+        elif wind_kmh >= 20:
+            meia_vida *= 0.85
+        elif wind_kmh >= 10.8:  # equivale a ~3 m/s
             meia_vida *= 0.92
         elif wind_ms <= 1:
             meia_vida *= 1.05
+
+    # Fator combinado: calor + vento seca muito mais rápido
+    if temp_c is not None and wind_ms is not None:
+        wind_kmh = wind_ms * 3.6
+        if temp_c >= 30 and wind_kmh >= 20:
+            meia_vida *= 0.80  # redução adicional — combinação acelera evaporação
 
     if cloud_pct is not None:
         if cloud_pct >= 90:
@@ -824,11 +881,19 @@ def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
         f"http://api.openlandmap.org/query/point"
         f"?lat={lat}&lon={lon}&coll=predicted250m&regex={regex}"
     )
-    try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read())
+    for attempt in range(2):
+        try:
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+            break
+        except Exception:
+            if attempt == 1:
+                _CACHE_SOLO[key] = None
+                return None
+            time.sleep(1)
 
+    try:
         props_data = data.get("properties", {})
         clay_raw = sand_raw = silt_raw = None
         for k, v in props_data.items():
@@ -933,7 +998,8 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
         impacto *= solo_mult
 
     if trail.get("trail_type") == "bikepark":
-        impacto *= 0.90
+        if acumulo_ef < 5.0:
+            impacto *= 0.90
 
     score = max(0.0, min(100.0, impacto * 10.0))
     return {
@@ -987,14 +1053,30 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     s = base["score"]
     saturado = _bikepark_saturado(trail, acumulo_ef, mes, enso)
 
-    if s < 10:
+    # Thresholds diretos calibrados por rider — efetivo combinado com pico_3h
+    efetivo_combinado = acumulo_ef + pico_3h
+    if efetivo_combinado == 0:
         status = "SECO"
-    elif s < 35:
+    elif efetivo_combinado < 5.0:
         status = "GRIP PERFEITO"
-    elif s < 70:
+    elif efetivo_combinado < 7.0:
         status = "BOA ADERÊNCIA"
     else:
         status = "BAIXA ADERÊNCIA"
+
+    # Fator de recuperação: solo abaixo de 2.5x o threshold sazonal não justifica BAIXA ADERÊNCIA
+    thresh_local = threshold_solo_descansado(mes, enso, trail)
+    if status == "BAIXA ADERÊNCIA" and acumulo_ef < thresh_local * 2.5:
+        status = "BOA ADERÊNCIA"
+
+    if trail.get("trail_type") == "bikepark":
+        if acumulo_ef >= 5.0:
+            pass  # BAIXA ADERÊNCIA permitida — sem teto quando solo saturado
+        else:
+            if status == "BAIXA ADERÊNCIA":
+                status = "BOA ADERÊNCIA"  # teto quando solo não está saturado
+        if acumulo_ef >= 2.0 and status == "SECO":
+            status = "GRIP PERFEITO"  # nunca SECO com umidade real no solo
 
     emojis = {"SECO": "🟡", "GRIP PERFEITO": "🟢", "BOA ADERÊNCIA": "🟠", "BAIXA ADERÊNCIA": "🔴"}
     cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
@@ -1014,7 +1096,8 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
 
 def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 0.0,
               inclinacao: float | None = None, trail: dict | None = None,
-              acumulo_ef: float = 0.0, vento_hist: dict | None = None) -> dict:
+              acumulo_ef: float = 0.0, vento_hist: dict | None = None,
+              aderencia_futura: dict = None) -> dict:
     status = aderencia["status"]
     risco = 0
     motivos = []
@@ -1098,7 +1181,44 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             risco = 2
         motivos.append(f"rajada prevista {gust_kmh} km/h ({exposicao})")
 
+    _sev = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+    if aderencia_futura is not None:
+        sev_a = _sev.get(status, 0)
+        sev_f = _sev.get(aderencia_futura.get("status", status), 0)
+        if sev_f > sev_a:
+            if aderencia_futura["status"] == "BAIXA ADERÊNCIA" and status != "BAIXA ADERÊNCIA":
+                risco += 2
+                motivos.append("piora prevista severa")
+            elif aderencia_futura["status"] == "BOA ADERÊNCIA" and status in ("SECO", "GRIP PERFEITO"):
+                risco += 1
+                motivos.append("piora prevista")
+        elif sev_f < sev_a:
+            risco = max(0, risco - 1)
+            motivos.append("melhora prevista")
+
     risco = max(0, risco)
+
+    def _tdyn(texto_v):
+        _o = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+        sa = aderencia["status"]
+        sf = (aderencia_futura or {}).get("status", sa)
+        lf = (aderencia_futura or {}).get("label", "24h")
+        oa, of = _o.get(sa, 0), _o.get(sf, 0)
+        if texto_v == "MELHOR ESPERAR":
+            return "Solo encharcado — aguarde secar" if acumulo_ef > 8 else "Chuva intensa prevista — evite este período"
+        if sa in ("SECO", "GRIP PERFEITO") and sf == "BAIXA ADERÊNCIA":
+            return f"Bom agora, piora severa prevista — {lf}"
+        if sa in ("SECO", "GRIP PERFEITO") and sf == "BOA ADERÊNCIA":
+            return f"Bom agora, piora moderada prevista — {lf}"
+        if sa in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA") and of >= oa:
+            return "Solo úmido, sem melhora prevista nas 24h"
+        if sa in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA") and of < oa:
+            return "Solo úmido mas secando — melhora prevista"
+        if sa == "SECO" and sf == "SECO":
+            return "Condição ideal — sem chuva prevista"
+        if sa == "GRIP PERFEITO" and of <= 1:
+            return "Grip perfeito — condição estável"
+        return ""
 
     if risco <= 1:
         return {
@@ -1107,7 +1227,8 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             "cor": "#16a34a",
             "bg": "#f0fdf4",
             "risco": risco,
-            "motivo": ", ".join(motivos) if motivos else "condição favorável"
+            "motivo": ", ".join(motivos) if motivos else "condição favorável",
+            "texto_dinamico": _tdyn("DROP LIBERADO"),
         }
     elif risco <= 3:
         return {
@@ -1116,7 +1237,8 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             "cor": "#d97706",
             "bg": "#fffbeb",
             "risco": risco,
-            "motivo": ", ".join(motivos) if motivos else "atenção por combinação de fatores"
+            "motivo": ", ".join(motivos) if motivos else "atenção por combinação de fatores",
+            "texto_dinamico": _tdyn("ATENÇÃO"),
         }
     return {
         "texto": "MELHOR ESPERAR",
@@ -1124,8 +1246,277 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         "cor": "#ef4444",
         "bg": "#fef2f2",
         "risco": risco,
-        "motivo": ", ".join(motivos) if motivos else "risco elevado"
+        "motivo": ", ".join(motivos) if motivos else "risco elevado",
+        "texto_dinamico": _tdyn("MELHOR ESPERAR"),
     }
+
+
+def gravar_supabase(trilha_name: str, resultado: dict) -> bool:
+    """
+    Grava condições da trilha no Supabase após processar.
+    Falha silenciosa — nunca interrompe o fluxo do agent.
+    """
+    if not SUPABASE_KEY:
+        return False
+    try:
+        # Busca o id da trilha pelo nome
+        url_busca = (
+            f"{SUPABASE_URL}/rest/v1/trilhas"
+            f"?name=eq.{urllib.parse.quote(trilha_name)}"
+            f"&select=id"
+            f"&limit=1"
+        )
+        req = urllib.request.Request(
+            url_busca,
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            trilhas = json.loads(r.read())
+        if not trilhas:
+            print(f"  [Supabase] Trilha '{trilha_name}' não encontrada no banco.")
+            return False
+        trilha_id = trilhas[0]["id"]
+
+        # Monta payload com condições
+        aderencia = resultado.get("aderencia", {})
+        veredicto = resultado.get("veredicto", {})
+        veredicto_12h = resultado.get("veredicto_12h", {})
+        vento_hist = resultado.get("vento_hist", {})
+        enso = resultado.get("enso", {})
+        fds = resultado.get("fds", {})
+
+        payload = json.dumps({
+            "trilha_id":          trilha_id,
+            "aderencia_status":   aderencia.get("status"),
+            "aderencia_score":    aderencia.get("score"),
+            "aderencia_desc":     aderencia.get("desc"),
+            "veredicto":          veredicto.get("texto"),
+            "veredicto_12h":      veredicto_12h.get("veredicto", {}).get("texto"),
+            "rain_mm":            resultado.get("rain"),
+            "rain_12h":           veredicto_12h.get("rain"),
+            "wind_ms":            resultado.get("wind"),
+            "wind_12h":           veredicto_12h.get("wind"),
+            "pop_48h":            resultado.get("pop"),
+            "pop_12h":            veredicto_12h.get("pop"),
+            "temp_max":           resultado.get("temp_max"),
+            "pico_3h":            resultado.get("pico_3h"),
+            "acumulo_48h":        resultado.get("acumulo_48h"),
+            "acumulo_ef":         resultado.get("acumulo_ef"),
+            "ultima_chuva_h":     resultado.get("ultima_chuva_h"),
+            "meia_vida_h":        resultado.get("meia_vida_h"),
+            "gust_max_kmh":       resultado.get("gust_max_kmh"),
+            "janela":             resultado.get("janela"),
+            "horarios_chuva":     resultado.get("horarios_chuva"),
+            "frase_secagem":      resultado.get("resumo_secagem_frase"),
+            "solo_descansado":    aderencia.get("solo_descansado"),
+            "thresh_desc":        resultado.get("thresh_desc"),
+            "clay_pct":           resultado.get("clay_pct"),
+            "sand_pct":           resultado.get("sand_pct"),
+            "texture_class":      resultado.get("texture_class"),
+            "inclinacao":         resultado.get("inclinacao"),
+            "enso_fase":          enso.get("fase"),
+            "enso_oni":           enso.get("oni"),
+            "fonte":              resultado.get("fonte"),
+            "alerta_vento_nivel": vento_hist.get("nivel_vento"),
+            "alerta_vento_kmh":   vento_hist.get("vento_max_kmh"),
+            "alerta_rajada_kmh":  vento_hist.get("rajada_max_kmh"),
+            "fds_d1_veredicto":   fds.get("d1", {}).get("veredicto", {}).get("texto"),
+            "fds_d1_rain":        fds.get("d1", {}).get("rain"),
+            "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
+            "fds_d2_rain":        fds.get("d2", {}).get("rain"),
+            "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
+            "fds_d3_rain":        fds.get("d3", {}).get("rain"),
+            "dados_json":         json.dumps({
+                "bioma":      resultado.get("bioma"),
+                "trail_type": resultado.get("trail_type"),
+                "exposicao":  resultado.get("exposicao_raw"),
+            })
+        }).encode("utf-8")
+
+        # Grava no Supabase (upsert por trilha_id — mantém apenas condição mais recente)
+        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes?on_conflict=trilha_id"
+        req_insert = urllib.request.Request(
+            url_insert,
+            data=payload,
+            headers={
+                "apikey":          SUPABASE_KEY,
+                "Authorization":   f"Bearer {SUPABASE_KEY}",
+                "Content-Type":    "application/json",
+                "Prefer":          "return=minimal,resolution=merge-duplicates",
+            }
+        )
+        req_insert.get_method = lambda: "POST"
+        with urllib.request.urlopen(req_insert, timeout=10) as r:
+            print(f"  [Supabase] [OK] {trilha_name} gravado (status {r.status})")
+        return True
+
+    except Exception as exc:
+        print(f"  [Supabase] [ERRO] {trilha_name}: {exc}")
+        return False
+
+
+def buscar_segmentos_strava_unicos() -> list:
+    """
+    Busca configurações únicas de segmentos Strava do Supabase.
+    Retorna lista de configurações — uma por strava_segment_id.
+    Nunca interrompe o fluxo principal.
+    """
+    if not SUPABASE_KEY:
+        return []
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/strava_segmentos_config"
+            f"?select=*"
+            f"&order=created_at.asc"
+        )
+        req = urllib.request.Request(
+            url,
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            segmentos = json.loads(r.read())
+        print(f"  [Supabase] {len(segmentos)} segmento(s) Strava único(s) encontrado(s).")
+        return segmentos
+    except Exception as exc:
+        print(f"  [Supabase] Erro ao buscar segmentos Strava: {exc}")
+        return []
+
+
+def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
+    """
+    Grava condições em condicoes_strava por strava_segment_id.
+    Upsert — atualiza se já existe, insere se não existe.
+    Falha silenciosa — nunca interrompe o fluxo do agent.
+    """
+    if not SUPABASE_KEY:
+        return False
+    try:
+        aderencia     = resultado.get("aderencia", {})
+        veredicto     = resultado.get("veredicto", {})
+        veredicto_12h = resultado.get("veredicto_12h", {})
+        vento_hist    = resultado.get("vento_hist", {})
+        enso          = resultado.get("enso", {})
+        fds           = resultado.get("fds", {})
+
+        payload = json.dumps({
+            "strava_segment_id":  strava_segment_id,
+            "aderencia_status":   aderencia.get("status"),
+            "aderencia_score":    aderencia.get("score"),
+            "aderencia_desc":     aderencia.get("desc"),
+            "veredicto":          veredicto.get("texto"),
+            "veredicto_12h":      veredicto_12h.get("veredicto", {}).get("texto"),
+            "rain_mm":            resultado.get("rain"),
+            "rain_12h":           veredicto_12h.get("rain"),
+            "wind_ms":            resultado.get("wind"),
+            "wind_12h":           veredicto_12h.get("wind"),
+            "pop_48h":            resultado.get("pop"),
+            "pop_12h":            veredicto_12h.get("pop"),
+            "temp_max":           resultado.get("temp_max"),
+            "pico_3h":            resultado.get("pico_3h"),
+            "acumulo_48h":        resultado.get("acumulo_48h"),
+            "acumulo_ef":         resultado.get("acumulo_ef"),
+            "ultima_chuva_h":     resultado.get("ultima_chuva_h"),
+            "meia_vida_h":        resultado.get("meia_vida_h"),
+            "gust_max_kmh":       resultado.get("gust_max_kmh"),
+            "janela":             resultado.get("janela"),
+            "horarios_chuva":     resultado.get("horarios_chuva"),
+            "frase_secagem":      resultado.get("resumo_secagem_frase"),
+            "solo_descansado":    aderencia.get("solo_descansado"),
+            "thresh_desc":        resultado.get("thresh_desc"),
+            "clay_pct":           resultado.get("clay_pct"),
+            "sand_pct":           resultado.get("sand_pct"),
+            "texture_class":      resultado.get("texture_class"),
+            "inclinacao":         resultado.get("inclinacao"),
+            "enso_fase":          enso.get("fase"),
+            "enso_oni":           enso.get("oni"),
+            "fonte":              resultado.get("fonte"),
+            "alerta_vento_nivel": vento_hist.get("nivel_vento"),
+            "alerta_vento_kmh":   vento_hist.get("vento_max_kmh"),
+            "alerta_rajada_kmh":  vento_hist.get("rajada_max_kmh"),
+            "fds_d1_veredicto":   fds.get("d1", {}).get("veredicto", {}).get("texto"),
+            "fds_d1_rain":        fds.get("d1", {}).get("rain"),
+            "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
+            "fds_d2_rain":        fds.get("d2", {}).get("rain"),
+            "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
+            "fds_d3_rain":        fds.get("d3", {}).get("rain"),
+            "dados_json":         json.dumps({
+                "bioma":      resultado.get("bioma"),
+                "trail_type": resultado.get("trail_type"),
+                "exposicao":  resultado.get("exposicao_raw"),
+            })
+        }).encode("utf-8")
+
+        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes_strava?on_conflict=strava_segment_id"
+        req_insert = urllib.request.Request(
+            url_insert,
+            data=payload,
+            headers={
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type":  "application/json",
+                "Prefer":        "return=minimal,resolution=merge-duplicates",
+            }
+        )
+        req_insert.get_method = lambda: "POST"
+        with urllib.request.urlopen(req_insert, timeout=10) as r:
+            print(f"  [Supabase] [OK] segmento Strava {strava_segment_id} gravado (status {r.status})")
+        return True
+
+    except Exception as exc:
+        print(f"  [Supabase] [ERRO] segmento Strava {strava_segment_id}: {exc}")
+        return False
+
+
+def processar_segmentos_strava(datas: dict) -> None:
+    """
+    Busca segmentos Strava únicos, processa condições e grava em condicoes_strava.
+    Cada strava_segment_id é processado uma única vez — sem duplicatas.
+    Totalmente isolado do fluxo principal — falha silenciosa.
+    """
+    segmentos = buscar_segmentos_strava_unicos()
+    if not segmentos:
+        print("  [Supabase] Nenhum segmento Strava para processar.")
+        return
+
+    print(f"\n[MTB V7.6] Processando {len(segmentos)} segmento(s) Strava único(s)...")
+
+    for seg in segmentos:
+        try:
+            trail = {
+                "name":        seg.get("name", "Segmento Strava"),
+                "lat":         float(seg.get("lat", 0)),
+                "lon":         float(seg.get("lon", 0)),
+                "solo_type":   seg.get("solo_type", "misto"),
+                "exposicao":   seg.get("exposicao", "fechada"),
+                "altitude_m":  int(seg.get("altitude_m") or 900),
+                "trail_type":  seg.get("trail_type", "natural"),
+                "regiao":      seg.get("regiao", "SP"),
+                "desnivel_m":  seg.get("desnivel_m"),
+                "extensao_km": seg.get("extensao_km"),
+                "bioma":       seg.get("bioma") or "Desconhecido",
+            }
+
+            dados_solo = buscar_solo_openlandmap(trail["lat"], trail["lon"])
+            if dados_solo:
+                trail.update(dados_solo)
+
+            dados = processar_trilha(trail, datas)
+
+            strava_segment_id = seg.get("strava_segment_id")
+            gravar_condicoes_strava(strava_segment_id, dados)
+
+            print(f"  [OK] {trail['name']} (id:{strava_segment_id}) — {dados['aderencia']['status']} | {dados['veredicto']['texto']}")
+
+        except Exception as exc:
+            print(f"  [ERRO] {seg.get('name', 'desconhecido')}: {exc}")
 
 
 def processar_trilha(trail: dict, datas: dict) -> dict:
@@ -1157,11 +1548,13 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
 
     tmax = oc["tmax"]
 
-    hist         = fetch_onecall_historico(trail)
-    acumulo_48h  = hist["bruto"]
-    acumulo_ef   = hist["efetivo"]
-    ultima_chuva = hist["ultima_chuva_h"]
-    meia_vida_h  = hist["meia_vida_h"]
+    hist        = fetch_onecall_historico(trail)
+    meia_vida_h = hist["meia_vida_h"]
+
+    hist_om      = fetch_historico_chuva_om(trail, meia_vida_h)
+    acumulo_48h  = hist_om["bruto"]
+    acumulo_ef   = hist_om["efetivo"]
+    ultima_chuva = hist_om["ultima_chuva_h"]
 
     # Passa vento sustentado já extraído do timemachine — elimina chamada OW redundante
     vento_hist = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
@@ -1174,8 +1567,6 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
 
     aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso)
     trail["gust_max_kmh"] = gust_max_kmh
-    vered = veredicto(aderencia, rain, wind, pico_3h, inclinacao, trail, acumulo_ef, vento_hist)
-
     hourly_oc = (oc_raw or {}).get("hourly", [])[:48]
 
     # Horas do Open-Meteo para fallback de D+3 (4 dias = ~96h)
@@ -1218,19 +1609,82 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         return round(ef_decaido + chuva_prevista, 1)
 
     def resumo_12h_oc() -> dict:
-        h12    = hourly_oc[:12]
-        r      = round(sum(_precip_hora(h) for h in h12), 1)
-        p3     = round(max((sum([_precip_hora(h) for h in h12][i:i+3])
-                            for i in range(max(1, len(h12) - 2))), default=0.0), 1)
-        pp     = round(max((h.get("pop", 0) or 0 for h in h12), default=0) * 100)
-        w      = round(max((h.get("wind_speed", 0) or 0 for h in h12), default=0), 1)
-        tm     = round(max((h.get("temp", 0) or 0 for h in h12), default=0))
-        inc    = calcular_inclinacao(trail)
+        h12      = hourly_oc[:12]
+        r        = round(sum(_precip_hora(h) for h in h12), 1)
+        p3       = round(max((sum([_precip_hora(h) for h in h12][i:i+3])
+                              for i in range(max(1, len(h12) - 2))), default=0.0), 1)
+        pp       = round(max((h.get("pop", 0) or 0 for h in h12), default=0) * 100)
+        w        = round(max((h.get("wind_speed", 0) or 0 for h in h12), default=0), 1)
+        tm       = round(max((h.get("temp", 0) or 0 for h in h12), default=0))
+        inc      = calcular_inclinacao(trail)
+        # Rajada máxima restrita às próximas 12h — evita que rajadas de h36–48
+        # contaminem o veredicto de curto prazo com ATENÇÃO indevida
+        gust_12h = round(
+            max((h.get("wind_gust", 0.0) or 0.0 for h in h12), default=0.0) * 3.6, 1
+        )
+        trail_12h = {**trail, "gust_max_kmh": gust_12h}
         ader = calcular_aderencia(r, trail, acumulo_ef, p3, mes, enso)
         return {
             "rain": r, "pico_3h": p3, "pop": pp, "wind": w, "temp_max": tm,
-            "veredicto": veredicto(ader, r, w, p3, inc, trail, acumulo_ef),
+            "veredicto": veredicto(ader, r, w, p3, inc, trail_12h, acumulo_ef),
         }
+
+    def calcular_blocos_24h_oc() -> list:
+        agora  = datetime.now(BRT)
+        blocos = []
+        for i in range(4):
+            ini_dt  = agora + timedelta(hours=i * 6)
+            fim_dt  = agora + timedelta(hours=(i + 1) * 6)
+            label   = f"{ini_dt.hour:02d}h→{fim_dt.hour:02d}h"
+            horas   = [
+                h for h in hourly_oc
+                if ini_dt <= datetime.fromtimestamp(h["dt"], tz=BRT) < fim_dt
+            ]
+            rain_mm  = round(sum(_precip_hora(h) for h in horas), 1)
+            pop_max  = round(max((h.get("pop", 0) or 0 for h in horas), default=0) * 100)
+            wind_max = round(max((h.get("wind_speed", 0) or 0 for h in horas), default=0), 1)
+            temps    = [h.get("temp", 0) or 0 for h in horas]
+            temp_med = round(sum(temps) / len(temps)) if temps else 0
+            blocos.append({"label": label, "rain_mm": rain_mm, "pop_max": pop_max,
+                           "wind_max": wind_max, "temp_med": temp_med})
+        return blocos
+
+    def calcular_aderencia_futura_oc() -> dict:
+        _ordem = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+        agora = datetime.now(BRT)
+        chuva_anterior = 0.0
+        pior = None
+        pior_score = -1
+        for i in range(4):
+            ini_dt = agora + timedelta(hours=i * 6)
+            fim_dt = agora + timedelta(hours=(i + 1) * 6)
+            label  = f"{ini_dt.hour:02d}h→{fim_dt.hour:02d}h"
+            horas  = [
+                h for h in hourly_oc
+                if ini_dt <= datetime.fromtimestamp(h["dt"], tz=BRT) < fim_dt
+            ]
+            precips    = [_precip_hora(h) for h in horas]
+            rain_bloco = round(sum(precips), 1)
+            pico_bloco = round(
+                max((sum(precips[j:j+3]) for j in range(max(1, len(precips) - 2))), default=0.0), 1
+            )
+            horas_ate    = i * 6
+            ef_projetado = (
+                acumulo_ef * (0.5 ** (horas_ate / meia_vida_h)) if meia_vida_h > 0 else 0.0
+            ) + chuva_anterior
+            adh = calcular_aderencia(rain_bloco, trail, ef_projetado, pico_bloco, mes, enso)
+            _sev_atual = _ordem.get(adh["status"], 0)
+            if _sev_atual > pior_score:
+                pior_score = _sev_atual
+                pior = {"status": adh["status"], "emoji": adh["emoji"],
+                        "cor": adh["cor"], "label": label, "score": adh["score"],
+                        "rain_mm": rain_bloco}
+            chuva_anterior += rain_bloco
+        if pior is None or _ordem.get(pior["status"], 0) <= _ordem.get(aderencia["status"], 0):
+            pior = {"status": aderencia["status"], "emoji": aderencia["emoji"],
+                    "cor": aderencia["cor"], "label": "24h", "score": aderencia["score"],
+                    "rain_mm": 0.0}
+        return pior
 
     def resumo_dia_oc(alvo: date, acumulo_ate_val: float) -> dict:
         alvo_str = str(alvo)
@@ -1353,6 +1807,10 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
 
         return " · ".join(partes) + f" · pico {round(pop_max)}%"
 
+    aderencia_futura = calcular_aderencia_futura_oc()
+    vered = veredicto(aderencia, rain, wind, pico_3h, inclinacao, trail, acumulo_ef, vento_hist,
+                      aderencia_futura=aderencia_futura)
+
     return {
         "name":           trail["name"],
         "lat":            trail["lat"],
@@ -1379,9 +1837,11 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "desnivel_m":     trail.get("desnivel_m"),
         "extensao_km":    trail.get("extensao_km"),
         "inclinacao":     inclinacao,
-        "aderencia":      aderencia,
-        "veredicto":      vered,
+        "aderencia":         aderencia,
+        "aderencia_futura":  aderencia_futura,
+        "veredicto":         vered,
         "veredicto_12h":  resumo_12h_oc(),
+        "previsao_24h":   calcular_blocos_24h_oc(),
         "vento_hist":     vento_hist,
         "janela":         calcular_janela_oc(),
         "horarios_chuva": calcular_horarios_chuva_oc(),
@@ -1939,9 +2399,28 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
         fontes_lista = [f'📡 Previsão: {r["fonte"]}']
         fontes_lista.append("🌱 Solo: OpenLandMap" if clay is not None else "🌱 Solo: manual (fallback)")
         fontes_lista.append("📈 ENSO: NOAA ONI")
+        fontes_lista.append("🌧 Chuva hist.: Open-Meteo (archive)")
         if r.get("vento_hist", {}).get("fonte"):
             fontes_lista.append(f'💨 Vento hist.: {r["vento_hist"]["fonte"]}')
         fontes_html = " &nbsp;·&nbsp; ".join(fontes_lista)
+
+        # ── Aderência atual → futura + veredicto (3 linhas) ─────────────
+        _sev_ord = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+        _af = r["aderencia_futura"]
+        _futuro_pior = _sev_ord.get(_af["status"], 0) > _sev_ord.get(r["aderencia"]["status"], 0)
+        _rain_str = (
+            f' <span style="color:#64748b;">({_af.get("rain_mm", 0):.1f}mm previstos)</span>'
+            if _futuro_pior and _af.get("rain_mm", 0) > 0 else ""
+        )
+        _linha2_sufixo = (
+            _rain_str if _futuro_pior
+            else ' <span style="color:#94a3b8;">— estável</span>'
+        )
+        _vd = r["veredicto"]
+        _verd_linha3 = (
+            f'{_vd["emoji"]} <b style="color:{_vd["cor"]};">{_vd["texto"]}</b>'
+            + (f' — {_vd["texto_dinamico"]}' if _vd.get("texto_dinamico") else "")
+        )
 
         # ── Seção: alertas ────────────────────────────────────────────────
         alerta_vento         = _alerta_vento_html(r)
@@ -1983,11 +2462,17 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
                 </tr>
               </table>
 
-              <!-- PILLS: aderência + veredicto -->
+              <!-- ADERÊNCIA + VEREDICTO -->
               <div style="margin-top:10px;">
-                {_pill_solo(r["aderencia"])}
-                &nbsp;{_pill_verd(r["veredicto_12h"]["veredicto"])}
-                &nbsp;<span style="font-size:10px;color:#94a3b8;font-weight:600;">HOJE 12h</span>
+                <div style="font-size:13px;color:#374151;margin-bottom:6px;">
+                  ADERÊNCIA ATUAL:&nbsp;
+                  {r["aderencia"]["emoji"]} <b style="color:{r["aderencia"]["cor"]};">{r["aderencia"]["status"]}</b>
+                </div>
+                <div style="font-size:13px;color:#374151;margin-bottom:6px;">
+                  ADERÊNCIA {_af["label"]}:&nbsp;
+                  {_af["emoji"]} <b style="color:{_af["cor"]};">{_af["status"]}</b>{_linha2_sufixo}
+                </div>
+                <div style="font-size:14px;">{_verd_linha3}</div>
               </div>
 
               <!-- SEÇÃO: condição do solo -->
@@ -2011,26 +2496,18 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
               <!-- SEÇÃO: previsão -->
               <div style="margin-top:10px;border-top:1px solid #f1f5f9;padding-top:10px;">
                 <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#94a3b8;
-                            text-transform:uppercase;margin-bottom:6px;">🌦 Previsão 48h</div>
+                            text-transform:uppercase;margin-bottom:6px;">🌦 Previsão 24h</div>
                 <table width="100%" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="font-size:12px;color:#64748b;padding-bottom:3px;">
-                      <b style="color:#475569;">12h</b>&nbsp;
-                      🌧 <b>{r["veredicto_12h"]["rain"]}mm</b> &nbsp;
-                      ☁️ <b>{r["veredicto_12h"]["pop"]}%</b> &nbsp;
-                      💨 <b>{r["veredicto_12h"]["wind"]}m/s</b> &nbsp;
-                      🌡 <b>{r["veredicto_12h"].get("temp_max", r["temp_max"])}°C</b>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="font-size:12px;color:#64748b;padding-bottom:3px;">
-                      <b style="color:#475569;">24h</b>&nbsp;
-                      🌧 <b>{r["rain"]}mm</b> &nbsp;
-                      ☁️ <b>{r["pop"]}%</b> &nbsp;
-                      💨 <b>{r["wind"]}m/s</b> &nbsp;
-                      🌡 <b>{r["temp_max"]}°C</b>
-                    </td>
-                  </tr>
+                  {''.join(
+                      f'<tr><td style="font-size:12px;color:#64748b;padding-bottom:3px;">'
+                      f'<b style="color:#475569;">{b["label"]}</b>&nbsp;'
+                      f'🌧 <b>{b["rain_mm"]}mm</b> &nbsp;'
+                      f'☁️ <b>{b["pop_max"]}%</b> &nbsp;'
+                      f'💨 <b>{b["wind_max"]}m/s</b> &nbsp;'
+                      f'🌡 <b>{b["temp_med"]}°C</b>'
+                      f'</td></tr>'
+                      for b in r["previsao_24h"]
+                  )}
                 </table>
                 {pico_html}
                 <div style="font-size:12px;color:#64748b;margin-top:4px;">
@@ -2038,9 +2515,6 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
                 </div>
                 <div style="font-size:12px;color:#64748b;margin-top:3px;">
                   🌦 <b>Chuva prevista:</b> {r["horarios_chuva"]}
-                </div>
-                <div style="font-size:12px;color:#475569;margin-top:5px;font-style:italic;">
-                  {r["aderencia"]["desc"]}
                 </div>
               </div>
 
@@ -2123,7 +2597,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
   </td></tr>
 
   <tr><td style="background:#1e293b;border-radius:0 0 14px 14px;padding:16px 32px;text-align:center;">
-    <div style="font-size:11px;color:#64748b;">MTB Agent V7.1 &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
+    <div style="font-size:11px;color:#64748b;">MTB Agent V7.6 &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
     <div style="margin-top:8px;font-size:11px;color:#475569;">
       🚵 Guilherme Leal &nbsp;·&nbsp; MTB Rider &nbsp;&nbsp;|&nbsp;&nbsp; 🚵 Douglas Santos &nbsp;·&nbsp; MTB Rider
     </div>
@@ -2188,11 +2662,12 @@ def main() -> None:
             try:
                 dados = processar_trilha(trail, datas)
                 resultados.append(dados)
+                gravar_supabase(trail["name"], dados)
                 inc_str = f" | inclinação={dados['inclinacao']}%" if dados['inclinacao'] is not None else ""
-                print(f"  ✓ {trail['name']} [{trail.get('trail_type','natural')} / {trail['solo_type']}]{inc_str} — {dados['aderencia']['status']} | pico={dados['pico_3h']}mm | 12h: {dados['veredicto_12h']['veredicto']['texto']} | 48h: {dados['veredicto']['texto']}")
+                print(f"  [OK] {trail['name']} [{trail.get('trail_type','natural')} / {trail['solo_type']}]{inc_str} — {dados['aderencia']['status']} | pico={dados['pico_3h']}mm | 12h: {dados['veredicto_12h']['veredicto']['texto']} | 48h: {dados['veredicto']['texto']}")
             except Exception as exc:
                 falhas.append(f"{trail['name']}: {exc}")
-                print(f"  ✗ {trail['name']}: {exc}")
+                print(f"  [ERRO] {trail['name']}: {exc}")
 
             if DEBUG_MODEL:
                 try:
@@ -2231,7 +2706,14 @@ def main() -> None:
             aviso     = "<br>".join(f"⚠️ {html_lib.escape(f)}" for f in falhas)
             html_body = html_body.replace("</body>", f'<p style="text-align:center;font-size:11px;color:#ef4444;">{aviso}</p></body>')
 
-        send_email(html_body, emails_por_regiao[regiao], regiao)
+        try:
+            send_email(html_body, emails_por_regiao[regiao], regiao)
+        except Exception as e:
+            print(f"  [AVISO] Email nao enviado para {regiao}: {e}")
+
+    # Processa segmentos Strava únicos (independente do fluxo principal)
+    print("\n[MTB V7.6] Iniciando processamento de segmentos Strava únicos...")
+    processar_segmentos_strava(datas)
 
     print("\n[MTB V7.0] Concluído.")
 
