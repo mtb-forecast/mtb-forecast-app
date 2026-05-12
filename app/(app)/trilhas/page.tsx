@@ -4,53 +4,71 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { TrilhaComCondicao, REGIOES } from '@/lib/types'
+import { TrilhaComCondicao } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
+
+const ESTADOS = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'ES', 'BA', 'outros'] as const
+
+const VEREDICTO_ORDER: Record<string, number> = {
+  'DROP LIBERADO': 0,
+  'DROP LIBERADO - Veja os alertas': 1,
+  'MELHOR ESPERAR': 2,
+}
+
+function rankTrilhas(trilhas: TrilhaComCondicao[]): TrilhaComCondicao[] {
+  return [...trilhas].sort((a, b) => {
+    const va = a.condicao?.veredicto_12h?.trim() || a.condicao?.veredicto?.trim() || ''
+    const vb = b.condicao?.veredicto_12h?.trim() || b.condicao?.veredicto?.trim() || ''
+    const oa = VEREDICTO_ORDER[va] ?? 3
+    const ob = VEREDICTO_ORDER[vb] ?? 3
+    if (oa !== ob) return oa - ob
+    const sa = a.condicao?.aderencia_score ?? 999
+    const sb = b.condicao?.aderencia_score ?? 999
+    return sa - sb
+  })
+}
 
 export default function TrilhasPage() {
   const router = useRouter()
   const [trilhas, setTrilhas] = useState<TrilhaComCondicao[]>([])
-  const [filteredTrilhas, setFilteredTrilhas] = useState<TrilhaComCondicao[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [regiaoFilter, setRegiaoFilter] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
 
+  // Auth + favoritos
   useEffect(() => {
-    async function load() {
+    async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
-
-      const [{ data: trilhasData }, { data: favData }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*)`).eq('aprovada', true)
-          .order('name')
-          .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
-        supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-      ])
-
-      if (trilhasData) {
-        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
-          const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-          return { ...t, condicao: arr[0] ?? undefined }
-        })
-        setTrilhas(mapped)
-        setFilteredTrilhas(mapped)
-      }
-
+      const { data: favData } = await supabase.from('favoritos').select('trilha_id').eq('user_id', user.id)
       if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
-      setLoading(false)
     }
-    load()
+    init()
   }, [router])
 
+  // Busca trilhas quando estado muda
   useEffect(() => {
-    let result = trilhas
-    if (search) result = result.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-    if (regiaoFilter) result = result.filter(t => t.regiao === regiaoFilter)
-    setFilteredTrilhas(result)
-  }, [search, regiaoFilter, trilhas])
+    if (!regiaoFilter) { setTrilhas([]); return }
+    setLoading(true)
+    setSearch('')
+    supabase
+      .from('trilhas').select(`*, condicoes(*)`)
+      .eq('aprovada', true).eq('regiao', regiaoFilter)
+      .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+      .then(({ data }) => {
+        if (data) {
+          const mapped = data.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+            return { ...t, condicao: arr[0] ?? undefined }
+          })
+          setTrilhas(rankTrilhas(mapped))
+        }
+        setLoading(false)
+      })
+  }, [regiaoFilter])
 
   async function toggleFavorito(trilhaId: string) {
     if (!userId) return
@@ -63,14 +81,11 @@ export default function TrilhasPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
-    )
-  }
+  const filtered = search
+    ? trilhas.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+    : trilhas
+
+  const estadoLabel = regiaoFilter === 'outros' ? 'Outros' : regiaoFilter
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
@@ -81,7 +96,9 @@ export default function TrilhasPage() {
           <div>
             <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Trilhas</h1>
             <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
-              {filteredTrilhas.length} trilha{filteredTrilhas.length !== 1 ? 's' : ''} encontrada{filteredTrilhas.length !== 1 ? 's' : ''}
+              {regiaoFilter
+                ? `${filtered.length} trilha${filtered.length !== 1 ? 's' : ''} em ${estadoLabel}`
+                : 'Selecione um estado para ver as trilhas'}
             </p>
           </div>
           <div className="flex flex-col sm:flex-row" style={{ gap: 10, alignItems: 'center' }}>
@@ -121,40 +138,67 @@ export default function TrilhasPage() {
 
         {/* Filtros */}
         <div className="flex flex-col sm:flex-row gap-3" style={{ marginBottom: 24 }}>
-          <input
-            type="text"
-            placeholder="Buscar por nome..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="input-field"
-            style={{ flex: 1 }}
-          />
           <select
             value={regiaoFilter}
             onChange={e => setRegiaoFilter(e.target.value)}
             className="input-field"
-            style={{ width: 160 }}
+            style={{ width: 200 }}
           >
-            <option value="">Todos estados</option>
-            {REGIOES.map(r => <option key={r} value={r}>{r}</option>)}
+            <option value="">Selecione o estado</option>
+            {ESTADOS.map(r => <option key={r} value={r}>{r === 'outros' ? 'Outros' : r}</option>)}
           </select>
+
+          {regiaoFilter && (
+            <input
+              type="text"
+              placeholder="Buscar por nome..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input-field"
+              style={{ flex: 1 }}
+            />
+          )}
         </div>
 
-        {filteredTrilhas.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0', color: '#888', fontSize: 14 }}>
-            Nenhuma trilha encontrada com esses filtros.
+        {/* Estado: sem filtro */}
+        {!regiaoFilter && (
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 20 }}>🗺️</div>
+            <h2 className="font-wheat" style={{ fontSize: 24, color: '#111', marginBottom: 12 }}>
+              Selecione um estado
+            </h2>
+            <p style={{ fontSize: 14, color: '#888' }}>
+              Escolha um estado para ver as trilhas e condições em tempo real
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {filteredTrilhas.map(t => (
-              <TrilhaCard
-                key={t.id}
-                trilha={t}
-                isFavorito={favoritos.has(t.id)}
-                onToggleFavorito={() => toggleFavorito(t.id)}
-              />
-            ))}
+        )}
+
+        {/* Carregando */}
+        {regiaoFilter && loading && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+            <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           </div>
+        )}
+
+        {/* Trilhas */}
+        {regiaoFilter && !loading && (
+          filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '80px 0', color: '#888', fontSize: 14 }}>
+              Nenhuma trilha encontrada{search ? ` para "${search}"` : ` em ${estadoLabel}`}.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {filtered.map(t => (
+                <TrilhaCard
+                  key={t.id}
+                  trilha={t}
+                  isFavorito={favoritos.has(t.id)}
+                  onToggleFavorito={() => toggleFavorito(t.id)}
+                />
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>

@@ -73,7 +73,6 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [favoritas, setFavoritas] = useState<TrilhaComCondicao[]>([])
-  const [ranking, setRanking] = useState<TrilhaComCondicao[]>([])
   const [stravaTrails, setStravaTrails] = useState<TrilhaPessoalComCondicao[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -98,20 +97,6 @@ export default function DashboardPage() {
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
         if (trilhas) {
           setFavoritas(trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
-            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-            return { ...t, condicao: arr[0] ?? undefined }
-          }))
-        }
-      }
-
-      if (profileData?.regiao) {
-        const { data: rankData } = await supabase
-          .from('trilhas').select(`*, condicoes(*)`)
-          .eq('regiao', profileData.regiao).eq('aprovada', true)
-          .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-          .limit(6)
-        if (rankData) {
-          setRanking(rankData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
             const arr = Array.isArray(t.condicoes) ? t.condicoes : []
             return { ...t, condicao: arr[0] ?? undefined }
           }))
@@ -320,21 +305,6 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Ranking da região */}
-        {profile?.regiao && (
-          <section>
-            <SectionHeader title={`Melhores em ${profile.regiao}`} />
-            {ranking.length === 0 ? (
-              <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 32, textAlign: 'center' }}>
-                <p style={{ color: '#888', fontSize: 14 }}>Nenhuma trilha cadastrada para sua região ainda.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {ranking.map(t => <TrilhaCard key={t.id} trilha={t} />)}
-              </div>
-            )}
-          </section>
-        )}
       </div>
       <PWAInstallPrompt />
     </div>
