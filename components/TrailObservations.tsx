@@ -56,6 +56,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
         return (
           <span
             key={i}
+            className="star-selector-star"
             style={{ color: filled ? '#FFE000' : '#e5e5e5', fontSize: 24, cursor: 'pointer', lineHeight: 1, userSelect: 'none' }}
             onMouseEnter={() => setHovered(i + 1)}
             onMouseLeave={() => setHovered(0)}
@@ -359,6 +360,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual }: Props) {
                 onChange={e => setTexto(e.target.value)}
                 maxLength={150}
                 placeholder="Como estava a trilha hoje? Ex: Solo perfeito na descida principal, rock garden ainda úmido na entrada..."
+                className="obs-textarea"
                 style={{
                   width: '100%', border: '1px solid #e5e5e5', borderRadius: 4,
                   padding: '10px 12px', fontSize: 13, minHeight: 72,

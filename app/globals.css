@@ -50,3 +50,36 @@ input, select, textarea, button { font-family: inherit; }
     padding: 2px 6px;
   }
 }
+
+/* ── Mobile: página de detalhe de trilha ─────────────────────────────────── */
+@media (max-width: 768px) {
+  /* PATCH 9 — Utilities genéricas */
+  .page-header   { padding: 20px 16px !important; }
+  .content-area  { padding: 16px 16px 32px !important; }
+  .section-card  { padding: 12px !important; }
+
+  /* PATCH 1 — Header: nome menor + botões com wrap */
+  .trilha-nome { font-size: 20px !important; }
+  .trilha-header-actions { flex-wrap: wrap !important; gap: 6px !important; }
+  .trilha-header-actions > button,
+  .trilha-header-actions > a {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* PATCH 3 — Dados físicos: quebra de linha */
+  .dados-fisicos { flex-wrap: wrap !important; gap: 8px !important; }
+
+  /* PATCH 4 — Aderência: labels menores */
+  .trilha-aderencia-block { font-size: 12px !important; }
+
+  /* PATCH 7 — Mapa menor */
+  .trilha-mapa-iframe { height: 180px !important; }
+
+  /* PATCH 6 — Próximos 3 dias: stack vertical */
+  .fds-grid { grid-template-columns: 1fr !important; }
+
+  /* PATCH 8 — Avaliações */
+  .obs-textarea        { min-height: 60px !important; }
+  .star-selector-star  { font-size: 20px !important; }
+}

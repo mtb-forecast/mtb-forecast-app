@@ -202,7 +202,7 @@ export default function TrilhaDetalhe() {
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
 
       {/* ── Page header preto ─────────────────────────────────────────── */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div className="page-header" style={{ background: '#111', padding: '40px 32px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
           {/* Voltar */}
@@ -215,10 +215,10 @@ export default function TrilhaDetalhe() {
 
           {/* Nome + ação */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 28, lineHeight: 1.2, flex: 1 }}>
+            <h1 className="font-wheat trilha-nome" style={{ color: '#fff', fontSize: 28, lineHeight: 1.2, flex: 1 }}>
               {trilha.name}
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div className="trilha-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <button
                 onClick={compartilharWhatsApp}
                 style={{
@@ -287,7 +287,7 @@ export default function TrilhaDetalhe() {
 
           {/* Dados físicos */}
           {(trilha.desnivel_m != null || trilha.extensao_km != null) && (
-            <div style={{ fontSize: 12, color: '#888', marginTop: 10, display: 'flex', gap: 16 }}>
+            <div className="dados-fisicos" style={{ fontSize: 12, color: '#888', marginTop: 10, display: 'flex', gap: 16 }}>
               {trilha.desnivel_m != null && trilha.extensao_km != null && (
                 <>
                   <span>⛰ <b style={{ color: '#ccc' }}>{trilha.desnivel_m}m</b> desnível</span>
@@ -305,7 +305,7 @@ export default function TrilhaDetalhe() {
 
           {/* Aderência + veredicto (3 linhas como no email) */}
           {c && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 14 }}>
+            <div className="trilha-aderencia-block" style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 14 }}>
               {acfg && (
                 <div style={{ fontSize: 13, color: '#999' }}>
                   ADERÊNCIA ATUAL:&nbsp;
@@ -342,7 +342,7 @@ export default function TrilhaDetalhe() {
       <div style={{ background: '#FFE000', height: 3 }} />
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: '32px 32px 48px', maxWidth: 720, margin: '0 auto' }}>
+      <div className="content-area" style={{ padding: '32px 32px 48px', maxWidth: 720, margin: '0 auto' }}>
 
         {/* Mapa */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderLeft: `3px solid ${borderCor}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
@@ -360,6 +360,7 @@ export default function TrilhaDetalhe() {
             </>
           ) : (
             <iframe
+              className="trilha-mapa-iframe"
               src={`https://maps.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15&output=embed&t=k`}
               width="100%"
               height="220"
@@ -389,7 +390,7 @@ export default function TrilhaDetalhe() {
 
         {/* ── Card: Condição do Solo ──────────────────────────────────── */}
         {c && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+          <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
             <SectionLabel>Condição do Solo</SectionLabel>
 
             {c.frase_secagem && (
@@ -424,7 +425,7 @@ export default function TrilhaDetalhe() {
 
         {/* ── Card: Previsão 24h ──────────────────────────────────────── */}
         {c && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+          <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
             <SectionLabel>Previsão 24h</SectionLabel>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#888' }}>
@@ -474,7 +475,7 @@ export default function TrilhaDetalhe() {
 
         {/* ── Card: Alertas ───────────────────────────────────────────── */}
         {c && (alertaRajada || nivelVento > 0) && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+          <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
             <SectionLabel>Alertas</SectionLabel>
 
             {alertaRajada && c.alerta_rajada_kmh != null && (
@@ -518,9 +519,9 @@ export default function TrilhaDetalhe() {
 
         {/* ── Card: Próximos 3 dias ───────────────────────────────────── */}
         {hasFds && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
+          <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
             <SectionLabel>Próximos 3 dias</SectionLabel>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div className="fds-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               {fdsDias.map(({ label, v, rain, wind, temp }) => {
                 const dvcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
                 const statsLine = [
