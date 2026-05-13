@@ -3003,7 +3003,7 @@ def main() -> None:
             trail.update(dados_solo)
             fator_base = round(0.20 + (dados_solo["clay_pct"] / 100) * 1.60, 2)
             fator_base = max(0.25, min(0.90, fator_base))
-            print(f"  [Solo] {trail['name']}: clay={dados_solo['clay_pct']}%, areia={dados_solo['sand_pct']}%, silte={dados_solo['silt_pct']}% → {dados_solo['texture_class']} (fator base: {fator_base})")
+            print(f"  [Solo] {trail['name']}: clay={dados_solo['clay_pct']}%, sand={dados_solo['sand_pct']}% → {dados_solo['texture_class']}")
         else:
             print(f"  [Solo] {trail['name']}: API indisponível — usando fallback '{trail['solo_type']}'")
 
