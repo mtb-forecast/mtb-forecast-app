@@ -870,23 +870,44 @@ def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
     if key in _CACHE_SOLO:
         return _CACHE_SOLO[key]
 
-    props = ["sol_clay_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2",
-             "sol_sand_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2",
-             "sol_silt_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"]
-    regex = "|".join(props)
-    url = (
-        f"https://api.openlandmap.org/query/point"
-        f"?lat={lat}&lon={lon}&coll=predicted250m&regex={regex}"
-    )
-    for attempt in range(2):
+    urls = [
+        (
+            f"https://api.openlandmap.org/query/point"
+            f"?lat={lat}&lon={lon}"
+            f"&coll=predicted250m"
+            f"&regex=sol_clay_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"
+            f"|sol_sand_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"
+            f"|sol_silt_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"
+        ),
+        (
+            f"https://api.openlandmap.org/query/point"
+            f"?lat={lat}&lon={lon}"
+            f"&coll=sol"
+            f"&regex=clay|sand"
+        ),
+    ]
+    data = None
+    for attempt, url in enumerate(urls):
         try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "MTBForecaster/7.8 (https://mtb-forecast-app.vercel.app)",
+                }
+            )
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read())
             break
-        except Exception as e:
-            print(f"  [OpenLandMap] Tentativa {attempt+1}/2 falhou para ({lat},{lon}): {type(e).__name__}: {e}")
-            if attempt == 1:
+        except Exception as exc:
+            print(f"  [OpenLandMap] Erro para ({lat},{lon}): {type(exc).__name__}: {exc}")
+            if hasattr(exc, 'read'):
+                try:
+                    body = exc.read().decode('utf-8', errors='replace')
+                    print(f"  [OpenLandMap] Resposta: {body[:200]}")
+                except Exception:
+                    pass
+            if attempt == len(urls) - 1:
                 _CACHE_SOLO[key] = None
                 return None
             time.sleep(1)
