@@ -391,7 +391,8 @@ def classificar_enso(oni: float) -> dict:
 def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float:
     """Threshold dinâmico: sazonalidade × ENSO × microclima de bioma."""
     regiao = ((trail or {}).get("regiao") or _THRESHOLD_FALLBACK).upper()
-    tabela = _THRESHOLD_SAZONAL_REGIONAL.get(regiao, _THRESHOLD_SAZONAL_REGIONAL[_THRESHOLD_FALLBACK])
+    tabela_sb = _carregar_threshold_sazonal()
+    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", _THRESHOLD_SAZONAL_REGIONAL.get(_THRESHOLD_FALLBACK, {})))
     base, _ = tabela.get(mes, (5.0, 10.0))
     valor = base * enso["mult"]
     if trail is not None:
@@ -401,7 +402,8 @@ def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float
 
 def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> float:
     regiao = ((trail or {}).get("regiao") or _THRESHOLD_FALLBACK).upper()
-    tabela = _THRESHOLD_SAZONAL_REGIONAL.get(regiao, _THRESHOLD_SAZONAL_REGIONAL[_THRESHOLD_FALLBACK])
+    tabela_sb = _carregar_threshold_sazonal()
+    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", _THRESHOLD_SAZONAL_REGIONAL.get(_THRESHOLD_FALLBACK, {})))
     _, sat = tabela.get(mes, (5.0, 10.0))
     valor = sat * enso["mult"]
     if trail is not None:
@@ -699,7 +701,8 @@ def fator_microclima(trail: dict) -> float:
 def _meia_vida(trail: dict) -> float:
     solo = trail.get("solo_type", "terra")
     expo = trail.get("exposicao", "fechada")
-    base = float(_MEIA_VIDA_SECAGEM.get((solo, expo), _MEIA_VIDA_DEFAULT))
+    tabela_mv = _carregar_meia_vida()
+    base = float(tabela_mv.get((solo, expo), _MEIA_VIDA_DEFAULT))
     # FIX #6 — Mata Atlântica retém umidade estruturalmente mais do que o solo_type sugere
     bioma = trail.get("bioma", "Desconhecido")
     if bioma == "Mata Atlântica":
@@ -867,6 +870,8 @@ def resumo_openmeteo(data: dict) -> dict:
 
 _CACHE_SOLO: dict = {}
 _CACHE_TABELA_SOLO: list = []
+_CACHE_THRESHOLD: dict = {}
+_CACHE_MEIA_VIDA: dict = {}
 
 # Tabela local de fallback — usada se Supabase estiver indisponível
 _TABELA_SOLO_FALLBACK: list = [
@@ -951,6 +956,62 @@ def _lookup_solo(solo_type: str, bioma: str, regiao: str) -> dict:
             return {"clay_pct": row["clay_pct"], "sand_pct": row["sand_pct"], "texture_class": row["texture_class"]}
 
     return {"clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"}
+
+
+def _carregar_threshold_sazonal() -> dict:
+    global _CACHE_THRESHOLD
+    if _CACHE_THRESHOLD:
+        return _CACHE_THRESHOLD
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/threshold_sazonal"
+            f"?select=regiao,mes,threshold_descansado,threshold_saturado"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        tabela: dict = {}
+        for row in dados:
+            regiao = row["regiao"]
+            mes    = row["mes"]
+            if regiao not in tabela:
+                tabela[regiao] = {}
+            tabela[regiao][mes] = (row["threshold_descansado"], row["threshold_saturado"])
+        _CACHE_THRESHOLD = tabela
+        print(f"  [Threshold] Carregado do Supabase: {len(dados)} registros")
+        return tabela
+    except Exception as exc:
+        print(f"  [Threshold] Erro: {exc} — usando fallback hardcoded")
+        return _THRESHOLD_SAZONAL_REGIONAL
+
+
+def _carregar_meia_vida() -> dict:
+    global _CACHE_MEIA_VIDA
+    if _CACHE_MEIA_VIDA:
+        return _CACHE_MEIA_VIDA
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/meia_vida_secagem"
+            f"?select=solo_type,exposicao,meia_vida_h"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        tabela: dict = {}
+        for row in dados:
+            tabela[(row["solo_type"], row["exposicao"])] = row["meia_vida_h"]
+        _CACHE_MEIA_VIDA = tabela
+        print(f"  [MeiaVida] Carregado do Supabase: {len(dados)} registros")
+        return tabela
+    except Exception as exc:
+        print(f"  [MeiaVida] Erro: {exc} — usando fallback hardcoded")
+        return _MEIA_VIDA_SECAGEM
 
 
 def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
@@ -2812,9 +2873,153 @@ def send_email(html_body: str, destinatarios: list, regiao: str) -> None:
     print(f"  ✉️  Email enviado para {len(destinatarios)} destinatário(s) da região {regiao}"
           + (f" + {len(bcc)} BCC global" if bcc else ""))
 
+def _carregar_trilhas_supabase() -> list:
+    """
+    Carrega trilhas aprovadas do Supabase em vez do trilhas.csv.
+    Fallback para CSV se Supabase falhar.
+    """
+    if not SUPABASE_KEY:
+        print("  [Trilhas] SUPABASE_KEY ausente — usando trilhas.csv")
+        return []
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/trilhas"
+            f"?select=name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
+            f"&aprovada=eq.true"
+            f"&order=name.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=15) as r:
+            dados = json.loads(r.read())
+        trilhas = []
+        for row in dados:
+            trilhas.append({
+                "name":        row["name"],
+                "lat":         float(row["lat"]),
+                "lon":         float(row["lon"]),
+                "solo_type":   row["solo_type"],
+                "exposicao":   row["exposicao"],
+                "altitude_m":  int(row["altitude_m"] or 900),
+                "trail_type":  row["trail_type"],
+                "regiao":      row["regiao"],
+                "desnivel_m":  row.get("desnivel_m"),
+                "extensao_km": row.get("extensao_km"),
+                "bioma":       row.get("bioma") or "Desconhecido",
+            })
+        print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
+        return trilhas
+    except Exception as exc:
+        print(f"  [Trilhas] Erro ao carregar do Supabase: {exc} — usando trilhas.csv")
+        return []
+
+
+def _buscar_usuarios_email() -> list:
+    """Busca usuários com receber_email=true e suas preferências."""
+    if not SUPABASE_KEY:
+        return []
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/profiles"
+            f"?select=id,email,nome,apelido,regiao,email_trilhas_favoritas,email_trilhas_strava"
+            f"&receber_email=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            usuarios = json.loads(r.read())
+        print(f"  [Email] {len(usuarios)} usuário(s) com email ativado")
+        return usuarios
+    except Exception as exc:
+        print(f"  [Email] Erro ao buscar usuários: {exc}")
+        return []
+
+
+def _buscar_favoritos_usuario(user_id: str) -> list:
+    """Busca trilhas favoritas do usuário."""
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/favoritos"
+            f"?select=trilha_id"
+            f"&user_id=eq.{user_id}"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read())
+    except Exception:
+        return []
+
+
+def _buscar_strava_usuario(user_id: str) -> list:
+    """Busca trilhas Strava do usuário."""
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/trilhas_pessoais"
+            f"?select=strava_segment_id,name"
+            f"&user_id=eq.{user_id}"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read())
+    except Exception:
+        return []
+
+
+def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_strava: list, hoje: str, datas: dict) -> None:
+    """
+    Envia email personalizado com trilhas favoritas e/ou Strava do usuário.
+    """
+    if not EMAIL_FROM or not EMAIL_PASSWORD:
+        print(f"  [Email] Credenciais ausentes — email não enviado para {usuario['email']}")
+        return
+
+    nome = usuario.get("apelido") or usuario.get("nome") or usuario["email"].split("@")[0]
+    todos_resultados = []
+
+    if usuario.get("email_trilhas_favoritas") and resultados_favoritos:
+        todos_resultados.extend(resultados_favoritos)
+    if usuario.get("email_trilhas_strava") and resultados_strava:
+        todos_resultados.extend(resultados_strava)
+
+    if not todos_resultados:
+        return
+
+    regiao  = usuario.get("regiao") or "BR"
+    enso    = todos_resultados[0].get("enso", {"fase": "ENSO Neutro", "oni": 0.0})
+    analise = gerar_analise_claude(todos_resultados, hoje, datas, regiao)
+    html_body = gerar_html(todos_resultados, analise, hoje, datas, regiao)
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"🚵 MTB Forecaster — Suas trilhas hoje, {nome}! — {hoje}"
+        msg["From"]    = EMAIL_FROM
+        msg["To"]      = usuario["email"]
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+            smtp.login(EMAIL_FROM, EMAIL_PASSWORD)
+            smtp.sendmail(EMAIL_FROM, [usuario["email"]], msg.as_string())
+        print(f"  ✉️  Email pessoal enviado para {usuario['email']} ({len(todos_resultados)} trilha(s))")
+    except Exception as exc:
+        print(f"  [Email] Erro ao enviar para {usuario['email']}: {exc}")
+
+
 def main() -> None:
     global TRAILS
-    TRAILS = _carregar_trilhas()
+    trilhas_sb = _carregar_trilhas_supabase()
+    if trilhas_sb:
+        TRAILS = trilhas_sb
+    else:
+        TRAILS = _carregar_trilhas()
 
     _validar_env()
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
