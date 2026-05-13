@@ -12,5 +12,5 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  return NextResponse.redirect('https://www.mtbforecaster.com.br/dashboard')
+  return NextResponse.redirect(new URL('/dashboard', request.url))
 }
