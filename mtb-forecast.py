@@ -2220,76 +2220,6 @@ def _badge_quadrilatero(r: dict) -> str:
     return ""
 
 
-# ---------------------------------------------------------------------------
-# Pix QR Code
-# ---------------------------------------------------------------------------
-
-PIX_CHAVE  = "dsantos83.mtb@gmail.com"
-PIX_NOME   = "Douglas Santos"
-PIX_CIDADE = "Sao Paulo"
-
-def _pix_payload(chave: str, nome: str, cidade: str) -> str:
-    def tlv(tag: str, valor: str) -> str:
-        return f"{tag}{len(valor):02d}{valor}"
-
-    merchant_account = tlv("00", "BR.GOV.BCB.PIX") + tlv("01", chave)
-    payload = (
-        tlv("00", "01")
-        + tlv("26", merchant_account)
-        + tlv("52", "0000")
-        + tlv("53", "986")
-        + tlv("58", "BR")
-        + tlv("59", nome[:25])
-        + tlv("60", cidade[:15])
-        + tlv("62", tlv("05", "***"))
-    )
-    payload += "6304"
-    crc = 0xFFFF
-    for byte in payload.encode("utf-8"):
-        crc ^= byte << 8
-        for _ in range(8):
-            crc = (crc << 1) ^ 0x1021 if crc & 0x8000 else crc << 1
-    crc &= 0xFFFF
-    return payload + f"{crc:04X}"
-
-def _url_qrcode(chave: str, nome: str, cidade: str, size: int = 160) -> str:
-    import urllib.parse
-    payload = _pix_payload(chave, nome, cidade)
-    encoded = urllib.parse.quote(payload)
-    return f"https://api.qrserver.com/v1/create-qr-code/?size={size}x{size}&data={encoded}&format=png&margin=4"
-
-def _secao_doacao_html() -> str:
-    qr_url = _url_qrcode(PIX_CHAVE, PIX_NOME, PIX_CIDADE)
-    return f"""
-    <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin:8px 0 12px;">☕ Apoie o projeto</div>
-    <div style="background:#ffffff;border-radius:10px;border:1px solid #e2e8f0;padding:20px 24px;margin-bottom:24px;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="vertical-align:middle;padding-right:20px;" width="180">
-            <img src="{qr_url}"
-                 alt="QR Code Pix"
-                 width="160" height="160"
-                 style="display:block;border-radius:8px;border:1px solid #e2e8f0;" />
-          </td>
-          <td style="vertical-align:middle;">
-            <div style="font-size:15px;font-weight:800;color:#1e293b;margin-bottom:6px;">
-              Gostou do Agent MTB Forecast? 🚵
-            </div>
-            <div style="font-size:13px;color:#475569;line-height:1.6;margin-bottom:12px;">
-              Este projeto é gratuito e mantido por riders para riders.<br>
-              Se o report te ajudou a escolher a trilha certa, considere apoiar com um café!
-            </div>
-            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Chave Pix</div>
-            <div style="background:#f1f5f9;border-radius:6px;padding:8px 12px;font-size:13px;font-weight:700;color:#0f4c35;letter-spacing:.3px;display:inline-block;">
-              {PIX_CHAVE}
-            </div>
-            <div style="font-size:11px;color:#94a3b8;margin-top:8px;">
-              Valor livre · Qualquer quantia é bem-vinda 🤙
-            </div>
-          </td>
-        </tr>
-      </table>
-    </div>"""
 
 
 def _resumo_secagem_local(r: dict) -> str:
@@ -2772,8 +2702,6 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
 
     <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin-bottom:12px;">Ranking de trilhas — MTB DH &amp; Enduro</div>
     <table width="100%" cellpadding="0" cellspacing="0">{cards_html}</table>
-
-    {_secao_doacao_html()}
 
     <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin:8px 0 12px;">Previsão — Próximos 3 dias</div>
     <div style="border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
