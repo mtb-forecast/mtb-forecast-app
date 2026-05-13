@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AdminPanel, { TrilhaPendente } from '@/components/AdminPanel'
@@ -32,6 +33,7 @@ export default function AdminPage() {
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
   const [loading, setLoading] = useState(true)
   const [sugestaoMsg, setSugestaoMsg] = useState<string | null>(null)
+  const [pendingTabelasCount, setPendingTabelasCount] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -51,10 +53,13 @@ export default function AdminPage() {
 
       setIsAdmin(true)
 
-      const [{ data: trilhasPendentes }, { data: sugestoesPendentes }] = await Promise.all([
+      const [{ data: trilhasPendentes }, { data: sugestoesPendentes }, { count: tabelasPendentes }] = await Promise.all([
         supabase.from('trilhas_pendentes').select('*').eq('status', 'pendente').order('created_at', { ascending: false }),
         supabase.from('strava_config_sugestoes').select('*').eq('status', 'pendente').order('created_at', { ascending: false }),
+        supabase.from('admin_aprovacoes').select('id', { count: 'exact', head: true }).eq('aprovador_id', user.id).eq('status', 'pendente'),
       ])
+
+      setPendingTabelasCount(tabelasPendentes ?? 0)
 
       setPendentes(trilhasPendentes || [])
 
@@ -170,15 +175,38 @@ export default function AdminPage() {
       <div style={{ padding: 32, maxWidth: 900, margin: '0 auto' }}>
 
         {/* Stats */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1 }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1, minWidth: 140 }}>
             <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Trilhas pendentes</p>
             <p style={{ fontSize: 32, fontWeight: 700, color: '#111' }}>{pendentes.length}</p>
           </div>
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1 }}>
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1, minWidth: 140 }}>
             <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Sugestões Strava</p>
             <p style={{ fontSize: 32, fontWeight: 700, color: '#111' }}>{sugestoes.length}</p>
           </div>
+          <Link
+            href="/admin/tabelas"
+            style={{
+              background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8,
+              padding: '16px 24px', flex: 1, minWidth: 140,
+              textDecoration: 'none', display: 'flex', flexDirection: 'column',
+              position: 'relative',
+            }}
+          >
+            {pendingTabelasCount > 0 && (
+              <span style={{
+                position: 'absolute', top: 12, right: 12,
+                background: '#ef4444', color: '#fff',
+                borderRadius: 10, fontSize: 10, fontWeight: 700,
+                padding: '2px 7px', lineHeight: 1.4,
+              }}>
+                {pendingTabelasCount}
+              </span>
+            )}
+            <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Tabelas Mestras</p>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Solo · Thresholds · Meia-vida</p>
+            <p style={{ fontSize: 12, color: '#111', fontWeight: 500, marginTop: 12 }}>Gerenciar →</p>
+          </Link>
         </div>
 
         {/* Trilhas pendentes */}

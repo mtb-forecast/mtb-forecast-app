@@ -13,6 +13,7 @@ export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
+  const [pendingApprovals, setPendingApprovals] = useState(0)
 
   useEffect(() => {
     async function fetchProfile() {
@@ -26,6 +27,14 @@ export default function Navbar() {
           .eq('id', user.id)
           .single()
         setProfile(data as Profile | null)
+        if (data?.is_admin) {
+          const { count } = await supabase
+            .from('admin_aprovacoes')
+            .select('id', { count: 'exact', head: true })
+            .eq('aprovador_id', user.id)
+            .eq('status', 'pendente')
+          setPendingApprovals(count ?? 0)
+        }
       } catch (err) {
         console.error('Erro ao carregar perfil:', err)
       } finally {
@@ -102,9 +111,19 @@ export default function Navbar() {
                     borderBottom: isActive(link.href) ? '2px solid #FFE000' : 'none',
                     paddingBottom: isActive(link.href) ? 2 : 0,
                     transition: 'color 0.15s',
+                    display: 'flex', alignItems: 'center', gap: 6,
                   }}
                 >
                   {link.label}
+                  {link.href === '/admin' && pendingApprovals > 0 && (
+                    <span style={{
+                      background: '#ef4444', color: '#fff',
+                      borderRadius: 10, fontSize: 10, fontWeight: 700,
+                      padding: '1px 6px', lineHeight: 1.4,
+                    }}>
+                      {pendingApprovals}
+                    </span>
+                  )}
                 </Link>
               ))}
               <button
@@ -166,9 +185,19 @@ export default function Navbar() {
                       fontWeight: isActive(link.href) ? 500 : 400,
                       padding: '10px 0',
                       borderBottom: '1px solid #222',
+                      display: 'flex', alignItems: 'center', gap: 8,
                     }}
                   >
                     {link.label}
+                    {link.href === '/admin' && pendingApprovals > 0 && (
+                      <span style={{
+                        background: '#ef4444', color: '#fff',
+                        borderRadius: 10, fontSize: 10, fontWeight: 700,
+                        padding: '1px 6px', lineHeight: 1.4,
+                      }}>
+                        {pendingApprovals}
+                      </span>
+                    )}
                   </Link>
                 ))}
                 <button
