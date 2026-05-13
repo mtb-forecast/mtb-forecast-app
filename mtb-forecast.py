@@ -866,6 +866,92 @@ def resumo_openmeteo(data: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 _CACHE_SOLO: dict = {}
+_CACHE_TABELA_SOLO: list = []
+
+# Tabela local de fallback — usada se Supabase estiver indisponível
+_TABELA_SOLO_FALLBACK: list = [
+    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "SP",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
+    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "RJ",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
+    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "MG",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
+    {"solo_type": "terra",    "bioma": "Cerrado",        "regiao": "MG",    "clay_pct": 52, "sand_pct": 20, "texture_class": "Muito argiloso"},
+    {"solo_type": "terra",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 42, "sand_pct": 28, "texture_class": "Argiloso"},
+    {"solo_type": "misto",    "bioma": "Mata Atlântica", "regiao": "SP",    "clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"},
+    {"solo_type": "misto",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"},
+    {"solo_type": "preto",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 38, "sand_pct": 28, "texture_class": "Franco-argiloso"},
+    {"solo_type": "pedra",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 12, "sand_pct": 68, "texture_class": "Franco-arenoso"},
+    {"solo_type": "ferro",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 30, "sand_pct": 38, "texture_class": "Franco"},
+    {"solo_type": "misto_mg", "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 28, "sand_pct": 40, "texture_class": "Franco"},
+]
+
+
+def _carregar_tabela_solo() -> list:
+    """
+    Carrega tabela mestra de solo do Supabase uma única vez por execução.
+    Fallback para tabela local se API falhar.
+    """
+    global _CACHE_TABELA_SOLO
+    if _CACHE_TABELA_SOLO:
+        return _CACHE_TABELA_SOLO
+
+    if not SUPABASE_KEY:
+        print("  [Solo] SUPABASE_KEY ausente — usando tabela local fallback")
+        return _TABELA_SOLO_FALLBACK
+
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/tabela_solo"
+            f"?select=solo_type,bioma,regiao,clay_pct,sand_pct,texture_class"
+            f"&order=solo_type.asc"
+        )
+        req = urllib.request.Request(
+            url,
+            headers={
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type":  "application/json",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_TABELA_SOLO = dados
+        print(f"  [Solo] Tabela mestra carregada do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [Solo] Erro ao carregar tabela Supabase: {exc} — usando fallback local")
+        return _TABELA_SOLO_FALLBACK
+
+
+def _lookup_solo(solo_type: str, bioma: str, regiao: str) -> dict:
+    """
+    Consulta tabela mestra com prioridade:
+    1. Match exato: solo_type + bioma + regiao
+    2. Match: solo_type + bioma + regiao=TODOS
+    3. Fallback: solo_type + bioma=TODOS + regiao=TODOS
+    4. Default misto padrão
+    """
+    tabela = _carregar_tabela_solo()
+    regiao_upper = (regiao or "").upper().strip()
+    bioma_norm   = (bioma or "TODOS").strip()
+    solo_norm    = (solo_type or "misto").strip().lower()
+
+    for row in tabela:
+        if (row["solo_type"] == solo_norm and
+                row["bioma"] == bioma_norm and
+                row["regiao"] == regiao_upper):
+            return {"clay_pct": row["clay_pct"], "sand_pct": row["sand_pct"], "texture_class": row["texture_class"]}
+
+    for row in tabela:
+        if (row["solo_type"] == solo_norm and
+                row["bioma"] == bioma_norm and
+                row["regiao"] == "TODOS"):
+            return {"clay_pct": row["clay_pct"], "sand_pct": row["sand_pct"], "texture_class": row["texture_class"]}
+
+    for row in tabela:
+        if row["solo_type"] == solo_norm and row["regiao"] == "TODOS":
+            return {"clay_pct": row["clay_pct"], "sand_pct": row["sand_pct"], "texture_class": row["texture_class"]}
+
+    return {"clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"}
+
 
 def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
     key = (round(lat, 4), round(lon, 4))
@@ -2700,7 +2786,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
   </td></tr>
 
   <tr><td style="background:#1e293b;border-radius:0 0 14px 14px;padding:16px 32px;text-align:center;">
-    <div style="font-size:11px;color:#64748b;">MTB Agent V7.8 — Web App &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
+    <div style="font-size:11px;color:#64748b;">MTB Agent V7.9 — Tabela Mestra Supabase &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
     <div style="margin-top:8px;font-size:11px;color:#475569;">
       🚵 Guilherme Leal &nbsp;·&nbsp; MTB Rider &nbsp;&nbsp;|&nbsp;&nbsp; 🚵 Douglas Santos &nbsp;·&nbsp; MTB Rider
     </div>
@@ -2741,7 +2827,9 @@ def main() -> None:
 
     emails_por_regiao = _carregar_emails_por_regiao()
 
-    print("[MTB V7.0] Buscando dados de solo via OpenLandMap...")
+    print("[MTB V7.9] Carregando tabela mestra de solo do Supabase...")
+    _carregar_tabela_solo()
+    print("[MTB V7.9] Buscando dados de solo...")
     for trail in TRAILS:
         dados_solo = buscar_solo_openlandmap(trail["lat"], trail["lon"])
         if dados_solo:
