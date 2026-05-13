@@ -300,7 +300,8 @@ def _bcc_global() -> list:
 
 def _validar_env() -> None:
     obrigatorias = {
-        "OPENWEATHER_API_KEY": OPENWEATHER_KEY,
+        "OPENWEATHER_API_KEY":  OPENWEATHER_KEY,
+        "SUPABASE_SERVICE_KEY": SUPABASE_KEY,
     }
     faltando = [k for k, v in obrigatorias.items() if not v]
     if faltando:
@@ -872,6 +873,7 @@ _CACHE_SOLO: dict = {}
 _CACHE_TABELA_SOLO: list = []
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
+_CACHE_CONFIG: dict = {}
 
 # Tabela local de fallback — usada se Supabase estiver indisponível
 _TABELA_SOLO_FALLBACK: list = [
@@ -887,6 +889,44 @@ _TABELA_SOLO_FALLBACK: list = [
     {"solo_type": "ferro",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 30, "sand_pct": 38, "texture_class": "Franco"},
     {"solo_type": "misto_mg", "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 28, "sand_pct": 40, "texture_class": "Franco"},
 ]
+
+
+def _carregar_configuracoes() -> dict:
+    """
+    Carrega configurações do sistema da tabela configuracoes_sistema.
+    Usa service key — não exposto para usuários.
+    Fallback para variáveis de ambiente se Supabase falhar.
+    """
+    global _CACHE_CONFIG
+    if _CACHE_CONFIG:
+        return _CACHE_CONFIG
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/configuracoes_sistema?select=chave,valor"
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type":  "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        config = {row["chave"]: row["valor"] for row in dados}
+        _CACHE_CONFIG = config
+        print(f"  [Config] Carregado do Supabase: {list(config.keys())}")
+        return config
+    except Exception as exc:
+        print(f"  [Config] Erro: {exc} — usando variáveis de ambiente")
+        return {}
+
+
+def _get_config(chave: str, fallback_env: str = None) -> str | None:
+    """Busca configuração do Supabase com fallback para variável de ambiente."""
+    config = _carregar_configuracoes()
+    valor = config.get(chave)
+    if valor:
+        return valor
+    if fallback_env:
+        return os.getenv(fallback_env)
+    return None
 
 
 def _carregar_tabela_solo() -> list:
@@ -2860,16 +2900,23 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
 </html>"""
 
 def send_email(html_body: str, destinatarios: list, regiao: str) -> None:
+    email_from     = _get_config("email_from", "EMAIL_FROM")
+    email_password = _get_config("email_password", "EMAIL_PASSWORD")
+
+    if not email_from or not email_password:
+        print(f"  [Email] Credenciais não encontradas — email não enviado")
+        return
+
     hoje = datetime.now(BRT).strftime("%d/%m/%Y")
     bcc  = _bcc_global()
     msg  = MIMEMultipart("alternative")
     msg["Subject"] = f"Monitoramento de Trilhas MTB — {regiao} — {hoje}"
-    msg["From"]    = EMAIL_FROM
+    msg["From"]    = email_from
     msg["To"]      = ", ".join(destinatarios)
     msg.attach(MIMEText(html_body, "html", "utf-8"))
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-        smtp.login(EMAIL_FROM, EMAIL_PASSWORD)
-        smtp.sendmail(EMAIL_FROM, destinatarios + bcc, msg.as_string())
+        smtp.login(email_from, email_password)
+        smtp.sendmail(email_from, destinatarios + bcc, msg.as_string())
     print(f"  ✉️  Email enviado para {len(destinatarios)} destinatário(s) da região {regiao}"
           + (f" + {len(bcc)} BCC global" if bcc else ""))
 
@@ -2979,8 +3026,10 @@ def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_s
     """
     Envia email personalizado com trilhas favoritas e/ou Strava do usuário.
     """
-    if not EMAIL_FROM or not EMAIL_PASSWORD:
-        print(f"  [Email] Credenciais ausentes — email não enviado para {usuario['email']}")
+    email_from     = _get_config("email_from", "EMAIL_FROM")
+    email_password = _get_config("email_password", "EMAIL_PASSWORD")
+    if not email_from or not email_password:
+        print(f"  [Email] Credenciais não encontradas — email não enviado para {usuario['email']}")
         return
 
     nome = usuario.get("apelido") or usuario.get("nome") or usuario["email"].split("@")[0]
@@ -3002,12 +3051,12 @@ def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_s
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"🚵 MTB Forecaster — Suas trilhas hoje, {nome}! — {hoje}"
-        msg["From"]    = EMAIL_FROM
-        msg["To"]      = usuario["email"]
+        msg["From"] = email_from
+        msg["To"]   = usuario["email"]
         msg.attach(MIMEText(html_body, "html", "utf-8"))
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-            smtp.login(EMAIL_FROM, EMAIL_PASSWORD)
-            smtp.sendmail(EMAIL_FROM, [usuario["email"]], msg.as_string())
+            smtp.login(email_from, email_password)
+            smtp.sendmail(email_from, [usuario["email"]], msg.as_string())
         print(f"  ✉️  Email pessoal enviado para {usuario['email']} ({len(todos_resultados)} trilha(s))")
     except Exception as exc:
         print(f"  [Email] Erro ao enviar para {usuario['email']}: {exc}")
@@ -3022,9 +3071,15 @@ def main() -> None:
         TRAILS = _carregar_trilhas()
 
     _validar_env()
+    print("[MTB V8.0] Carregando configurações do Supabase...")
+    _carregar_configuracoes()
+    _carregar_tabela_solo()
+    _carregar_threshold_sazonal()
+    _carregar_meia_vida()
+
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
-    print(f"[MTB V7.0] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
+    print(f"[MTB V8.0] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
 
     trails_por_regiao: dict[str, list] = {}
     for trail in TRAILS:
