@@ -866,7 +866,7 @@ def resumo_openmeteo(data: dict) -> dict:
         return None
 
 # ---------------------------------------------------------------------------
-# Solo API — OpenLandMap
+# Solo — Tabela Mestra Supabase
 # ---------------------------------------------------------------------------
 
 _CACHE_SOLO: dict = {}
@@ -1054,121 +1054,20 @@ def _carregar_meia_vida() -> dict:
         return _MEIA_VIDA_SECAGEM
 
 
-def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
+def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
+                             bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
+    """
+    V8.0: Usa exclusivamente tabela mestra do Supabase.
+    OpenLandMap e SoilGrids removidos — instáveis e lentos.
+    """
     key = (round(lat, 4), round(lon, 4))
     if key in _CACHE_SOLO:
         return _CACHE_SOLO[key]
 
-    sources = [
-        {
-            "name": "OpenLandMap",
-            "url": (
-                f"https://api.openlandmap.org/query/point"
-                f"?lat={lat}&lon={lon}"
-                f"&coll=sol"
-                f"&regex=sol_clay_wfde.savg_250m|sol_sand_wfde.savg_250m"
-            ),
-            "parse": "openlandmap",
-        },
-        {
-            "name": "SoilGrids",
-            "url": (
-                f"https://rest.isric.org/soilgrids/v2.0/properties/query"
-                f"?lon={lon}&lat={lat}"
-                f"&property=clay&property=sand"
-                f"&depth=0-5cm&value=mean"
-            ),
-            "parse": "soilgrids",
-        },
-    ]
-    data = None
-    source = None
-    for src in sources:
-        try:
-            req = urllib.request.Request(
-                src["url"],
-                headers={
-                    "Accept": "application/json",
-                    "User-Agent": "MTBForecaster/7.8 (https://mtb-forecast-app.vercel.app)",
-                }
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read())
-            source = src
-            print(f"  [Solo] {src['name']} OK para ({lat},{lon})")
-            break
-        except Exception as exc:
-            print(f"  [{src['name']}] Erro para ({lat},{lon}): {type(exc).__name__}: {exc}")
-            if hasattr(exc, 'read'):
-                try:
-                    body = exc.read().decode('utf-8', errors='replace')
-                    print(f"  [{src['name']}] Resposta: {body[:200]}")
-                except Exception:
-                    pass
-            time.sleep(1)
-
-    if data is None or source is None:
-        _CACHE_SOLO[key] = None
-        return None
-
-    try:
-        if source["parse"] == "soilgrids":
-            properties = data.get("properties", {})
-            clay_mean = (properties.get("clay", {})
-                         .get("layers", [{}])[0]
-                         .get("depths", [{}])[0]
-                         .get("values", {}).get("mean"))
-            sand_mean = (properties.get("sand", {})
-                         .get("layers", [{}])[0]
-                         .get("depths", [{}])[0]
-                         .get("values", {}).get("mean"))
-            if clay_mean is None or sand_mean is None:
-                _CACHE_SOLO[key] = None
-                return None
-            clay = round(clay_mean / 10, 1)
-            sand = round(sand_mean / 10, 1)
-            silt = round(100 - clay - sand, 1)
-        else:
-            props_data = data.get("properties", {})
-            clay_raw = sand_raw = silt_raw = None
-            for k, v in props_data.items():
-                vals = v if isinstance(v, list) else [v]
-                val = next((x for x in vals if x is not None), None)
-                if val is None:
-                    continue
-                if "clay" in k:
-                    clay_raw = val
-                elif "sand" in k:
-                    sand_raw = val
-                elif "silt" in k:
-                    silt_raw = val
-            if clay_raw is None or sand_raw is None:
-                _CACHE_SOLO[key] = None
-                return None
-            clay = round(clay_raw / 10, 1)
-            sand = round(sand_raw / 10, 1)
-            silt = round(silt_raw / 10, 1) if silt_raw is not None else round(100 - clay - sand, 1)
-
-        if clay > 40:
-            texture = "Argiloso"
-        elif clay > 30:
-            texture = "Argilo-arenoso"
-        elif sand > 70:
-            texture = "Arenoso"
-        elif clay > 20 and sand > 25:
-            texture = "Franco"
-        elif clay > 15:
-            texture = "Franco-argiloso"
-        else:
-            texture = "Franco-arenoso"
-
-        result = {"clay_pct": clay, "sand_pct": sand, "silt_pct": silt, "texture_class": texture}
-        _CACHE_SOLO[key] = result
-        return result
-
-    except Exception:
-        _CACHE_SOLO[key] = None
-        return None
+    resultado = _lookup_solo(solo_type, bioma, regiao)
+    _CACHE_SOLO[key] = resultado
+    print(f"  [Solo] {solo_type}/{bioma}/{regiao} → clay={resultado['clay_pct']}%, sand={resultado['sand_pct']}%, texture={resultado['texture_class']}")
+    return resultado
 
 
 def fator_absorcao(trail: dict) -> float:
@@ -1217,7 +1116,7 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     impacto *= fator
 
     # FIX #7: solo_mult só aplicado quando clay_pct NÃO disponível
-    # Quando OpenLandMap retornou clay_pct real, fator_absorcao já é calculado por ele
+    # Quando clay_pct vem da tabela mestra, fator_absorcao já é calculado por ele
     # aplicar solo_mult manual por cima contradiz o dado real de argila
     if trail.get("clay_pct") is None:
         solo_mult = {
@@ -1794,7 +1693,12 @@ def processar_segmentos_strava(datas: dict) -> None:
                 "bioma":       seg.get("bioma") or "Desconhecido",
             }
 
-            dados_solo = buscar_solo_openlandmap(trail["lat"], trail["lon"])
+            dados_solo = buscar_solo_openlandmap(
+                trail["lat"], trail["lon"],
+                solo_type=trail.get("solo_type", "misto"),
+                bioma=trail.get("bioma", "Desconhecido"),
+                regiao=trail.get("regiao", "SP"),
+            )
             if dados_solo:
                 trail.update(dados_solo)
 
@@ -2687,7 +2591,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
 
         # ── Seção: fontes ─────────────────────────────────────────────────
         fontes_lista = [f'📡 Previsão: {r["fonte"]}']
-        fontes_lista.append("🌱 Solo: OpenLandMap" if clay is not None else "🌱 Solo: manual (fallback)")
+        fontes_lista.append("🌱 Solo: Tabela Mestra Supabase")
         fontes_lista.append("📈 ENSO: NOAA ONI")
         fontes_lista.append("🌧 Chuva hist.: Open-Meteo (archive)")
         if r.get("vento_hist", {}).get("fonte"):
@@ -3087,11 +2991,14 @@ def main() -> None:
 
     emails_por_regiao = _carregar_emails_por_regiao()
 
-    print("[MTB V7.9] Carregando tabela mestra de solo do Supabase...")
-    _carregar_tabela_solo()
-    print("[MTB V7.9] Buscando dados de solo...")
+    print("[MTB V8.0] Buscando dados de solo via tabela mestra...")
     for trail in TRAILS:
-        dados_solo = buscar_solo_openlandmap(trail["lat"], trail["lon"])
+        dados_solo = buscar_solo_openlandmap(
+            trail["lat"], trail["lon"],
+            solo_type=trail.get("solo_type", "misto"),
+            bioma=trail.get("bioma", "Desconhecido"),
+            regiao=trail.get("regiao", "SP"),
+        )
         if dados_solo:
             trail.update(dados_solo)
             fator_base = round(0.20 + (dados_solo["clay_pct"] / 100) * 1.60, 2)
