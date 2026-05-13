@@ -180,7 +180,7 @@ function CadastroContent() {
         style={{ background: '#111', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
       >
         <Link href="/" className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
-          MTB FORECAST
+          MTB FORECASTER
         </Link>
         <div>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 36, lineHeight: 1.1, marginBottom: 16 }}>
@@ -190,7 +190,7 @@ function CadastroContent() {
             Crie sua conta grátis e nunca mais vá pedalar numa trilha encharcada por falta de informação.
           </p>
         </div>
-        <p style={{ color: '#444', fontSize: 12 }}>MTB Forecast © 2025</p>
+        <p style={{ color: '#444', fontSize: 12 }}>MTB Forecaster © 2025</p>
       </div>
 
       {/* Right: form panel */}
@@ -198,7 +198,7 @@ function CadastroContent() {
 
         {/* Mobile logo */}
         <Link href="/" className="font-wheat lg:hidden" style={{ color: '#111', fontSize: 18, letterSpacing: '1.5px', display: 'block', marginBottom: 32 }}>
-          MTB FORECAST
+          MTB FORECASTER
         </Link>
 
         <div style={{ maxWidth: 420, width: '100%' }}>

@@ -93,7 +93,7 @@ export default function Navbar() {
           className="font-wheat"
           style={{ fontSize: 18, letterSpacing: '1.5px', color: '#111' }}
         >
-          MTB FORECAST
+          MTB FORECASTER
         </Link>
 
         {/* Desktop links */}

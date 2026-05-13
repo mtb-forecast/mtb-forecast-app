@@ -50,7 +50,7 @@ export default function AuthForm({
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <span className="text-3xl">🚵</span>
-            <span className="text-2xl font-extrabold text-white">MTB Forecast</span>
+            <span className="text-2xl font-extrabold text-white">MTB Forecaster</span>
           </div>
         </div>
 

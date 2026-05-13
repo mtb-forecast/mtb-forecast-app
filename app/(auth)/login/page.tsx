@@ -57,7 +57,7 @@ export default function LoginPage() {
         style={{ background: '#111', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
       >
         <Link href="/" className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
-          MTB FORECAST
+          MTB FORECASTER
         </Link>
         <div>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 36, lineHeight: 1.1, marginBottom: 16 }}>
@@ -67,7 +67,7 @@ export default function LoginPage() {
             Verifique as condições das suas trilhas favoritas antes de sair de casa.
           </p>
         </div>
-        <p style={{ color: '#444', fontSize: 12 }}>MTB Forecast © 2025</p>
+        <p style={{ color: '#444', fontSize: 12 }}>MTB Forecaster © 2025</p>
       </div>
 
       {/* Right: form panel */}
@@ -75,7 +75,7 @@ export default function LoginPage() {
 
         {/* Mobile logo */}
         <Link href="/" className="font-wheat lg:hidden" style={{ color: '#111', fontSize: 18, letterSpacing: '1.5px', display: 'block', marginBottom: 40 }}>
-          MTB FORECAST
+          MTB FORECASTER
         </Link>
 
         <div style={{ maxWidth: 400, width: '100%' }}>

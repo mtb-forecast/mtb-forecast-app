@@ -1,4 +1,4 @@
-# MTB Forecast — Web App + Agente Python
+# MTB Forecaster — Web App + Agente Python
 
 Plataforma completa de monitoramento climático para trilhas de **Mountain Bike — DH, Enduro, XCC e XCM** no Brasil.
 
@@ -1275,4 +1275,4 @@ Apenas stdlib Python 3.11 — **zero `pip install`**:
 
 ---
 
-*MTB Forecast V8.0 · Criado por Guilherme Leal e Douglas Santos · Saiba antes de pedalar*
+*MTB Forecaster V8.0 · Criado por Guilherme Leal e Douglas Santos · Saiba antes de pedalar*

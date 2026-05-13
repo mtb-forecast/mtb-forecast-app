@@ -1,4 +1,4 @@
-name: Agent MTB Forecast
+name: Agent MTB Forecaster
 
 on:
   schedule:
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run Agent MTB Forecast
+      - name: Run Agent MTB Forecaster
         run: python mtb-forecast.py 2>&1 | tee debug_$(date +%Y-%m-%d).log
 
       - name: Upload debug log

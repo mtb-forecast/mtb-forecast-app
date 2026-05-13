@@ -78,7 +78,7 @@ export default function LandingPage() {
           {/* Inline header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 80 }}>
             <span className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
-              MTB FORECAST
+              MTB FORECASTER
             </span>
             <div style={{ display: 'flex', gap: 24 }}>
               <Link href="/login" style={{ color: '#888', fontSize: 13 }}>Entrar</Link>
@@ -201,7 +201,7 @@ export default function LandingPage() {
               Monitore suas trilhas do Strava.
             </h2>
             <p style={{ color: '#888', fontSize: 15, lineHeight: 1.6, marginTop: 16, maxWidth: 480 }}>
-              Conecte sua conta Strava e importe seus segmentos favoritos. O MTB Forecast monitora as condições de cada trilha diariamente e te avisa quando é hora de pedalar.
+              Conecte sua conta Strava e importe seus segmentos favoritos. O MTB Forecaster monitora as condições de cada trilha diariamente e te avisa quando é hora de pedalar.
             </p>
             <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[

@@ -2719,7 +2719,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
   </td></tr>
 
   <tr><td style="background:#1e293b;border-radius:0 0 14px 14px;padding:16px 32px;text-align:center;">
-    <div style="font-size:11px;color:#64748b;">MTB Agent V7.9 — Tabela Mestra Supabase &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
+    <div style="font-size:11px;color:#64748b;">MTB Forecaster V8.0 — Tabela Mestra Supabase &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
     <div style="margin-top:8px;font-size:11px;color:#475569;">
       🚵 Guilherme Leal &nbsp;·&nbsp; MTB Rider &nbsp;&nbsp;|&nbsp;&nbsp; 🚵 Douglas Santos &nbsp;·&nbsp; MTB Rider
     </div>
