@@ -1346,16 +1346,33 @@ def gravar_supabase(trilha_name: str, resultado: dict) -> bool:
             })
         }).encode("utf-8")
 
-        # Grava no Supabase (upsert por trilha_id — mantém apenas condição mais recente)
-        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes?on_conflict=trilha_id"
+        # DELETE registro anterior
+        url_delete = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=eq.{trilha_id}"
+        req_delete = urllib.request.Request(
+            url_delete,
+            headers={
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type":  "application/json",
+            }
+        )
+        req_delete.get_method = lambda: "DELETE"
+        try:
+            with urllib.request.urlopen(req_delete, timeout=10) as r:
+                pass
+        except Exception:
+            pass
+
+        # INSERT novo registro
+        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes"
         req_insert = urllib.request.Request(
             url_insert,
             data=payload,
             headers={
-                "apikey":          SUPABASE_KEY,
-                "Authorization":   f"Bearer {SUPABASE_KEY}",
-                "Content-Type":    "application/json",
-                "Prefer":          "return=minimal,resolution=merge-duplicates",
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type":  "application/json",
+                "Prefer":        "return=minimal",
             }
         )
         req_insert.get_method = lambda: "POST"
@@ -1474,7 +1491,25 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
             })
         }).encode("utf-8")
 
-        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes_strava?on_conflict=strava_segment_id"
+        # DELETE registro anterior
+        url_delete = f"{SUPABASE_URL}/rest/v1/condicoes_strava?strava_segment_id=eq.{strava_segment_id}"
+        req_delete = urllib.request.Request(
+            url_delete,
+            headers={
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type":  "application/json",
+            }
+        )
+        req_delete.get_method = lambda: "DELETE"
+        try:
+            with urllib.request.urlopen(req_delete, timeout=10) as r:
+                pass
+        except Exception:
+            pass
+
+        # INSERT novo registro
+        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes_strava"
         req_insert = urllib.request.Request(
             url_insert,
             data=payload,
@@ -1482,7 +1517,7 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
                 "apikey":        SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
                 "Content-Type":  "application/json",
-                "Prefer":        "return=minimal,resolution=merge-duplicates",
+                "Prefer":        "return=minimal",
             }
         )
         req_insert.get_method = lambda: "POST"
