@@ -27,7 +27,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://mtb-forecast-app.vercel.app/auth/callback',
+        redirectTo: 'https://www.mtbforecaster.com.br/auth/callback',
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     })

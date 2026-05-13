@@ -125,7 +125,7 @@ Formulário de login com suporte a **e-mail/senha** e **Google OAuth**.
 2. Erro inline; sucesso redireciona para `/dashboard`
 
 **Fluxo Google OAuth:**
-1. `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://mtb-forecast-app.vercel.app/auth/callback', queryParams: { access_type: 'offline', prompt: 'consent' } } })`
+1. `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://www.mtbforecaster.com.br/auth/callback', queryParams: { access_type: 'offline', prompt: 'consent' } } })`
 2. Supabase redireciona para Google → usuário autentica → Google retorna para `/auth/callback`
 3. `/auth/callback` troca o código por sessão e redireciona para `/dashboard`
 
@@ -437,7 +437,7 @@ Callback de autenticação Google OAuth. Troca o `code` por sessão Supabase.
 
 ```typescript
 await supabase.auth.exchangeCodeForSession(code)
-// redireciona para https://mtb-forecast-app.vercel.app/dashboard
+// redireciona para https://www.mtbforecaster.com.br/dashboard
 ```
 
 Usa `createRouteHandlerClient` do `@supabase/auth-helpers-nextjs`.
@@ -602,7 +602,7 @@ GET /api/strava/callback?code=...
 
 ```env
 NEXT_PUBLIC_STRAVA_CLIENT_ID=...
-NEXT_PUBLIC_STRAVA_REDIRECT_URI=https://mtb-forecast-app.vercel.app/api/strava/callback
+NEXT_PUBLIC_STRAVA_REDIRECT_URI=https://www.mtbforecaster.com.br/api/strava/callback
 STRAVA_CLIENT_SECRET=...
 ```
 
@@ -919,7 +919,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key_aqui
 
 # Strava OAuth (obrigatório para integração Strava)
 NEXT_PUBLIC_STRAVA_CLIENT_ID=seu_client_id
-NEXT_PUBLIC_STRAVA_REDIRECT_URI=https://mtb-forecast-app.vercel.app/api/strava/callback
+NEXT_PUBLIC_STRAVA_REDIRECT_URI=https://www.mtbforecaster.com.br/api/strava/callback
 STRAVA_CLIENT_SECRET=seu_client_secret
 ```
 

@@ -183,7 +183,7 @@ export default function TrilhaDetalhe() {
 
   function compartilharWhatsApp() {
     if (!trilha) return
-    const url = `https://mtb-forecast-app.vercel.app/t/${trilha.id}`
+    const url = `https://www.mtbforecaster.com.br/t/${trilha.id}`
     const mensagem = `🚵 Confira as condições da trilha *${trilha.name}* no MTB Forecaster!\n\nVeja solo, chuva, vento e o melhor horário para pedalar:\n${url}`
     window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, '_blank')
   }
