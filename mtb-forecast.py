@@ -872,27 +872,34 @@ def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
     if key in _CACHE_SOLO:
         return _CACHE_SOLO[key]
 
-    urls = [
-        (
-            f"https://api.openlandmap.org/query/point"
-            f"?lat={lat}&lon={lon}"
-            f"&coll=predicted250m"
-            f"&regex=sol_clay_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"
-            f"|sol_sand_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"
-            f"|sol_silt_usda.soiltax_c_250m_b0..0cm_1950..2017_v0.2"
-        ),
-        (
-            f"https://api.openlandmap.org/query/point"
-            f"?lat={lat}&lon={lon}"
-            f"&coll=sol"
-            f"&regex=clay|sand"
-        ),
+    sources = [
+        {
+            "name": "OpenLandMap",
+            "url": (
+                f"https://api.openlandmap.org/query/point"
+                f"?lat={lat}&lon={lon}"
+                f"&coll=sol"
+                f"&regex=sol_clay_wfde.savg_250m|sol_sand_wfde.savg_250m"
+            ),
+            "parse": "openlandmap",
+        },
+        {
+            "name": "SoilGrids",
+            "url": (
+                f"https://rest.isric.org/soilgrids/v2.0/properties/query"
+                f"?lon={lon}&lat={lat}"
+                f"&property=clay&property=sand"
+                f"&depth=0-5cm&value=mean"
+            ),
+            "parse": "soilgrids",
+        },
     ]
     data = None
-    for attempt, url in enumerate(urls):
+    source = None
+    for src in sources:
         try:
             req = urllib.request.Request(
-                url,
+                src["url"],
                 headers={
                     "Accept": "application/json",
                     "User-Agent": "MTBForecaster/7.8 (https://mtb-forecast-app.vercel.app)",
@@ -900,42 +907,60 @@ def buscar_solo_openlandmap(lat: float, lon: float) -> dict | None:
             )
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read())
+            source = src
+            print(f"  [Solo] {src['name']} OK para ({lat},{lon})")
             break
         except Exception as exc:
-            print(f"  [OpenLandMap] Erro para ({lat},{lon}): {type(exc).__name__}: {exc}")
+            print(f"  [{src['name']}] Erro para ({lat},{lon}): {type(exc).__name__}: {exc}")
             if hasattr(exc, 'read'):
                 try:
                     body = exc.read().decode('utf-8', errors='replace')
-                    print(f"  [OpenLandMap] Resposta: {body[:200]}")
+                    print(f"  [{src['name']}] Resposta: {body[:200]}")
                 except Exception:
                     pass
-            if attempt == len(urls) - 1:
-                _CACHE_SOLO[key] = None
-                return None
             time.sleep(1)
 
+    if data is None or source is None:
+        _CACHE_SOLO[key] = None
+        return None
+
     try:
-        props_data = data.get("properties", {})
-        clay_raw = sand_raw = silt_raw = None
-        for k, v in props_data.items():
-            vals = v if isinstance(v, list) else [v]
-            val = next((x for x in vals if x is not None), None)
-            if val is None:
-                continue
-            if "clay" in k:
-                clay_raw = val
-            elif "sand" in k:
-                sand_raw = val
-            elif "silt" in k:
-                silt_raw = val
-
-        if clay_raw is None or sand_raw is None:
-            _CACHE_SOLO[key] = None
-            return None
-
-        clay = round(clay_raw / 10, 1)
-        sand = round(sand_raw / 10, 1)
-        silt = round(silt_raw / 10, 1) if silt_raw is not None else round(100 - clay - sand, 1)
+        if source["parse"] == "soilgrids":
+            properties = data.get("properties", {})
+            clay_mean = (properties.get("clay", {})
+                         .get("layers", [{}])[0]
+                         .get("depths", [{}])[0]
+                         .get("values", {}).get("mean"))
+            sand_mean = (properties.get("sand", {})
+                         .get("layers", [{}])[0]
+                         .get("depths", [{}])[0]
+                         .get("values", {}).get("mean"))
+            if clay_mean is None or sand_mean is None:
+                _CACHE_SOLO[key] = None
+                return None
+            clay = round(clay_mean / 10, 1)
+            sand = round(sand_mean / 10, 1)
+            silt = round(100 - clay - sand, 1)
+        else:
+            props_data = data.get("properties", {})
+            clay_raw = sand_raw = silt_raw = None
+            for k, v in props_data.items():
+                vals = v if isinstance(v, list) else [v]
+                val = next((x for x in vals if x is not None), None)
+                if val is None:
+                    continue
+                if "clay" in k:
+                    clay_raw = val
+                elif "sand" in k:
+                    sand_raw = val
+                elif "silt" in k:
+                    silt_raw = val
+            if clay_raw is None or sand_raw is None:
+                _CACHE_SOLO[key] = None
+                return None
+            clay = round(clay_raw / 10, 1)
+            sand = round(sand_raw / 10, 1)
+            silt = round(silt_raw / 10, 1) if silt_raw is not None else round(100 - clay - sand, 1)
 
         if clay > 40:
             texture = "Argiloso"
