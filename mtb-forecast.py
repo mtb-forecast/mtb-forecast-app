@@ -243,7 +243,9 @@ EMAIL_TO        = os.getenv("EMAIL_TO")
 EMAIL_BCC       = os.getenv("EMAIL_BCC", "")
 DEBUG_MODEL     = os.getenv("DEBUG_MODEL", "false").lower() == "true"
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://eydlkvrjopffyqpdstzh.supabase.co")
+SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://eydlkvrjopffyqpdstzh.supabase.co"
+if not SUPABASE_URL.startswith("http"):
+    SUPABASE_URL = "https://eydlkvrjopffyqpdstzh.supabase.co"
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 # ---------------------------------------------------------------------------
