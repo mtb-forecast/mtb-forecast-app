@@ -66,6 +66,11 @@ export default function PerfilPage() {
   const [regiao, setRegiao] = useState('')
   const [telegram, setTelegram] = useState('')
 
+  const [receberEmail, setReceberEmail] = useState(false)
+  const [emailFavoritas, setEmailFavoritas] = useState(true)
+  const [emailStrava, setEmailStrava] = useState(true)
+  const [emailSaveStatus, setEmailSaveStatus] = useState<'idle' | 'success'>('idle')
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -82,6 +87,9 @@ export default function PerfilPage() {
         setTelefoneWhatsapp(profileData.telefone_whatsapp ?? true)
         setRegiao(profileData.regiao || '')
         setTelegram(profileData.telegram_username || '')
+        setReceberEmail(profileData.receber_email ?? false)
+        setEmailFavoritas(profileData.email_trilhas_favoritas ?? true)
+        setEmailStrava(profileData.email_trilhas_strava ?? true)
       }
 
       const [{ data: minhas }, { data: favIds }, { data: pessoais }] = await Promise.all([
@@ -133,6 +141,16 @@ export default function PerfilPage() {
       setSaveStatus('success')
       setTimeout(() => setSaveStatus('idle'), 3000)
     }
+  }
+
+  async function handleEmailToggle(field: 'receber_email' | 'email_trilhas_favoritas' | 'email_trilhas_strava', value: boolean) {
+    if (!profile) return
+    if (field === 'receber_email') setReceberEmail(value)
+    else if (field === 'email_trilhas_favoritas') setEmailFavoritas(value)
+    else if (field === 'email_trilhas_strava') setEmailStrava(value)
+    await supabase.from('profiles').update({ [field]: value }).eq('id', profile.id)
+    setEmailSaveStatus('success')
+    setTimeout(() => setEmailSaveStatus('idle'), 2000)
   }
 
   const handleDesconectarStrava = async () => {
@@ -356,6 +374,87 @@ export default function PerfilPage() {
               </button>
             </div>
           </form>
+        </div>
+
+        {/* Notificações por Email */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <SectionLabel>Notificações por Email</SectionLabel>
+            {emailSaveStatus === 'success' && (
+              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>Preferências salvas</span>
+            )}
+          </div>
+
+          {/* Toggle principal */}
+          {[
+            {
+              field: 'receber_email' as const,
+              label: 'Receber email diário com condições das trilhas',
+              desc: 'Enviado todos os dias às 07:00 BRT com as condições das suas trilhas',
+              checked: receberEmail,
+              disabled: false,
+              last: false,
+            },
+            {
+              field: 'email_trilhas_favoritas' as const,
+              label: 'Incluir minhas trilhas favoritas',
+              desc: 'Condições das trilhas que você marcou como favoritas',
+              checked: emailFavoritas,
+              disabled: !receberEmail,
+              last: false,
+            },
+            {
+              field: 'email_trilhas_strava' as const,
+              label: 'Incluir minhas trilhas do Strava',
+              desc: 'Condições dos segmentos importados do Strava',
+              checked: emailStrava,
+              disabled: !receberEmail,
+              last: true,
+            },
+          ].map(({ field, label, desc, checked, disabled, last }) => (
+            <div
+              key={field}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '12px 0',
+                borderBottom: last ? 'none' : '0.5px solid #f0f0f0',
+                opacity: disabled ? 0.5 : 1,
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingRight: 16 }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{label}</span>
+                <span style={{ fontSize: 12, color: '#888' }}>{desc}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => !disabled && handleEmailToggle(field, !checked)}
+                style={{
+                  width: 44, height: 24, borderRadius: 12,
+                  background: checked && !disabled ? '#111' : checked ? '#555' : '#e5e5e5',
+                  border: 'none',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  position: 'relative', flexShrink: 0,
+                  transition: 'background 0.2s',
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 2,
+                  left: checked ? 22 : 2,
+                  width: 20, height: 20,
+                  background: '#fff', borderRadius: '50%',
+                  transition: 'left 0.2s',
+                }} />
+              </button>
+            </div>
+          ))}
+
+          {/* Nota informativa */}
+          <div style={{ background: '#f7f7f5', borderRadius: 6, padding: 12, marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <i className="ti ti-info-circle" style={{ fontSize: 16, color: '#888', flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: '#888', lineHeight: 1.5, margin: 0 }}>
+              O email é enviado diariamente às 07:00 BRT apenas se você tiver trilhas favoritas ou do Strava cadastradas. Você pode cancelar a qualquer momento.
+            </p>
+          </div>
         </div>
 
         {/* Trilhas do Strava */}
