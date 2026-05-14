@@ -106,7 +106,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
             {/* Métricas */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, color: '#888', marginBottom: 4 }}>
               <span>🌧 <b>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b></span>
-              {c.pico_3h != null && c.pico_3h > 0 && (
+              {c.pico_3h != null && c.pico_3h >= 3 && (
                 <span style={{ color: '#ef4444' }}>⚡ <b>{c.pico_3h.toFixed(1)}mm</b> pico</span>
               )}
               <span>💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b></span>

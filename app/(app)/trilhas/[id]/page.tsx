@@ -457,9 +457,17 @@ export default function TrilhaDetalhe() {
                   </div>
                 </>
               )}
-              {c.pico_3h != null && c.pico_3h >= 5 && (
-                <div style={{ color: '#dc2626', fontWeight: 600 }}>
-                  ⚡ Pico de chuva: <b>{c.pico_3h}mm</b> em 3h
+              {c.pico_3h != null && c.pico_3h > 0 && (
+                <div style={{
+                  color: c.pico_3h >= 3 ? '#ef4444' : '#888888',
+                  fontWeight: c.pico_3h >= 3 ? 600 : 400,
+                  fontSize: '12px',
+                  marginTop: '4px',
+                }}>
+                  ⚡ Pico de chuva: {c.pico_3h}mm em 3h
+                  {c.pico_3h < 3 && (
+                    <span style={{ color: '#aaa', fontWeight: 400 }}> — baixo impacto</span>
+                  )}
                 </div>
               )}
               {c.janela && (
