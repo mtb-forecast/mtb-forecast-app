@@ -236,7 +236,6 @@ TRAILS = []
 
 OPENWEATHER_KEY = os.getenv("OPENWEATHER_API_KEY")
 ANTHROPIC_KEY   = os.getenv("ANTHROPIC_API_KEY")
-OPENAI_KEY      = os.getenv("OPENAI_API_KEY")
 EMAIL_FROM      = os.getenv("EMAIL_FROM")
 EMAIL_PASSWORD  = os.getenv("EMAIL_PASSWORD")
 EMAIL_TO        = os.getenv("EMAIL_TO")
@@ -2191,7 +2190,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         },
         **dict(zip(
             ("resumo_secagem_frase", "resumo_secagem_cor", "resumo_secagem_bg"),
-            _gerar_frase_secagem_gpt({
+            _gerar_frase_secagem_claude({
                 "acumulo_48h":    acumulo_48h,
                 "acumulo_ef":     acumulo_ef,
                 "ultima_chuva_h": ultima_chuva,
@@ -2409,15 +2408,15 @@ def _resumo_secagem_local(r: dict) -> str:
     return f"{parte_chuva}{parte_tempo}. {parte_secagem}. {conclusao}", cor, bg
 
 
-def _gerar_frase_secagem_gpt(r: dict) -> tuple:
-    if not OPENAI_KEY:
+def _gerar_frase_secagem_claude(r: dict) -> tuple:
+    if not ANTHROPIC_KEY:
         return _resumo_secagem_local(r)
 
-    bruto     = r.get("acumulo_48h", 0)
-    efetivo   = r.get("acumulo_ef", 0)
-    ult_h     = r.get("ultima_chuva_h")
-    meia_vida = r.get("meia_vida_h", 24)
-    thresh    = r.get("thresh_desc", 5.0)
+    bruto      = r.get("acumulo_48h", 0)
+    efetivo    = r.get("acumulo_ef", 0)
+    ult_h      = r.get("ultima_chuva_h")
+    meia_vida  = r.get("meia_vida_h", 24)
+    thresh     = r.get("thresh_desc", 5.0)
     descansado = efetivo < thresh
 
     ult_h_str = f"{round(ult_h)}h atrás" if ult_h is not None else "não identificada"
@@ -2425,62 +2424,70 @@ def _gerar_frase_secagem_gpt(r: dict) -> tuple:
     aderencia_status  = r.get("aderencia", {}).get("status", "")
     veredicto_texto   = r.get("veredicto", {}).get("texto", "")
     veredicto_12h     = r.get("veredicto_12h", {}).get("veredicto", {}).get("texto", "")
+    pico_3h           = r.get("pico_3h", 0)
 
-    prompt = (
-        "Você é um especialista em trilhas de mountain bike DH e Enduro no Brasil.\n"
-        "Escreva UMA frase curta (máximo 2 frases) em português do Brasil explicando "
-        "o processo de secagem do solo desta trilha para um rider.\n\n"
-        "REGRA CRÍTICA: sua frase DEVE ser totalmente consistente com a aderência e o "
-        "veredicto abaixo — eles já foram calculados pelo modelo e são a verdade absoluta. "
-        "Nunca contradiga nem sugira cautela extra se o veredicto for positivo.\n\n"
-        "Dados de secagem:\n"
-        f"- Chuva acumulada bruta (48h): {bruto}mm\n"
-        f"- Chuva efetiva no solo agora: {efetivo}mm (após secagem natural)\n"
-        f"- Última chuva: {ult_h_str}\n"
-        f"- Meia-vida de secagem deste solo: {meia_vida}h\n\n"
-        "Veredicto do modelo (use como base da sua conclusão):\n"
-        f"- Aderência: {aderencia_status}\n"
-        f"- Veredicto HOJE (12h): {veredicto_12h}\n"
-        f"- Veredicto 48h: {veredicto_texto}\n\n"
-        "Explique brevemente o processo de secagem e conclua com algo consistente "
-        "com o veredicto acima. Seja direto, use linguagem de rider. "
-        "Sem markdown, sem bullet points, sem título."
-    )
+    prompt = f"""Você é especialista em trilhas de mountain bike DH e Enduro no Brasil.
+Escreva UMA frase curta (máximo 2 frases) em português do Brasil explicando a condição do solo desta trilha para um rider.
+
+REGRA CRÍTICA: sua frase DEVE ser 100% consistente com os dados abaixo — eles são a verdade absoluta.
+NUNCA contradiga o veredicto. NUNCA sugira condição melhor do que o veredicto indica.
+NUNCA diga "solo secando rapidamente" se choveu recentemente ou há chuva prevista.
+
+Dados reais da trilha:
+- Chuva acumulada bruta (48h): {bruto}mm
+- Chuva efetiva no solo agora: {efetivo}mm
+- Última chuva: {ult_h_str}
+- Meia-vida de secagem: {meia_vida}h
+- Pico de chuva previsto (3h): {pico_3h}mm
+- Solo descansado: {"SIM" if descansado else "NÃO — solo já úmido"}
+
+Veredicto calculado pelo modelo (sua frase DEVE refletir isso):
+- Aderência: {aderencia_status}
+- Veredicto HOJE (12h): {veredicto_12h}
+- Veredicto 48h: {veredicto_texto}
+
+Regras adicionais:
+- Se última chuva < 3h: mencione que choveu recentemente
+- Se pico_3h > 5mm: mencione chuva intensa prevista
+- Se veredicto for MELHOR ESPERAR: frase deve ser claramente negativa
+- Se veredicto for ATENÇÃO: frase deve mencionar cautela
+- Se veredicto for DROP LIBERADO: frase pode ser positiva
+- Sem markdown, sem bullet points, sem título, máximo 2 frases."""
 
     payload = json.dumps({
-        "model": "gpt-3.5-turbo",
-        "max_tokens": 120,
-        "temperature": 0.4,
+        "model": "claude-sonnet-4-5",
+        "max_tokens": 150,
         "messages": [{"role": "user", "content": prompt}]
     }).encode("utf-8")
 
     req = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
+        "https://api.anthropic.com/v1/messages",
         data=payload,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {OPENAI_KEY}",
+            "x-api-key": ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
         },
     )
     for attempt in range(3):
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                data    = json.loads(resp.read())
-                frase   = data["choices"][0]["message"]["content"].strip()
-                if descansado:
+                data = json.loads(resp.read())
+                frase = data["content"][0]["text"].strip()
+                if descansado and pico_3h < 3:
                     cor, bg = "#16a34a", "#f0fdf4"
-                elif efetivo > thresh * 2:
+                elif efetivo > thresh * 2 or pico_3h >= 10:
                     cor, bg = "#dc2626", "#fef2f2"
                 else:
                     cor, bg = "#d97706", "#fffbeb"
                 return frase, cor, bg
         except urllib.error.HTTPError as exc:
-            print(f"[OpenAI] HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}")
+            print(f"[Claude Frase] HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}")
             if attempt == 2:
                 return _resumo_secagem_local(r)
             time.sleep(2 ** attempt)
         except Exception as exc:
-            print(f"[OpenAI] Erro: {exc}")
+            print(f"[Claude Frase] Erro: {exc}")
             if attempt == 2:
                 return _resumo_secagem_local(r)
             time.sleep(2 ** attempt)
@@ -2864,7 +2871,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
   </td></tr>
 
   <tr><td style="background:#1e293b;border-radius:0 0 14px 14px;padding:16px 32px;text-align:center;">
-    <div style="font-size:11px;color:#64748b;">MTB Forecaster V8.0 — Tabela Mestra Supabase &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI &nbsp;·&nbsp; Gerado em {hoje}</div>
+    <div style="font-size:11px;color:#64748b;">MTB Forecaster V8.0 — Tabela Mestra Supabase &nbsp;·&nbsp; OpenWeather One Call 3.0 + Open-Meteo + Claude AI (Anthropic) &nbsp;·&nbsp; Gerado em {hoje}</div>
     <div style="margin-top:8px;font-size:11px;color:#475569;">
       🚵 Guilherme Leal &nbsp;·&nbsp; MTB Rider &nbsp;&nbsp;|&nbsp;&nbsp; 🚵 Douglas Santos &nbsp;·&nbsp; MTB Rider
     </div>
