@@ -90,8 +90,8 @@ export default function Navbar() {
         {/* Logo */}
         <Link
           href={isLoggedIn ? '/dashboard' : '/'}
-          className="font-wheat"
-          style={{ fontSize: 18, letterSpacing: '1.5px', color: '#111' }}
+          className="font-wheat text-sm md:text-lg"
+          style={{ letterSpacing: '0.5px', color: '#111' }}
         >
           MTB FORECASTER
         </Link>

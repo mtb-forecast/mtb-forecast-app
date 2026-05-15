@@ -1,29 +1,29 @@
 import Link from 'next/link'
 
-const exampleCards = [
+const CARDS_MOCKADOS = [
   {
-    name: 'Serra do Japi — Trilha da Cana',
-    regiao: 'SP',
+    name: 'Downhill Saracura — Mairiporã SP',
     veredicto: 'DROP LIBERADO',
-    info: '0.0mm · 48h sem chuva',
+    aderencia: 'GRIP PERFEITO',
+    info: '0.0mm · Solo seco · Janela: hoje 06h–22h',
     cor: '#22c55e',
     badgeBg: '#dcfce7',
     badgeColor: '#166534',
   },
   {
-    name: 'Quebra Queixo — Linha B',
-    regiao: 'MG',
+    name: 'ZigZag — Campos do Jordão SP',
     veredicto: 'DROP LIBERADO - Veja os alertas',
-    info: '12.4mm acumulado',
-    cor: '#FFE000',
+    aderencia: 'SECO',
+    info: '2.1mm · Rajada 42km/h prevista',
+    cor: '#d97706',
     badgeBg: '#FFE000',
     badgeColor: '#111',
   },
   {
-    name: 'Paraibuna Bike Trail',
-    regiao: 'SP',
+    name: 'DH Mumia — Rio Acima MG',
     veredicto: 'MELHOR ESPERAR',
-    info: '38.1mm · solo encharcado',
+    aderencia: 'BAIXA ADERÊNCIA',
+    info: '18mm acumulados · Solo encharcado',
     cor: '#ef4444',
     badgeBg: '#fee2e2',
     badgeColor: '#991b1b',
@@ -150,7 +150,7 @@ export default function LandingPage() {
             <p style={{ fontSize: 11, letterSpacing: '2px', color: '#FFE000', textTransform: 'uppercase', marginBottom: 16 }}>
               CONDIÇÕES AGORA
             </p>
-            {exampleCards.map(card => (
+            {CARDS_MOCKADOS.map(card => (
               <div
                 key={card.name}
                 style={{
@@ -171,7 +171,7 @@ export default function LandingPage() {
                     {card.veredicto}
                   </span>
                 </div>
-                <p style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{card.info} · {card.regiao}</p>
+                <p style={{ fontSize: 11, color: '#888', marginTop: 3 }}>{card.aderencia} · {card.info}</p>
               </div>
             ))}
           </div>
