@@ -122,6 +122,13 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
                 🕐 Janela: <span style={{ color: '#111', fontWeight: 500 }}>{c.janela}</span>
               </p>
             )}
+            {c.gerado_em && (
+              <div style={{ fontSize: 10, color: '#aaa', marginTop: 6, textAlign: 'right' }}>
+                Atualizado às {new Date(c.gerado_em).toLocaleTimeString('pt-BR', {
+                  hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+                })}
+              </div>
+            )}
           </>
         ) : (
           <p style={{ fontSize: 12, color: '#bbb', fontStyle: 'italic' }}>Condição ainda não calculada.</p>
