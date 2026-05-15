@@ -117,7 +117,8 @@ export type TrilhaComCondicao = Trilha & {
 
 export type Observacao = {
   id: string
-  trilha_id: string
+  trilha_id?: string | null
+  strava_segment_id?: number | null
   user_id: string
   estrelas: number
   texto: string

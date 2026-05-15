@@ -61,6 +61,7 @@ export default function TrilhaDetalhe() {
   const [polyline, setPolyline] = useState<string | null>(null)
   const [elevationProfileUrl, setElevationProfileUrl] = useState<string | null>(null)
   const [stravaUrl, setStravaUrl] = useState<string | null>(null)
+  const [stravaSegmentId, setStravaSegmentId] = useState<number | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -122,6 +123,7 @@ export default function TrilhaDetalhe() {
       setPolyline(pt.polyline ?? null)
       setElevationProfileUrl(pt.strava_elevation_profile ?? null)
       setStravaUrl(pt.strava_url ?? null)
+      setStravaSegmentId(pt.strava_segment_id ?? null)
       setLoading(false)
     }
     load()
@@ -523,7 +525,12 @@ export default function TrilhaDetalhe() {
         )}
 
         {/* ── Avaliações dos riders ───────────────────────────────────── */}
-        <TrailObservations trilhaId={trilha.id} veredictoAtual={veredictoText || ''} isOwner={isTrilhaPessoal} />
+        <TrailObservations
+          trilhaId={trilha.id}
+          veredictoAtual={veredictoText || ''}
+          isOwner={isTrilhaPessoal}
+          stravaSegmentId={stravaSegmentId ?? undefined}
+        />
 
         {/* ── Card: Próximos 3 dias ───────────────────────────────────── */}
         {hasFds && (

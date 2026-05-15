@@ -8,6 +8,7 @@ type Props = {
   trilhaId: string
   veredictoAtual: string
   isOwner?: boolean
+  stravaSegmentId?: number
 }
 
 const VEREDICTO_BADGE: Record<string, { bg: string; color: string }> = {
@@ -71,7 +72,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
   )
 }
 
-export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }: Props) {
+export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, stravaSegmentId }: Props) {
   const [observacoes, setObservacoes] = useState<Observacao[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
@@ -96,13 +97,18 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
     if (!user) { setLoading(false); return }
     setUserId(user.id)
 
+    const obsQuery = stravaSegmentId
+      ? supabase
+          .from('observacoes_trilha')
+          .select(`id, strava_segment_id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+          .eq('strava_segment_id', stravaSegmentId)
+      : supabase
+          .from('observacoes_trilha')
+          .select(`id, trilha_id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+          .eq('trilha_id', trilhaId)
+
     const [{ data: obs }, { data: favorito }] = await Promise.all([
-      supabase
-        .from('observacoes_trilha')
-        .select(`id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
-        .eq('trilha_id', trilhaId)
-        .order('created_at', { ascending: false })
-        .limit(5),
+      obsQuery.order('created_at', { ascending: false }).limit(5),
       supabase
         .from('favoritos')
         .select('id')
@@ -130,16 +136,14 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
     if (!userId || estrelas === 0 || !texto.trim() || texto.length > 150) return
     setPublishing(true)
     setPublishError(null)
+    const insertPayload = stravaSegmentId
+      ? { strava_segment_id: stravaSegmentId, user_id: userId, estrelas, texto: texto.trim(), veredicto_sistema: veredictoAtual || null }
+      : { trilha_id: trilhaId, user_id: userId, estrelas, texto: texto.trim(), veredicto_sistema: veredictoAtual || null }
     const { data: newObs, error } = await supabase
       .from('observacoes_trilha')
-      .insert({
-        trilha_id: trilhaId,
-        user_id: userId,
-        estrelas,
-        texto: texto.trim(),
-        veredicto_sistema: veredictoAtual || null,
-      })
-      .select(`id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert(insertPayload as any)
+      .select(`id, strava_segment_id, trilha_id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
       .single()
 
     setPublishing(false)
