@@ -83,6 +83,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
   const [texto, setTexto] = useState('')
   const [publishing, setPublishing] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -128,6 +129,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
   async function handlePublish() {
     if (!userId || estrelas === 0 || !texto.trim() || texto.length > 150) return
     setPublishing(true)
+    setPublishError(null)
     const { data: newObs, error } = await supabase
       .from('observacoes_trilha')
       .insert({
@@ -141,7 +143,12 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
       .single()
 
     setPublishing(false)
-    if (!error && newObs) {
+    if (error) {
+      console.error('Erro ao publicar avaliação:', error)
+      setPublishError(error.message)
+      return
+    }
+    if (newObs) {
       setObservacoes(prev => [newObs as unknown as Observacao, ...prev])
       setEstrelas(0)
       setTexto('')
@@ -350,6 +357,12 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
             {publishSuccess && (
               <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#166534', borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 12 }}>
                 Avaliação publicada!
+              </div>
+            )}
+
+            {publishError && (
+              <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 12 }}>
+                Erro ao publicar: {publishError}
               </div>
             )}
 
