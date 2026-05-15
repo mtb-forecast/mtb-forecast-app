@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    console.log('Telegram webhook received:', JSON.stringify(body))
     const message = body?.message
 
     if (!message) return NextResponse.json({ ok: true })
@@ -12,6 +13,9 @@ export async function POST(request: Request) {
     const chatId = message?.chat?.id
     const username = message?.from?.username
     const text = message?.text
+    console.log('Username from Telegram:', username)
+    console.log('Chat ID:', chatId)
+    console.log('Text:', text)
 
     if (text === '/start' || text?.startsWith('/start')) {
       const supabase = createRouteHandlerClient({ cookies })
@@ -23,6 +27,7 @@ export async function POST(request: Request) {
         .single()
 
       const token = config?.valor
+      console.log('Token from config:', token ? 'found' : 'NOT FOUND')
       if (!token) return NextResponse.json({ ok: true })
 
       if (username) {
@@ -34,6 +39,7 @@ export async function POST(request: Request) {
           .select('id, nome, apelido')
           .or(`telegram_username.ilike.${usernameClean},telegram_username.ilike.@${usernameClean}`)
           .limit(1)
+        console.log('Profiles found:', JSON.stringify(profiles))
 
         const profile = profiles?.[0]
 
