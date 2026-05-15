@@ -27,15 +27,31 @@ export async function POST(request: Request) {
       if (username) {
         const usernameClean = username.toLowerCase().replace('@', '')
 
-        // Tenta match com @ e sem @
-        const { data: profiles } = await supabase
+        // Tenta buscar com @ primeiro
+        let profile = null
+
+        const { data: profilesComArroba } = await supabase
           .from('profiles')
           .select('id, nome, apelido')
-          .or(`telegram_username.ilike.${usernameClean},telegram_username.ilike.@${usernameClean}`)
+          .eq('telegram_username', `@${usernameClean}`)
           .limit(1)
-        console.log('Profiles found:', JSON.stringify(profiles))
 
-        const profile = profiles?.[0]
+        if (profilesComArroba && profilesComArroba.length > 0) {
+          profile = profilesComArroba[0]
+        } else {
+          // Tenta sem @
+          const { data: profilesSemArroba } = await supabase
+            .from('profiles')
+            .select('id, nome, apelido')
+            .eq('telegram_username', usernameClean)
+            .limit(1)
+
+          if (profilesSemArroba && profilesSemArroba.length > 0) {
+            profile = profilesSemArroba[0]
+          }
+        }
+
+        console.log('Profile found:', JSON.stringify(profile))
 
         if (profile) {
           await supabase
