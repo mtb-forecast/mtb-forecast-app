@@ -247,6 +247,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://eydlkvrjopffyqpdstzh.supaba
 if not SUPABASE_URL.startswith("http"):
     SUPABASE_URL = "https://eydlkvrjopffyqpdstzh.supabase.co"
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
 # ---------------------------------------------------------------------------
 # Leitura de destinatários por região — emails_{REGIAO}.txt
@@ -1383,13 +1384,157 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
     }
 
 
-def gravar_supabase(trilha_name: str, resultado: dict) -> bool:
+def enviar_telegram(chat_id: int, mensagem: str) -> bool:
+    """
+    Envia mensagem para usuário via Telegram Bot API.
+    Falha silenciosa — nunca interrompe o fluxo principal.
+    """
+    if not TELEGRAM_TOKEN:
+        return False
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        payload = json.dumps({
+            "chat_id": chat_id,
+            "text": mensagem,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status == 200
+    except Exception as exc:
+        print(f"  [Telegram] Erro ao enviar para {chat_id}: {exc}")
+        return False
+
+
+def _buscar_usuarios_telegram() -> list:
+    """
+    Busca usuários com telegram_ativo=true e telegram_chat_id preenchido.
+    """
+    if not SUPABASE_KEY:
+        return []
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/profiles"
+            f"?select=id,nome,apelido,telegram_chat_id,regiao"
+            f"&telegram_ativo=eq.true"
+            f"&telegram_chat_id=not.is.null"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            usuarios = json.loads(r.read())
+        print(f"  [Telegram] {len(usuarios)} usuário(s) com Telegram ativo")
+        return usuarios
+    except Exception as exc:
+        print(f"  [Telegram] Erro ao buscar usuários: {exc}")
+        return []
+
+
+def _buscar_favoritos_usuario(user_id: str) -> list:
+    """
+    Busca trilhas favoritas de um usuário pelo user_id.
+    """
+    if not SUPABASE_KEY:
+        return []
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/favoritos"
+            f"?select=trilha_id"
+            f"&user_id=eq.{user_id}"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read())
+    except Exception as exc:
+        print(f"  [Telegram] Erro ao buscar favoritos de {user_id}: {exc}")
+        return []
+
+
+def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
+    """
+    Envia notificações personalizadas via Telegram para cada usuário ativo.
+    """
+    if not TELEGRAM_TOKEN:
+        print("  [Telegram] TELEGRAM_BOT_TOKEN não configurado — pulando notificações")
+        return
+
+    usuarios = _buscar_usuarios_telegram()
+    if not usuarios:
+        print("  [Telegram] Nenhum usuário com Telegram ativo.")
+        return
+
+    for usuario in usuarios:
+        try:
+            chat_id = usuario["telegram_chat_id"]
+            nome = usuario.get("apelido") or usuario.get("nome") or "Rider"
+
+            favoritos = _buscar_favoritos_usuario(usuario["id"])
+            if not favoritos:
+                continue
+
+            trilha_ids = {f["trilha_id"] for f in favoritos}
+
+            trilhas_usuario = [
+                r for r in resultados_global
+                if r.get("trilha_id") in trilha_ids
+            ]
+
+            if not trilhas_usuario:
+                continue
+
+            linhas = [f"🚵 *MTB Forecaster — {hoje}*\n"]
+            linhas.append(f"Olá, *{nome}*! Suas trilhas hoje:\n")
+
+            for t in trilhas_usuario:
+                verd = t.get("veredicto", {})
+                ader = t.get("aderencia", {})
+                emoji = verd.get("emoji", "")
+                texto = verd.get("texto", "")
+                janela = t.get("janela", "")
+                rain = t.get("rain", 0)
+                wind = t.get("wind", 0)
+                gust = t.get("gust_max_kmh", 0)
+
+                linha = f"{emoji} *{t['name']}*\n"
+                linha += f"   {ader.get('emoji','')} {ader.get('status','')} · {texto}\n"
+                linha += f"   🌧 {rain}mm · 💨 {wind}m/s"
+                if gust and gust >= 30:
+                    linha += f" · ⚡ rajada {gust}km/h"
+                linha += f"\n   ⏱ {janela}\n"
+                linhas.append(linha)
+
+            linhas.append(f"🔗 [Ver detalhes](https://www.mtbforecaster.com.br/dashboard)")
+
+            mensagem = "\n".join(linhas)
+
+            sucesso = enviar_telegram(chat_id, mensagem)
+            if sucesso:
+                print(f"  [Telegram] ✓ Enviado para {nome} ({len(trilhas_usuario)} trilhas)")
+            else:
+                print(f"  [Telegram] ✗ Falhou para {nome}")
+
+        except Exception as exc:
+            print(f"  [Telegram] Erro ao processar {usuario.get('nome','?')}: {exc}")
+
+
+def gravar_supabase(trilha_name: str, resultado: dict):
     """
     Grava condições da trilha no Supabase após processar.
+    Retorna trilha_id (str) em caso de sucesso, None caso contrário.
     Falha silenciosa — nunca interrompe o fluxo do agent.
     """
     if not SUPABASE_KEY:
-        return False
+        return None
     try:
         # Busca o id da trilha pelo nome
         url_busca = (
@@ -1512,11 +1657,11 @@ def gravar_supabase(trilha_name: str, resultado: dict) -> bool:
         req_insert.get_method = lambda: "POST"
         with urllib.request.urlopen(req_insert, timeout=10) as r:
             print(f"  [Supabase] [OK] {trilha_name} gravado (status {r.status})")
-        return True
+        return trilha_id
 
     except Exception as exc:
         print(f"  [Supabase] [ERRO] {trilha_name}: {exc}")
-        return False
+        return None
 
 
 def buscar_segmentos_strava_unicos() -> list:
@@ -2763,7 +2908,7 @@ def _carregar_trilhas_supabase() -> list:
     try:
         url = (
             f"{SUPABASE_URL}/rest/v1/trilhas"
-            f"?select=name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
+            f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
             f"&aprovada=eq.true"
             f"&order=name.asc"
         )
@@ -2776,6 +2921,7 @@ def _carregar_trilhas_supabase() -> list:
         trilhas = []
         for row in dados:
             trilhas.append({
+                "supabase_id": row["id"],
                 "name":        row["name"],
                 "lat":         float(row["lat"]),
                 "lon":         float(row["lon"]),
@@ -2913,6 +3059,8 @@ def main() -> None:
     datas = proximos_dias()
     print(f"[MTB V8.0] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
 
+    resultados_global: list = []
+
     trails_por_regiao: dict[str, list] = {}
     for trail in TRAILS:
         trails_por_regiao.setdefault(trail["regiao"], []).append(trail)
@@ -2948,7 +3096,9 @@ def main() -> None:
             try:
                 dados = processar_trilha(trail, datas)
                 resultados.append(dados)
-                gravar_supabase(trail["name"], dados)
+                trilha_id = gravar_supabase(trail["name"], dados)
+                dados["trilha_id"] = trilha_id
+                resultados_global.append(dados)
                 inc_str = f" | inclinação={dados['inclinacao']}%" if dados['inclinacao'] is not None else ""
                 print(f"  [OK] {trail['name']} [{trail.get('trail_type','natural')} / {trail['solo_type']}]{inc_str} — {dados['aderencia']['status']} | pico={dados['pico_3h']}mm | 12h: {dados['veredicto_12h']['veredicto']['texto']} | 48h: {dados['veredicto']['texto']}")
             except Exception as exc:
@@ -2997,6 +3147,10 @@ def main() -> None:
     # Processa segmentos Strava únicos (independente do fluxo principal)
     print("\n[MTB V7.6] Iniciando processamento de segmentos Strava únicos...")
     processar_segmentos_strava(datas)
+
+    # Notificações Telegram
+    print("\n[MTB V8.0] Iniciando notificações Telegram...")
+    _enviar_notificacoes_telegram(resultados_global, hoje)
 
     print("\n[MTB V7.0] Concluído.")
 

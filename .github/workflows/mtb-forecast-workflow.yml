@@ -19,6 +19,7 @@ jobs:
       OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       SUPABASE_URL:         https://eydlkvrjopffyqpdstzh.supabase.co
+      TELEGRAM_BOT_TOKEN:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
