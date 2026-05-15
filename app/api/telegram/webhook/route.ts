@@ -1,12 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-// Usa service role para bypass do RLS
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -23,10 +17,14 @@ export async function POST(request: Request) {
     console.log('Text:', text)
 
     if (text === '/start' || text?.startsWith('/start')) {
-
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
       const token = process.env.TELEGRAM_BOT_TOKEN
       console.log('Token from config:', token ? 'found' : 'NOT FOUND')
-      if (!token) return NextResponse.json({ ok: true })
+      if (!token || !supabaseUrl || !supabaseServiceKey) return NextResponse.json({ ok: true })
+
+      // Usa service role para bypass do RLS
+      const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
       if (username) {
         const usernameClean = username.toLowerCase().replace('@', '')
