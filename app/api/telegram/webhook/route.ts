@@ -20,13 +20,7 @@ export async function POST(request: Request) {
     if (text === '/start' || text?.startsWith('/start')) {
       const supabase = createRouteHandlerClient({ cookies })
 
-      const { data: config } = await supabase
-        .from('configuracoes_sistema')
-        .select('valor')
-        .eq('chave', 'telegram_bot_token')
-        .single()
-
-      const token = config?.valor
+      const token = process.env.TELEGRAM_BOT_TOKEN
       console.log('Token from config:', token ? 'found' : 'NOT FOUND')
       if (!token) return NextResponse.json({ ok: true })
 
