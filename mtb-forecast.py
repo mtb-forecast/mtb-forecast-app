@@ -1459,6 +1459,66 @@ def _buscar_favoritos_usuario(user_id: str) -> list:
         return []
 
 
+def _buscar_strava_com_condicoes(user_id: str) -> list:
+    """
+    Busca trilhas pessoais Strava do usuário com condições de condicoes_strava.
+    """
+    if not SUPABASE_KEY:
+        return []
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/trilhas_pessoais"
+            f"?select=name,strava_segment_id,regiao"
+            f"&user_id=eq.{user_id}"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            trilhas = json.loads(r.read())
+
+        if not trilhas:
+            return []
+
+        resultados = []
+        for trilha in trilhas:
+            seg_id = trilha.get("strava_segment_id")
+            if not seg_id:
+                continue
+
+            url_cond = (
+                f"{SUPABASE_URL}/rest/v1/condicoes_strava"
+                f"?select=aderencia_status,veredicto,veredicto_12h,rain_mm,wind_ms,gust_max_kmh,janela,frase_secagem"
+                f"&strava_segment_id=eq.{seg_id}"
+                f"&limit=1"
+            )
+            req_cond = urllib.request.Request(url_cond, headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            })
+            with urllib.request.urlopen(req_cond, timeout=10) as r:
+                condicoes = json.loads(r.read())
+
+            if condicoes:
+                c = condicoes[0]
+                resultados.append({
+                    "name": trilha["name"],
+                    "strava": True,
+                    "aderencia": {"status": c.get("aderencia_status", "")},
+                    "veredicto": {"texto": c.get("veredicto_12h") or c.get("veredicto", ""), "emoji": ""},
+                    "rain": c.get("rain_mm", 0),
+                    "wind": c.get("wind_ms", 0),
+                    "gust_max_kmh": c.get("gust_max_kmh", 0),
+                    "janela": c.get("janela", ""),
+                })
+
+        return resultados
+    except Exception as exc:
+        print(f"  [Telegram] Erro ao buscar Strava de {user_id}: {exc}")
+        return []
+
+
 def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
     """
     Envia notificações personalizadas via Telegram para cada usuário ativo.
@@ -1477,16 +1537,19 @@ def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
             chat_id = usuario["telegram_chat_id"]
             nome = usuario.get("apelido") or usuario.get("nome") or "Rider"
 
+            # Busca trilhas favoritas públicas
             favoritos = _buscar_favoritos_usuario(usuario["id"])
-            if not favoritos:
-                continue
-
             trilha_ids = {f["trilha_id"] for f in favoritos}
-
-            trilhas_usuario = [
+            trilhas_publicas = [
                 r for r in resultados_global
                 if r.get("trilha_id") in trilha_ids
             ]
+
+            # Busca trilhas Strava com condições
+            trilhas_strava = _buscar_strava_com_condicoes(usuario["id"])
+
+            # Combina todas as trilhas
+            trilhas_usuario = trilhas_publicas + trilhas_strava
 
             if not trilhas_usuario:
                 continue
@@ -1504,7 +1567,8 @@ def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
                 wind = t.get("wind", 0)
                 gust = t.get("gust_max_kmh", 0)
 
-                linha = f"{emoji} *{t['name']}*\n"
+                strava_badge = " 🟠 _Strava_" if t.get("strava") else ""
+                linha = f"{emoji} *{t['name']}*{strava_badge}\n"
                 linha += f"   {ader.get('emoji','')} {ader.get('status','')} · {texto}\n"
                 linha += f"   🌧 {rain}mm · 💨 {wind}m/s"
                 if gust and gust >= 30:
