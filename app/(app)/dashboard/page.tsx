@@ -38,6 +38,21 @@ type TrilhaPessoalComCondicao = {
   condicao?: CondicaoPessoal | null
 }
 
+// ── ranking ──────────────────────────────────────────────────────────────────
+
+const RANKING_VEREDICTO: Record<string, number> = {
+  'DROP LIBERADO': 0,
+  'DROP LIBERADO - Veja os alertas': 1,
+  'MELHOR ESPERAR': 2,
+}
+
+const RANKING_ADERENCIA: Record<string, number> = {
+  'GRIP PERFEITO': 0,
+  'SECO': 1,
+  'BOA ADERÊNCIA': 2,
+  'BAIXA ADERÊNCIA': 3,
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -74,6 +89,8 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [favoritas, setFavoritas] = useState<TrilhaComCondicao[]>([])
   const [stravaTrails, setStravaTrails] = useState<TrilhaPessoalComCondicao[]>([])
+  const [avaliacoesPorTrilha, setAvaliacoesPorTrilha] = useState<Record<string, { count: number; media: number }>>({})
+  const [avaliacoesPorSegmento, setAvaliacoesPorSegmento] = useState<Record<number, { count: number; media: number }>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -96,10 +113,19 @@ export default function DashboardPage() {
           .in('id', ids).eq('aprovada', true)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
         if (trilhas) {
-          setFavoritas(trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+          const mapped = trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
             const arr = Array.isArray(t.condicoes) ? t.condicoes : []
             return { ...t, condicao: arr[0] ?? undefined }
-          }))
+          })
+          const trilhasOrdenadas = [...mapped].sort((a, b) => {
+            const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
+            const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
+            if (vA !== vB) return vA - vB
+            const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
+            const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
+            return aA - aB
+          })
+          setFavoritas(trilhasOrdenadas)
         }
       }
 
@@ -122,6 +148,33 @@ export default function DashboardPage() {
         })
       )
       setStravaTrails(trilhasComCondicao)
+
+      // Busca avaliações das últimas 48h (favoritas + Strava)
+      const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+      const { data: avaliacoes48h } = await supabase
+        .from('observacoes_trilha')
+        .select('trilha_id, strava_segment_id, estrelas, created_at')
+        .gte('created_at', h48atras)
+
+      const porTrilha: Record<string, { count: number; media: number }> = {}
+      const porSegmento: Record<number, { count: number; media: number }> = {}
+      for (const av of avaliacoes48h || []) {
+        if (av.trilha_id) {
+          if (!porTrilha[av.trilha_id]) porTrilha[av.trilha_id] = { count: 0, media: 0 }
+          porTrilha[av.trilha_id].count++
+          porTrilha[av.trilha_id].media += av.estrelas
+        }
+        if (av.strava_segment_id) {
+          if (!porSegmento[av.strava_segment_id]) porSegmento[av.strava_segment_id] = { count: 0, media: 0 }
+          porSegmento[av.strava_segment_id].count++
+          porSegmento[av.strava_segment_id].media += av.estrelas
+        }
+      }
+      Object.values(porTrilha).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
+      Object.values(porSegmento).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
+      setAvaliacoesPorTrilha(porTrilha)
+      setAvaliacoesPorSegmento(porSegmento)
+
       setLoading(false)
     }
     load()
@@ -202,7 +255,24 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {favoritas.map(t => <TrilhaCard key={t.id} trilha={t} />)}
+              {favoritas.map(t => (
+                <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <TrilhaCard trilha={t} />
+                  {avaliacoesPorTrilha[t.id] && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      fontSize: 11, fontWeight: 500, color: '#854d0e',
+                      background: '#fef9c3', border: '0.5px solid #fde047',
+                      borderRadius: 4, padding: '2px 8px', width: 'fit-content',
+                    }}>
+                      ⭐ {avaliacoesPorTrilha[t.id].media}
+                      <span style={{ color: '#888', fontWeight: 400 }}>
+                        ({avaliacoesPorTrilha[t.id].count} avaliação{avaliacoesPorTrilha[t.id].count > 1 ? 'ões' : ''} recente{avaliacoesPorTrilha[t.id].count > 1 ? 's' : ''})
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -290,6 +360,20 @@ export default function DashboardPage() {
                         </p>
                       )}
                     </div>
+                    {avaliacoesPorSegmento[t.strava_segment_id] && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        fontSize: 11, fontWeight: 500, color: '#854d0e',
+                        background: '#fef9c3', border: '0.5px solid #fde047',
+                        borderRadius: 4, padding: '2px 8px', width: 'fit-content',
+                        margin: '0 16px 8px',
+                      }}>
+                        ⭐ {avaliacoesPorSegmento[t.strava_segment_id].media}
+                        <span style={{ color: '#888', fontWeight: 400 }}>
+                          ({avaliacoesPorSegmento[t.strava_segment_id].count} avaliação{avaliacoesPorSegmento[t.strava_segment_id].count > 1 ? 'ões' : ''} recente{avaliacoesPorSegmento[t.strava_segment_id].count > 1 ? 's' : ''})
+                        </span>
+                      </div>
+                    )}
                     <div style={{ padding: '10px 16px', borderTop: '0.5px solid #e5e5e5', display: 'flex', justifyContent: 'space-between' }}>
                       <Link href={`/trilhas/${t.id}`} style={{ fontSize: 13, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
                         Ver detalhes →
