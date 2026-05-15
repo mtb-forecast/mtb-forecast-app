@@ -7,6 +7,7 @@ import { Observacao } from '@/lib/types'
 type Props = {
   trilhaId: string
   veredictoAtual: string
+  isOwner?: boolean
 }
 
 const VEREDICTO_BADGE: Record<string, { bg: string; color: string }> = {
@@ -70,7 +71,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
   )
 }
 
-export default function TrailObservations({ trilhaId, veredictoAtual }: Props) {
+export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }: Props) {
   const [observacoes, setObservacoes] = useState<Observacao[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
@@ -110,7 +111,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual }: Props) {
     ])
 
     setObservacoes((obs as unknown as Observacao[]) || [])
-    setPodeComentar(!!favorito)
+    setPodeComentar(isOwner || !!favorito)
     setLoading(false)
   }, [trilhaId])
 

@@ -523,7 +523,7 @@ export default function TrilhaDetalhe() {
         )}
 
         {/* ── Avaliações dos riders ───────────────────────────────────── */}
-        <TrailObservations trilhaId={trilha.id} veredictoAtual={veredictoText || ''} />
+        <TrailObservations trilhaId={trilha.id} veredictoAtual={veredictoText || ''} isOwner={isTrilhaPessoal} />
 
         {/* ── Card: Próximos 3 dias ───────────────────────────────────── */}
         {hasFds && (
