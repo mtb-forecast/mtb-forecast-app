@@ -26,23 +26,34 @@ export async function POST(request: Request) {
       if (!token) return NextResponse.json({ ok: true })
 
       if (username) {
-        const telegramUsername = username.toLowerCase().replace('@', '')
+        const usernameClean = username.toLowerCase().replace('@', '')
 
-        const { error } = await supabase
+        // Tenta match com @ e sem @
+        const { data: profiles } = await supabase
           .from('profiles')
-          .update({
-            telegram_chat_id: chatId,
-            telegram_ativo: true,
-          })
-          .ilike('telegram_username', `%${telegramUsername}%`)
+          .select('id, nome, apelido')
+          .or(`telegram_username.ilike.${usernameClean},telegram_username.ilike.@${usernameClean}`)
+          .limit(1)
 
-        if (!error) {
+        const profile = profiles?.[0]
+
+        if (profile) {
+          await supabase
+            .from('profiles')
+            .update({
+              telegram_chat_id: chatId,
+              telegram_ativo: true,
+            })
+            .eq('id', profile.id)
+
+          const nome = profile.apelido || profile.nome || username
+
           await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: chatId,
-              text: `🚵 *Olá, @${username}!*\n\nVocê está conectado ao *MTB Forecaster*!\n\nA partir de agora você receberá as condições das suas trilhas favoritas todos os dias às 07:00 BRT.\n\n🔗 Acesse: mtbforecaster.com.br`,
+              text: `🚵 *Olá, ${nome}!*\n\nVocê está conectado ao *MTB Forecaster*!\n\nA partir de agora você receberá as condições das suas trilhas favoritas todos os dias às 07:00 BRT.\n\n🔗 Acesse: mtbforecaster.com.br`,
               parse_mode: 'Markdown',
             }),
           })
