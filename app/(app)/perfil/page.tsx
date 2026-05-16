@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
-import { PLANOS } from '@/lib/stripe'
+import { PLANOS } from '@/lib/stripe-config'
 
 type TrilhaPendenteSimples = {
   id: string

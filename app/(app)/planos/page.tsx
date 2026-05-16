@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PLANOS } from '@/lib/stripe'
+import { PLANOS } from '@/lib/stripe-config'
 
 const PLANO_ORDER = ['gratuito', 'plano_a', 'plano_b', 'plano_c'] as const
 
