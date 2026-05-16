@@ -78,6 +78,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
   const [userId, setUserId] = useState<string | null>(null)
   const [podeComentar, setPodeComentar] = useState(false)
   const [favoritando, setFavoritando] = useState(false)
+  const [limiteMsg, setLimiteMsg] = useState<string | null>(null)
 
   // New observation form
   const [estrelas, setEstrelas] = useState(0)
@@ -126,6 +127,18 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
 
   async function handleFavoritar() {
     if (!userId || favoritando) return
+    const { data: profile } = await supabase.from('profiles').select('plano').eq('id', userId).single()
+    const isGratuito = !profile?.plano || profile.plano === 'gratuito'
+    if (isGratuito) {
+      const { count } = await supabase
+        .from('favoritos')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+      if ((count ?? 0) >= 5) {
+        setLimiteMsg('Plano Gratuito permite até 5 trilhas favoritas.')
+        return
+      }
+    }
     setFavoritando(true)
     await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
     setPodeComentar(true)
@@ -352,6 +365,15 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
               {favoritando ? 'Favoritando...' : 'Favoritar trilha'}
             </button>
           </div>
+          {limiteMsg && (
+            <p style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>
+              {limiteMsg}{' '}
+              <a href="/planos" style={{ color: '#ef4444', fontWeight: 600, textDecoration: 'underline' }}>
+                Faça upgrade
+              </a>{' '}
+              para monitorar mais trilhas.
+            </p>
+          )}
         ) : (
           <>
             <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 10 }}>

@@ -57,6 +57,9 @@ export default function TrilhaDetalhe() {
   const [isFavorito, setIsFavorito] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
+  const [plano, setPlano] = useState<string | null>(null)
+  const [limiteMsg, setLimiteMsg] = useState(false)
+
   const [isTrilhaPessoal, setIsTrilhaPessoal] = useState(false)
   const [polyline, setPolyline] = useState<string | null>(null)
   const [elevationProfileUrl, setElevationProfileUrl] = useState<string | null>(null)
@@ -69,13 +72,15 @@ export default function TrilhaDetalhe() {
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
 
-      const [{ data: td }, { data: fav }] = await Promise.all([
+      const [{ data: td }, { data: fav }, { data: profile }] = await Promise.all([
         supabase.from('trilhas').select(`*, condicoes(*)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .maybeSingle(),
         supabase.from('favoritos').select('id').eq('user_id', user.id).eq('trilha_id', id).maybeSingle(),
+        supabase.from('profiles').select('plano').eq('id', user.id).single(),
       ])
+      setPlano(profile?.plano ?? null)
 
       if (td) {
         const t = td as TrilhaDetalhada
@@ -135,6 +140,18 @@ export default function TrilhaDetalhe() {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', id)
       setIsFavorito(false)
     } else {
+      const isGratuito = !plano || plano === 'gratuito'
+      if (isGratuito) {
+        const { count } = await supabase
+          .from('favoritos')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+        if ((count ?? 0) >= 5) {
+          setLimiteMsg(true)
+          setTimeout(() => setLimiteMsg(false), 6000)
+          return
+        }
+      }
       await supabase.from('favoritos').insert({ user_id: userId, trilha_id: id })
       setIsFavorito(true)
     }
@@ -568,6 +585,19 @@ export default function TrilhaDetalhe() {
           </div>
         )}
       </div>
+
+      {limiteMsg && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#111', color: '#fff', borderRadius: 8, padding: '12px 20px',
+          fontSize: 13, zIndex: 1000, maxWidth: 440, textAlign: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+        }}>
+          Plano Gratuito permite até 5 trilhas favoritas.{' '}
+          <a href="/planos" style={{ color: '#FFE000', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
+          para monitorar mais trilhas.
+        </div>
+      )}
     </div>
   )
 }

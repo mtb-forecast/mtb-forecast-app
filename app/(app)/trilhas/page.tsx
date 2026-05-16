@@ -38,6 +38,8 @@ function TrilhasContent() {
   const [estadoSelecionado, setEstadoSelecionado] = useState(estadoInicial)
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
+  const [plano, setPlano] = useState<string | null>(null)
+  const [limiteMsg, setLimiteMsg] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -49,8 +51,12 @@ function TrilhasContent() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
       setUserId(user.id)
-      const { data: favData } = await supabase.from('favoritos').select('trilha_id').eq('user_id', user.id)
+      const [{ data: favData }, { data: profile }] = await Promise.all([
+        supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+        supabase.from('profiles').select('plano').eq('id', user.id).single(),
+      ])
       if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
+      setPlano(profile?.plano ?? null)
     }
     init()
   }, [router])
@@ -91,6 +97,12 @@ function TrilhasContent() {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
       setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
     } else {
+      const isGratuito = !plano || plano === 'gratuito'
+      if (isGratuito && favoritos.size >= 5) {
+        setLimiteMsg(true)
+        setTimeout(() => setLimiteMsg(false), 6000)
+        return
+      }
       await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
       setFavoritos(prev => new Set([...prev, trilhaId]))
     }
@@ -295,6 +307,19 @@ function TrilhasContent() {
           )
         )}
       </div>
+
+      {limiteMsg && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: '#111', color: '#fff', borderRadius: 8, padding: '12px 20px',
+          fontSize: 13, zIndex: 1000, maxWidth: 440, textAlign: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+        }}>
+          Plano Gratuito permite até 5 trilhas favoritas.{' '}
+          <a href="/planos" style={{ color: '#FFE000', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
+          para monitorar mais trilhas.
+        </div>
+      )}
     </div>
   )
 }
