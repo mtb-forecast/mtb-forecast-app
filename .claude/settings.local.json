@@ -35,11 +35,20 @@
       "Bash(requirements)",
       "Bash(emails)",
       "Bash(\\\\.github\")",
-      "Bash(cp C:/ClaudeCode/agent-mtb-forecast/mtb-forecast.py C:/ClaudeCode/mtb-forecast-app/mtb-forecast.py && echo \"mtb-forecast.py copiado\")"
+      "Bash(cp C:/ClaudeCode/agent-mtb-forecast/mtb-forecast.py C:/ClaudeCode/mtb-forecast-app/mtb-forecast.py && echo \"mtb-forecast.py copiado\")",
+      "Bash(git stash *)",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\public\\\\icons\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\auth\\\\callback\")",
+      "Bash(git commit *)",
+      "Bash(New-Item -ItemType Directory -Force \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\t\\\\[id]\")",
+      "Bash(mkdir -p \"C:/ClaudeCode/mtb-forecast-app/app/t/[id]\")",
+      "Bash(curl -s -o - -w '\\\\nHTTP_STATUS:%{http_code}' -X GET 'https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/trilhas?select=id&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280')",
+      "Bash(dir \"C:\\\\Users\\\\sadou\\\\.claude\\\\projects\\\\c--ClaudeCode-mtb-forecast-app\\\\memory\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
-      "C:\\ClaudeCode\\agent-mtb-forecast"
+      "C:\\ClaudeCode\\agent-mtb-forecast",
+      "C:\\ClaudeCode\\mtb-forecast-app\\app\\t"
     ]
   }
 }

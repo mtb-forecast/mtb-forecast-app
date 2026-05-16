@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { REGIOES } from '@/lib/types'
+import { ESTADOS_BRASIL } from '@/lib/types'
 
 function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
   const patterns = [
@@ -190,7 +190,7 @@ export default function CadastrarTrilhaPage() {
                 </label>
                 <select value={regiao} onChange={e => setRegiao(e.target.value)} className="input-field" required>
                   <option value="">Selecione o estado</option>
-                  {REGIOES.map(r => <option key={r} value={r}>{r === 'outros' ? 'Outros' : r}</option>)}
+                  {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
                 </select>
               </div>
             </div>
