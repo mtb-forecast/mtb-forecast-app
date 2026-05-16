@@ -249,50 +249,29 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
 # ---------------------------------------------------------------------------
-# Leitura de destinatários por região — emails_{REGIAO}.txt
+# Destinatários por região — buscados do Supabase (profiles.receber_email)
 # ---------------------------------------------------------------------------
 
-def _ler_emails_arquivo(caminho: _pathlib.Path) -> list:
-    emails = []
-    for linha in caminho.read_text(encoding="utf-8").splitlines():
-        for parte in linha.split(","):
-            addr = parte.strip()
-            if addr and not addr.startswith("#"):
-                emails.append(addr)
-    return emails
-
 def _carregar_emails_por_regiao() -> dict:
-    base      = _pathlib.Path(__file__).parent
-    regioes   = sorted(set(t["regiao"] for t in TRAILS))
+    from supabase import create_client
+    url = os.environ["SUPABASE_URL"]
+    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    client = create_client(url, key)
+    rows = client.table("profiles") \
+        .select("email, regiao, plano, receber_email") \
+        .eq("receber_email", True) \
+        .execute().data
     resultado = {}
-    algum_encontrado = False
-
-    for regiao in regioes:
-        arquivo = base / f"emails_{regiao}.txt"
-        if arquivo.exists():
-            emails = _ler_emails_arquivo(arquivo)
-            if emails:
-                resultado[regiao] = emails
-                print(f"[emails_{regiao}.txt] {len(emails)} destinatário(s) carregado(s).")
-                algum_encontrado = True
-            else:
-                print(f"[emails_{regiao}.txt] Arquivo encontrado mas vazio — região {regiao} será ignorada.")
-        else:
-            print(f"[AVISO] emails_{regiao}.txt não encontrado — região {regiao} não receberá email.")
-
-    if not algum_encontrado:
-        fallback = base / "emails.txt"
-        if fallback.exists():
-            emails = _ler_emails_arquivo(fallback)
-            if emails:
-                print(f"[emails.txt] Nenhum arquivo de região encontrado. Usando fallback global: {len(emails)} destinatário(s).")
-                for regiao in regioes:
-                    resultado[regiao] = emails
-            else:
-                print("[AVISO] emails.txt encontrado mas vazio. Nenhum email será enviado.")
-        else:
-            print("[AVISO] Nenhum arquivo de emails encontrado. Nenhum email será enviado.")
-
+    for row in rows:
+        regiao = row.get("regiao") or "outros"
+        email  = row.get("email")
+        if not email:
+            continue
+        if regiao not in resultado:
+            resultado[regiao] = []
+        resultado[regiao].append(email)
+    total = sum(len(v) for v in resultado.values())
+    print(f"[Supabase] {total} destinatário(s) com receber_email=True em {len(resultado)} região(ões).")
     return resultado
 
 def _bcc_global() -> list:
