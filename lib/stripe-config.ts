@@ -59,3 +59,21 @@ export const PRICE_TO_PLANO: Record<string, PlanoId> = {
   'price_1TXXlb9nHSRThrcwYPcLMpUy': 'plano_b',
   'price_1TXXmL9nHSRThrcwXQ5guVwB': 'plano_c',
 }
+
+export const CODIGOS_PROMO: Record<string, PlanoId> = {
+  'MTB-BASIC-R1D3': 'plano_a',
+  'MTB-BASIC-TR4L': 'plano_a',
+  'MTB-BASIC-END5': 'plano_a',
+  'MTB-BASIC-DH7X': 'plano_a',
+  'MTB-BASIC-XC9K': 'plano_a',
+  'MTB-PRO-S3RR4':  'plano_b',
+  'MTB-PRO-J4PI2':  'plano_b',
+  'MTB-PRO-C4N4S':  'plano_b',
+  'MTB-PRO-GR4U':   'plano_b',
+  'MTB-PRO-P1NH3':  'plano_b',
+  'MTB-ELITE-SP1':  'plano_c',
+  'MTB-ELITE-MG2':  'plano_c',
+  'MTB-ELITE-DH3':  'plano_c',
+  'MTB-ELITE-BR4':  'plano_c',
+  'MTB-ELITE-MTB5': 'plano_c',
+}
