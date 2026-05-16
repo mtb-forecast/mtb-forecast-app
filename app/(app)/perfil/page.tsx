@@ -237,6 +237,7 @@ export default function PerfilPage() {
   const slotsUsados = trilhasPessoais.length
   const slotsLimite = 3
   const stravaLleno = slotsUsados >= slotsLimite
+  const planoId = (profile?.plano || 'gratuito') as keyof typeof PLANOS
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
@@ -354,19 +355,28 @@ export default function PerfilPage() {
               <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
                 Telegram <span style={{ color: '#bbb' }}>(opcional)</span>
               </label>
-              <input
-                type="text"
-                value={telegram}
-                onChange={e => {
-                  const v = e.target.value
-                  setTelegram(v && !v.startsWith('@') ? '@' + v : v)
-                }}
-                placeholder="@seu_username"
-                className="input-field"
-              />
-              <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
-                Para receber notificações: busque @mtbforecaster_bot no Telegram, inicie com /start e informe seu @username acima.
-              </p>
+              {planoId === 'gratuito' ? (
+                <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
+                  Disponível a partir do Plano Básico.{' '}
+                  <a href="/planos" style={{ color: '#888', textDecoration: 'underline' }}>Ver planos</a>
+                </p>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={telegram}
+                    onChange={e => {
+                      const v = e.target.value
+                      setTelegram(v && !v.startsWith('@') ? '@' + v : v)
+                    }}
+                    placeholder="@seu_username"
+                    className="input-field"
+                  />
+                  <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
+                    Para receber notificações: busque @mtbforecaster_bot no Telegram, inicie com /start e informe seu @username acima.
+                  </p>
+                </>
+              )}
             </div>
 
             {/* Salvar */}
@@ -475,7 +485,6 @@ export default function PerfilPage() {
 
         {/* Minha assinatura */}
         {(() => {
-          const planoId = (profile?.plano || 'gratuito') as keyof typeof PLANOS
           const plano = PLANOS[planoId] ?? PLANOS.gratuito
           const isPago = plano.preco > 0
           return (
