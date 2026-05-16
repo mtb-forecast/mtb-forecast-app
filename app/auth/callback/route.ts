@@ -9,7 +9,24 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = createRouteHandlerClient({ cookies })
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (data.user) {
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', data.user.id)
+        .single()
+
+      if (!existing) {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          email: data.user.email ?? '',
+          plano: 'gratuito',
+          is_admin: false,
+        })
+      }
+    }
   }
 
   return NextResponse.redirect(new URL('/dashboard', request.url))
