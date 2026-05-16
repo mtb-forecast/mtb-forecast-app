@@ -5,34 +5,57 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+const VALID_PLANOS = new Set(['gratuito', 'plano_a', 'plano_b', 'plano_c'])
+
+function resolvePlano(raw: string | null | undefined): string {
+  if (!raw || !VALID_PLANOS.has(raw)) return 'gratuito'
+  return raw
+}
+
 export async function GET() {
   const supabase = createRouteHandlerClient({ cookies })
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
-  const { data: profile } = await supabase
+  const { data: meProfile } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', session.user.id)
     .single()
 
-  if (!profile?.is_admin) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+  if (!meProfile?.is_admin) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const { data: authData, error: usersError } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
-  if (usersError) return NextResponse.json({ error: 'Erro ao buscar usuários' }, { status: 500 })
-
-  const { data: profiles } = await adminClient.from('profiles').select('id, plano')
-
-  const planoMap = new Map<string, string>()
-  for (const p of profiles ?? []) {
-    planoMap.set(p.id, p.plano ?? 'gratuito')
+  // 1. Fetch all auth users (paginated)
+  const allUsers: { id: string }[] = []
+  let page = 1
+  while (true) {
+    const { data: authData, error: usersError } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 })
+    if (usersError) return NextResponse.json({ error: 'Erro ao buscar usuários' }, { status: 500 })
+    allUsers.push(...authData.users)
+    if (authData.users.length < 1000) break
+    page++
   }
 
+  // 2. Fetch all profiles (id + plano only)
+  const { data: profileRows, error: profilesError } = await adminClient
+    .from('profiles')
+    .select('id, plano')
+
+  if (profilesError) return NextResponse.json({ error: 'Erro ao buscar profiles' }, { status: 500 })
+
+  // 3. Build map: user_id → resolved plano (null/absent → 'gratuito')
+  const planoByUserId = new Map<string, string>()
+  for (const row of profileRows ?? []) {
+    planoByUserId.set(row.id, resolvePlano(row.plano))
+  }
+
+  // 4. Count every auth user — absent from profiles → 'gratuito'
   const counts: Record<string, number> = {
     gratuito: 0,
     plano_a: 0,
@@ -40,10 +63,9 @@ export async function GET() {
     plano_c: 0,
   }
 
-  for (const user of authData.users) {
-    const plano = planoMap.get(user.id) ?? 'gratuito'
-    const key = plano in counts ? plano : 'gratuito'
-    counts[key]++
+  for (const user of allUsers) {
+    const plano = resolvePlano(planoByUserId.get(user.id))
+    counts[plano]++
   }
 
   const stats = Object.entries(counts).map(([plano, total]) => ({ plano, total }))
