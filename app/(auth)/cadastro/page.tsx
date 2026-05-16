@@ -30,11 +30,15 @@ function formatPhone(raw: string): string {
 
 function validate(data: FormData): Errors {
   const errors: Errors = {}
-  if (data.nome.trim().length < 3) errors.nome = 'Mínimo 3 caracteres'
-  if (data.apelido.trim().length < 2) errors.apelido = 'Mínimo 2 caracteres'
-  if (!data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) errors.email = 'E-mail inválido'
+  if (!data.nome.trim()) errors.nome = 'Campo obrigatório'
+  else if (data.nome.trim().length < 3) errors.nome = 'Mínimo 3 caracteres'
+  if (!data.apelido.trim()) errors.apelido = 'Campo obrigatório'
+  else if (data.apelido.trim().length < 2) errors.apelido = 'Mínimo 2 caracteres'
+  if (!data.email) errors.email = 'Campo obrigatório'
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) errors.email = 'E-mail inválido'
   if (data.password.length < 6) errors.password = 'Mínimo 6 caracteres'
-  if (data.telefone.replace(/\D/g, '').length < 10) errors.telefone = 'Mínimo 10 dígitos'
+  if (!data.telefone) errors.telefone = 'Campo obrigatório'
+  else if (data.telefone.replace(/\D/g, '').length < 10) errors.telefone = 'Mínimo 10 dígitos'
   if (!data.regiao) errors.regiao = 'Selecione sua região'
   return errors
 }
@@ -83,6 +87,7 @@ function CadastroContent() {
     telegram: '',
   })
   const [errors, setErrors] = useState<Errors>({})
+  const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({})
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -106,6 +111,11 @@ function CadastroContent() {
     if (submitted) {
       setErrors(validate({ ...form, [key]: value }))
     }
+  }
+
+  function touch(key: keyof FormData) {
+    setTouched(prev => ({ ...prev, [key]: true }))
+    setErrors(validate(form))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -248,11 +258,12 @@ function CadastroContent() {
                 type="text"
                 value={form.nome}
                 onChange={e => set('nome', e.target.value)}
+                onBlur={() => touch('nome')}
                 placeholder="Seu nome completo"
                 className="input-field"
-                style={{ borderColor: submitted && errors.nome ? '#ef4444' : undefined }}
+                style={{ borderColor: (submitted || touched.nome) && errors.nome ? '#ef4444' : undefined }}
               />
-              {submitted && <FieldError msg={errors.nome} />}
+              <FieldError msg={(submitted || touched.nome) ? errors.nome : undefined} />
             </div>
 
             {/* Apelido */}
@@ -264,12 +275,13 @@ function CadastroContent() {
                 type="text"
                 value={form.apelido}
                 onChange={e => set('apelido', e.target.value)}
+                onBlur={() => touch('apelido')}
                 placeholder="Como você é conhecido na trilha"
                 className="input-field"
-                style={{ borderColor: submitted && errors.apelido ? '#ef4444' : undefined }}
+                style={{ borderColor: (submitted || touched.apelido) && errors.apelido ? '#ef4444' : undefined }}
               />
               <p style={{ fontSize: 12, color: '#bbb', marginTop: 4 }}>Este nome será exibido no app</p>
-              {submitted && <FieldError msg={errors.apelido} />}
+              <FieldError msg={(submitted || touched.apelido) ? errors.apelido : undefined} />
             </div>
 
             {/* Email */}
@@ -281,11 +293,12 @@ function CadastroContent() {
                 type="email"
                 value={form.email}
                 onChange={e => set('email', e.target.value)}
+                onBlur={() => touch('email')}
                 placeholder="seu@email.com"
                 className="input-field"
-                style={{ borderColor: submitted && errors.email ? '#ef4444' : undefined }}
+                style={{ borderColor: (submitted || touched.email) && errors.email ? '#ef4444' : undefined }}
               />
-              {submitted && <FieldError msg={errors.email} />}
+              <FieldError msg={(submitted || touched.email) ? errors.email : undefined} />
             </div>
 
             {/* Senha */}
@@ -297,11 +310,12 @@ function CadastroContent() {
                 type="password"
                 value={form.password}
                 onChange={e => set('password', e.target.value)}
+                onBlur={() => touch('password')}
                 placeholder="Mínimo 6 caracteres"
                 className="input-field"
-                style={{ borderColor: submitted && errors.password ? '#ef4444' : undefined }}
+                style={{ borderColor: (submitted || touched.password) && errors.password ? '#ef4444' : undefined }}
               />
-              {submitted && <FieldError msg={errors.password} />}
+              <FieldError msg={(submitted || touched.password) ? errors.password : undefined} />
             </div>
 
             {/* Telefone */}
@@ -313,11 +327,12 @@ function CadastroContent() {
                 type="tel"
                 value={form.telefone}
                 onChange={e => set('telefone', formatPhone(e.target.value))}
+                onBlur={() => touch('telefone')}
                 placeholder="+55 (11) 99999-9999"
                 className="input-field"
-                style={{ borderColor: submitted && errors.telefone ? '#ef4444' : undefined }}
+                style={{ borderColor: (submitted || touched.telefone) && errors.telefone ? '#ef4444' : undefined }}
               />
-              {submitted && <FieldError msg={errors.telefone} />}
+              <FieldError msg={(submitted || touched.telefone) ? errors.telefone : undefined} />
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -337,13 +352,14 @@ function CadastroContent() {
               <select
                 value={form.regiao}
                 onChange={e => set('regiao', e.target.value)}
+                onBlur={() => touch('regiao')}
                 className="input-field"
-                style={{ borderColor: submitted && errors.regiao ? '#ef4444' : undefined }}
+                style={{ borderColor: (submitted || touched.regiao) && errors.regiao ? '#ef4444' : undefined }}
               >
                 <option value="" disabled>Selecione sua região</option>
                 {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
               </select>
-              {submitted && <FieldError msg={errors.regiao} />}
+              <FieldError msg={(submitted || touched.regiao) ? errors.regiao : undefined} />
             </div>
 
             {/* Telegram */}
