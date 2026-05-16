@@ -364,6 +364,9 @@ export default function PerfilPage() {
                 placeholder="@seu_username"
                 className="input-field"
               />
+              <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
+                Para receber notificações: busque @mtbforecaster_bot no Telegram, inicie com /start e informe seu @username acima.
+              </p>
             </div>
 
             {/* Salvar */}
