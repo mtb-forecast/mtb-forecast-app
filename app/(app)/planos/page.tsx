@@ -151,6 +151,7 @@ export default function PlanosPage() {
                 const plano = PLANOS[planoId]
                 const isPago = plano.preco > 0
                 const isLoading = loading === planoId
+                const emConstrucao = plano.em_construcao
 
                 return (
                   <div
@@ -163,9 +164,28 @@ export default function PlanosPage() {
                       display: 'flex',
                       flexDirection: 'column',
                       position: 'relative',
+                      opacity: emConstrucao ? 0.5 : 1,
                     }}
                   >
-                    {planoId === 'plano_b' && (
+                    {emConstrucao && (
+                      <div style={{
+                        position: 'absolute',
+                        top: -12,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: '#FFE000',
+                        border: '1.5px solid #111',
+                        borderRadius: 20,
+                        padding: '2px 12px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#111',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        EM CONSTRUÇÃO
+                      </div>
+                    )}
+                    {!emConstrucao && planoId === 'plano_b' && (
                       <div style={{
                         position: 'absolute',
                         top: -12,
@@ -212,7 +232,26 @@ export default function PlanosPage() {
                       ))}
                     </ul>
 
-                    {isPago && !isAdmin ? (
+                    {isPago && emConstrucao ? (
+                      <button
+                        disabled
+                        style={{
+                          background: '#e5e5e5',
+                          color: '#999',
+                          border: '1.5px solid #e5e5e5',
+                          borderRadius: 4,
+                          padding: '10px 16px',
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        Em Construção
+                      </button>
+                    ) : isPago && !isAdmin ? (
                       <button
                         onClick={() => handleCheckout(planoId)}
                         disabled={isLoading}
