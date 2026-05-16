@@ -7,7 +7,7 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res })
   const { data: { session } } = await supabase.auth.getSession()
 
-  const publicRoutes = ['/login', '/cadastro', '/auth/callback', '/t/', '/api/telegram/']
+  const publicRoutes = ['/login', '/cadastro', '/auth/callback', '/t/', '/api/telegram/', '/planos']
   const isPublic = publicRoutes.some(route => req.nextUrl.pathname.startsWith(route))
   const isProtected = !isPublic && req.nextUrl.pathname !== '/'
 

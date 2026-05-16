@@ -109,6 +109,8 @@ export type Profile = {
   telegram_username?: string
   regiao?: string
   is_admin: boolean
+  plano?: string
+  stripe_customer_id?: string
 }
 
 export type TrilhaComCondicao = Trilha & {

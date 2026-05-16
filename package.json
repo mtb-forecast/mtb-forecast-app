@@ -9,13 +9,15 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^9.5.0",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/supabase-js": "^2.49.4",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",
     "next": "14.2.29",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "stripe": "^22.1.1"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
+import { PLANOS } from '@/lib/stripe'
 
 type TrilhaPendenteSimples = {
   id: string
@@ -58,6 +59,7 @@ export default function PerfilPage() {
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [portalLoading, setPortalLoading] = useState(false)
 
   const [nome, setNome] = useState('')
   const [apelido, setApelido] = useState('')
@@ -205,6 +207,17 @@ export default function PerfilPage() {
     await supabase.from('trilhas_pessoais').delete().eq('id', id)
     setTrilhasPessoais(prev => prev.filter(t => t.id !== id))
     setDeletingId(null)
+  }
+
+  async function handlePortal() {
+    setPortalLoading(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } finally {
+      setPortalLoading(false)
+    }
   }
 
   async function handleLogout() {
@@ -456,6 +469,67 @@ export default function PerfilPage() {
             </p>
           </div>
         </div>
+
+        {/* Minha assinatura */}
+        {(() => {
+          const planoId = (profile?.plano || 'gratuito') as keyof typeof PLANOS
+          const plano = PLANOS[planoId] ?? PLANOS.gratuito
+          const isPago = plano.preco > 0
+          return (
+            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
+              <SectionLabel>Minha assinatura</SectionLabel>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>{plano.nome}</span>
+                    <span style={{
+                      fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 8px',
+                      background: isPago ? '#dcfce7' : '#f3f4f6',
+                      color: isPago ? '#166534' : '#6b7280',
+                    }}>
+                      {isPago ? `R$${plano.preco}/mês` : 'Gratuito'}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#888' }}>{plano.descricao}</p>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {isPago ? (
+                    <button
+                      onClick={handlePortal}
+                      disabled={portalLoading}
+                      style={{
+                        background: '#fff', color: '#111',
+                        border: '1.5px solid #111', borderRadius: 4,
+                        padding: '8px 16px', fontSize: 13, fontWeight: 500,
+                        cursor: portalLoading ? 'not-allowed' : 'pointer',
+                        opacity: portalLoading ? 0.7 : 1,
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      {portalLoading && (
+                        <span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid #111', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                      )}
+                      Gerenciar assinatura
+                    </button>
+                  ) : (
+                    <Link
+                      href="/planos"
+                      style={{
+                        display: 'inline-block',
+                        background: '#FFE000', color: '#111',
+                        border: '1.5px solid #111', borderRadius: 4,
+                        padding: '8px 16px', fontSize: 13, fontWeight: 500,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Ver planos →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Trilhas do Strava */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>

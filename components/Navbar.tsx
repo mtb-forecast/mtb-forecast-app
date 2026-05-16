@@ -63,6 +63,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },
     { href: '/trilhas', label: 'Trilhas' },
+    { href: '/planos', label: 'Planos' },
     { href: '/perfil', label: 'Perfil' },
     ...(!loadingProfile && profile?.is_admin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
