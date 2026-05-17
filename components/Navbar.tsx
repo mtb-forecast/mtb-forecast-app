@@ -57,7 +57,6 @@ export default function Navbar() {
     router.refresh()
   }
 
-  // Hide on landing and auth pages (they have their own headers)
   if (!pathname || pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/cadastro') || pathname.startsWith('/t/')) return null
 
   const navLinks = [
@@ -71,108 +70,164 @@ export default function Navbar() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
-    <nav style={{
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-      background: '#fff',
-      borderBottom: '1px solid #e5e5e5',
-      height: 56,
-    }}>
-      <div style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '0 32px',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
-        {/* Logo */}
-        <Link
-          href={isLoggedIn ? '/dashboard' : '/'}
-          className="font-wheat text-sm md:text-lg"
-          style={{ letterSpacing: '0.5px', color: '#111' }}
-        >
-          MTB FORECASTER
-        </Link>
+    <>
+      <style>{`
+        body { padding-top: 56px; }
 
-        {/* Desktop links */}
-        <div className="hidden sm:flex" style={{ alignItems: 'center', gap: 24 }}>
-          {isLoggedIn ? (
-            <>
-              {navLinks.map(link => (
+        .nb-link {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #999;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding-bottom: 2px;
+          border-bottom: 2px solid transparent;
+          transition: color 0.15s, border-color 0.15s;
+        }
+        .nb-link:hover { color: #fff; }
+        .nb-link.active { color: #fff; border-bottom-color: #FFE000; }
+
+        .nb-btn {
+          background: none;
+          border: none;
+          font-size: 0.875rem;
+          font-weight: 500;
+          font-family: inherit;
+          color: #999;
+          cursor: pointer;
+          padding: 0;
+          transition: color 0.15s;
+        }
+        .nb-btn:hover { color: #fff; }
+
+        .nb-mobile-link {
+          font-size: 0.9375rem;
+          font-weight: 500;
+          color: #999;
+          text-decoration: none;
+          padding: 14px 0;
+          border-bottom: 1px solid #2A2A2A;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: color 0.15s;
+        }
+        .nb-mobile-link:hover { color: #fff; }
+        .nb-mobile-link.active { color: #FFE000; }
+
+        .nb-mobile-menu {
+          overflow: hidden;
+          max-height: 0;
+          opacity: 0;
+          transition: max-height 0.25s ease, opacity 0.2s ease;
+        }
+        .nb-mobile-menu.open {
+          max-height: 480px;
+          opacity: 1;
+        }
+      `}</style>
+
+      <nav style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        background: '#1A1A1A',
+        height: 56,
+        borderBottom: '1px solid #2A2A2A',
+      }}>
+        <div style={{
+          maxWidth: 1200,
+          margin: '0 auto',
+          padding: '0 32px',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+
+          {/* Logo */}
+          <Link
+            href={isLoggedIn ? '/dashboard' : '/'}
+            style={{
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              fontSize: '0.9375rem',
+              color: '#fff',
+              textDecoration: 'none',
+            }}
+          >
+            MTB FORECASTER
+          </Link>
+
+          {/* Desktop links */}
+          <div className="hidden sm:flex" style={{ alignItems: 'center', gap: 32 }}>
+            {isLoggedIn ? (
+              <>
+                {navLinks.map(link => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`nb-link${isActive(link.href) ? ' active' : ''}`}
+                  >
+                    {link.label}
+                    {link.href === '/admin' && pendingApprovals > 0 && (
+                      <span style={{
+                        background: '#ef4444', color: '#fff',
+                        borderRadius: 10, fontSize: 10, fontWeight: 700,
+                        padding: '1px 6px', lineHeight: 1.4,
+                      }}>
+                        {pendingApprovals}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+                <button className="nb-btn" onClick={handleLogout}>
+                  Sair
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="nb-link">Entrar</Link>
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  href="/cadastro"
                   style={{
-                    fontSize: 13,
-                    color: isActive(link.href) ? '#111' : '#888',
-                    fontWeight: isActive(link.href) ? 500 : 400,
-                    borderBottom: isActive(link.href) ? '2px solid #FFE000' : 'none',
-                    paddingBottom: isActive(link.href) ? 2 : 0,
-                    transition: 'color 0.15s',
-                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: '#FFE000', color: '#111',
+                    borderRadius: 4, padding: '6px 16px',
+                    fontSize: '0.875rem', fontWeight: 600,
+                    textDecoration: 'none',
                   }}
                 >
-                  {link.label}
-                  {link.href === '/admin' && pendingApprovals > 0 && (
-                    <span style={{
-                      background: '#ef4444', color: '#fff',
-                      borderRadius: 10, fontSize: 10, fontWeight: 700,
-                      padding: '1px 6px', lineHeight: 1.4,
-                    }}>
-                      {pendingApprovals}
-                    </span>
-                  )}
+                  Criar conta
                 </Link>
-              ))}
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: 'none', border: 'none',
-                  color: '#888', fontSize: 13, cursor: 'pointer',
-                }}
-              >
-                Sair
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" style={{ fontSize: 13, color: '#888' }}>Entrar</Link>
-              <Link
-                href="/cadastro"
-                style={{
-                  background: '#FFE000', color: '#111',
-                  border: '1.5px solid #111', borderRadius: 4,
-                  padding: '7px 16px', fontSize: 13, fontWeight: 500,
-                }}
-              >
-                Criar conta
-              </Link>
-            </>
-          )}
+              </>
+            )}
+          </div>
+
+          {/* Mobile hamburger */}
+          <button
+            className="sm:hidden"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}
+            aria-label="Menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+              {isMenuOpen
+                ? <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
+                : <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />}
+            </svg>
+          </button>
         </div>
 
-        {/* Mobile hamburger */}
-        <button
-          className="sm:hidden"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}
-          aria-label="Menu"
+        {/* Mobile menu */}
+        <div
+          className={`sm:hidden nb-mobile-menu${isMenuOpen ? ' open' : ''}`}
+          style={{ background: '#1A1A1A', borderTop: '1px solid #2A2A2A' }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2">
-            {isMenuOpen
-              ? <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
-              : <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />}
-          </svg>
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      {isMenuOpen && (
-        <div className="sm:hidden" style={{ background: '#111', borderTop: '1px solid #222' }}>
-          <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ padding: '0 24px 16px' }}>
             {isLoggedIn ? (
               <>
                 {navLinks.map(link => (
@@ -180,14 +235,7 @@ export default function Navbar() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setIsMenuOpen(false)}
-                    style={{
-                      color: isActive(link.href) ? '#FFE000' : '#fff',
-                      fontSize: 14,
-                      fontWeight: isActive(link.href) ? 500 : 400,
-                      padding: '10px 0',
-                      borderBottom: '1px solid #222',
-                      display: 'flex', alignItems: 'center', gap: 8,
-                    }}
+                    className={`nb-mobile-link${isActive(link.href) ? ' active' : ''}`}
                   >
                     {link.label}
                     {link.href === '/admin' && pendingApprovals > 0 && (
@@ -205,8 +253,9 @@ export default function Navbar() {
                   onClick={handleLogout}
                   style={{
                     background: 'none', border: 'none',
-                    color: '#888', fontSize: 14,
-                    textAlign: 'left', padding: '10px 0', cursor: 'pointer',
+                    color: '#999', fontSize: '0.9375rem', fontWeight: 500,
+                    fontFamily: 'inherit', textAlign: 'left',
+                    padding: '14px 0', cursor: 'pointer', width: '100%',
                   }}
                 >
                   Sair da conta
@@ -217,7 +266,7 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   onClick={() => setIsMenuOpen(false)}
-                  style={{ color: '#888', fontSize: 14, padding: '10px 0', borderBottom: '1px solid #222' }}
+                  className="nb-mobile-link"
                 >
                   Entrar
                 </Link>
@@ -226,9 +275,10 @@ export default function Navbar() {
                   onClick={() => setIsMenuOpen(false)}
                   style={{
                     background: '#FFE000', color: '#111',
-                    fontSize: 14, fontWeight: 500,
+                    fontSize: '0.9375rem', fontWeight: 600,
                     padding: '10px 16px', borderRadius: 4,
-                    textAlign: 'center', marginTop: 10,
+                    textAlign: 'center', marginTop: 12,
+                    display: 'block', textDecoration: 'none',
                   }}
                 >
                   Criar conta grátis
@@ -237,7 +287,7 @@ export default function Navbar() {
             )}
           </div>
         </div>
-      )}
-    </nav>
+      </nav>
+    </>
   )
 }
