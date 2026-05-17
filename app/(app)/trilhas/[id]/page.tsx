@@ -1,5 +1,6 @@
 'use client'
 
+import { Barlow_Condensed } from 'next/font/google'
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
@@ -7,7 +8,7 @@ import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import {
   Trilha, Condicao,
-  VEREDICTO_CONFIG, ADERENCIA_CONFIG, ADERENCIA_FRASE,
+  VEREDICTO_CONFIG,
 } from '@/lib/types'
 import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
@@ -16,6 +17,8 @@ import CondicaoCard from '@/components/CondicaoCard'
 const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
 type TrilhaDetalhada = Trilha & { condicoes?: Condicao[] }
+
+const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -171,8 +174,6 @@ export default function TrilhaDetalhe() {
 
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg   = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-  const acfg   = c?.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
-  const fraseStyle = ADERENCIA_FRASE[c?.aderencia_status ?? ''] ?? { bg: '#f7f7f5', border: '#e5e5e5' }
   const borderCor = isTrilhaPessoal ? '#FC4C02' : (vcfg?.cor ?? '#e5e5e5')
 
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
@@ -221,8 +222,8 @@ export default function TrilhaDetalhe() {
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
 
-      {/* ── Page header preto ─────────────────────────────────────────── */}
-      <div className="page-header" style={{ background: '#111', padding: '40px 32px' }}>
+      {/* ── Page header grafite ─────────────────────────────────────────── */}
+      <div className="page-header" style={{ background: '#1A1A1A', padding: '40px 32px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
           {/* Voltar */}
@@ -233,9 +234,14 @@ export default function TrilhaDetalhe() {
             ← Voltar para trilhas
           </Link>
 
-          {/* Nome + ação */}
+          {/* Nome + ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <h1 className="font-wheat trilha-nome" style={{ color: '#fff', fontSize: 28, lineHeight: 1.2, flex: 1 }}>
+            <h1 style={{
+              fontFamily: barlow.style.fontFamily,
+              fontSize: 36, fontWeight: 800,
+              textTransform: 'uppercase',
+              color: '#FFFFFF', lineHeight: 1.1, flex: 1, margin: 0,
+            }}>
               {trilha.name}
             </h1>
             <div className="trilha-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -280,81 +286,93 @@ export default function TrilhaDetalhe() {
             </div>
           </div>
 
-          {/* Tags */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+          {/* a) Tags */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
             {isTrilhaPessoal && (
-              <span style={{ fontSize: 11, fontWeight: 500, color: '#FC4C02', background: 'rgba(252,76,2,0.15)', borderRadius: 2, padding: '2px 6px' }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#FC4C02', background: 'rgba(252,76,2,0.15)', borderRadius: 999, padding: '2px 10px' }}>
                 Strava
               </span>
             )}
-            <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
+            <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
               {trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
             </span>
-            <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
+            <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
               {trilha.regiao}
             </span>
             {trilha.bioma && (
-              <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
+              <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
                 {trilha.bioma}
               </span>
             )}
             {isQuadrilatero && (
-              <span style={{ fontSize: 11, fontWeight: 500, color: '#FFE000', background: 'rgba(255,224,0,0.12)', border: '0.5px solid rgba(255,224,0,0.3)', borderRadius: 2, padding: '2px 6px' }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#FFE000', background: 'rgba(255,224,0,0.12)', borderRadius: 999, padding: '2px 10px' }}>
                 ⛏ Quadrilátero Ferrífero
               </span>
             )}
           </div>
 
-          {/* Dados físicos */}
-          {(trilha.desnivel_m != null || trilha.extensao_km != null) && (
-            <div className="dados-fisicos" style={{ fontSize: 12, color: '#888', marginTop: 10, display: 'flex', gap: 16 }}>
-              {trilha.desnivel_m != null && trilha.extensao_km != null && (
-                <>
-                  <span>⛰ <b style={{ color: '#ccc' }}>{trilha.desnivel_m}m</b> desnível</span>
-                  <span>📏 <b style={{ color: '#ccc' }}>{trilha.extensao_km}km</b></span>
-                </>
-              )}
+          {/* b) Dados físicos */}
+          {(trilha.desnivel_m != null || trilha.extensao_km != null || (clay != null && c?.texture_class)) && (
+            <div className="dados-fisicos" style={{ fontSize: 13, color: '#9CA3AF', marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {trilha.desnivel_m != null && <span>⛰ {trilha.desnivel_m}m desnível</span>}
+              {trilha.extensao_km != null && <span>📏 {trilha.extensao_km}km</span>}
               {clay != null && c?.texture_class && (
-                <span>
-                  🪨 <b style={{ color: '#ccc' }}>{c.texture_class}</b>
-                  <span style={{ color: '#666' }}> (arg {clay}% · ar {c?.sand_pct ?? '?'}%)</span>
+                <span>🪨 {c.texture_class} (arg {clay}% · ar {c?.sand_pct ?? '?'}%)</span>
+              )}
+            </div>
+          )}
+
+          {/* c) Condição atual */}
+          {c && (veredictoText || c.aderencia_status) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Agora:
+              </span>
+              {veredictoText && vcfg && (
+                <span style={{
+                  background: (vcfg.cor ?? '#D1D5DB') + '26',
+                  color: vcfg.cor ?? '#D1D5DB',
+                  borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '3px 9px',
+                }}>
+                  {vcfg.emoji} {veredictoText}
+                </span>
+              )}
+              {c.aderencia_status && (
+                <span style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  color: '#D1D5DB',
+                  borderRadius: 6, fontSize: '0.7rem', fontWeight: 500, padding: '3px 9px',
+                }}>
+                  {c.aderencia_status}
                 </span>
               )}
             </div>
           )}
 
-          {/* Aderência + veredicto (3 linhas como no email) */}
-          {c && (
-            <div className="trilha-aderencia-block" style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 14 }}>
-              {acfg && (
-                <div style={{ fontSize: 13, color: '#999' }}>
-                  ADERÊNCIA ATUAL:&nbsp;
-                  <span style={{ color: acfg.cor, fontWeight: 700 }}>{acfg.emoji} {c.aderencia_status}</span>
-                </div>
-              )}
-              {c.aderencia_futura_status && c.aderencia_futura_label && (() => {
-                const afcfg = ADERENCIA_CONFIG[c.aderencia_futura_status!] ?? null
-                const _sev: Record<string, number> = { 'SECO': 0, 'GRIP PERFEITO': 1, 'BOA ADERÊNCIA': 2, 'BAIXA ADERÊNCIA': 3 }
-                const futPior = (_sev[c.aderencia_futura_status!] ?? 0) > (_sev[c.aderencia_status] ?? 0)
-                return (
-                  <div style={{ fontSize: 13, color: '#999' }}>
-                    ADERÊNCIA {c.aderencia_futura_label}:&nbsp;
-                    {afcfg && <span style={{ color: afcfg.cor, fontWeight: 700 }}>{afcfg.emoji} {c.aderencia_futura_status}</span>}
-                    {futPior && c.aderencia_futura_rain != null && c.aderencia_futura_rain > 0
-                      ? <span style={{ color: '#666', fontSize: 11 }}> ({c.aderencia_futura_rain.toFixed(1)}mm previstos)</span>
-                      : <span style={{ color: '#555', fontSize: 11 }}> — estável</span>}
-                  </div>
-                )
-              })()}
-              {vcfg && (
-                <div style={{ fontSize: 14 }}>
-                  <span style={{ color: vcfg.cor, fontWeight: 700 }}>{vcfg.emoji} {veredictoText}</span>
-                  {c.texto_dinamico && <span style={{ color: '#aaa', fontSize: 12 }}> — {c.texto_dinamico}</span>}
-                </div>
-              )}
-              <span style={{ fontSize: 11, color: '#555', marginTop: 2 }}>HOJE 12h</span>
+          {/* d) Alerta futuro */}
+          {c?.aderencia_futura_status && c.aderencia_futura_label &&
+           c.aderencia_futura_status !== c.aderencia_status && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, color: '#FCD34D' }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 13 }} />
+              <span>
+                Previsão {c.aderencia_futura_label}: {c.aderencia_futura_status}
+                {c.aderencia_futura_rain != null && c.aderencia_futura_rain > 0
+                  ? ` (${c.aderencia_futura_rain.toFixed(1)}mm)`
+                  : ''}
+              </span>
             </div>
           )}
+
+          {/* e) Texto dinâmico */}
+          {c?.texto_dinamico && (
+            <p style={{
+              fontSize: 13, color: '#9CA3AF', margin: '10px 0 0',
+              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+            }}>
+              {c.texto_dinamico}
+            </p>
+          )}
+
         </div>
       </div>
 
