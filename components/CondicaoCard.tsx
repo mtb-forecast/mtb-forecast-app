@@ -136,6 +136,44 @@ export default function CondicaoCard({ condicao }: Props) {
           </span>
         </div>
 
+        {/* Texto dinâmico completo (ou frase_secagem como fallback) */}
+        {(condicao.texto_dinamico || condicao.frase_secagem) && (
+          <div style={{
+            background: '#F9FAFB',
+            borderLeft: '3px solid #E5E7EB',
+            borderRadius: 10,
+            padding: '12px 14px',
+            fontSize: 13, color: '#374151', lineHeight: 1.75,
+          }}>
+            {condicao.texto_dinamico ?? condicao.frase_secagem}
+          </div>
+        )}
+
+        {/* Alerta futuro */}
+        {condicao.aderencia_futura_status && condicao.aderencia_futura_label &&
+         condicao.aderencia_futura_status !== condicao.aderencia_status && (
+          <div style={{
+            background: '#FFFBEB',
+            borderLeft: '3px solid #F59E0B',
+            borderRadius: 8,
+            padding: '8px 12px',
+            display: 'flex', flexDirection: 'column', gap: 3,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E' }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#F59E0B' }} />
+              <span>
+                Previsão {condicao.aderencia_futura_label}: {condicao.aderencia_futura_status}
+                {condicao.aderencia_futura_rain != null && condicao.aderencia_futura_rain > 0
+                  ? ` (${condicao.aderencia_futura_rain.toFixed(1)}mm previstos)`
+                  : ''}
+              </span>
+            </div>
+            <span style={{ fontSize: 11, color: '#B45309', paddingLeft: 19 }}>
+              Evite a trilha neste período.
+            </span>
+          </div>
+        )}
+
         {/* Barra gradiente — Caminho para Grip Perfeito */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -242,13 +280,6 @@ export default function CondicaoCard({ condicao }: Props) {
 
         {/* Divisor */}
         <div style={{ borderTop: '0.5px solid #E5E7EB' }} />
-
-        {/* Frase de secagem */}
-        {condicao.frase_secagem && (
-          <p style={{ fontStyle: 'italic', fontSize: 12, color: '#555555', lineHeight: 1.7, margin: 0 }}>
-            {condicao.frase_secagem}
-          </p>
-        )}
 
         {/* Janela de pedal */}
         {condicao.janela ? (
