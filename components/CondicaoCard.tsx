@@ -72,9 +72,11 @@ function MetricCell({ label, icon, value, color = '#111111' }: {
 export default function CondicaoCard({ condicao }: Props) {
   const badge    = verdictBadge(condicao.veredicto)
   const janela   = janelaStyle(condicao.veredicto)
-  const sc       = scoreColor(condicao.aderencia_score)
+  const score    = condicao.aderencia_score ?? 0
+  const sc       = scoreColor(score)
   const windKmh  = condicao.wind_ms * 3.6
   const showPico = condicao.pico_3h != null && condicao.pico_3h >= 3
+  const showInc  = condicao.inclinacao != null && condicao.inclinacao !== 0
 
   return (
     <div style={{
@@ -124,12 +126,12 @@ export default function CondicaoCard({ condicao }: Props) {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={{ fontSize: 11, color: '#9CA3AF' }}>Aderência do solo</span>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{condicao.aderencia_score} / 100</span>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{score} / 100</span>
           </div>
           <div style={{ height: 6, background: '#F3F4F6', borderRadius: 999 }}>
             <div style={{
               height: '100%',
-              width: `${condicao.aderencia_score}%`,
+              width: `${score}%`,
               background: sc,
               borderRadius: 999,
               transition: 'width 0.4s ease',
@@ -193,6 +195,14 @@ export default function CondicaoCard({ condicao }: Props) {
               color="#6B7280"
             />
           )}
+          {showInc && (
+            <MetricCell
+              label="Inclinação"
+              icon="ti-trending-up"
+              value={`${condicao.inclinacao}%`}
+              color="#6B7280"
+            />
+          )}
         </div>
 
         {/* Divisor */}
@@ -208,11 +218,19 @@ export default function CondicaoCard({ condicao }: Props) {
         {/* Janela de pedal */}
         {condicao.janela ? (
           <div style={{
-            background: janela.bg, borderRadius: 8, padding: '6px 12px',
-            fontSize: 12, display: 'flex', alignItems: 'center', gap: 6,
+            background: janela.bg, borderRadius: 8, padding: '8px 12px',
+            display: 'flex', flexDirection: 'column', gap: 4,
           }}>
-            <i className="ti ti-clock" style={{ fontSize: 13, color: janela.color }} />
-            <span style={{ color: janela.color }}>{condicao.janela}</span>
+            <span style={{
+              fontSize: 11, color: '#9CA3AF',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
+              Melhor janela
+            </span>
+            <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <i className="ti ti-clock" style={{ fontSize: 13, color: janela.color }} />
+              <span style={{ color: janela.color }}>{condicao.janela}</span>
+            </div>
           </div>
         ) : (
           <div style={{
