@@ -22,12 +22,6 @@ function scoreColor(score: number): string {
   return '#EF4444'
 }
 
-function rainColor(mm: number): string {
-  if (mm === 0)  return '#22C55E'
-  if (mm <= 5)   return '#F59E0B'
-  return '#EF4444'
-}
-
 function peakColor(mm: number): string {
   if (mm < 5)   return '#22C55E'
   if (mm <= 10) return '#F59E0B'
@@ -55,11 +49,11 @@ const metricLabel: React.CSSProperties = {
   letterSpacing: '0.04em', marginBottom: 3,
 }
 
-function MetricCell({ label, icon, value, color = '#111111' }: {
-  label: string; icon: string; value: string; color?: string
+function MetricCell({ label, icon, value, color = '#111111', tooltip }: {
+  label: string; icon: string; value: string; color?: string; tooltip?: string
 }) {
   return (
-    <div style={metricBox}>
+    <div style={metricBox} title={tooltip}>
       <div style={metricLabel}>{label}</div>
       <div style={{ fontSize: 13, fontWeight: 500, color, display: 'flex', alignItems: 'center', gap: 4 }}>
         <i className={`ti ${icon}`} style={{ fontSize: 14 }} />
@@ -142,49 +136,49 @@ export default function CondicaoCard({ condicao }: Props) {
         {/* Grid de métricas */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
           <MetricCell
-            label="Chuva agora"
-            icon="ti-droplet"
-            value={`${condicao.rain_mm.toFixed(1)}mm`}
-            color={rainColor(condicao.rain_mm)}
-          />
-          {showPico && (
-            <MetricCell
-              label="Pico 3h"
-              icon="ti-droplet-half"
-              value={`${condicao.pico_3h.toFixed(1)}mm`}
-              color={peakColor(condicao.pico_3h)}
-            />
-          )}
-          <MetricCell
-            label="Acúmulo 48h"
+            label="Chuva 48h"
             icon="ti-droplet"
             value={`${condicao.acumulo_48h.toFixed(1)}mm`}
             color={accumColor(condicao.acumulo_48h)}
+            tooltip="Chuva acumulada histórica nas últimas 48h"
           />
+          {showPico && (
+            <MetricCell
+              label="Pico de chuva"
+              icon="ti-droplet-half"
+              value={`${condicao.pico_3h.toFixed(1)}mm`}
+              color={peakColor(condicao.pico_3h)}
+              tooltip="Maior acumulado em janela de 3h na previsão"
+            />
+          )}
           <MetricCell
-            label="Acúmulo ef."
+            label="Umidade retida"
             icon="ti-calculator"
             value={`${condicao.acumulo_ef.toFixed(1)}mm`}
             color={accumColor(condicao.acumulo_ef)}
+            tooltip="Chuva das últimas 48h com decaimento por hora — representa o quanto o solo ainda retém"
           />
           <MetricCell
-            label="Meia-vida"
+            label="Trilha seca em"
             icon="ti-clock"
             value={`${condicao.meia_vida_h}h`}
             color="#6B7280"
+            tooltip="Tempo estimado para o solo atingir condição ideal de secagem"
           />
           <MetricCell
-            label="Vento"
+            label="Vento máx. 48h"
             icon="ti-wind"
             value={`${windKmh.toFixed(1)} km/h`}
             color={windColor(windKmh)}
+            tooltip="Velocidade máxima de vento sustentado prevista nas próximas 48h"
           />
           {condicao.gust_max_kmh != null && (
             <MetricCell
-              label="Rajada máx."
+              label="Rajada máx. 48h"
               icon="ti-wind"
               value={`${condicao.gust_max_kmh.toFixed(0)} km/h`}
               color={windColor(condicao.gust_max_kmh)}
+              tooltip="Rajada máxima prevista nas próximas 48h"
             />
           )}
           {condicao.ultima_chuva_h != null && (
@@ -193,6 +187,7 @@ export default function CondicaoCard({ condicao }: Props) {
               icon="ti-history"
               value={`${condicao.ultima_chuva_h}h atrás`}
               color="#6B7280"
+              tooltip="Horas desde a última precipitação registrada"
             />
           )}
           {showInc && (
@@ -201,6 +196,7 @@ export default function CondicaoCard({ condicao }: Props) {
               icon="ti-trending-up"
               value={`${condicao.inclinacao}%`}
               color="#6B7280"
+              tooltip="Inclinação média da trilha"
             />
           )}
         </div>
@@ -222,7 +218,7 @@ export default function CondicaoCard({ condicao }: Props) {
             display: 'flex', flexDirection: 'column', gap: 4,
           }}>
             <span style={{
-              fontSize: 11, color: '#9CA3AF',
+              fontSize: 10, color: '#9CA3AF',
               textTransform: 'uppercase', letterSpacing: '0.04em',
             }}>
               Melhor janela
