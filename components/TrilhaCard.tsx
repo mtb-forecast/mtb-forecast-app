@@ -120,7 +120,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
                   background: '#F3F4F6', color: '#6B7280',
                   borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
                 }}>
-                  {acfg?.emoji} {c.aderencia_status}
+                  {c.aderencia_status}
                 </span>
               )}
               {veredictoText && vcfg && (
@@ -162,7 +162,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
                 <div style={metricLabel}>Vento</div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: windColor(c.wind_ms), display: 'flex', alignItems: 'center', gap: 4 }}>
                   <i className="ti ti-wind" style={{ fontSize: 14 }} />
-                  {c.wind_ms?.toFixed(1) ?? '—'}m/s
+                  {c.wind_ms != null ? (c.wind_ms * 3.6).toFixed(1) : '—'} km/h
                 </div>
               </div>
             </div>
