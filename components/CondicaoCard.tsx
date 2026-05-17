@@ -1,77 +1,229 @@
-import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
+import { Condicao } from '@/lib/types'
 
 type Props = {
   condicao: Condicao
 }
 
-function Metric({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
+function verdictBadge(veredicto: string): { bg: string; color: string } {
+  if (veredicto.trim() === 'DROP LIBERADO') return { bg: '#DCFCE7', color: '#15803D' }
+  if (veredicto.includes('MELHOR ESPERAR'))  return { bg: '#FEE2E2', color: '#B91C1C' }
+  return { bg: '#FEF9C3', color: '#A16207' }
+}
+
+function janelaStyle(veredicto: string): { bg: string; color: string } {
+  if (veredicto.trim() === 'DROP LIBERADO') return { bg: '#F0FDF4', color: '#166534' }
+  if (veredicto.includes('MELHOR ESPERAR')) return { bg: '#FEF2F2', color: '#991B1B' }
+  return { bg: '#FFFBEB', color: '#92400E' }
+}
+
+function scoreColor(score: number): string {
+  if (score >= 70) return '#22C55E'
+  if (score >= 40) return '#F59E0B'
+  return '#EF4444'
+}
+
+function rainColor(mm: number): string {
+  if (mm === 0)  return '#22C55E'
+  if (mm <= 5)   return '#F59E0B'
+  return '#EF4444'
+}
+
+function peakColor(mm: number): string {
+  if (mm < 5)   return '#22C55E'
+  if (mm <= 10) return '#F59E0B'
+  return '#EF4444'
+}
+
+function accumColor(mm: number): string {
+  if (mm < 10)  return '#22C55E'
+  if (mm <= 30) return '#F59E0B'
+  return '#EF4444'
+}
+
+function windColor(kmh: number): string {
+  if (kmh < 20)  return '#22C55E'
+  if (kmh <= 40) return '#F59E0B'
+  return '#EF4444'
+}
+
+const metricBox: React.CSSProperties = {
+  background: '#F9FAFB', borderRadius: 10, padding: '8px 10px',
+}
+
+const metricLabel: React.CSSProperties = {
+  fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase',
+  letterSpacing: '0.04em', marginBottom: 3,
+}
+
+function MetricCell({ label, icon, value, color = '#111111' }: {
+  label: string; icon: string; value: string; color?: string
+}) {
   return (
-    <div className="bg-slate-700/60 rounded-lg p-3">
-      <p className="text-xs text-slate-400 mb-1">{label}</p>
-      <p className="text-white font-bold text-sm">
+    <div style={metricBox}>
+      <div style={metricLabel}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 500, color, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <i className={`ti ${icon}`} style={{ fontSize: 14 }} />
         {value}
-        {unit && <span className="text-slate-400 font-normal ml-1">{unit}</span>}
-      </p>
+      </div>
     </div>
   )
 }
 
 export default function CondicaoCard({ condicao }: Props) {
-  const vcfg = VEREDICTO_CONFIG[condicao.veredicto]
+  const badge    = verdictBadge(condicao.veredicto)
+  const janela   = janelaStyle(condicao.veredicto)
+  const sc       = scoreColor(condicao.aderencia_score)
+  const windKmh  = condicao.wind_ms * 3.6
+  const showPico = condicao.pico_3h != null && condicao.pico_3h >= 3
 
   return (
-    <div className={`bg-slate-800 border rounded-xl overflow-hidden ${vcfg?.twBorder || 'border-slate-700'}`}>
-      <div className="px-5 py-3 border-b border-slate-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-300">Condição atual</h3>
-        <span className="text-xs text-slate-500">
+    <div style={{
+      background: '#FFFFFF',
+      borderRadius: 16,
+      border: '0.5px solid #E5E7EB',
+      overflow: 'hidden',
+    }}>
+
+      {/* Header */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '14px 18px 0',
+      }}>
+        <span style={{
+          fontSize: 11, color: '#9CA3AF',
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+        }}>
+          Condição do Solo
+        </span>
+        <span style={{ fontSize: 11, color: '#9CA3AF' }}>
           {new Date(condicao.gerado_em).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
+            day: '2-digit', month: '2-digit',
+            hour: '2-digit', minute: '2-digit',
           })}
         </span>
       </div>
 
-      <div className="p-5">
-        {/* Score visual */}
-        <div className="flex items-center gap-4 mb-5">
-          <div
-            className={`w-16 h-16 rounded-full border-4 flex items-center justify-center flex-shrink-0 ${vcfg?.twBorder || 'border-slate-600'}`}
-          >
-            <span className={`text-xl font-extrabold ${vcfg?.twColor || 'text-white'}`}>
-              {condicao.aderencia_score}
-            </span>
+      {/* Body */}
+      <div style={{ padding: '12px 18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Veredicto + aderência_status */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            background: badge.bg, color: badge.color,
+            fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '4px 12px',
+            flexShrink: 0,
+          }}>
+            {condicao.veredicto}
+          </span>
+          <span style={{ fontSize: 11, color: '#6B7280', textAlign: 'right' }}>
+            {condicao.aderencia_status}
+          </span>
+        </div>
+
+        {/* Barra de progresso */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>Aderência do solo</span>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{condicao.aderencia_score} / 100</span>
           </div>
-          <div>
-            <p className={`text-lg font-bold ${vcfg?.twColor || 'text-white'}`}>{condicao.veredicto}</p>
-            <p className="text-slate-400 text-sm">{condicao.aderencia_status}</p>
+          <div style={{ height: 6, background: '#F3F4F6', borderRadius: 999 }}>
+            <div style={{
+              height: '100%',
+              width: `${condicao.aderencia_score}%`,
+              background: sc,
+              borderRadius: 999,
+              transition: 'width 0.4s ease',
+            }} />
           </div>
         </div>
 
-        {/* Métricas */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
-          <Metric label="Chuva agora" value={condicao.rain_mm.toFixed(1)} unit="mm" />
-          <Metric label="Pico 3h" value={condicao.pico_3h.toFixed(1)} unit="mm" />
-          <Metric label="Acúmulo 48h" value={condicao.acumulo_48h.toFixed(1)} unit="mm" />
-          <Metric label="Acúmulo efetivo" value={condicao.acumulo_ef.toFixed(1)} unit="mm" />
-          <Metric label="Meia-vida secagem" value={condicao.meia_vida_h} unit="h" />
-          <Metric label="Vento" value={condicao.wind_ms.toFixed(1)} unit="m/s" />
-          {condicao.gust_max_kmh && (
-            <Metric label="Rajada máx." value={condicao.gust_max_kmh.toFixed(0)} unit="km/h" />
+        {/* Grid de métricas */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          <MetricCell
+            label="Chuva agora"
+            icon="ti-droplet"
+            value={`${condicao.rain_mm.toFixed(1)}mm`}
+            color={rainColor(condicao.rain_mm)}
+          />
+          {showPico && (
+            <MetricCell
+              label="Pico 3h"
+              icon="ti-droplet-half"
+              value={`${condicao.pico_3h.toFixed(1)}mm`}
+              color={peakColor(condicao.pico_3h)}
+            />
           )}
-          {condicao.ultima_chuva_h !== undefined && condicao.ultima_chuva_h !== null && (
-            <Metric label="Última chuva" value={`${condicao.ultima_chuva_h}h atrás`} />
+          <MetricCell
+            label="Acúmulo 48h"
+            icon="ti-droplet"
+            value={`${condicao.acumulo_48h.toFixed(1)}mm`}
+            color={accumColor(condicao.acumulo_48h)}
+          />
+          <MetricCell
+            label="Acúmulo ef."
+            icon="ti-calculator"
+            value={`${condicao.acumulo_ef.toFixed(1)}mm`}
+            color={accumColor(condicao.acumulo_ef)}
+          />
+          <MetricCell
+            label="Meia-vida"
+            icon="ti-clock"
+            value={`${condicao.meia_vida_h}h`}
+            color="#6B7280"
+          />
+          <MetricCell
+            label="Vento"
+            icon="ti-wind"
+            value={`${windKmh.toFixed(1)} km/h`}
+            color={windColor(windKmh)}
+          />
+          {condicao.gust_max_kmh != null && (
+            <MetricCell
+              label="Rajada máx."
+              icon="ti-wind"
+              value={`${condicao.gust_max_kmh.toFixed(0)} km/h`}
+              color={windColor(condicao.gust_max_kmh)}
+            />
+          )}
+          {condicao.ultima_chuva_h != null && (
+            <MetricCell
+              label="Última chuva"
+              icon="ti-history"
+              value={`${condicao.ultima_chuva_h}h atrás`}
+              color="#6B7280"
+            />
           )}
         </div>
 
-        {/* Frase e janela */}
-        <div className="bg-slate-700/40 rounded-lg p-4">
-          <p className="text-slate-300 text-sm mb-2">{condicao.frase_secagem}</p>
-          <p className="text-xs text-slate-500">
-            Janela recomendada: <span className="text-slate-300 font-medium">{condicao.janela}</span>
+        {/* Divisor */}
+        <div style={{ borderTop: '0.5px solid #E5E7EB' }} />
+
+        {/* Frase de secagem */}
+        {condicao.frase_secagem && (
+          <p style={{ fontStyle: 'italic', fontSize: 12, color: '#555555', lineHeight: 1.7, margin: 0 }}>
+            {condicao.frase_secagem}
           </p>
-        </div>
+        )}
+
+        {/* Janela de pedal */}
+        {condicao.janela ? (
+          <div style={{
+            background: janela.bg, borderRadius: 8, padding: '6px 12px',
+            fontSize: 12, display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <i className="ti ti-clock" style={{ fontSize: 13, color: janela.color }} />
+            <span style={{ color: janela.color }}>{condicao.janela}</span>
+          </div>
+        ) : (
+          <div style={{
+            background: '#F9FAFB', borderRadius: 8, padding: '6px 12px',
+            fontSize: 12, display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#9CA3AF' }} />
+            <span style={{ color: '#9CA3AF' }}>Sem janela definida</span>
+          </div>
+        )}
+
       </div>
     </div>
   )
