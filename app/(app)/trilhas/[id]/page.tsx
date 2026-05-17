@@ -11,6 +11,7 @@ import {
 } from '@/lib/types'
 import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
+import CondicaoCard from '@/components/CondicaoCard'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
@@ -409,36 +410,8 @@ export default function TrilhaDetalhe() {
 
         {/* ── Card: Condição do Solo ──────────────────────────────────── */}
         {c && (
-          <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
-            <SectionLabel>Condição do Solo</SectionLabel>
-
-            {c.frase_secagem && (
-              <div style={{ background: fraseStyle.bg, borderLeft: `3px solid ${fraseStyle.border}`, borderRadius: '0 4px 4px 0', padding: '8px 12px', fontSize: 13, color: '#374151', lineHeight: 1.5, marginBottom: 12 }}>
-                {c.frase_secagem}
-              </div>
-            )}
-
-            <div style={{ fontSize: 12, color: '#888', lineHeight: 2 }}>
-              <div>🕰 Chuva 48h: <b style={{ color: '#111' }}>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b> bruto · efetivo: <b style={{ color: '#111' }}>{c.acumulo_ef?.toFixed(1) ?? '—'}mm</b>
-                {' '}
-                {c.solo_descansado === true
-                  ? <span style={{ color: '#22c55e', fontWeight: 600 }}>solo descansado 🟢</span>
-                  : c.solo_descansado === false
-                  ? <span style={{ color: '#f97316', fontWeight: 600 }}>solo já úmido 🟠</span>
-                  : null}
-              </div>
-              <div>
-                {c.ultima_chuva_h != null
-                  ? <>⏱ Última chuva <b style={{ color: '#111' }}>{Math.round(c.ultima_chuva_h)}h</b> atrás</>
-                  : '☀️ Sem chuva recente'}
-                {' · '}⏳ meia-vida: <b style={{ color: '#111' }}>{c.meia_vida_h ?? '—'}h</b>
-              </div>
-              {trilha.desnivel_m != null && trilha.extensao_km != null && c.inclinacao != null && (
-                <div>
-                  📐 Inclinação média: <b style={{ color: inclinacaoCor(c.inclinacao) }}>{c.inclinacao}%</b>
-                </div>
-              )}
-            </div>
+          <div style={{ marginBottom: 12 }}>
+            <CondicaoCard condicao={c} />
           </div>
         )}
 
