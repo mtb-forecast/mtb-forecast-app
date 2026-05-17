@@ -16,12 +16,6 @@ function janelaStyle(veredicto: string): { bg: string; color: string } {
   return { bg: '#FFFBEB', color: '#92400E' }
 }
 
-function scoreColor(score: number): string {
-  if (score === 0) return '#D1D5DB'
-  if (score >= 70) return '#22C55E'
-  if (score >= 40) return '#F59E0B'
-  return '#EF4444'
-}
 
 function peakColor(mm: number): string {
   if (mm < 5)   return '#22C55E'
@@ -67,11 +61,36 @@ function MetricCell({ label, icon, value, color = '#111111', tooltip }: {
 export default function CondicaoCard({ condicao }: Props) {
   const badge    = verdictBadge(condicao.veredicto)
   const janela   = janelaStyle(condicao.veredicto)
-  const score    = condicao.aderencia_score ?? 0
-  const sc       = scoreColor(score)
   const windKmh  = condicao.wind_ms * 3.6
   const showPico = condicao.pico_3h != null && condicao.pico_3h >= 3
   const showInc  = condicao.inclinacao != null && condicao.inclinacao !== 0
+
+  // Barra gradiente — caminho para Grip Perfeito
+  const GRIP_THRESHOLD = 5.0
+  const efetivo = (condicao.acumulo_ef ?? 0) + (condicao.pico_3h ?? 0)
+
+  let progresso = 100
+  let horasRestantes = 0
+
+  if (efetivo >= GRIP_THRESHOLD && condicao.meia_vida_h > 0) {
+    horasRestantes = Math.max(0,
+      condicao.meia_vida_h * Math.log2(efetivo / GRIP_THRESHOLD)
+    )
+    const maxEfetivo = Math.max(efetivo, condicao.thresh_desc ?? efetivo)
+    progresso = Math.max(0, Math.min(100,
+      ((maxEfetivo - efetivo) / (maxEfetivo - GRIP_THRESHOLD)) * 100
+    ))
+  }
+
+  const indicatorColor = progresso >= 80 ? '#22C55E' : progresso >= 50 ? '#F59E0B' : '#EF4444'
+  const labelColor = indicatorColor
+
+  function formatHoras(h: number): string {
+    if (h < 24) return `~${Math.round(h)}h restantes`
+    const dias = Math.floor(h / 24)
+    const hrs  = Math.round(h % 24)
+    return `~${dias}d ${hrs}h restantes`
+  }
 
   return (
     <div style={{
@@ -117,22 +136,38 @@ export default function CondicaoCard({ condicao }: Props) {
           </span>
         </div>
 
-        {/* Barra de progresso */}
+        {/* Barra gradiente — Caminho para Grip Perfeito */}
         <div>
-          <div
-            style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}
-            title="Mede o impacto acumulado da chuva no solo. Um score alto com veredicto restritivo indica outros fatores de risco como vento ou pico de precipitação."
-          >
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>Score de impacto da chuva</span>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{score} / 100</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span
+              style={{ fontSize: 11, color: '#9CA3AF', cursor: 'default' }}
+              title="Estimativa baseada na umidade retida, pico de chuva e velocidade de secagem do solo."
+            >
+              Caminho para Grip Perfeito
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 500, color: labelColor }}>
+              {progresso >= 100 || efetivo < GRIP_THRESHOLD
+                ? 'Grip Perfeito ✓'
+                : horasRestantes < 24
+                  ? `~${Math.round(horasRestantes)}h restantes`
+                  : formatHoras(horasRestantes)
+              }
+            </span>
           </div>
-          <div style={{ height: 6, background: '#F3F4F6', borderRadius: 999 }}>
+          <div style={{
+            height: 8, borderRadius: 999, position: 'relative',
+            background: 'linear-gradient(to right, #EF4444 0%, #F59E0B 50%, #22C55E 100%)',
+          }}>
             <div style={{
-              height: '100%',
-              width: `${score}%`,
-              background: sc,
-              borderRadius: 999,
-              transition: 'width 0.4s ease',
+              position: 'absolute',
+              left: `${progresso}%`,
+              top: -3,
+              transform: 'translateX(-50%)',
+              width: 14, height: 14,
+              borderRadius: '50%',
+              background: '#FFFFFF',
+              border: `2px solid ${indicatorColor}`,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
             }} />
           </div>
         </div>
