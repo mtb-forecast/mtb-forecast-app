@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Barlow_Condensed } from 'next/font/google'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao, Profile, VEREDICTO_CONFIG, ADERENCIA_CONFIG } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
+
+const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 type CondicaoPessoal = {
   aderencia_status: string | null
@@ -53,7 +56,55 @@ const RANKING_ADERENCIA: Record<string, number> = {
   'BAIXA ADERÊNCIA': 3,
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── cores Strava card ─────────────────────────────────────────────────────────
+
+const STRAVA_ACCENT: Record<string, string> = {
+  'DROP LIBERADO':                   '#22C55E',
+  'DROP LIBERADO - Veja os alertas': '#F59E0B',
+  'MELHOR ESPERAR':                  '#EF4444',
+}
+
+const STRAVA_JANELA_BG: Record<string, { bg: string; color: string }> = {
+  'DROP LIBERADO':                   { bg: '#F0FDF4', color: '#166534' },
+  'DROP LIBERADO - Veja os alertas': { bg: '#FFFBEB', color: '#92400E' },
+  'MELHOR ESPERAR':                  { bg: '#FEF2F2', color: '#991B1B' },
+}
+
+function rainClr(mm: number | null | undefined): string {
+  if (mm == null) return '#6B7280'
+  if (mm === 0)   return '#22C55E'
+  if (mm <= 20)   return '#F59E0B'
+  return '#EF4444'
+}
+
+function windClr(kmh: number | null | undefined): string {
+  if (kmh == null) return '#6B7280'
+  if (kmh < 20)   return '#22C55E'
+  if (kmh <= 40)  return '#F59E0B'
+  return '#EF4444'
+}
+
+function peakClr(mm: number): string {
+  if (mm < 5)   return '#22C55E'
+  if (mm <= 10) return '#F59E0B'
+  return '#EF4444'
+}
+
+// ── helpers visuais ───────────────────────────────────────────────────────────
+
+const pill: React.CSSProperties = {
+  fontSize: '0.7rem', color: '#6B7280', background: '#F3F4F6',
+  borderRadius: 999, padding: '2px 9px',
+}
+
+const metricBox: React.CSSProperties = {
+  background: '#F9FAFB', borderRadius: 10, padding: '8px 10px',
+}
+
+const metricLabel: React.CSSProperties = {
+  fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase',
+  letterSpacing: '0.04em', marginBottom: 3,
+}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -63,19 +114,199 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function SectionHeader({ title, linkHref, linkLabel, linkColor }: {
+function SectionHeader({ title, linkHref, linkLabel, titleColor }: {
   title: string
   linkHref?: string
   linkLabel?: string
-  linkColor?: string
+  titleColor?: string
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <h2 style={{ fontSize: 16, fontWeight: 500, color: '#111' }}>{title}</h2>
+      <h2 style={{ fontSize: 15, fontWeight: 500, color: titleColor ?? '#111111' }}>{title}</h2>
       {linkHref && (
-        <Link href={linkHref} style={{ fontSize: 13, color: linkColor ?? '#111', fontWeight: 500, borderBottom: `1px solid ${linkColor ?? '#111'}` }}>
+        <Link href={linkHref} style={{ fontSize: 13, color: '#6B7280', fontWeight: 400, textDecoration: 'none' }}>
           {linkLabel ?? 'Ver todas →'}
         </Link>
+      )}
+    </div>
+  )
+}
+
+// ── card Strava ───────────────────────────────────────────────────────────────
+
+function StravaCardItem({ t, avaliacao }: {
+  t: TrilhaPessoalComCondicao
+  avaliacao?: { count: number; media: number }
+}) {
+  const c             = t.condicao
+  const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
+  const accentColor   = veredictoText ? (STRAVA_ACCENT[veredictoText] ?? '#E34402') : '#E34402'
+  const janelaStyle   = veredictoText ? (STRAVA_JANELA_BG[veredictoText] ?? { bg: '#F9FAFB', color: '#6B7280' }) : { bg: '#F9FAFB', color: '#6B7280' }
+  const showPico      = c?.pico_3h != null && c.pico_3h >= 3
+  const windKmh       = c?.wind_ms != null ? c.wind_ms * 3.6 : null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div
+        style={{
+          background: '#FFFFFF', borderRadius: 16,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          display: 'flex', overflow: 'hidden',
+          transition: 'box-shadow 0.2s ease',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.10)')}
+        onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)')}
+      >
+        {/* Barra lateral colorida */}
+        <div style={{ width: 6, flexShrink: 0, background: accentColor }} />
+
+        {/* Conteúdo */}
+        <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Nome + logo STRAVA */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111111', lineHeight: 1.3, flex: 1, margin: 0 }}>
+              {t.name}
+            </h3>
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: '#E34402',
+              letterSpacing: '0.05em', flexShrink: 0, lineHeight: 1,
+            }}>
+              STRAVA
+            </span>
+          </div>
+
+          {/* Tags */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            <span style={{ ...pill, background: '#FEF0EB', color: '#E34402' }}>Strava</span>
+            <span style={pill}>{t.regiao}</span>
+          </div>
+
+          {c ? (
+            <>
+              {/* Badge veredicto */}
+              {veredictoText && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  <span style={{
+                    background: accentColor + '26', color: accentColor,
+                    borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
+                  }}>
+                    {veredictoText}
+                  </span>
+                </div>
+              )}
+
+              {/* Grid métricas */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                <div style={metricBox}>
+                  <div style={metricLabel}>Chuva 48h</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: rainClr(c.acumulo_48h), display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <i className="ti ti-droplet" style={{ fontSize: 14 }} />
+                    {c.acumulo_48h?.toFixed(1) ?? '—'}mm
+                  </div>
+                </div>
+                {showPico && (
+                  <div style={metricBox}>
+                    <div style={metricLabel}>Pico 3h</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: peakClr(c.pico_3h!), display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <i className="ti ti-droplet-half" style={{ fontSize: 14 }} />
+                      {c.pico_3h!.toFixed(1)}mm
+                    </div>
+                  </div>
+                )}
+                <div style={metricBox}>
+                  <div style={metricLabel}>Vento máx.</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: windClr(windKmh), display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <i className="ti ti-wind" style={{ fontSize: 14 }} />
+                    {windKmh != null ? windKmh.toFixed(1) : '—'} km/h
+                  </div>
+                </div>
+                {c.ultima_chuva_h != null && (
+                  <div style={metricBox}>
+                    <div style={metricLabel}>Última chuva</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <i className="ti ti-history" style={{ fontSize: 14 }} />
+                      {c.ultima_chuva_h}h atrás
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Frase secagem */}
+              {c.frase_secagem && (
+                <p style={{ fontStyle: 'italic', fontSize: '0.8rem', color: '#555555', lineHeight: 1.7, margin: 0 }}>
+                  {c.frase_secagem}
+                </p>
+              )}
+
+              {/* Janela */}
+              {c.janela ? (
+                <div style={{ background: janelaStyle.bg, borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="ti ti-clock" style={{ fontSize: 13, color: '#6B7280' }} />
+                  <span style={{ color: '#374151' }}>{c.janela}</span>
+                </div>
+              ) : (
+                <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#9CA3AF' }} />
+                  <span style={{ color: '#9CA3AF' }}>Sem janela definida</span>
+                </div>
+              )}
+            </>
+          ) : (
+            <p style={{ fontSize: '0.8rem', color: '#9CA3AF', fontStyle: 'italic', margin: 0 }}>
+              Condições no próximo relatório (07:00 BRT)
+            </p>
+          )}
+
+          {/* Footer */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+            {c?.gerado_em ? (
+              <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
+                Atualizado às {new Date(c.gerado_em).toLocaleTimeString('pt-BR', {
+                  hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+                })}
+              </span>
+            ) : <span />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <a
+                href={t.strava_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: '0.8rem', fontWeight: 500, color: '#E34402', textDecoration: 'none' }}
+              >
+                Strava ↗
+              </a>
+              <Link
+                href={`/trilhas/${t.id}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+              >
+                <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#111111' }}>Ver detalhes</span>
+                <span style={{
+                  background: '#F3F4F6', borderRadius: '50%', width: 22, height: 22,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#111111' }} />
+                </span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Badge avaliações */}
+      {avaliacao && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          fontSize: 11, fontWeight: 500, color: '#92400E',
+          background: '#FFFBEB', borderRadius: 6, padding: '3px 9px',
+          width: 'fit-content',
+        }}>
+          <i className="ti ti-star-filled" style={{ fontSize: 12, color: '#F59E0B' }} />
+          {avaliacao.media}
+          <span style={{ color: '#888', fontWeight: 400 }}>
+            ({avaliacao.count} avaliação{avaliacao.count > 1 ? 'ões' : ''} recente{avaliacao.count > 1 ? 's' : ''})
+          </span>
+        </div>
       )}
     </div>
   )
@@ -149,7 +380,6 @@ export default function DashboardPage() {
       )
       setStravaTrails(trilhasComCondicao)
 
-      // Busca avaliações das últimas 48h (favoritas + Strava)
       const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
       const { data: avaliacoes48h } = await supabase
         .from('observacoes_trilha')
@@ -182,7 +412,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: '#F8F9FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
             width: 32, height: 32, border: '2px solid #e5e5e5',
@@ -199,24 +429,37 @@ export default function DashboardPage() {
   const name = profile?.apelido || profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#F8F9FA' }}>
 
-      {/* ── Page header preto ─────────────────────────────────────────── */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
+      <div style={{ background: '#1A1A1A', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>
-            {name ? `Olá, ${name}.` : 'Dashboard.'}
+          <h1 style={{
+            fontFamily: barlow.style.fontFamily,
+            fontSize: 42, fontWeight: 800,
+            textTransform: 'uppercase', lineHeight: 1.05,
+            margin: 0,
+          }}>
+            {name ? (
+              <>
+                <span style={{ color: '#FFFFFF' }}>Olá, </span>
+                <span style={{ color: '#FFE000' }}>{name}</span>
+                <span style={{ color: '#FFFFFF' }}>.</span>
+              </>
+            ) : (
+              <span style={{ color: '#FFFFFF' }}>Dashboard.</span>
+            )}
           </h1>
-          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
+          <p style={{ color: '#9CA3AF', fontSize: 14, marginTop: 8 }}>
             Confira as condições de hoje nas suas trilhas
           </p>
+          <div style={{ background: '#FFE000', height: 3, marginTop: 20 }} />
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
 
       {/* Banner de perfil incompleto */}
       {!(profile?.nome && profile?.apelido && profile?.telefone && profile?.regiao) && (
-        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 32px' }}>
+        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 28px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <p style={{ fontSize: 13, color: '#92400e' }}>
               ⚠️ Complete seu perfil para aproveitar todos os recursos
@@ -237,18 +480,19 @@ export default function DashboardPage() {
       )}
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
-        {/* Favoritas */}
-        <section style={{ marginBottom: 40 }}>
+        {/* Seção: Trilhas favoritas */}
+        <section style={{ marginBottom: 36 }}>
           <SectionHeader title="Minhas trilhas favoritas" linkHref="/trilhas" linkLabel="Ver todas →" />
           {favoritas.length === 0 ? (
-            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 40, textAlign: 'center' }}>
-              <p style={{ color: '#888', fontSize: 14, marginBottom: 16 }}>Você ainda não tem trilhas favoritas.</p>
+            <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 40, textAlign: 'center' }}>
+              <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>Você ainda não tem trilhas favoritas.</p>
               <Link href="/trilhas" style={{
                 background: '#FFE000', color: '#111',
                 border: '1.5px solid #111', borderRadius: 4,
                 padding: '10px 20px', fontSize: 13, fontWeight: 500,
+                textDecoration: 'none',
               }}>
                 Explorar trilhas
               </Link>
@@ -256,16 +500,17 @@ export default function DashboardPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {favoritas.map(t => (
-                <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <TrilhaCard trilha={t} />
                   {avaliacoesPorTrilha[t.id] && (
                     <div style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      fontSize: 11, fontWeight: 500, color: '#854d0e',
-                      background: '#fef9c3', border: '0.5px solid #fde047',
-                      borderRadius: 4, padding: '2px 8px', width: 'fit-content',
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      fontSize: 11, fontWeight: 500, color: '#92400E',
+                      background: '#FFFBEB', borderRadius: 6,
+                      padding: '3px 9px', width: 'fit-content',
                     }}>
-                      ⭐ {avaliacoesPorTrilha[t.id].media}
+                      <i className="ti ti-star-filled" style={{ fontSize: 12, color: '#F59E0B' }} />
+                      {avaliacoesPorTrilha[t.id].media}
                       <span style={{ color: '#888', fontWeight: 400 }}>
                         ({avaliacoesPorTrilha[t.id].count} avaliação{avaliacoesPorTrilha[t.id].count > 1 ? 'ões' : ''} recente{avaliacoesPorTrilha[t.id].count > 1 ? 's' : ''})
                       </span>
@@ -277,12 +522,19 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Trilhas Strava */}
-        <section style={{ marginBottom: 40 }}>
-          <SectionHeader title="Minhas trilhas Strava" linkHref="/perfil" linkLabel="Gerenciar →" linkColor="#FC4C02" />
+        <hr style={{ border: 'none', borderTop: '0.5px solid #E5E7EB', margin: '0 0 36px' }} />
+
+        {/* Seção: Trilhas Strava */}
+        <section>
+          <SectionHeader
+            title="Minhas trilhas Strava"
+            linkHref="/perfil"
+            linkLabel="Gerenciar →"
+            titleColor="#E34402"
+          />
           {stravaTrails.length === 0 ? (
-            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 32, textAlign: 'center' }}>
-              <p style={{ color: '#888', fontSize: 14, marginBottom: 16 }}>
+            <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 32, textAlign: 'center' }}>
+              <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>
                 Conecte seus segmentos do Strava para acompanhar as condições.
               </p>
               <a
@@ -302,96 +554,13 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {stravaTrails.map(t => {
-                const c = t.condicao
-                const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
-                const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-                const acfg = c?.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
-                return (
-                  <div
-                    key={t.id}
-                    style={{
-                      background: '#fff',
-                      border: '0.5px solid #e5e5e5',
-                      borderLeft: '3px solid #FC4C02',
-                      borderRadius: 8,
-                      display: 'flex', flexDirection: 'column',
-                    }}
-                  >
-                    <div style={{ padding: 16, flex: 1 }}>
-                      <h3 style={{ fontSize: 14, fontWeight: 500, color: '#111', lineHeight: 1.3, marginBottom: 8 }}>
-                        {t.name}
-                      </h3>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
-                        <span style={{ fontSize: 11, fontWeight: 500, color: '#FC4C02', background: 'rgba(252,76,2,0.08)', borderRadius: 2, padding: '2px 6px' }}>
-                          Strava
-                        </span>
-                        <span style={{ fontSize: 11, color: '#888', background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 6px' }}>
-                          {t.regiao}
-                        </span>
-                      </div>
-                      {c ? (
-                        <>
-                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
-                            {acfg && (
-                              <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 6px', background: acfg.cor + '18', color: acfg.cor }}>
-                                {acfg.emoji} {c.aderencia_status}
-                              </span>
-                            )}
-                            {vcfg && (
-                              <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 6px', background: vcfg.bg, color: vcfg.cor }}>
-                                {vcfg.emoji} {veredictoText}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ display: 'flex', gap: 8, fontSize: 12, color: '#888', flexWrap: 'wrap', marginBottom: 4 }}>
-                            <span>🌧 <b>{c.acumulo_48h?.toFixed(1) ?? '—'}mm</b></span>
-                            {c.pico_3h != null && c.pico_3h > 0 && (
-                              <span style={{ color: '#ef4444' }}>⚡ <b>{c.pico_3h.toFixed(1)}mm</b></span>
-                            )}
-                            <span>💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b></span>
-                          </div>
-                          {c.frase_secagem && <p style={{ fontSize: 12, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.frase_secagem}</p>}
-                          {c.janela && <p style={{ fontSize: 12, color: '#888' }}>🕐 <span style={{ color: '#111', fontWeight: 500 }}>{c.janela}</span></p>}
-                          {c.gerado_em && (
-                            <div style={{ fontSize: 10, color: '#aaa', marginTop: 6, textAlign: 'right' }}>
-                              Atualizado às {new Date(c.gerado_em).toLocaleTimeString('pt-BR', {
-                                hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
-                              })}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <p style={{ fontSize: 12, color: '#bbb', fontStyle: 'italic' }}>
-                          Condições no próximo relatório (07:00 BRT)
-                        </p>
-                      )}
-                    </div>
-                    {avaliacoesPorSegmento[t.strava_segment_id] && (
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        fontSize: 11, fontWeight: 500, color: '#854d0e',
-                        background: '#fef9c3', border: '0.5px solid #fde047',
-                        borderRadius: 4, padding: '2px 8px', width: 'fit-content',
-                        margin: '0 16px 8px',
-                      }}>
-                        ⭐ {avaliacoesPorSegmento[t.strava_segment_id].media}
-                        <span style={{ color: '#888', fontWeight: 400 }}>
-                          ({avaliacoesPorSegmento[t.strava_segment_id].count} avaliação{avaliacoesPorSegmento[t.strava_segment_id].count > 1 ? 'ões' : ''} recente{avaliacoesPorSegmento[t.strava_segment_id].count > 1 ? 's' : ''})
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ padding: '10px 16px', borderTop: '0.5px solid #e5e5e5', display: 'flex', justifyContent: 'space-between' }}>
-                      <Link href={`/trilhas/${t.id}`} style={{ fontSize: 13, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
-                        Ver detalhes →
-                      </Link>
-                      <a href={t.strava_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#FC4C02', fontWeight: 500 }}>
-                        Strava ↗
-                      </a>
-                    </div>
-                  </div>
-                )
-              })}
+              {stravaTrails.map(t => (
+                <StravaCardItem
+                  key={t.id}
+                  t={t}
+                  avaliacao={avaliacoesPorSegmento[t.strava_segment_id]}
+                />
+              ))}
             </div>
           )}
         </section>
