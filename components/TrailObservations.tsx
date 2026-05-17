@@ -347,33 +347,35 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
       {/* Form area */}
       <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 16, paddingTop: 16 }}>
         {!podeComentar ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
-              Adicione esta trilha aos favoritos para avaliar
-            </p>
-            <button
-              onClick={handleFavoritar}
-              disabled={favoritando}
-              style={{
-                background: '#FFE000', color: '#111',
-                border: '1.5px solid #111', borderRadius: 4,
-                padding: '6px 14px', fontSize: 12, fontWeight: 500,
-                cursor: favoritando ? 'not-allowed' : 'pointer',
-                opacity: favoritando ? 0.7 : 1,
-              }}
-            >
-              {favoritando ? 'Favoritando...' : 'Favoritar trilha'}
-            </button>
-          </div>
-          {limiteMsg && (
-            <p style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>
-              {limiteMsg}{' '}
-              <a href="/planos" style={{ color: '#ef4444', fontWeight: 600, textDecoration: 'underline' }}>
-                Faça upgrade
-              </a>{' '}
-              para monitorar mais trilhas.
-            </p>
-          )}
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
+                Adicione esta trilha aos favoritos para avaliar
+              </p>
+              <button
+                onClick={handleFavoritar}
+                disabled={favoritando}
+                style={{
+                  background: '#FFE000', color: '#111',
+                  border: '1.5px solid #111', borderRadius: 4,
+                  padding: '6px 14px', fontSize: 12, fontWeight: 500,
+                  cursor: favoritando ? 'not-allowed' : 'pointer',
+                  opacity: favoritando ? 0.7 : 1,
+                }}
+              >
+                {favoritando ? 'Favoritando...' : 'Favoritar trilha'}
+              </button>
+            </div>
+            {limiteMsg && (
+              <p style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>
+                {limiteMsg}{' '}
+                <a href="/planos" style={{ color: '#ef4444', fontWeight: 600, textDecoration: 'underline' }}>
+                  Faça upgrade
+                </a>{' '}
+                para monitorar mais trilhas.
+              </p>
+            )}
+          </>
         ) : (
           <>
             <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 10 }}>
