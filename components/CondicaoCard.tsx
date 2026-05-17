@@ -16,6 +16,12 @@ function janelaStyle(veredicto: string): { bg: string; color: string } {
   return { bg: '#FFFBEB', color: '#92400E' }
 }
 
+function verdictBorderColor(veredicto: string): string {
+  if (veredicto.trim() === 'DROP LIBERADO') return '#22C55E'
+  if (veredicto.includes('MELHOR ESPERAR')) return '#EF4444'
+  return '#F59E0B'
+}
+
 
 function peakColor(mm: number): string {
   if (mm < 5)   return '#22C55E'
@@ -59,8 +65,9 @@ function MetricCell({ label, icon, value, color = '#111111', tooltip }: {
 }
 
 export default function CondicaoCard({ condicao }: Props) {
-  const badge    = verdictBadge(condicao.veredicto)
-  const janela   = janelaStyle(condicao.veredicto)
+  const badge      = verdictBadge(condicao.veredicto)
+  const janela     = janelaStyle(condicao.veredicto)
+  const borderColor = verdictBorderColor(condicao.veredicto)
   const windKmh  = condicao.wind_ms * 3.6
   const showPico = condicao.pico_3h != null && condicao.pico_3h >= 3
   const showInc  = condicao.inclinacao != null && condicao.inclinacao !== 0
@@ -136,17 +143,27 @@ export default function CondicaoCard({ condicao }: Props) {
           </span>
         </div>
 
-        {/* Texto dinâmico completo (ou frase_secagem como fallback) */}
-        {(condicao.texto_dinamico || condicao.frase_secagem) && (
+        {/* Texto dinâmico */}
+        {condicao.texto_dinamico && (
           <div style={{
             background: '#F9FAFB',
-            borderLeft: '3px solid #E5E7EB',
-            borderRadius: 10,
-            padding: '12px 14px',
-            fontSize: 13, color: '#374151', lineHeight: 1.75,
+            borderLeft: `3px solid ${borderColor}`,
+            borderRadius: 8,
+            padding: '10px 14px',
+            fontSize: 13, fontWeight: 500, color: '#111111',
           }}>
-            {condicao.texto_dinamico ?? condicao.frase_secagem}
+            {condicao.texto_dinamico}
           </div>
+        )}
+
+        {/* Frase de secagem */}
+        {condicao.frase_secagem && (
+          <p style={{
+            fontSize: 12, fontStyle: 'italic', color: '#555555',
+            lineHeight: 1.75, margin: 0,
+          }}>
+            {condicao.frase_secagem}
+          </p>
         )}
 
         {/* Alerta futuro */}

@@ -182,7 +182,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
             {(c.texto_dinamico || c.frase_secagem) && (
               <p style={{
                 fontSize: 12, color: '#374151', lineHeight: 1.6, margin: 0,
-                borderLeft: '3px solid #E5E7EB', paddingLeft: 10,
+                borderLeft: `3px solid ${accentColor}`, paddingLeft: 10,
                 overflow: 'hidden',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
