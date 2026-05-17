@@ -17,6 +17,7 @@ function janelaStyle(veredicto: string): { bg: string; color: string } {
 }
 
 function scoreColor(score: number): string {
+  if (score === 0) return '#D1D5DB'
   if (score >= 70) return '#22C55E'
   if (score >= 40) return '#F59E0B'
   return '#EF4444'
@@ -118,8 +119,11 @@ export default function CondicaoCard({ condicao }: Props) {
 
         {/* Barra de progresso */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>Aderência do solo</span>
+          <div
+            style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}
+            title="Mede o impacto acumulado da chuva no solo. Um score alto com veredicto restritivo indica outros fatores de risco como vento ou pico de precipitação."
+          >
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>Score de impacto da chuva</span>
             <span style={{ fontSize: 11, color: '#9CA3AF' }}>{score} / 100</span>
           </div>
           <div style={{ height: 6, background: '#F3F4F6', borderRadius: 999 }}>
