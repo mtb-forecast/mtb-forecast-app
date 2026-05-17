@@ -113,8 +113,8 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
 
         {hasData && c ? (
           <>
-            {/* Badges */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {/* Badges + alerta futuro */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
               {c.aderencia_status && (
                 <span style={{
                   background: '#F3F4F6', color: '#6B7280',
@@ -130,6 +130,17 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
                   borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
                 }}>
                   {vcfg.emoji} {veredictoText}
+                </span>
+              )}
+              {c.aderencia_futura_status && c.aderencia_futura_label &&
+               c.aderencia_futura_status !== c.aderencia_status && (
+                <span style={{
+                  background: '#FFFBEB', color: '#92400E',
+                  borderRadius: 6, fontSize: 11, padding: '3px 9px',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}>
+                  <i className="ti ti-alert-triangle" style={{ fontSize: 12 }} />
+                  {c.aderencia_futura_label}: {c.aderencia_futura_status}
                 </span>
               )}
             </div>
@@ -159,7 +170,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
               )}
 
               <div style={metricBox}>
-                <div style={metricLabel}>Vento</div>
+                <div style={metricLabel}>Vento máx.</div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: windColor(c.wind_ms), display: 'flex', alignItems: 'center', gap: 4 }}>
                   <i className="ti ti-wind" style={{ fontSize: 14 }} />
                   {c.wind_ms != null ? (c.wind_ms * 3.6).toFixed(1) : '—'} km/h
@@ -167,10 +178,17 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
               </div>
             </div>
 
-            {/* Frase de secagem */}
-            {c.frase_secagem && (
-              <p style={{ fontStyle: 'italic', fontSize: '0.8rem', color: '#555555', lineHeight: 1.7, margin: 0 }}>
-                {c.frase_secagem}
+            {/* Texto dinâmico (ou frase de secagem como fallback) */}
+            {(c.texto_dinamico || c.frase_secagem) && (
+              <p style={{
+                fontSize: 12, color: '#374151', lineHeight: 1.6, margin: 0,
+                borderLeft: '3px solid #E5E7EB', paddingLeft: 10,
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+              } as React.CSSProperties}>
+                {c.texto_dinamico ?? c.frase_secagem}
               </p>
             )}
 
@@ -178,6 +196,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
             {c.janela ? (
               <div style={{ background: janelaBg, borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <i className="ti ti-clock" style={{ fontSize: 13, color: '#6B7280' }} />
+                <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela:</span>
                 <span style={{ color: '#374151' }}>{c.janela}</span>
               </div>
             ) : (
