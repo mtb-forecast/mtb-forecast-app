@@ -131,13 +131,17 @@ export default function CondicaoCard({ condicao }: Props) {
 
         {/* Veredicto + aderência_status */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <span style={{
-            background: badge.bg, color: badge.color,
-            fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '4px 12px',
-            flexShrink: 0,
-          }}>
-            {condicao.veredicto}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <span style={{
+              background: badge.bg, color: badge.color,
+              fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '4px 12px',
+            }}>
+              {condicao.veredicto}
+            </span>
+            <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              48h
+            </span>
+          </div>
           <span style={{ fontSize: 11, color: '#6B7280', textAlign: 'right' }}>
             {condicao.aderencia_status}
           </span>

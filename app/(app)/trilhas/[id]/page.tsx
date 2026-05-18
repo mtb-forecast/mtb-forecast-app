@@ -326,7 +326,7 @@ export default function TrilhaDetalhe() {
           {c && (veredictoText || c.aderencia_status) && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Agora:
+                Próx. 12h:
               </span>
               {veredictoText && vcfg && (
                 <span style={{

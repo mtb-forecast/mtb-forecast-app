@@ -124,13 +124,18 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
                 </span>
               )}
               {veredictoText && vcfg && (
-                <span style={{
-                  background: accentColor + '26',
-                  color: accentColor,
-                  borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
-                }}>
-                  {vcfg.emoji} {veredictoText}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{
+                    background: accentColor + '26',
+                    color: accentColor,
+                    borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
+                  }}>
+                    {vcfg.emoji} {veredictoText}
+                  </span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    12h
+                  </span>
+                </div>
               )}
               {c.aderencia_futura_status && c.aderencia_futura_label &&
                c.aderencia_futura_status !== c.aderencia_status && (
