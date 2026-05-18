@@ -21,8 +21,8 @@ const JANELA_BG: Record<string, string> = {
 
 function rainColor(mm: number | null | undefined): string {
   if (mm == null) return '#6B7280'
-  if (mm === 0)   return '#22C55E'
-  if (mm <= 20)   return '#F59E0B'
+  if (mm < 10)   return '#22C55E'
+  if (mm <= 30)  return '#F59E0B'
   return '#EF4444'
 }
 
@@ -32,9 +32,8 @@ function peakColor(mm: number): string {
   return '#EF4444'
 }
 
-function windColor(ms: number | null | undefined): string {
-  if (ms == null) return '#6B7280'
-  const kmh = ms * 3.6
+function windColor(kmh: number | null | undefined): string {
+  if (kmh == null) return '#6B7280'
   if (kmh < 20)  return '#22C55E'
   if (kmh <= 40) return '#F59E0B'
   return '#EF4444'
@@ -150,11 +149,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
             </div>
 
             {/* Métricas */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${showPico ? 3 : 2}, 1fr)`,
-              gap: 6,
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
               <div style={metricBox}>
                 <div style={metricLabel}>Chuva 48h</div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: rainColor(c.acumulo_48h), display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -174,12 +169,22 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
               )}
 
               <div style={metricBox}>
-                <div style={metricLabel}>Vento máx.</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: windColor(c.wind_ms), display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={metricLabel}>Vento prev. 48h</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: windColor(c.wind_ms != null ? c.wind_ms * 3.6 : null), display: 'flex', alignItems: 'center', gap: 4 }}>
                   <i className="ti ti-wind" style={{ fontSize: 14 }} />
                   {c.wind_ms != null ? (c.wind_ms * 3.6).toFixed(1) : '—'} km/h
                 </div>
               </div>
+
+              {c.gust_max_kmh != null && (
+                <div style={metricBox}>
+                  <div style={metricLabel}>Rajada prev. 48h</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: windColor(c.gust_max_kmh), display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <i className="ti ti-wind" style={{ fontSize: 14 }} />
+                    {c.gust_max_kmh.toFixed(0)} km/h
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Texto dinâmico (ou frase de secagem como fallback) */}
