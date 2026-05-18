@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
-type RawRoute = {
+type RawSegment = {
   id: number
   name: string
   distance: number
-  elevation_gain: number
+  total_elevation_gain: number
+  elevation_high?: number
+  elevation_low?: number
   start_latlng?: number[]
+  city?: string
+  state?: string
   map?: { summary_polyline?: string; polyline?: string }
 }
 
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
   }
 
   const res = await fetch(
-    'https://www.strava.com/api/v3/athlete/routes?per_page=50',
+    'https://www.strava.com/api/v3/segments/starred?per_page=50',
     { headers: { Authorization: `Bearer ${token}` } }
   )
 
@@ -47,17 +51,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'strava_error' }, { status: res.status })
   }
 
-  const raw: RawRoute[] = await res.json()
+  const raw: RawSegment[] = await res.json()
 
-  const routes = (Array.isArray(raw) ? raw : []).map((r) => ({
-    id: r.id,
-    name: r.name,
-    distance_km: +(r.distance / 1000).toFixed(2),
-    desnivel_m: Math.round(r.elevation_gain),
-    lat: r.start_latlng?.[0] ?? null,
-    lon: r.start_latlng?.[1] ?? null,
-    polyline: r.map?.polyline || r.map?.summary_polyline || null,
-  }))
+  const segments = (Array.isArray(raw) ? raw : []).map((s) => {
+    const desnivel = s.total_elevation_gain > 0
+      ? Math.round(s.total_elevation_gain)
+      : s.elevation_high != null && s.elevation_low != null
+        ? Math.round(s.elevation_high - s.elevation_low)
+        : 0
 
-  return NextResponse.json(routes)
+    return {
+      strava_segment_id: s.id,
+      name: s.name,
+      distance_km: +(s.distance / 1000).toFixed(2),
+      desnivel_m: desnivel,
+      lat: s.start_latlng?.[0] ?? null,
+      lon: s.start_latlng?.[1] ?? null,
+      city: s.city ?? null,
+      state: s.state ?? null,
+      polyline: s.map?.polyline || s.map?.summary_polyline || null,
+    }
+  })
+
+  return NextResponse.json(segments)
 }

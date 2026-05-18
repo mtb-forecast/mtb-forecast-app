@@ -8,13 +8,15 @@ import { supabase } from '@/lib/supabase'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
-type StravaRoute = {
-  id: number
+type StravaSegment = {
+  strava_segment_id: number
   name: string
   distance_km: number
   desnivel_m: number
   lat: number | null
   lon: number | null
+  city: string | null
+  state: string | null
   polyline: string | null
 }
 
@@ -28,7 +30,7 @@ function ImportarStravaContent() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [hasToken, setHasToken] = useState(false)
-  const [routes, setRoutes] = useState<StravaRoute[]>([])
+  const [segments, setSegments] = useState<StravaSegment[]>([])
   const [fetchError, setFetchError] = useState<'rate_limit' | 'generic' | null>(null)
   const [importStatus, setImportStatus] = useState<Record<number, ImportStatus>>({})
   const [importError, setImportError] = useState<Record<number, string>>({})
@@ -81,41 +83,62 @@ function ImportarStravaContent() {
         return
       }
 
-      const data: StravaRoute[] = await res.json()
+      const data: StravaSegment[] = await res.json()
       setHasToken(true)
-      setRoutes(data)
+      setSegments(data)
+
+      // Verificar quais segmentos já foram importados (trilhas_pendentes)
+      if (data.length > 0) {
+        const { data: existentes } = await supabase
+          .from('trilhas_pendentes')
+          .select('strava_segment_id')
+          .not('strava_segment_id', 'is', null)
+          .in('strava_segment_id', data.map(s => s.strava_segment_id))
+
+        if (existentes && existentes.length > 0) {
+          const jaImportados: Record<number, ImportStatus> = {}
+          for (const row of existentes) {
+            if (row.strava_segment_id) jaImportados[row.strava_segment_id] = 'success'
+          }
+          setImportStatus(jaImportados)
+        }
+      }
+
       setLoading(false)
     }
     init()
   }, [router])
 
-  async function importarRota(rota: StravaRoute) {
+  async function importarSegmento(seg: StravaSegment) {
     if (!userId) return
-    setImportStatus(s => ({ ...s, [rota.id]: 'loading' }))
-    setImportError(e => ({ ...e, [rota.id]: '' }))
+    setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'loading' }))
+    setImportError(e => ({ ...e, [seg.strava_segment_id]: '' }))
 
     const { error } = await supabase.from('trilhas_pendentes').insert({
-      name: rota.name,
-      lat: rota.lat,
-      lon: rota.lon,
-      polyline: rota.polyline,
-      extensao_km: rota.distance_km,
-      desnivel_m: rota.desnivel_m,
+      name: seg.name,
+      lat: seg.lat,
+      lon: seg.lon,
+      polyline: seg.polyline,
+      extensao_km: seg.distance_km,
+      desnivel_m: seg.desnivel_m,
+      strava_segment_id: seg.strava_segment_id,
       user_id: userId,
       status: 'pendente',
-      // Campos obrigatórios preenchidos pelo admin na aprovação
+      // Campos preenchidos pelo admin na aprovação
       solo_type: null,
       exposicao: null,
       altitude_m: null,
       trail_type: null,
       regiao: null,
+      bioma: null,
     })
 
     if (error) {
-      setImportStatus(s => ({ ...s, [rota.id]: 'error' }))
-      setImportError(e => ({ ...e, [rota.id]: error.message }))
+      console.warn('Erro ao importar segmento:', error.message)
+      setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'error' }))
+      setImportError(e => ({ ...e, [seg.strava_segment_id]: error.message }))
     } else {
-      setImportStatus(s => ({ ...s, [rota.id]: 'success' }))
+      setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'success' }))
     }
   }
 
@@ -154,8 +177,8 @@ function ImportarStravaContent() {
           </div>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
             {hasToken
-              ? `${routes.length} rota${routes.length !== 1 ? 's' : ''} encontrada${routes.length !== 1 ? 's' : ''} no Strava`
-              : 'Conecte seu Strava para importar rotas como trilhas pendentes'}
+              ? `${segments.length} segmento${segments.length !== 1 ? 's' : ''} favorito${segments.length !== 1 ? 's' : ''} no Strava`
+              : 'Conecte seu Strava para importar segmentos favoritos como trilhas pendentes'}
           </p>
         </div>
       </div>
@@ -185,17 +208,17 @@ function ImportarStravaContent() {
         {/* Erro genérico */}
         {fetchError === 'generic' && (
           <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '10px 14px', fontSize: 13, marginBottom: 20 }}>
-            Erro ao buscar rotas do Strava. Tente novamente ou reconecte sua conta.
+            Erro ao buscar segmentos do Strava. Tente novamente ou reconecte sua conta.
           </div>
         )}
 
         {/* Sem token → botão de conexão */}
         {!hasToken && !fetchError && (
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 56, textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🔗</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⭐</div>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', marginBottom: 8 }}>Conectar com Strava</h2>
-            <p style={{ fontSize: 14, color: '#888', marginBottom: 32, maxWidth: 420, margin: '0 auto 32px' }}>
-              Conecte sua conta Strava para importar suas rotas como trilhas pendentes de aprovação no MTB Forecaster.
+            <p style={{ fontSize: 14, color: '#888', maxWidth: 420, margin: '0 auto 32px' }}>
+              Conecte sua conta Strava para importar seus segmentos favoritos como trilhas pendentes de aprovação.
             </p>
             <a
               href={stravaAuthUrl}
@@ -215,77 +238,83 @@ function ImportarStravaContent() {
           </div>
         )}
 
-        {/* Sem rotas */}
-        {hasToken && routes.length === 0 && !fetchError && (
+        {/* Sem segmentos */}
+        {hasToken && segments.length === 0 && !fetchError && (
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 40, textAlign: 'center' }}>
-            <p style={{ fontSize: 13, color: '#888' }}>Nenhuma rota encontrada na sua conta Strava.</p>
+            <p style={{ fontSize: 13, color: '#888' }}>Nenhum segmento favorito encontrado na sua conta Strava.</p>
             <p style={{ fontSize: 12, color: '#bbb', marginTop: 8 }}>
-              Crie rotas no Strava para importá-las aqui.
+              Marque segmentos como favoritos no Strava para importá-los aqui.
             </p>
           </div>
         )}
 
-        {/* Lista de rotas */}
-        {hasToken && routes.length > 0 && (
+        {/* Lista de segmentos */}
+        {hasToken && segments.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 500, color: '#111' }}>Suas rotas no Strava</h2>
+              <h2 style={{ fontSize: 16, fontWeight: 500, color: '#111' }}>Segmentos favoritos no Strava</h2>
               <span style={{
                 fontSize: 11, fontWeight: 600,
                 background: '#f7f7f5', color: '#888',
                 border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 8px',
               }}>
-                {routes.length} rota{routes.length !== 1 ? 's' : ''}
+                {segments.length} segmento{segments.length !== 1 ? 's' : ''}
               </span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {routes.map(rota => {
-                const status = importStatus[rota.id] ?? 'idle'
-                const errMsg = importError[rota.id]
+              {segments.map(seg => {
+                const status = importStatus[seg.strava_segment_id] ?? 'idle'
+                const errMsg = importError[seg.strava_segment_id]
+                const jaImportado = status === 'success'
 
                 return (
                   <div
-                    key={rota.id}
+                    key={seg.strava_segment_id}
                     style={{
                       background: '#fff',
-                      border: status === 'success' ? '1px solid #86efac' : '0.5px solid #e5e5e5',
+                      border: jaImportado ? '1px solid #86efac' : '0.5px solid #e5e5e5',
                       borderRadius: 8, overflow: 'hidden',
                     }}
                   >
                     {/* Preview do mapa */}
-                    {rota.polyline && (
-                      <StravaMap polyline={rota.polyline} />
+                    {seg.polyline && (
+                      <StravaMap polyline={seg.polyline} />
                     )}
 
                     <div style={{ padding: 20 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: status === 'error' ? 12 : 0 }}>
                         <div>
-                          <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>{rota.name}</p>
+                          <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>{seg.name}</p>
                           <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
-                            {rota.distance_km > 0 && (
-                              <span style={{ fontSize: 12, color: '#888' }}>📏 {rota.distance_km} km</span>
+                            {seg.distance_km > 0 && (
+                              <span style={{ fontSize: 12, color: '#888' }}>📏 {seg.distance_km} km</span>
                             )}
-                            {rota.desnivel_m > 0 && (
-                              <span style={{ fontSize: 12, color: '#888' }}>⛰ {rota.desnivel_m} m desnível</span>
+                            {seg.desnivel_m > 0 && (
+                              <span style={{ fontSize: 12, color: '#888' }}>⛰ {seg.desnivel_m} m desnível</span>
                             )}
-                            {!rota.polyline && (
-                              <span style={{ fontSize: 12, color: '#bbb' }}>sem polyline</span>
+                            {(seg.city || seg.state) && (
+                              <span style={{ fontSize: 12, color: '#bbb' }}>
+                                📍 {[seg.city, seg.state].filter(Boolean).join(', ')}
+                              </span>
+                            )}
+                            {!seg.polyline && (
+                              <span style={{ fontSize: 12, color: '#e5a000' }}>sem mapa</span>
                             )}
                           </div>
                         </div>
 
-                        {status === 'success' ? (
+                        {jaImportado ? (
                           <span style={{
                             fontSize: 12, fontWeight: 500,
                             background: '#dcfce7', color: '#166534',
                             borderRadius: 4, padding: '6px 14px', flexShrink: 0,
                           }}>
-                            ✓ Importada
+                            ✓ Importado
                           </span>
                         ) : (
                           <button
-                            onClick={() => importarRota(rota)}
+                            onClick={() => importarSegmento(seg)}
                             disabled={status === 'loading'}
                             style={{
                               background: '#FFE000', color: '#111',
