@@ -1,11 +1,14 @@
 'use client'
 
+import { Barlow_Condensed } from 'next/font/google'
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao, ESTADOS_BRASIL } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
+
+const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 const VEREDICTO_ORDER: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -41,11 +44,8 @@ function TrilhasContent() {
   const [plano, setPlano] = useState<string | null>(null)
   const [limiteMsg, setLimiteMsg] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  useEffect(() => { setMounted(true) }, [])
 
-  // Auth + favoritos
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -61,7 +61,6 @@ function TrilhasContent() {
     init()
   }, [router])
 
-  // Busca trilhas quando estado muda
   useEffect(() => {
     if (!estadoSelecionado) { setTrilhas([]); return }
     setLoading(true)
@@ -116,43 +115,77 @@ function TrilhasContent() {
 
   const estadoLabel = estadoSelecionado === 'outros' ? 'Outros' : estadoSelecionado
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '0.5px solid #E5E7EB',
+    borderRadius: 8,
+    background: '#FFFFFF',
+    fontSize: 14,
+    color: '#111111',
+    outline: 'none',
+  }
 
-      {/* ── Page header preto ─────────────────────────────────────────── */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+  return (
+    <div style={{ minHeight: '100vh', background: '#F8F9FA' }}>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @media (max-width: 640px) {
+          .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
+          .trilhas-strava-banner { flex-direction: column !important; gap: 16px !important; }
+          .trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
+          .trilhas-header-actions a { justify-content: center !important; }
+        }
+      `}</style>
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div style={{ background: '#1A1A1A', padding: '36px 28px' }}>
+        <div style={{
+          maxWidth: 1200, margin: '0 auto',
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
+        }}>
           <div>
-            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Trilhas</h1>
-            <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
+            <h1 style={{
+              fontFamily: barlow.style.fontFamily,
+              fontSize: 36, fontWeight: 800,
+              textTransform: 'uppercase',
+              color: '#FFFFFF', lineHeight: 1.1, margin: 0,
+            }}>
+              Trilhas
+            </h1>
+            <p style={{ color: '#9CA3AF', fontSize: 14, margin: '8px 0 0' }}>
               {estadoSelecionado
                 ? `${filtered.length} trilha${filtered.length !== 1 ? 's' : ''} em ${estadoLabel}`
                 : 'Selecione um estado para ver as trilhas'}
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row" style={{ gap: 10, alignItems: 'center' }}>
+
+          <div className="trilhas-header-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <a
               href="/api/strava/auth"
               style={{
-                background: '#FC4C02', color: '#fff',
-                border: 'none', borderRadius: 4,
-                padding: '10px 20px', fontSize: 13, fontWeight: 500,
+                background: '#FC4C02', color: '#FFFFFF',
+                borderRadius: 8, padding: '10px 20px',
+                fontSize: 13, fontWeight: 500,
                 display: 'flex', alignItems: 'center', gap: 8,
-                textDecoration: 'none', whiteSpace: 'nowrap', width: '100%', justifyContent: 'center',
+                textDecoration: 'none', whiteSpace: 'nowrap',
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/>
+                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
               </svg>
               Conectar com Strava
             </a>
             <Link
               href="/trilhas/cadastrar"
               style={{
-                background: '#FFE000', color: '#111',
-                border: '1.5px solid #111', borderRadius: 4,
-                padding: '10px 20px', fontSize: 13, fontWeight: 500,
-                whiteSpace: 'nowrap', width: '100%', textAlign: 'center',
+                background: '#FFE000', color: '#111111',
+                borderRadius: 8, padding: '10px 20px',
+                fontSize: 13, fontWeight: 600,
+                textDecoration: 'none', whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center',
               }}
             >
               + Cadastrar trilha
@@ -160,90 +193,83 @@ function TrilhasContent() {
           </div>
         </div>
       </div>
+
+      {/* Faixa amarela */}
       <div style={{ background: '#FFE000', height: 3 }} />
 
-      {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: 32, maxWidth: 1200, margin: '0 auto' }}>
-
-        {/* Filtros */}
-        <div className="flex flex-col sm:flex-row gap-3" style={{ marginBottom: 24 }}>
+      {/* ── Filtros ─────────────────────────────────────────────────────── */}
+      <div style={{
+        background: '#F8F9FA',
+        borderBottom: '0.5px solid #E5E7EB',
+        padding: '16px 28px',
+      }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <select
             value={estadoSelecionado}
             onChange={e => handleEstadoChange(e.target.value)}
-            className="input-field"
-            style={{ width: 200 }}
+            style={{
+              ...inputStyle,
+              width: 'auto', minWidth: 220,
+              padding: '10px 14px',
+              color: estadoSelecionado ? '#111111' : '#9CA3AF',
+              cursor: 'pointer',
+            }}
           >
             <option value="">Selecione o estado</option>
             {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
           </select>
 
           {estadoSelecionado && (
-            <input
-              type="text"
-              placeholder="Buscar por nome..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="input-field"
-              style={{ flex: 1 }}
-            />
+            <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+              <i
+                className="ti ti-search"
+                style={{
+                  position: 'absolute', left: 12, top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: 16, color: '#9CA3AF', pointerEvents: 'none',
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Buscar por nome..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ ...inputStyle, padding: '10px 14px 10px 38px' }}
+              />
+            </div>
           )}
         </div>
+      </div>
 
-        {/* Estado: sem filtro — seção de dicas */}
+      {/* ── Conteúdo ────────────────────────────────────────────────────── */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 28px' }}>
+
+        {/* Sem estado selecionado */}
         {!estadoSelecionado && (
-          <div>
-            {/* Grid de imagens */}
-            <div
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 32 }}
-              className="trilhas-img-grid"
-            >
-              {[
-                { src: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80', dica: 'Verifique sempre as condições antes de sair' },
-                { src: 'https://images.unsplash.com/photo-1571333250630-f0230c320b6d?w=600&q=80', dica: 'Solo molhado = trilha fechada. Respeite o verde.' },
-                { src: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=600&q=80', dica: 'Favorite trilhas para acompanhar diariamente' },
-              ].map(({ src, dica }, i) => (
-                <div
-                  key={i}
-                  style={{ position: 'relative', height: 200, borderRadius: 8, overflow: 'hidden', border: '0.5px solid #e5e5e5' }}
-                  className="trilha-img-wrap"
-                >
-                  <img src={src} alt="Trilha MTB" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  <div className="trilha-img-overlay" style={{
-                    position: 'absolute', inset: 0,
-                    background: 'rgba(0,0,0,0.55)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: 16, opacity: 0, transition: 'opacity 0.2s',
-                  }}>
-                    <p style={{ color: '#fff', fontSize: 13, fontWeight: 500, textAlign: 'center', lineHeight: 1.5 }}>{dica}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <style>{`
-              @media (max-width: 768px) {
-                .trilhas-img-grid { grid-template-columns: 1fr !important; }
-                .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
-                .trilhas-strava-banner { flex-direction: column !important; gap: 16px !important; }
-              }
-              .trilha-img-wrap:hover .trilha-img-overlay { opacity: 1 !important; }
-            `}</style>
-
+          <>
             {/* Como usar — 4 cards */}
             <div
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}
               className="trilhas-dicas-grid"
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}
             >
               {[
-                { icon: <i className="ti ti-map-2" style={{ fontSize: 32, color: '#111' }} />, title: 'Selecione seu estado', text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
-                { icon: <i className="ti ti-star" style={{ fontSize: 32, color: '#111' }} />, title: 'Favorite suas trilhas', text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
-                { icon: <i className="ti ti-brand-strava" style={{ fontSize: 32, color: '#FC4C02' }} />, title: 'Importe do Strava', text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
-                { icon: <i className="ti ti-message-star" style={{ fontSize: 32, color: '#111' }} />, title: 'Avalie as trilhas', text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
-              ].map(({ icon, title, text }) => (
-                <div key={title} style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 16 }}>
-                  <div style={{ marginBottom: 8 }}>{icon}</div>
-                  <p style={{ fontSize: 14, fontWeight: 500, color: '#111', marginBottom: 4 }}>{title}</p>
-                  <p style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>{text}</p>
+                { icon: 'ti-map-2',       color: '#FFE000',  title: 'Selecione seu estado',    text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
+                { icon: 'ti-star',        color: '#FFE000',  title: 'Favorite suas trilhas',   text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
+                { icon: 'ti-brand-strava',color: '#FC4C02',  title: 'Importe do Strava',       text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
+                { icon: 'ti-message-star',color: '#FFE000',  title: 'Avalie as trilhas',       text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
+              ].map(({ icon, color, title, text }) => (
+                <div
+                  key={title}
+                  style={{
+                    background: '#FFFFFF',
+                    borderRadius: 12,
+                    border: '0.5px solid #E5E7EB',
+                    padding: 20,
+                  }}
+                >
+                  <i className={`ti ${icon}`} style={{ fontSize: 24, color, display: 'block', marginBottom: 12 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#111111', margin: '0 0 6px' }}>{title}</p>
+                  <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: 0 }}>{text}</p>
                 </div>
               ))}
             </div>
@@ -252,7 +278,8 @@ function TrilhasContent() {
             <div
               className="trilhas-strava-banner"
               style={{
-                background: 'rgba(252,76,2,0.08)', border: '1px solid #FC4C02',
+                background: 'rgba(252,76,2,0.08)',
+                border: '1px solid #FC4C02',
                 borderRadius: 8, padding: '20px 24px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}
@@ -260,38 +287,59 @@ function TrilhasContent() {
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                 <i className="ti ti-brand-strava" style={{ fontSize: 24, color: '#FC4C02', marginTop: 2, flexShrink: 0 }} />
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: '#111', marginBottom: 4 }}>Monitore suas trilhas do Strava</p>
-                  <p style={{ fontSize: 13, color: '#888' }}>Importe segmentos favoritos e receba condições diárias</p>
+                  <p style={{ fontSize: 15, fontWeight: 500, color: '#111', margin: '0 0 4px' }}>Monitore suas trilhas do Strava</p>
+                  <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Importe segmentos favoritos e receba condições diárias</p>
                 </div>
               </div>
               <a
                 href="/perfil/strava"
                 style={{
-                  background: '#FC4C02', color: '#fff',
-                  border: 'none', borderRadius: 4,
-                  padding: '8px 16px', fontSize: 13, fontWeight: 500,
+                  background: '#FC4C02', color: '#FFFFFF',
+                  borderRadius: 8, padding: '8px 16px',
+                  fontSize: 13, fontWeight: 500,
                   textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
                 }}
               >
                 Conectar com Strava
               </a>
             </div>
-          </div>
+          </>
         )}
 
-        {/* Carregando */}
+        {/* Loading */}
         {estadoSelecionado && loading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-            <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+            <div style={{
+              width: 32, height: 32,
+              border: '2px solid #E5E7EB', borderTopColor: '#111',
+              borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+            }} />
           </div>
         )}
 
         {/* Trilhas */}
         {estadoSelecionado && !loading && (
           filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '80px 0', color: '#888', fontSize: 14 }}>
-              Nenhuma trilha encontrada{search ? ` para "${search}"` : ` em ${estadoLabel}`}.
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <p style={{ fontSize: 15, color: '#6B7280', margin: '0 0 20px' }}>
+                {search
+                  ? `Nenhuma trilha encontrada para "${search}".`
+                  : `Nenhuma trilha cadastrada em ${estadoLabel} ainda.`}
+              </p>
+              {!search && (
+                <Link
+                  href="/trilhas/cadastrar"
+                  style={{
+                    display: 'inline-block',
+                    background: '#FFE000', color: '#111111',
+                    borderRadius: 8, padding: '12px 24px',
+                    fontSize: 14, fontWeight: 600,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Cadastrar a primeira trilha →
+                </Link>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -308,12 +356,15 @@ function TrilhasContent() {
         )}
       </div>
 
+      {/* Toast limite de favoritos */}
       {limiteMsg && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#111', color: '#fff', borderRadius: 8, padding: '12px 20px',
+          background: '#1A1A1A', color: '#FFFFFF',
+          borderRadius: 12, padding: '12px 20px',
           fontSize: 13, zIndex: 1000, maxWidth: 440, textAlign: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          whiteSpace: 'nowrap',
         }}>
           Plano Gratuito permite até 5 trilhas favoritas.{' '}
           <a href="/planos" style={{ color: '#FFE000', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
@@ -326,7 +377,7 @@ function TrilhasContent() {
 
 export default function TrilhasPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f7f7f5' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F8F9FA' }} />}>
       <TrilhasContent />
     </Suspense>
   )
