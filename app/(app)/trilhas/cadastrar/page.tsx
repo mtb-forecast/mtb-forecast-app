@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
+import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 
 function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
   const patterns = [
@@ -40,6 +41,22 @@ export default function CadastrarTrilhaPage() {
   const [extensao, setExtensao] = useState('')
   const [linkRef, setLinkRef] = useState('')
   const [observacoes, setObservacoes] = useState('')
+
+  // Opções carregadas do Supabase via lib/domain.ts
+  const [soloTypes, setSoloTypes] = useState<string[]>([])
+  const [biomas, setBiomas] = useState<string[]>([])
+  const [exposicoes, setExposicoes] = useState<{ valor: string; label: string }[]>([])
+  const [trailTypes, setTrailTypes] = useState<{ valor: string; label: string }[]>([])
+
+  useEffect(() => {
+    Promise.all([getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes()])
+      .then(([s, b, e, t]) => {
+        setSoloTypes(s)
+        setBiomas(b)
+        setExposicoes(e)
+        setTrailTypes(t)
+      })
+  }, [])
 
   function handleExtract() {
     const coords = extrairCoordenadas(mapsUrl)
@@ -289,10 +306,9 @@ export default function CadastrarTrilhaPage() {
                   </label>
                   <select value={soloType} onChange={e => setSoloType(e.target.value)} className="input-field" required>
                     <option value="">Selecione</option>
-                    <option value="argiloso">Argiloso</option>
-                    <option value="arenoso">Arenoso</option>
-                    <option value="misto">Misto</option>
-                    <option value="pedregoso">Pedregoso</option>
+                    {soloTypes.map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -301,9 +317,9 @@ export default function CadastrarTrilhaPage() {
                   </label>
                   <select value={exposicao} onChange={e => setExposicao(e.target.value)} className="input-field" required>
                     <option value="">Selecione</option>
-                    <option value="exposta">Exposta</option>
-                    <option value="semiexposta">Semiexposta</option>
-                    <option value="fechada">Fechada</option>
+                    {exposicoes.map(e => (
+                      <option key={e.valor} value={e.valor}>{e.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -314,21 +330,18 @@ export default function CadastrarTrilhaPage() {
                   </label>
                   <select value={trailType} onChange={e => setTrailType(e.target.value)} className="input-field" required>
                     <option value="">Selecione</option>
-                    <option value="singletrack">Singletrack</option>
-                    <option value="doubletrack">Doubletrack</option>
-                    <option value="misto">Misto</option>
+                    {trailTypes.map(t => (
+                      <option key={t.valor} value={t.valor}>{t.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Bioma</label>
                   <select value={bioma} onChange={e => setBioma(e.target.value)} className="input-field">
                     <option value="">Não sei / outro</option>
-                    <option value="mata atlântica">Mata Atlântica</option>
-                    <option value="cerrado">Cerrado</option>
-                    <option value="pampa">Pampa</option>
-                    <option value="caatinga">Caatinga</option>
-                    <option value="amazônia">Amazônia</option>
-                    <option value="pantanal">Pantanal</option>
+                    {biomas.map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
                   </select>
                 </div>
               </div>

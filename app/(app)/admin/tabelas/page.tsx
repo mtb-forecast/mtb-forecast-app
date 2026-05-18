@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
+import { getSoloTypes, getExposicoes, getBiomas } from '@/lib/domain'
 
 type TabelaSolo = {
   id: string
@@ -54,9 +55,6 @@ type ModalState = {
 
 const MESES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 const TEXTURE_OPTIONS = ['Argiloso', 'Muito argiloso', 'Argilo-arenoso', 'Franco-argiloso', 'Franco', 'Franco-arenoso', 'Arenoso']
-const SOLO_TYPES = ['terra', 'misto', 'misto_mg', 'preto', 'pedra', 'ferro']
-const EXPOSICOES = ['aberta', 'semi-aberta', 'fechada']
-const BIOMAS = ['Mata Atlântica', 'Cerrado', 'Caatinga', 'Pantanal', 'Amazônia', 'Pampa', 'TODOS']
 
 export default function TabelasPage() {
   const router = useRouter()
@@ -80,6 +78,10 @@ export default function TabelasPage() {
   const [rejectMotivo, setRejectMotivo] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
+  const [soloTypes, setSoloTypes] = useState<string[]>([])
+  const [exposicoesVals, setExposicoesVals] = useState<string[]>([])
+  const [biomaOpts, setBiomaOpts] = useState<string[]>([])
+
   const showToast = (msg: string) => {
     setToast(msg)
     setTimeout(() => setToast(null), 3000)
@@ -95,6 +97,10 @@ export default function TabelasPage() {
       if (!profile?.is_admin) { router.replace('/dashboard'); return }
 
       setUserId(user.id)
+      const [s, e, b] = await Promise.all([getSoloTypes(), getExposicoes(), getBiomas()])
+      setSoloTypes(s)
+      setExposicoesVals(e.map(x => x.valor))
+      setBiomaOpts(b)
       await Promise.all([
         loadSolo(),
         loadThreshold(),
@@ -413,7 +419,7 @@ export default function TabelasPage() {
                     <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>solo_type</label>
                     <select value={newRow.solo_type as string || ''} onChange={e => setNewRow(v => ({ ...v, solo_type: e.target.value }))} style={{ ...inputSm, width: 110 }}>
                       <option value="">--</option>
-                      {SOLO_TYPES.map(o => <option key={o}>{o}</option>)}
+                      {soloTypes.map(o => <option key={o}>{o}</option>)}
                     </select>
                     <p style={hintStyle}>Ex: terra, ferro</p>
                   </div>
@@ -421,7 +427,7 @@ export default function TabelasPage() {
                     <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>bioma</label>
                     <select value={newRow.bioma as string || ''} onChange={e => setNewRow(v => ({ ...v, bioma: e.target.value }))} style={{ ...inputSm, width: 140 }}>
                       <option value="">--</option>
-                      {BIOMAS.map(o => <option key={o}>{o}</option>)}
+                      {[...biomaOpts, 'TODOS'].map(o => <option key={o}>{o}</option>)}
                     </select>
                     <p style={hintStyle}>TODOS = todos os biomas</p>
                   </div>
@@ -648,7 +654,7 @@ export default function TabelasPage() {
                     <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>solo_type</label>
                     <select value={newRow.solo_type as string || ''} onChange={e => setNewRow(v => ({ ...v, solo_type: e.target.value }))} style={{ ...inputSm, width: 110 }}>
                       <option value="">--</option>
-                      {SOLO_TYPES.map(o => <option key={o}>{o}</option>)}
+                      {soloTypes.map(o => <option key={o}>{o}</option>)}
                     </select>
                     <p style={hintStyle}>Ex: terra, ferro</p>
                   </div>
@@ -656,7 +662,7 @@ export default function TabelasPage() {
                     <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>exposicao</label>
                     <select value={newRow.exposicao as string || ''} onChange={e => setNewRow(v => ({ ...v, exposicao: e.target.value }))} style={{ ...inputSm, width: 120 }}>
                       <option value="">--</option>
-                      {EXPOSICOES.map(o => <option key={o}>{o}</option>)}
+                      {exposicoesVals.map(o => <option key={o}>{o}</option>)}
                     </select>
                     <p style={hintStyle}>aberta / fechada</p>
                   </div>
