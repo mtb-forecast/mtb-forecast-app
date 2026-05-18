@@ -38,6 +38,7 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
   const [rejeicao, setRejeicao] = useState<{ id: string; motivo: string } | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [edits, setEdits] = useState<Record<string, Partial<TrilhaPendente>>>({})
+  const [aprovarErrors, setAprovarErrors] = useState<Record<string, string>>({})
 
   const [soloTypes, setSoloTypes] = useState<string[]>([])
   const [biomas, setBiomas] = useState<string[]>([])
@@ -70,9 +71,21 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
   }
 
   async function handleAprovar(trilha: TrilhaPendente) {
+    const m = merged(trilha)
+    if (!m.solo_type || !m.exposicao || !m.trail_type || !m.regiao || m.altitude_m == null) {
+      setAprovarErrors(prev => ({ ...prev, [trilha.id]: 'Preencha todos os campos obrigatórios antes de aprovar.' }))
+      return
+    }
     setSavingId(trilha.id)
-    await onAprovar(merged(trilha))
-    setSavingId(null)
+    setAprovarErrors(prev => ({ ...prev, [trilha.id]: '' }))
+    try {
+      await onAprovar(m)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao aprovar — verifique se todos os campos obrigatórios estão preenchidos.'
+      setAprovarErrors(prev => ({ ...prev, [trilha.id]: msg }))
+    } finally {
+      setSavingId(null)
+    }
   }
 
   async function confirmarRejeicao() {
@@ -256,6 +269,13 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                 {!ok && (
                   <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 4, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#9a3412' }}>
                     ⚠️ Preencha solo, exposição, tipo, região e altitude antes de aprovar.
+                  </div>
+                )}
+
+                {/* Erro ao aprovar (falha no Supabase) */}
+                {aprovarErrors[trilha.id] && (
+                  <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '8px 12px', marginBottom: 16, fontSize: 12 }}>
+                    ⚠️ {aprovarErrors[trilha.id]}
                   </div>
                 )}
 
