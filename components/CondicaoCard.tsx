@@ -146,15 +146,17 @@ function ReportMetricCell({ label, icon, value, color = '#111111', tooltip }: {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function CondicaoCard({ condicao }: Props) {
-  const badge       = verdictBadge(condicao.veredicto)
-  const janela      = janelaStyle(condicao.veredicto)
-  const borderColor = verdictBorderColor(condicao.veredicto)
+  const veredictoDisplay = condicao.veredicto_12h?.trim() || condicao.veredicto
+  const has12h      = !!condicao.veredicto_12h?.trim()
+  const badge       = verdictBadge(veredictoDisplay)
+  const janela      = janelaStyle(veredictoDisplay)
+  const borderColor = verdictBorderColor(veredictoDisplay)
   const windKmh     = condicao.wind_ms * 3.6
   const showPico    = condicao.pico_3h != null && condicao.pico_3h >= 3
   const showInc     = condicao.inclinacao != null && condicao.inclinacao !== 0
 
   const solo = recalcularSolo(condicao)
-  const { driftHoras, acumuloAgora, acumuloOriginal, ultimaChuvaH,
+  const { driftHoras, acumuloAgora, ultimaChuvaH,
           horasParaGrip, progresso, temChuvaFutura, trilhaSecaEmAgora } = solo
 
   const indicatorColor = progresso >= 80 ? '#22C55E' : progresso >= 50 ? '#F59E0B' : '#EF4444'
@@ -216,23 +218,6 @@ export default function CondicaoCard({ condicao }: Props) {
       {/* Body */}
       <div style={{ padding: '12px 18px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* Drift banner */}
-        {driftHoras > 1 && (
-          <div style={{
-            background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 8,
-            padding: '6px 12px', fontSize: 11, color: '#166534',
-            display: 'flex', alignItems: 'flex-start', gap: 6,
-          }}>
-            <i className="ti ti-refresh" style={{ fontSize: 12, marginTop: 1, flexShrink: 0 }} />
-            <span>
-              Solo recalculado com {driftHoras}h de secagem natural.
-              {temChuvaFutura && (
-                <span style={{ color: '#92400E' }}> Chuva prevista vai impactar o solo.</span>
-              )}
-            </span>
-          </div>
-        )}
-
         {/* Veredicto + aderência_status */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -240,10 +225,10 @@ export default function CondicaoCard({ condicao }: Props) {
               background: badge.bg, color: badge.color,
               fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '4px 12px',
             }}>
-              {condicao.veredicto}
+              {veredictoDisplay}
             </span>
             <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              48h
+              {has12h ? '12h' : '48h'}
             </span>
           </div>
           <span style={{ fontSize: 11, color: '#6B7280', textAlign: 'right' }}>
@@ -334,7 +319,6 @@ export default function CondicaoCard({ condicao }: Props) {
             icon="ti-calculator"
             value={`${acumuloAgora.toFixed(1)}mm`}
             color={accumColor(acumuloAgora)}
-            sub={`era ${acumuloOriginal.toFixed(1)}mm às ${horaReport}`}
             tooltip="Umidade retida recalculada com decaimento desde o report"
           />
 
@@ -343,7 +327,6 @@ export default function CondicaoCard({ condicao }: Props) {
             icon="ti-clock"
             value={`${trilhaSecaEmAgora}h`}
             color="#6B7280"
-            sub={`era ${condicao.meia_vida_h}h no report`}
             tooltip="Tempo restante estimado para o solo atingir condição ideal"
           />
 
@@ -353,7 +336,6 @@ export default function CondicaoCard({ condicao }: Props) {
               icon="ti-history"
               value={`${ultimaChuvaH}h atrás`}
               color="#6B7280"
-              sub={`era ${condicao.ultima_chuva_h}h no report`}
               tooltip="Horas desde a última precipitação, ajustado pelo tempo desde o report"
             />
           )}

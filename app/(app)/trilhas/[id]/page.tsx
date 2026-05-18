@@ -322,58 +322,8 @@ export default function TrilhaDetalhe() {
             </div>
           )}
 
-          {/* c) Condição atual */}
-          {c && (veredictoText || c.aderencia_status) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Próx. 12h:
-              </span>
-              {veredictoText && vcfg && (
-                <span style={{
-                  background: (vcfg.cor ?? '#D1D5DB') + '26',
-                  color: vcfg.cor ?? '#D1D5DB',
-                  borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '3px 9px',
-                }}>
-                  {vcfg.emoji} {veredictoText}
-                </span>
-              )}
-              {c.aderencia_status && (
-                <span style={{
-                  background: 'rgba(255,255,255,0.1)',
-                  color: '#D1D5DB',
-                  borderRadius: 6, fontSize: '0.7rem', fontWeight: 500, padding: '3px 9px',
-                }}>
-                  {c.aderencia_status}
-                </span>
-              )}
-            </div>
-          )}
 
-          {/* d) Alerta futuro */}
-          {c?.aderencia_futura_status && c.aderencia_futura_label &&
-           c.aderencia_futura_status !== c.aderencia_status && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, color: '#FCD34D' }}>
-              <i className="ti ti-alert-triangle" style={{ fontSize: 13 }} />
-              <span>
-                Previsão {c.aderencia_futura_label}: {c.aderencia_futura_status}
-                {c.aderencia_futura_rain != null && c.aderencia_futura_rain > 0
-                  ? ` (${c.aderencia_futura_rain.toFixed(1)}mm)`
-                  : ''}
-              </span>
-            </div>
-          )}
-
-          {/* e) Texto dinâmico */}
-          {c?.texto_dinamico && (
-            <p style={{
-              fontSize: 13, color: '#9CA3AF', margin: '10px 0 0',
-              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-            }}>
-              {c.texto_dinamico}
-            </p>
-          )}
-
-        </div>
+</div>
       </div>
 
       {/* ── Faixa amarela ─────────────────────────────────────────────── */}
