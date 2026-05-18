@@ -114,17 +114,30 @@ function ImportarStravaContent() {
     setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'loading' }))
     setImportError(e => ({ ...e, [seg.strava_segment_id]: '' }))
 
+    // Buscar polyline completa via detalhe do segmento
+    let polyline = seg.polyline
+    try {
+      const detailRes = await fetch(`/api/admin/strava-segment?id=${seg.strava_segment_id}`)
+      if (detailRes.ok) {
+        const detail = await detailRes.json()
+        if (detail.polyline) polyline = detail.polyline
+      } else {
+        console.warn('Não foi possível buscar polyline do segmento', seg.strava_segment_id)
+      }
+    } catch (err) {
+      console.warn('Erro ao buscar detalhe do segmento:', err)
+    }
+
     const { error } = await supabase.from('trilhas_pendentes').insert({
       name: seg.name,
       lat: seg.lat,
       lon: seg.lon,
-      polyline: seg.polyline,
+      polyline: polyline ?? null,
       extensao_km: seg.distance_km,
       desnivel_m: seg.desnivel_m,
       strava_segment_id: seg.strava_segment_id,
       user_id: userId,
       status: 'pendente',
-      // Campos preenchidos pelo admin na aprovação
       solo_type: null,
       exposicao: null,
       altitude_m: null,
