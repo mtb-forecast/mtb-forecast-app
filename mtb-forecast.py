@@ -242,9 +242,7 @@ EMAIL_TO        = os.getenv("EMAIL_TO")
 EMAIL_BCC       = os.getenv("EMAIL_BCC", "")
 DEBUG_MODEL     = os.getenv("DEBUG_MODEL", "false").lower() == "true"
 
-SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://eydlkvrjopffyqpdstzh.supabase.co"
-if not SUPABASE_URL.startswith("http"):
-    SUPABASE_URL = "https://eydlkvrjopffyqpdstzh.supabase.co"
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
@@ -253,14 +251,24 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 # ---------------------------------------------------------------------------
 
 def _carregar_emails_por_regiao() -> dict:
-    from supabase import create_client
-    url = os.environ["SUPABASE_URL"]
-    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-    client = create_client(url, key)
-    rows = client.table("profiles") \
-        .select("email, regiao, plano, receber_email") \
-        .eq("receber_email", True) \
-        .execute().data
+    if not SUPABASE_KEY or not SUPABASE_URL:
+        print("  [Email] SUPABASE_KEY ou SUPABASE_URL ausente — pulando carga de emails")
+        return {}
+    try:
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/profiles"
+            f"?select=email,regiao,plano,receber_email"
+            f"&receber_email=eq.true",
+            headers={
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            rows = json.loads(r.read())
+    except Exception as exc:
+        print(f"  [Email] Erro ao carregar destinatários do Supabase: {exc}")
+        return {}
     resultado = {}
     for row in rows:
         regiao = row.get("regiao") or "outros"
@@ -280,6 +288,7 @@ def _bcc_global() -> list:
 def _validar_env() -> None:
     obrigatorias = {
         "OPENWEATHER_API_KEY":  OPENWEATHER_KEY,
+        "SUPABASE_URL":         SUPABASE_URL,
         "SUPABASE_SERVICE_KEY": SUPABASE_KEY,
     }
     faltando = [k for k, v in obrigatorias.items() if not v]
@@ -2740,7 +2749,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
         _vd = r["veredicto"]
         _verd_linha3 = (
             f'{_vd["emoji"]} <b style="color:{_vd["cor"]};">{_vd["texto"]}</b>'
-            + (f' — {_vd["texto_dinamico"]}' if _vd.get("texto_dinamico") else "")
+            + (f' — {html_lib.escape(_vd["texto_dinamico"])}' if _vd.get("texto_dinamico") else "")
         )
 
         # ── Seção: alertas ────────────────────────────────────────────────
@@ -2772,7 +2781,7 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
                     <a href="{maps_url}" target="_blank"
                        style="font-size:14px;font-weight:800;color:#1e293b;
                               text-decoration:none;display:block;line-height:1.3;"
-                       title="Abrir no Google Maps">{r["name"]} 📍</a>
+                       title="Abrir no Google Maps">{html_lib.escape(r["name"])} 📍</a>
                     <div style="font-size:10px;color:#94a3b8;font-weight:600;
                                 letter-spacing:.5px;text-transform:uppercase;margin-top:2px;">
                       {"🏟 Bike Park" if r["trail_type"] == "bikepark" else "🏔 Trilha Natural"}
@@ -2886,9 +2895,9 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
 
   <tr><td style="background:#16a34a;padding:16px 32px;">
     <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#bbf7d0;text-transform:uppercase;">🏆 Melhor trilha do momento</div>
-    <div style="font-size:16px;font-weight:800;color:#ffffff;margin-top:4px;">{melhor['name']}</div>
+    <div style="font-size:16px;font-weight:800;color:#ffffff;margin-top:4px;">{html_lib.escape(melhor['name'])}</div>
     <div style="font-size:12px;color:#dcfce7;margin-top:3px;">
-      Solo {melhor['aderencia']['status']} &nbsp;·&nbsp; {melhor['rain']}mm &nbsp;·&nbsp; {melhor['wind']}m/s &nbsp;·&nbsp; Janela: {melhor['janela']}
+      Solo {melhor['aderencia']['status']} &nbsp;·&nbsp; {melhor['rain']}mm &nbsp;·&nbsp; {melhor['wind']}m/s &nbsp;·&nbsp; Janela: {html_lib.escape(melhor['janela'])}
     </div>
   </td></tr>
 
@@ -3016,22 +3025,6 @@ def _buscar_usuarios_email() -> list:
         return []
 
 
-def _buscar_favoritos_usuario(user_id: str) -> list:
-    """Busca trilhas favoritas do usuário."""
-    try:
-        url = (
-            f"{SUPABASE_URL}/rest/v1/favoritos"
-            f"?select=trilha_id"
-            f"&user_id=eq.{user_id}"
-        )
-        req = urllib.request.Request(url, headers={
-            "apikey":        SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-        })
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return json.loads(r.read())
-    except Exception:
-        return []
 
 
 def _buscar_strava_usuario(user_id: str) -> list:
