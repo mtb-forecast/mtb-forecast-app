@@ -36,28 +36,13 @@
       "Bash(emails)",
       "Bash(\\\\.github\")",
       "Bash(cp C:/ClaudeCode/agent-mtb-forecast/mtb-forecast.py C:/ClaudeCode/mtb-forecast-app/mtb-forecast.py && echo \"mtb-forecast.py copiado\")",
-      "Bash(git stash *)",
-      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\public\\\\icons\")",
-      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\auth\\\\callback\")",
-      "Bash(git commit *)",
-      "Bash(New-Item -ItemType Directory -Force \"C:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\t\\\\[id]\")",
-      "Bash(mkdir -p \"C:/ClaudeCode/mtb-forecast-app/app/t/[id]\")",
-      "Bash(curl -s -o - -w '\\\\nHTTP_STATUS:%{http_code}' -X GET 'https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/trilhas?select=id&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280')",
-      "Bash(dir \"C:\\\\Users\\\\sadou\\\\.claude\\\\projects\\\\c--ClaudeCode-mtb-forecast-app\\\\memory\")",
-      "Bash(node -e \"require\\('dotenv'\\)\")",
-      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\);const j=JSON.parse\\(d\\);console.log\\(Object.keys\\(j.dependencies||{}\\).join\\('\\\\n'\\),Object.keys\\(j.devDependencies||{}\\).join\\('\\\\n'\\)\\)\")",
-      "Bash(node -e \"const p=require\\('./package.json'\\); const all={...p.dependencies,...p.devDependencies}; console.log\\(Object.keys\\(all\\).filter\\(k=>k.includes\\('ts-node'\\)||k.includes\\('tsx'\\)||k.includes\\('dotenv'\\)||k.includes\\('supabase'\\)\\).join\\('\\\\n'\\)\\)\")",
-      "Bash(curl -s https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/rpc/query -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280' -H 'Content-Type: application/json' 'https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/trilhas?name=ilike.*DH42*&select=id,name')",
-      "Bash(curl -s 'https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/condicoes?trilha_id=eq.0a5b8f70-4b60-44e2-a18f-ed1613f16512&select=trilha_id,texto_dinamico,veredicto,aderencia_status,aderencia_futura_status,aderencia_futura_label&order=gerado_em.desc&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280')",
-      "Bash(curl -s 'https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/condicoes?trilha_id=eq.0a5b8f70-4b60-44e2-a18f-ed1613f16512&order=gerado_em.desc&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280')",
-      "Bash(python3 -c ' *)",
-      "Bash(curl -s 'https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/condicoes?trilha_id=eq.0a5b8f70-4b60-44e2-a18f-ed1613f16512&select=previsao_24h&order=gerado_em.desc&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280')",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d[0]['previsao_24h'], indent=2, ensure_ascii=False\\)\\)\")"
+      "Bash(git merge *)",
+      "Bash(git checkout *)",
+      "Bash(git stash *)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
-      "C:\\ClaudeCode\\agent-mtb-forecast",
-      "C:\\ClaudeCode\\mtb-forecast-app\\app\\t"
+      "C:\\ClaudeCode\\agent-mtb-forecast"
     ]
   }
 }
