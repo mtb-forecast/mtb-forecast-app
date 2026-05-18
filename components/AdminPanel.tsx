@@ -1,22 +1,26 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
+
+const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
 export type TrilhaPendente = {
   id: string
   name: string
-  regiao: string
+  regiao?: string | null
   lat: number
   lon: number
-  altitude_m: number
-  solo_type: string
-  exposicao: string
-  trail_type: string
+  altitude_m?: number | null
+  solo_type?: string | null
+  exposicao?: string | null
+  trail_type?: string | null
   bioma?: string | null
   desnivel_m?: number | null
   extensao_km?: number | null
   link_referencia?: string | null
   observacoes?: string | null
+  polyline?: string | null
   user_id: string
   status: string
   motivo_rejeicao?: string | null
@@ -62,12 +66,20 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
         {trilhas.map(trilha => (
           <div key={trilha.id} style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
 
+            {/* Mapa via polyline (importação Strava) */}
+            {trilha.polyline && (
+              <StravaMap polyline={trilha.polyline} />
+            )}
+
             {/* Header */}
             <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>{trilha.name}</p>
                 <p style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
-                  {trilha.regiao} · {new Date(trilha.created_at).toLocaleDateString('pt-BR')}
+                  {trilha.regiao || '—'} · {new Date(trilha.created_at).toLocaleDateString('pt-BR')}
+                  {trilha.polyline && (
+                    <span style={{ marginLeft: 8, color: '#FC4C02', fontWeight: 500 }}>· via Strava</span>
+                  )}
                 </p>
               </div>
               <span style={{ fontSize: 11, fontWeight: 600, background: '#fef9c3', color: '#854d0e', borderRadius: 2, padding: '2px 8px', flexShrink: 0 }}>
@@ -81,39 +93,41 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
               {/* Grid de campos */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
                 {[
-                  { label: 'Solo', value: trilha.solo_type },
-                  { label: 'Exposição', value: trilha.exposicao },
-                  { label: 'Tipo', value: trilha.trail_type },
-                  { label: 'Altitude', value: `${trilha.altitude_m}m` },
+                  { label: 'Solo', value: trilha.solo_type || '—' },
+                  { label: 'Exposição', value: trilha.exposicao || '—' },
+                  { label: 'Tipo', value: trilha.trail_type || '—' },
+                  { label: 'Altitude', value: trilha.altitude_m != null ? `${trilha.altitude_m}m` : '—' },
                   { label: 'Bioma', value: trilha.bioma || '—' },
-                  { label: 'Desnível', value: trilha.desnivel_m ? `${trilha.desnivel_m}m` : '—' },
-                  { label: 'Extensão', value: trilha.extensao_km ? `${trilha.extensao_km}km` : '—' },
-                  { label: 'Lat', value: trilha.lat.toFixed(5) },
-                  { label: 'Lon', value: trilha.lon.toFixed(5) },
+                  { label: 'Desnível', value: trilha.desnivel_m != null ? `${trilha.desnivel_m}m` : '—' },
+                  { label: 'Extensão', value: trilha.extensao_km != null ? `${trilha.extensao_km}km` : '—' },
+                  { label: 'Lat', value: trilha.lat?.toFixed(5) ?? '—' },
+                  { label: 'Lon', value: trilha.lon?.toFixed(5) ?? '—' },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '8px 12px' }}>
                     <p style={{ fontSize: 10, color: '#888', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 3 }}>{label}</p>
-                    <p style={{ fontSize: 13, color: '#111', fontWeight: 500 }}>{value}</p>
+                    <p style={{ fontSize: 13, color: value === '—' ? '#bbb' : '#111', fontWeight: 500 }}>{value}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Mapa */}
-              <div style={{ marginBottom: 16 }}>
-                <a
-                  href={`https://www.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    background: '#f7f7f5', border: '0.5px solid #e5e5e5',
-                    borderRadius: 4, padding: '8px 14px',
-                    fontSize: 13, color: '#111', textDecoration: 'none',
-                  }}
-                >
-                  📍 Ver localização no Google Maps ↗
-                </a>
-              </div>
+              {/* Mapa Google (fallback sem polyline) */}
+              {!trilha.polyline && (
+                <div style={{ marginBottom: 16 }}>
+                  <a
+                    href={`https://www.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: '#f7f7f5', border: '0.5px solid #e5e5e5',
+                      borderRadius: 4, padding: '8px 14px',
+                      fontSize: 13, color: '#111', textDecoration: 'none',
+                    }}
+                  >
+                    📍 Ver localização no Google Maps ↗
+                  </a>
+                </div>
+              )}
 
               {/* Link de referência */}
               {trilha.link_referencia && (
@@ -135,6 +149,13 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                 <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '10px 14px', marginBottom: 16 }}>
                   <p style={{ fontSize: 10, color: '#888', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Observações</p>
                   <p style={{ fontSize: 13, color: '#111' }}>{trilha.observacoes}</p>
+                </div>
+              )}
+
+              {/* Aviso campos pendentes (importação Strava) */}
+              {(!trilha.solo_type || !trilha.regiao || !trilha.trail_type) && (
+                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 4, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#9a3412' }}>
+                  ⚠️ Trilha importada via Strava — preencha solo, região e tipo antes de aprovar.
                 </div>
               )}
 

@@ -348,6 +348,16 @@ export default function TrilhaDetalhe() {
           </div>
         )}
 
+        {/* ── Mapa de percurso (trilhas aprovadas com polyline) ──────── */}
+        {!isTrilhaPessoal && trilha.polyline && (
+          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
+            <div style={{ padding: '12px 16px 0', borderBottom: '0.5px solid #f0f0f0' }}>
+              <SectionLabel>Percurso</SectionLabel>
+            </div>
+            <StravaMap polyline={trilha.polyline} />
+          </div>
+        )}
+
         {/* ── Card: Alertas ───────────────────────────────────────────── */}
         {c && (alertaRajada || nivelVento > 0) && (
           <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>

@@ -13,6 +13,7 @@ export type Trilha = {
   bioma?: string
   aprovada?: boolean
   criada_por?: string
+  polyline?: string | null
 }
 
 export type Condicao = {

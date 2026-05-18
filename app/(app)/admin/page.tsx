@@ -102,6 +102,7 @@ export default function AdminPage() {
         bioma: p.bioma,
         desnivel_m: p.desnivel_m,
         extensao_km: p.extensao_km,
+        polyline: p.polyline ?? null,
         aprovada: true,
         criada_por: p.user_id,
       }),
@@ -206,6 +207,18 @@ export default function AdminPage() {
             <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Tabelas Mestras</p>
             <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Solo · Thresholds · Meia-vida</p>
             <p style={{ fontSize: 12, color: '#111', fontWeight: 500, marginTop: 12 }}>Gerenciar →</p>
+          </Link>
+          <Link
+            href="/admin/importar-strava"
+            style={{
+              background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8,
+              padding: '16px 24px', flex: 1, minWidth: 140,
+              textDecoration: 'none', display: 'flex', flexDirection: 'column',
+            }}
+          >
+            <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Importar Strava</p>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Rotas → trilhas pendentes</p>
+            <p style={{ fontSize: 12, color: '#FC4C02', fontWeight: 500, marginTop: 12 }}>Importar →</p>
           </Link>
         </div>
 
