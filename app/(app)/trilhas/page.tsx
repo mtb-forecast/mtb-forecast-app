@@ -115,15 +115,15 @@ function TrilhasContent() {
 
   const estadoLabel = estadoSelecionado === 'outros' ? 'Outros' : estadoSelecionado
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
+  const fieldBase: React.CSSProperties = {
     boxSizing: 'border-box',
-    border: '0.5px solid #E5E7EB',
+    border: '1px solid #E5E7EB',
     borderRadius: 8,
     background: '#FFFFFF',
     fontSize: 14,
     color: '#111111',
     outline: 'none',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
   }
 
   return (
@@ -131,11 +131,15 @@ function TrilhasContent() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
+        .trilhas-select:focus { border-color: #FFE000 !important; box-shadow: 0 0 0 2px rgba(255,224,0,0.2) !important; }
+        .trilhas-input:focus  { border-color: #FFE000 !important; box-shadow: 0 0 0 2px rgba(255,224,0,0.2) !important; }
+        .trilhas-select { width: 280px; }
         @media (max-width: 640px) {
           .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
           .trilhas-strava-banner { flex-direction: column !important; gap: 16px !important; }
           .trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
           .trilhas-header-actions a { justify-content: center !important; }
+          .trilhas-select { width: 100% !important; }
         }
       `}</style>
 
@@ -203,22 +207,38 @@ function TrilhasContent() {
         borderBottom: '0.5px solid #E5E7EB',
         padding: '16px 28px',
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <select
-            value={estadoSelecionado}
-            onChange={e => handleEstadoChange(e.target.value)}
-            style={{
-              ...inputStyle,
-              width: 'auto', minWidth: 220,
-              padding: '10px 14px',
-              color: estadoSelecionado ? '#111111' : '#9CA3AF',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="">Selecione o estado</option>
-            {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-          </select>
+        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
 
+          {/* Select de estado com seta customizada */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <select
+              value={estadoSelecionado}
+              onChange={e => handleEstadoChange(e.target.value)}
+              className="trilhas-select"
+              style={{
+                ...fieldBase,
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                padding: '10px 40px 10px 14px',
+                color: estadoSelecionado ? '#111111' : '#9CA3AF',
+                cursor: 'pointer',
+                width: 280,
+              }}
+            >
+              <option value="">Selecione o estado</option>
+              {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+            </select>
+            <i
+              className="ti ti-chevron-down"
+              style={{
+                position: 'absolute', right: 12, top: '50%',
+                transform: 'translateY(-50%)',
+                fontSize: 16, color: '#6B7280', pointerEvents: 'none',
+              }}
+            />
+          </div>
+
+          {/* Input de busca */}
           {estadoSelecionado && (
             <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
               <i
@@ -231,10 +251,11 @@ function TrilhasContent() {
               />
               <input
                 type="text"
-                placeholder="Buscar por nome..."
+                placeholder="Buscar trilha..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                style={{ ...inputStyle, padding: '10px 14px 10px 38px' }}
+                className="trilhas-input"
+                style={{ ...fieldBase, width: '100%', padding: '10px 14px 10px 40px' }}
               />
             </div>
           )}
