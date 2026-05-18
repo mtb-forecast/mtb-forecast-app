@@ -30,24 +30,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function parseHorarios(raw: string | null | undefined): string {
-  if (!raw) return '—'
-  try {
-    const p = JSON.parse(raw)
-    if (Array.isArray(p)) return p.join(', ')
-    return String(p)
-  } catch {
-    return raw
-  }
-}
-
-function inclinacaoCor(inc: number | null | undefined): string {
-  if (inc == null) return '#888'
-  if (inc > 30) return '#ef4444'
-  if (inc > 20) return '#f97316'
-  return '#888'
-}
-
 // ── page ─────────────────────────────────────────────────────────────────────
 
 export default function TrilhaDetalhe() {
@@ -184,23 +166,6 @@ export default function TrilhaDetalhe() {
     ((trilha.exposicao?.toLowerCase() === 'aberta' && c.alerta_rajada_kmh >= 30) ||
      (trilha.exposicao?.toLowerCase() !== 'aberta' && c.alerta_rajada_kmh >= 50))
   const nivelVento = c?.alerta_vento_nivel ?? 0
-
-  const formatarDia = (data: Date) => {
-    const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
-    const dd = String(data.getDate()).padStart(2, '0')
-    const mm = String(data.getMonth() + 1).padStart(2, '0')
-    return `${dd}/${mm} - ${dias[data.getDay()]}`
-  }
-  const hoje = new Date()
-  const d1 = new Date(hoje); d1.setDate(hoje.getDate() + 1)
-  const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
-  const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
-  const fdsDias = [
-    { label: formatarDia(d1), v: c?.fds_d1_veredicto, rain: c?.fds_d1_rain, wind: c?.fds_d1_wind, temp: c?.fds_d1_temp },
-    { label: formatarDia(d2), v: c?.fds_d2_veredicto, rain: c?.fds_d2_rain, wind: c?.fds_d2_wind, temp: c?.fds_d2_temp },
-    { label: formatarDia(d3), v: c?.fds_d3_veredicto, rain: c?.fds_d3_rain, wind: c?.fds_d3_wind, temp: c?.fds_d3_temp },
-  ]
-  const hasFds = fdsDias.some(d => d.v)
 
   function compartilharWhatsApp() {
     if (!trilha) return
@@ -383,64 +348,6 @@ export default function TrilhaDetalhe() {
           </div>
         )}
 
-        {/* ── Card: Previsão 24h ──────────────────────────────────────── */}
-        {c && (
-          <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
-            <SectionLabel>Previsão 24h</SectionLabel>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: '#888' }}>
-              {c.previsao_24h && c.previsao_24h.length > 0 ? (
-                c.previsao_24h.map(b => (
-                  <div key={b.label}>
-                    <b style={{ color: '#475569' }}>{b.label}</b>{' '}
-                    🌧 <b>{b.rain_mm}mm</b>{' '}
-                    ☁️ <b>{b.pop_max}%</b>{' '}
-                    💨 <b>{b.wind_max}m/s</b>{' '}
-                    🌡 <b>{b.temp_med}°C</b>
-                  </div>
-                ))
-              ) : (
-                <>
-                  <div>
-                    <b style={{ color: '#111' }}>12h</b>{' '}
-                    🌧 <b>{c.rain_12h?.toFixed(1) ?? '—'}mm</b>{' '}
-                    ☁️ <b>{c.pop_12h ?? '—'}%</b>{' '}
-                    💨 <b>{c.wind_12h?.toFixed(1) ?? '—'}m/s</b>{' '}
-                    🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
-                  </div>
-                  <div>
-                    <b style={{ color: '#111' }}>24h</b>{' '}
-                    🌧 <b>{c.rain_mm?.toFixed(1) ?? '—'}mm</b>{' '}
-                    ☁️ <b>{c.pop_48h ?? '—'}%</b>{' '}
-                    💨 <b>{c.wind_ms?.toFixed(1) ?? '—'}m/s</b>{' '}
-                    🌡 <b>{c.temp_max?.toFixed(0) ?? '—'}°C</b>
-                  </div>
-                </>
-              )}
-              {c.pico_3h != null && c.pico_3h > 0 && (
-                <div style={{
-                  color: c.pico_3h >= 3 ? '#ef4444' : '#888888',
-                  fontWeight: c.pico_3h >= 3 ? 600 : 400,
-                  fontSize: '12px',
-                  marginTop: '4px',
-                }}>
-                  ⚡ Pico de chuva: {c.pico_3h}mm em 3h
-                  {c.pico_3h < 3 && (
-                    <span style={{ color: '#aaa', fontWeight: 400 }}> — baixo impacto</span>
-                  )}
-                </div>
-              )}
-              {c.janela && (
-                <div>🕐 <b style={{ color: '#111' }}>Melhor janela:</b> {c.janela}</div>
-              )}
-              <div>🌦 <b style={{ color: '#111' }}>Chuva prevista:</b> {parseHorarios(c.horarios_chuva)}</div>
-              {c.aderencia_desc && (
-                <div style={{ color: '#555', fontStyle: 'italic', marginTop: 4 }}>{c.aderencia_desc}</div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* ── Card: Alertas ───────────────────────────────────────────── */}
         {c && (alertaRajada || nivelVento > 0) && (
           <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
@@ -489,35 +396,6 @@ export default function TrilhaDetalhe() {
           isOwner={isTrilhaPessoal}
           stravaSegmentId={stravaSegmentId ?? undefined}
         />
-
-        {/* ── Card: Próximos 3 dias ───────────────────────────────────── */}
-        {hasFds && (
-          <div className="section-card" style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 12 }}>
-            <SectionLabel>Próximos 3 dias</SectionLabel>
-            <div className="fds-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-              {fdsDias.map(({ label, v, rain, wind, temp }) => {
-                const dvcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
-                const statsLine = [
-                  rain != null && `🌧 ${rain.toFixed(1)}mm`,
-                  wind != null && `💨 ${wind.toFixed(1)}m/s`,
-                  temp != null && `🌡 ${temp}°C`,
-                ].filter(Boolean).join(' · ')
-                return (
-                  <div key={label} style={{
-                    background: dvcfg ? dvcfg.bg : '#f7f7f5',
-                    border: `0.5px solid ${dvcfg ? dvcfg.cor + '44' : '#e5e5e5'}`,
-                    borderRadius: 8, padding: '12px 10px', textAlign: 'center',
-                  }}>
-                    <div style={{ fontSize: 10, color: '#888', fontWeight: 500, marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: 20, marginBottom: 4 }}>{dvcfg?.emoji ?? '—'}</div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: dvcfg?.cor ?? '#888', marginBottom: 4 }}>{v ?? 'SEM DADOS'}</div>
-                    {statsLine && <div style={{ fontSize: 10, color: '#888' }}>{statsLine}</div>}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         {/* ── Fontes ─────────────────────────────────────────────────── */}
         {fontes.length > 0 && (
