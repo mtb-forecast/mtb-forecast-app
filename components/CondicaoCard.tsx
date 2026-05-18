@@ -83,7 +83,9 @@ function recalcularSolo(condicao: Condicao) {
     horasParaGrip:     Math.round(horasParaGrip * 10) / 10,
     progresso,
     temChuvaFutura:    chuvaFutura > acumuloAgora,
-    trilhaSecaEmAgora: Math.max(0, Math.round((meiaVida - driftHoras) * 10) / 10),
+    trilhaSecaEmAgora: acumuloAgora > GRIP_THRESHOLD
+      ? Math.max(0, Math.round(meiaVida * Math.log2(acumuloAgora / GRIP_THRESHOLD) * 10) / 10)
+      : 0,
   }
 }
 
@@ -247,9 +249,15 @@ export default function CondicaoCard({ condicao }: Props) {
             )}
             <ReportCell label="Chuva 48h" icon="ti-droplet" value={`${condicao.acumulo_48h.toFixed(1)}mm`} color={accumColor(condicao.acumulo_48h)} tooltip="Chuva acumulada histórica nas últimas 48h" />
             {showPico && <ReportCell label="Pico 3h" icon="ti-droplet-half" value={`${condicao.pico_3h.toFixed(1)}mm`} color={peakColor(condicao.pico_3h)} tooltip="Maior acumulado em janela de 3h na previsão" />}
-            <ReportCell label="Vento máx." icon="ti-wind" value={`${windKmh.toFixed(1)} km/h`} color={windColor(windKmh)} tooltip="Vento máximo sustentado previsto nas próximas 48h" />
+            <ReportCell label="Vento prev. 48h" icon="ti-wind" value={`${windKmh.toFixed(1)} km/h`} color={windColor(windKmh)} tooltip="Vento máximo sustentado previsto nas próximas 48h" />
             {condicao.gust_max_kmh != null && (
-              <ReportCell label="Rajada máx." icon="ti-wind" value={`${condicao.gust_max_kmh.toFixed(0)} km/h`} color={windColor(condicao.gust_max_kmh)} tooltip="Rajada máxima prevista nas próximas 48h" />
+              <ReportCell label="Rajada prev. 48h" icon="ti-wind" value={`${condicao.gust_max_kmh.toFixed(0)} km/h`} color={windColor(condicao.gust_max_kmh)} tooltip="Rajada máxima prevista nas próximas 48h" />
+            )}
+            {condicao.alerta_vento_kmh != null && condicao.alerta_vento_kmh > 0 && (
+              <ReportCell label="Vento hist. 48h" icon="ti-wind" value={`${condicao.alerta_vento_kmh.toFixed(1)} km/h`} color={windColor(condicao.alerta_vento_kmh)} tooltip="Vento máximo sustentado registrado nas últimas 48h" />
+            )}
+            {condicao.alerta_rajada_kmh != null && condicao.alerta_rajada_kmh > 0 && (
+              <ReportCell label="Rajada hist. 48h" icon="ti-wind" value={`${condicao.alerta_rajada_kmh.toFixed(0)} km/h`} color={windColor(condicao.alerta_rajada_kmh)} tooltip="Rajada máxima registrada nas últimas 48h" />
             )}
             {showInc && (
               <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '8px 10px' }}>
