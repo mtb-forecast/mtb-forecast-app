@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
 
   const data = await res.json()
   const polyline: string | null = data.map?.polyline ?? null
+  const altitude_m: number | null = data.elevation_high != null ? Math.round(data.elevation_high) : null
 
-  return NextResponse.json({ polyline })
+  return NextResponse.json({ polyline, altitude_m })
 }

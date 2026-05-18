@@ -72,6 +72,14 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
 
   async function handleAprovar(trilha: TrilhaPendente) {
     const m = merged(trilha)
+    console.log('[AdminPanel] handleAprovar — merged:', {
+      solo_type: m.solo_type,
+      exposicao: m.exposicao,
+      trail_type: m.trail_type,
+      regiao: m.regiao,
+      altitude_m: m.altitude_m,
+      edits: edits[trilha.id],
+    })
     if (!m.solo_type || !m.exposicao || !m.trail_type || !m.regiao || m.altitude_m == null) {
       setAprovarErrors(prev => ({ ...prev, [trilha.id]: 'Preencha todos os campos obrigatórios antes de aprovar.' }))
       return

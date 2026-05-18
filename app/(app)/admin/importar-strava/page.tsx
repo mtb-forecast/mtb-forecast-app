@@ -114,15 +114,17 @@ function ImportarStravaContent() {
     setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'loading' }))
     setImportError(e => ({ ...e, [seg.strava_segment_id]: '' }))
 
-    // Buscar polyline completa via detalhe do segmento
+    // Buscar polyline completa e altitude via detalhe do segmento
     let polyline = seg.polyline
+    let altitude_m: number | null = null
     try {
       const detailRes = await fetch(`/api/admin/strava-segment?id=${seg.strava_segment_id}`)
       if (detailRes.ok) {
         const detail = await detailRes.json()
         if (detail.polyline) polyline = detail.polyline
+        if (detail.altitude_m != null) altitude_m = detail.altitude_m
       } else {
-        console.warn('Não foi possível buscar polyline do segmento', seg.strava_segment_id)
+        console.warn('Não foi possível buscar detalhe do segmento', seg.strava_segment_id)
       }
     } catch (err) {
       console.warn('Erro ao buscar detalhe do segmento:', err)
@@ -140,7 +142,7 @@ function ImportarStravaContent() {
       status: 'pendente',
       solo_type: null,
       exposicao: null,
-      altitude_m: null,
+      altitude_m,
       trail_type: null,
       regiao: null,
       bioma: null,
