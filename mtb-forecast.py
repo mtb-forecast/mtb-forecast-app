@@ -1610,6 +1610,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
 
         payload = json.dumps({
             "trilha_id":          trilha_id,
+            "gerado_em":          datetime.now(BRT).isoformat(),
             "aderencia_status":   aderencia.get("status"),
             "aderencia_score":    aderencia.get("score"),
             "aderencia_desc":     aderencia.get("desc"),
@@ -1755,6 +1756,7 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
 
         payload = json.dumps({
             "strava_segment_id":  strava_segment_id,
+            "gerado_em":          datetime.now(BRT).isoformat(),
             "aderencia_status":   aderencia.get("status"),
             "aderencia_score":    aderencia.get("score"),
             "aderencia_desc":     aderencia.get("desc"),
@@ -2493,7 +2495,7 @@ Regras adicionais:
 - Se última chuva < 3h: mencione que choveu recentemente
 - Se pico_3h > 5mm: mencione chuva intensa prevista
 - Se veredicto for MELHOR ESPERAR: frase deve ser claramente negativa
-- Se veredicto for ATENÇÃO: frase deve mencionar cautela
+- Se veredicto for DROP LIBERADO - Veja os alertas: frase deve mencionar cautela
 - Se veredicto for DROP LIBERADO: frase pode ser positiva
 - Sem markdown, sem bullet points, sem título, máximo 2 frases."""
 

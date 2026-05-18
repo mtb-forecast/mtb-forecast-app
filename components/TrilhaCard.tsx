@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { TrilhaComCondicao, VEREDICTO_CONFIG, ADERENCIA_CONFIG } from '@/lib/types'
+import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 
 type Props = {
   trilha: TrilhaComCondicao
@@ -44,7 +44,6 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
   const c = trilha.condicao
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-  const acfg = c?.aderencia_status ? (ADERENCIA_CONFIG[c.aderencia_status] ?? null) : null
   const hasData = c != null && vcfg != null
 
   const accentColor = veredictoText ? (ACCENT_COLOR[veredictoText] ?? '#D1D5DB') : '#D1D5DB'
