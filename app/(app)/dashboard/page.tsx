@@ -340,7 +340,7 @@ export default function DashboardPage() {
       if (favIds && favIds.length > 0) {
         const ids = favIds.map((f: { trilha_id: string }) => f.trilha_id)
         const { data: trilhas } = await supabase
-          .from('trilhas').select(`*, condicoes(*)`)
+          .from('trilhas').select(`*, condicoes(*), localidades(cidade, estado, localidade)`)
           .in('id', ids).eq('aprovada', true)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
         if (trilhas) {

@@ -10,6 +10,7 @@ import {
   Trilha, Condicao,
   VEREDICTO_CONFIG,
 } from '@/lib/types'
+import { formatLocalidade } from '@/lib/geocoding'
 import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
@@ -59,7 +60,7 @@ export default function TrilhaDetalhe() {
       setUserId(user.id)
 
       const [{ data: td }, { data: fav }, { data: profile }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*), localidades(cidade, estado)`)
+        supabase.from('trilhas').select(`*, condicoes(*), localidades(cidade, estado, localidade)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .maybeSingle(),
@@ -262,9 +263,7 @@ export default function TrilhaDetalhe() {
               {trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
             </span>
             <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
-              {trilha.localidades?.cidade
-                ? `${trilha.localidades.cidade}, ${trilha.localidades.estado}`
-                : trilha.regiao}
+              {formatLocalidade(trilha.localidades, trilha.regiao)}
             </span>
             {trilha.bioma && (
               <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>

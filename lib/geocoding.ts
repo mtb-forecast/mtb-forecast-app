@@ -1,3 +1,12 @@
+export function formatLocalidade(
+  localidades?: { cidade: string; estado: string; localidade: string | null } | null,
+  fallback?: string,
+): string {
+  if (!localidades) return fallback ?? ''
+  const parts = [localidades.localidade, localidades.cidade, localidades.estado].filter(Boolean)
+  return parts.join(', ')
+}
+
 export type GeoResult = {
   pais: string
   estado: string

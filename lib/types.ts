@@ -14,7 +14,7 @@ export type Trilha = {
   aprovada?: boolean
   criada_por?: string
   polyline?: string | null
-  localidades?: { cidade: string; estado: string } | null
+  localidades?: { cidade: string; estado: string; localidade: string | null } | null
 }
 
 export type Condicao = {

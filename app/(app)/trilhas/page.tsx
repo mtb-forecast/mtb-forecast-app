@@ -66,7 +66,7 @@ function TrilhasContent() {
     setLoading(true)
     setSearch('')
     supabase
-      .from('trilhas').select(`*, condicoes(*)`)
+      .from('trilhas').select(`*, condicoes(*), localidades(cidade, estado, localidade)`)
       .eq('aprovada', true).eq('regiao', estadoSelecionado)
       .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
       .then(({ data }) => {
