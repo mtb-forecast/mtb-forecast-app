@@ -10,6 +10,7 @@ import {
   Trilha, Condicao,
   VEREDICTO_CONFIG,
 } from '@/lib/types'
+import { formatLocalidade } from '@/lib/geocoding'
 import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
@@ -59,7 +60,7 @@ export default function TrilhaDetalhe() {
       setUserId(user.id)
 
       const [{ data: td }, { data: fav }, { data: profile }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*)`)
+        supabase.from('trilhas').select(`*, condicoes(*), localidades(cidade, estado, localidade)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .maybeSingle(),
@@ -262,7 +263,7 @@ export default function TrilhaDetalhe() {
               {trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
             </span>
             <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
-              {trilha.regiao}
+              {formatLocalidade(trilha.localidades, trilha.regiao)}
             </span>
             {trilha.bioma && (
               <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
@@ -299,9 +300,9 @@ export default function TrilhaDetalhe() {
 
         {/* Mapa */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderLeft: `3px solid ${borderCor}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-          {isTrilhaPessoal && polyline ? (
+          {(isTrilhaPessoal ? polyline : trilha.polyline) ? (
             <>
-              <StravaMap polyline={polyline} />
+              <StravaMap polyline={(isTrilhaPessoal ? polyline : trilha.polyline)!} />
               <div style={{ padding: '0 0 0 0' }}>
                 <ElevationProfile
                   elevationProfileUrl={elevationProfileUrl}
@@ -323,14 +324,17 @@ export default function TrilhaDetalhe() {
             />
           )}
           <div style={{ padding: '8px 14px', borderTop: '0.5px solid #e5e5e5' }}>
-            <a
-              href={stravaUrl ?? mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontSize: 12, color: '#888' }}
-            >
-              Ver no mapa ↗
-            </a>
+            {(isTrilhaPessoal ? polyline : trilha.polyline) ? (
+              stravaUrl ? (
+                <a href={stravaUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
+                  Ver no Strava ↗
+                </a>
+              ) : null
+            ) : (
+              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
+                Ver no mapa ↗
+              </a>
+            )}
           </div>
         </div>
 

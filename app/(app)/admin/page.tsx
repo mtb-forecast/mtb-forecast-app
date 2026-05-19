@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([])
   const [loading, setLoading] = useState(true)
   const [sugestaoMsg, setSugestaoMsg] = useState<string | null>(null)
+  const [aprovacaoMsg, setAprovacaoMsg] = useState<string | null>(null)
   const [pendingTabelasCount, setPendingTabelasCount] = useState(0)
 
   useEffect(() => {
@@ -89,25 +90,31 @@ export default function AdminPage() {
   }, [router])
 
   async function aprovar(p: TrilhaPendente) {
-    await Promise.all([
-      supabase.from('trilhas').insert({
-        name: p.name,
-        regiao: p.regiao,
-        lat: p.lat,
-        lon: p.lon,
-        altitude_m: p.altitude_m,
-        solo_type: p.solo_type,
-        exposicao: p.exposicao,
-        trail_type: p.trail_type,
-        bioma: p.bioma,
-        desnivel_m: p.desnivel_m,
-        extensao_km: p.extensao_km,
-        aprovada: true,
-        criada_por: p.user_id,
-      }),
-      supabase.from('trilhas_pendentes').update({ status: 'aprovada' }).eq('id', p.id),
-    ])
+    const { error: insertError } = await supabase.from('trilhas').insert({
+      name:        p.name,
+      regiao:      p.regiao,
+      lat:         p.lat,
+      lon:         p.lon,
+      altitude_m:  p.altitude_m,
+      solo_type:   p.solo_type,
+      exposicao:   p.exposicao,
+      trail_type:  p.trail_type,
+      bioma:       p.bioma ?? null,
+      desnivel_m:  p.desnivel_m ?? null,
+      extensao_km: p.extensao_km ?? null,
+      polyline:    p.polyline ?? null,
+      aprovada:    true,
+    })
+
+    if (insertError) {
+      console.error('Erro ao inserir trilha aprovada:', insertError)
+      throw new Error('Erro ao aprovar — verifique se todos os campos obrigatórios estão preenchidos.')
+    }
+
+    await supabase.from('trilhas_pendentes').update({ status: 'aprovada' }).eq('id', p.id)
     setPendentes(prev => prev.filter(t => t.id !== p.id))
+    setAprovacaoMsg('✓ Trilha aprovada com sucesso!')
+    setTimeout(() => setAprovacaoMsg(null), 3000)
   }
 
   async function rejeitar(id: string, motivo: string) {
@@ -207,10 +214,27 @@ export default function AdminPage() {
             <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Solo · Thresholds · Meia-vida</p>
             <p style={{ fontSize: 12, color: '#111', fontWeight: 500, marginTop: 12 }}>Gerenciar →</p>
           </Link>
+          <Link
+            href="/admin/importar-strava"
+            style={{
+              background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8,
+              padding: '16px 24px', flex: 1, minWidth: 140,
+              textDecoration: 'none', display: 'flex', flexDirection: 'column',
+            }}
+          >
+            <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Importar Strava</p>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Rotas → trilhas pendentes</p>
+            <p style={{ fontSize: 12, color: '#FC4C02', fontWeight: 500, marginTop: 12 }}>Importar →</p>
+          </Link>
         </div>
 
         {/* Trilhas pendentes */}
         <div style={{ marginBottom: 24 }}>
+          {aprovacaoMsg && (
+            <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#166534', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+              {aprovacaoMsg}
+            </div>
+          )}
           <AdminPanel trilhas={pendentes} onAprovar={aprovar} onRejeitar={rejeitar} />
         </div>
 

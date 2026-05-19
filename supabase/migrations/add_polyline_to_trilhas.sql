@@ -1,0 +1,2 @@
+ALTER TABLE trilhas ADD COLUMN IF NOT EXISTS polyline TEXT;
+ALTER TABLE trilhas_pendentes ADD COLUMN IF NOT EXISTS polyline TEXT;
