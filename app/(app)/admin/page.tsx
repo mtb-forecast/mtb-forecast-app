@@ -91,20 +91,19 @@ export default function AdminPage() {
 
   async function aprovar(p: TrilhaPendente) {
     const { error: insertError } = await supabase.from('trilhas').insert({
-      name: p.name,
-      regiao: p.regiao,
-      lat: p.lat,
-      lon: p.lon,
-      altitude_m: p.altitude_m,
-      solo_type: p.solo_type,
-      exposicao: p.exposicao,
-      trail_type: p.trail_type,
-      bioma: p.bioma,
-      desnivel_m: p.desnivel_m,
-      extensao_km: p.extensao_km,
-      polyline: p.polyline ?? null,
-      aprovada: true,
-      criada_por: p.user_id,
+      name:        p.name,
+      regiao:      p.regiao,
+      lat:         p.lat,
+      lon:         p.lon,
+      altitude_m:  p.altitude_m,
+      solo_type:   p.solo_type,
+      exposicao:   p.exposicao,
+      trail_type:  p.trail_type,
+      bioma:       p.bioma ?? null,
+      desnivel_m:  p.desnivel_m ?? null,
+      extensao_km: p.extensao_km ?? null,
+      polyline:    p.polyline ?? null,
+      aprovada:    true,
     })
 
     if (insertError) {
