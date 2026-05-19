@@ -22,6 +22,22 @@ type StravaSegment = {
 
 type ImportStatus = 'idle' | 'loading' | 'success' | 'error'
 
+// Nominatim reverse geocoding — fora do componente, sem dependências de estado
+async function getEstado(lat: number | null, lon: number | null): Promise<string | null> {
+  if (lat == null || lon == null) return null
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      { headers: { 'User-Agent': 'mtb-forecast-app' } }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.address?.state_code?.replace('BR-', '') ?? null
+  } catch {
+    return null
+  }
+}
+
 function ImportarStravaContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -34,6 +50,10 @@ function ImportarStravaContent() {
   const [fetchError, setFetchError] = useState<'rate_limit' | 'generic' | null>(null)
   const [importStatus, setImportStatus] = useState<Record<number, ImportStatus>>({})
   const [importError, setImportError] = useState<Record<number, string>>({})
+  // IDs cujo detalhe já foi tentado buscar (para exibir placeholder "sem mapa")
+  const [enriched, setEnriched] = useState<Set<number>>(new Set())
+  // IDs sendo reimportados (para mostrar "Atualizando..." vs "Importando...")
+  const [reimportando, setReimportando] = useState<Set<number>>(new Set())
 
   const erroParam = searchParams.get('erro')
 
@@ -42,6 +62,31 @@ function ImportarStravaContent() {
     `?client_id=${process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID}` +
     `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_STRAVA_REDIRECT_URI ?? '')}` +
     `&response_type=code&scope=read,activity:read_all`
+
+  // Enriquece segments sem polyline buscando /segments/{id} sequencialmente
+  async function enrichSegments(segs: StravaSegment[]) {
+    const missing = segs.filter(s => !s.polyline)
+    if (missing.length === 0) return
+    console.log(`[Strava] ${missing.length} segmento(s) sem polyline — buscando detalhes...`)
+    for (const seg of missing) {
+      try {
+        const res = await fetch(`/api/admin/strava-segment?id=${seg.strava_segment_id}`)
+        if (res.ok) {
+          const det = await res.json()
+          if (det.polyline) {
+            setSegments(prev => prev.map(s =>
+              s.strava_segment_id === seg.strava_segment_id ? { ...s, polyline: det.polyline } : s
+            ))
+          } else {
+            console.log(`[Strava] Sem polyline disponível: #${seg.strava_segment_id} "${seg.name}"`)
+          }
+        }
+      } catch {
+        // não bloqueia
+      }
+      setEnriched(prev => { const n = new Set(prev); n.add(seg.strava_segment_id); return n })
+    }
+  }
 
   useEffect(() => {
     async function init() {
@@ -105,16 +150,19 @@ function ImportarStravaContent() {
       }
 
       setLoading(false)
+      enrichSegments(data) // busca polylines em background sem bloquear a UI
     }
     init()
   }, [router])
 
   async function importarSegmento(seg: StravaSegment) {
     if (!userId) return
+    const isReimport = importStatus[seg.strava_segment_id] === 'success'
+    if (isReimport) setReimportando(prev => { const n = new Set(prev); n.add(seg.strava_segment_id); return n })
     setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'loading' }))
     setImportError(e => ({ ...e, [seg.strava_segment_id]: '' }))
 
-    // Buscar polyline completa e altitude via detalhe do segmento
+    // 1. Buscar polyline completa e altitude_m via detalhe do segmento
     let polyline = seg.polyline
     let altitude_m: number | null = null
     try {
@@ -130,30 +178,65 @@ function ImportarStravaContent() {
       console.warn('Erro ao buscar detalhe do segmento:', err)
     }
 
-    const { error } = await supabase.from('trilhas_pendentes').insert({
-      name: seg.name,
-      lat: seg.lat,
-      lon: seg.lon,
-      polyline: polyline ?? null,
-      extensao_km: seg.distance_km,
-      desnivel_m: seg.desnivel_m,
-      strava_segment_id: seg.strava_segment_id,
-      user_id: userId,
-      status: 'pendente',
-      solo_type: null,
-      exposicao: null,
-      altitude_m,
-      trail_type: null,
-      regiao: null,
-      bioma: null,
-    })
+    // 2. Reverse geocoding — detectar estado brasileiro via Nominatim
+    const regiao = await getEstado(seg.lat, seg.lon)
 
-    if (error) {
-      console.warn('Erro ao importar segmento:', error.message)
+    // 3. UPDATE se já existe registro pendente, INSERT caso contrário
+    const { data: existing } = await supabase
+      .from('trilhas_pendentes')
+      .select('id')
+      .eq('strava_segment_id', seg.strava_segment_id)
+      .eq('status', 'pendente')
+      .maybeSingle()
+
+    let dbError
+    if (existing) {
+      const { error } = await supabase.from('trilhas_pendentes').update({
+        name: seg.name,
+        lat: seg.lat,
+        lon: seg.lon,
+        polyline: polyline ?? null,
+        extensao_km: seg.distance_km,
+        desnivel_m: seg.desnivel_m,
+        altitude_m,
+        regiao,
+      }).eq('id', existing.id)
+      dbError = error
+    } else {
+      const { error } = await supabase.from('trilhas_pendentes').insert({
+        name: seg.name,
+        lat: seg.lat,
+        lon: seg.lon,
+        polyline: polyline ?? null,
+        extensao_km: seg.distance_km,
+        desnivel_m: seg.desnivel_m,
+        strava_segment_id: seg.strava_segment_id,
+        user_id: userId,
+        status: 'pendente',
+        solo_type: null,
+        exposicao: null,
+        altitude_m,
+        trail_type: null,
+        regiao,
+        bioma: null,
+      })
+      dbError = error
+    }
+
+    setReimportando(prev => { const n = new Set(prev); n.delete(seg.strava_segment_id); return n })
+
+    if (dbError) {
+      console.warn('Erro ao importar segmento:', dbError.message)
       setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'error' }))
-      setImportError(e => ({ ...e, [seg.strava_segment_id]: error.message }))
+      setImportError(e => ({ ...e, [seg.strava_segment_id]: dbError!.message }))
     } else {
       setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'success' }))
+      // Atualizar polyline no estado local para exibir mapa imediatamente
+      if (polyline) {
+        setSegments(prev => prev.map(s =>
+          s.strava_segment_id === seg.strava_segment_id ? { ...s, polyline } : s
+        ))
+      }
     }
   }
 
@@ -282,6 +365,9 @@ function ImportarStravaContent() {
                 const status = importStatus[seg.strava_segment_id] ?? 'idle'
                 const errMsg = importError[seg.strava_segment_id]
                 const jaImportado = status === 'success'
+                const isLoading = status === 'loading'
+                const isReimport = reimportando.has(seg.strava_segment_id)
+                const tentouPolyline = enriched.has(seg.strava_segment_id)
 
                 return (
                   <div
@@ -292,10 +378,18 @@ function ImportarStravaContent() {
                       borderRadius: 8, overflow: 'hidden',
                     }}
                   >
-                    {/* Preview do mapa */}
-                    {seg.polyline && (
+                    {/* Mapa ou placeholder */}
+                    {seg.polyline ? (
                       <StravaMap polyline={seg.polyline} />
-                    )}
+                    ) : tentouPolyline ? (
+                      <div style={{
+                        height: 110, background: '#f7f7f5',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        borderBottom: '0.5px solid #e5e5e5',
+                      }}>
+                        <p style={{ fontSize: 12, color: '#bbb' }}>Mapa não disponível</p>
+                      </div>
+                    ) : null}
 
                     <div style={{ padding: 20 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: status === 'error' ? 12 : 0 }}>
@@ -313,50 +407,42 @@ function ImportarStravaContent() {
                                 📍 {[seg.city, seg.state].filter(Boolean).join(', ')}
                               </span>
                             )}
-                            {!seg.polyline && (
-                              <span style={{ fontSize: 12, color: '#e5a000' }}>sem mapa</span>
-                            )}
                           </div>
                         </div>
 
-                        {jaImportado ? (
-                          <span style={{
-                            fontSize: 12, fontWeight: 500,
-                            background: '#dcfce7', color: '#166534',
-                            borderRadius: 4, padding: '6px 14px', flexShrink: 0,
-                          }}>
-                            ✓ Importado
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => importarSegmento(seg)}
-                            disabled={status === 'loading'}
-                            style={{
-                              background: '#FFE000', color: '#111',
-                              border: '1.5px solid #111', borderRadius: 4,
-                              padding: '8px 20px', fontSize: 13, fontWeight: 500,
-                              cursor: status === 'loading' ? 'not-allowed' : 'pointer',
-                              opacity: status === 'loading' ? 0.7 : 1,
-                              display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
-                            }}
-                          >
-                            {status === 'loading' && (
-                              <span style={{
-                                display: 'inline-block', width: 10, height: 10,
-                                border: '2px solid #111', borderTopColor: 'transparent',
-                                borderRadius: '50%', animation: 'spin 0.7s linear infinite',
-                              }} />
-                            )}
-                            {status === 'loading' ? 'Importando...' : 'Importar'}
-                          </button>
-                        )}
+                        <button
+                          onClick={() => importarSegmento(seg)}
+                          disabled={isLoading}
+                          style={{
+                            background: jaImportado ? '#dcfce7' : '#FFE000',
+                            color: jaImportado ? '#166534' : '#111',
+                            border: jaImportado ? '1.5px solid #86efac' : '1.5px solid #111',
+                            borderRadius: 4,
+                            padding: '8px 20px', fontSize: 13, fontWeight: 500,
+                            cursor: isLoading ? 'not-allowed' : 'pointer',
+                            opacity: isLoading ? 0.7 : 1,
+                            display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                          }}
+                        >
+                          {isLoading && (
+                            <span style={{
+                              display: 'inline-block', width: 10, height: 10,
+                              border: `2px solid ${jaImportado ? '#86efac' : '#111'}`,
+                              borderTopColor: 'transparent',
+                              borderRadius: '50%', animation: 'spin 0.7s linear infinite',
+                            }} />
+                          )}
+                          {isLoading
+                            ? isReimport ? 'Atualizando...' : 'Importando...'
+                            : jaImportado ? '↺ Reimportar' : 'Importar'}
+                        </button>
                       </div>
 
                       {status === 'error' && (
                         <div style={{
                           background: '#fee2e2', border: '1px solid #fca5a5',
                           color: '#991b1b', borderRadius: 4,
-                          padding: '8px 12px', fontSize: 12,
+                          padding: '8px 12px', fontSize: 12, marginTop: 12,
                         }}>
                           Erro ao importar: {errMsg || 'Tente novamente.'}
                         </div>
