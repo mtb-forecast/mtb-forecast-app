@@ -299,9 +299,9 @@ export default function TrilhaDetalhe() {
 
         {/* Mapa */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderLeft: `3px solid ${borderCor}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-          {isTrilhaPessoal && polyline ? (
+          {(isTrilhaPessoal ? polyline : trilha.polyline) ? (
             <>
-              <StravaMap polyline={polyline} />
+              <StravaMap polyline={(isTrilhaPessoal ? polyline : trilha.polyline)!} />
               <div style={{ padding: '0 0 0 0' }}>
                 <ElevationProfile
                   elevationProfileUrl={elevationProfileUrl}
@@ -323,14 +323,17 @@ export default function TrilhaDetalhe() {
             />
           )}
           <div style={{ padding: '8px 14px', borderTop: '0.5px solid #e5e5e5' }}>
-            <a
-              href={stravaUrl ?? mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontSize: 12, color: '#888' }}
-            >
-              Ver no mapa ↗
-            </a>
+            {(isTrilhaPessoal ? polyline : trilha.polyline) ? (
+              stravaUrl ? (
+                <a href={stravaUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
+                  Ver no Strava ↗
+                </a>
+              ) : null
+            ) : (
+              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
+                Ver no mapa ↗
+              </a>
+            )}
           </div>
         </div>
 
@@ -345,16 +348,6 @@ export default function TrilhaDetalhe() {
         {c && (
           <div style={{ marginBottom: 12 }}>
             <CondicaoCard condicao={c} />
-          </div>
-        )}
-
-        {/* ── Mapa de percurso (trilhas aprovadas com polyline) ──────── */}
-        {!isTrilhaPessoal && trilha.polyline && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 12 }}>
-            <div style={{ padding: '12px 16px 0', borderBottom: '0.5px solid #f0f0f0' }}>
-              <SectionLabel>Percurso</SectionLabel>
-            </div>
-            <StravaMap polyline={trilha.polyline} />
           </div>
         )}
 
