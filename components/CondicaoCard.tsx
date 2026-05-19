@@ -248,10 +248,10 @@ export default function CondicaoCard({ condicao }: Props) {
               <LiveCell label="Última chuva" icon="ti-history" value={`${ultimaChuvaH}h atrás`} color="#6B7280" tooltip="Horas desde a última precipitação, ajustado pelo tempo desde o report" />
             )}
             <ReportCell label="Chuva 48h" icon="ti-droplet" value={`${condicao.acumulo_48h.toFixed(1)}mm`} color={accumColor(condicao.acumulo_48h)} tooltip="Chuva acumulada histórica nas últimas 48h" />
-            {showPico && <ReportCell label="Pico 3h" icon="ti-droplet-half" value={`${condicao.pico_3h.toFixed(1)}mm`} color={peakColor(condicao.pico_3h)} tooltip="Maior acumulado em janela de 3h na previsão" />}
-            <ReportCell label="Vento prev. 48h" icon="ti-wind" value={`${windKmh.toFixed(1)} km/h`} color={windColor(windKmh)} tooltip="Vento máximo sustentado previsto nas próximas 48h" />
+            {showPico && <ReportCell label="Pico prev. 3h" icon="ti-droplet-half" value={`${condicao.pico_3h.toFixed(1)}mm`} color={peakColor(condicao.pico_3h)} tooltip="Maior acumulado em janela de 3h na previsão" />}
+            <ReportCell label="Vento prev. 24h" icon="ti-wind" value={`${windKmh.toFixed(1)} km/h`} color={windColor(windKmh)} tooltip="Vento máximo sustentado previsto nas próximas 24h" />
             {condicao.gust_max_kmh != null && (
-              <ReportCell label="Rajada prev. 48h" icon="ti-wind" value={`${condicao.gust_max_kmh.toFixed(0)} km/h`} color={windColor(condicao.gust_max_kmh)} tooltip="Rajada máxima prevista nas próximas 48h" />
+              <ReportCell label="Rajada prev. 24h" icon="ti-wind" value={`${condicao.gust_max_kmh.toFixed(0)} km/h`} color={windColor(condicao.gust_max_kmh)} tooltip="Rajada máxima prevista nas próximas 24h" />
             )}
             {condicao.alerta_vento_kmh != null && condicao.alerta_vento_kmh > 0 && (
               <ReportCell label="Vento hist. 48h" icon="ti-wind" value={`${condicao.alerta_vento_kmh.toFixed(1)} km/h`} color={windColor(condicao.alerta_vento_kmh)} tooltip="Vento máximo sustentado registrado nas últimas 48h" />

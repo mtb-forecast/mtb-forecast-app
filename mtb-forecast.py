@@ -458,18 +458,20 @@ def resumo_onecall(data: dict) -> dict | None:
     if not data:
         return None
     try:
-        hourly = data.get("hourly", [])[:48]
-        precip = [h.get("rain", {}).get("1h", 0.0) or 0.0 for h in hourly]
-        wind   = [h.get("wind_speed", 0.0) or 0.0 for h in hourly]
-        gusts  = [h.get("wind_gust", 0.0) or 0.0 for h in hourly]
-        pop    = [h.get("pop", 0.0) or 0.0 for h in hourly]
+        hourly    = data.get("hourly", [])[:24]
+        hourly_48 = data.get("hourly", [])[:48]
+        precip    = [h.get("rain", {}).get("1h", 0.0) or 0.0 for h in hourly]
+        precip_48 = [h.get("rain", {}).get("1h", 0.0) or 0.0 for h in hourly_48]
+        wind      = [h.get("wind_speed", 0.0) or 0.0 for h in hourly]
+        gusts     = [h.get("wind_gust", 0.0) or 0.0 for h in hourly]
+        pop       = [h.get("pop", 0.0) or 0.0 for h in hourly]
 
         rain_mm  = round(sum(precip), 1)
         wind_max = round(max(wind, default=0.0), 1)
         gust_max = round(max(gusts, default=0.0), 1)
         pop_max  = round(max(pop, default=0.0) * 100)
         pico_3h  = round(
-            max((sum(precip[i:i+3]) for i in range(max(1, len(precip) - 2))), default=0.0), 1
+            max((sum(precip_48[i:i+3]) for i in range(max(1, len(precip_48) - 2))), default=0.0), 1
         )
         tmax = round(max((h.get("temp", 0) for h in hourly), default=0))
 
@@ -830,17 +832,18 @@ def resumo_openmeteo(data: dict) -> dict:
         return None
     try:
         hourly       = data["hourly"]
-        precip       = hourly.get("precipitation", [])[:48]
-        wind         = hourly.get("windspeed_10m", [])[:48]
-        gusts        = hourly.get("windgusts_10m", [])[:48]
-        pop          = hourly.get("precipitation_probability", [])[:48]
+        precip       = hourly.get("precipitation", [])[:24]
+        precip_48    = hourly.get("precipitation", [])[:48]
+        wind         = hourly.get("windspeed_10m", [])[:24]
+        gusts        = hourly.get("windgusts_10m", [])[:24]
+        pop          = hourly.get("precipitation_probability", [])[:24]
         wind_ms      = [w / 3.6 for w in wind if w is not None]
         gust_ms      = [g / 3.6 for g in gusts if g is not None]
         rain_mm      = sum(p for p in precip if p is not None)
         pop_max      = max((p for p in pop if p is not None), default=0)
         wind_max     = max(wind_ms, default=0)
         gust_max     = max(gust_ms, default=0)
-        precip_clean = [p if p is not None else 0.0 for p in precip]
+        precip_clean = [p if p is not None else 0.0 for p in precip_48]
         pico_3h      = max(
             (sum(precip_clean[i:i+3]) for i in range(max(1, len(precip_clean) - 2))),
             default=0.0
