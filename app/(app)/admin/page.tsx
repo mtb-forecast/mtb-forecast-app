@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AdminPanel, { TrilhaPendente } from '@/components/AdminPanel'
+import { geocodeLatLon } from '@/lib/geocoding'
 
 type Sugestao = {
   id: string
@@ -90,20 +91,45 @@ export default function AdminPage() {
   }, [router])
 
   async function aprovar(p: TrilhaPendente) {
+    let localidadeId: string | null = null
+
+    const geo = await geocodeLatLon(p.lat, p.lon)
+    if (geo) {
+      const { data: existing } = await supabase
+        .from('localidades')
+        .select('id')
+        .eq('estado', geo.estado)
+        .eq('cidade', geo.cidade)
+        .eq('localidade', geo.localidade ?? '')
+        .maybeSingle()
+
+      if (existing) {
+        localidadeId = existing.id
+      } else {
+        const { data: inserted } = await supabase
+          .from('localidades')
+          .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
+          .select('id')
+          .single()
+        localidadeId = inserted?.id ?? null
+      }
+    }
+
     const { error: insertError } = await supabase.from('trilhas').insert({
-      name:        p.name,
-      regiao:      p.regiao,
-      lat:         p.lat,
-      lon:         p.lon,
-      altitude_m:  p.altitude_m,
-      solo_type:   p.solo_type,
-      exposicao:   p.exposicao,
-      trail_type:  p.trail_type,
-      bioma:       p.bioma ?? null,
-      desnivel_m:  p.desnivel_m ?? null,
-      extensao_km: p.extensao_km ?? null,
-      polyline:    p.polyline ?? null,
-      aprovada:    true,
+      name:         p.name,
+      regiao:       p.regiao,
+      lat:          p.lat,
+      lon:          p.lon,
+      altitude_m:   p.altitude_m,
+      solo_type:    p.solo_type,
+      exposicao:    p.exposicao,
+      trail_type:   p.trail_type,
+      bioma:        p.bioma ?? null,
+      desnivel_m:   p.desnivel_m ?? null,
+      extensao_km:  p.extensao_km ?? null,
+      polyline:     p.polyline ?? null,
+      aprovada:     true,
+      localidade_id: localidadeId,
     })
 
     if (insertError) {
