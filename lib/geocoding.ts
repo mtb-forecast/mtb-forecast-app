@@ -24,7 +24,10 @@ export async function geocodeLatLon(lat: number, lon: number): Promise<GeoResult
     const data = await res.json()
     const addr = data.address
     if (!addr) return null
-    const estado = addr.state_code?.replace('BR-', '') ?? addr.state ?? ''
+    const stateCode = addr['ISO3166-2-lvl4'] ?? addr.state_code ?? null
+    const estado = stateCode
+      ? stateCode.replace('BR-', '').trim().toUpperCase()
+      : null
     if (!estado) return null
     return {
       pais: addr.country ?? 'Brasil',
