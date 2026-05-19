@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
+import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
 
 function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
   const patterns = [
@@ -42,6 +43,11 @@ export default function CadastrarTrilhaPage() {
   const [linkRef, setLinkRef] = useState('')
   const [observacoes, setObservacoes] = useState('')
 
+  const [geoResult, setGeoResult] = useState<GeoResult | null>(null)
+  const [geoPreview, setGeoPreview] = useState<string | null>(null)
+  const [geocoding, setGeocoding] = useState(false)
+  const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Opções carregadas do Supabase via lib/domain.ts
   const [soloTypes, setSoloTypes] = useState<string[]>([])
   const [biomas, setBiomas] = useState<string[]>([])
@@ -58,6 +64,33 @@ export default function CadastrarTrilhaPage() {
       })
   }, [])
 
+  // Geocoding automático com debounce de 800ms ao mudar lat/lon
+  useEffect(() => {
+    const latNum = parseFloat(lat)
+    const lonNum = parseFloat(lon)
+    if (!lat || !lon || isNaN(latNum) || isNaN(lonNum)) {
+      setGeoPreview(null)
+      setGeoResult(null)
+      return
+    }
+    if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current)
+    geocodeTimerRef.current = setTimeout(async () => {
+      setGeocoding(true)
+      const geo = await geocodeLatLon(latNum, lonNum)
+      setGeocoding(false)
+      if (geo) {
+        setGeoResult(geo)
+        const parts = [geo.localidade, geo.cidade, geo.estado].filter(Boolean)
+        setGeoPreview(`📍 ${parts.join(', ')}`)
+        if (!regiao) setRegiao(geo.estado)
+      } else {
+        setGeoResult(null)
+        setGeoPreview(null)
+      }
+    }, 800)
+    return () => { if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current) }
+  }, [lat, lon]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleExtract() {
     const coords = extrairCoordenadas(mapsUrl)
     if (coords) {
@@ -67,6 +100,26 @@ export default function CadastrarTrilhaPage() {
     } else {
       setErro('Não foi possível extrair as coordenadas. Cole a URL completa do Google Maps.')
     }
+  }
+
+  async function getOrCreateLocalidade(geo: GeoResult): Promise<string | null> {
+    let query = supabase.from('localidades').select('id')
+      .eq('estado', geo.estado)
+      .eq('cidade', geo.cidade)
+    if (geo.localidade) {
+      query = query.eq('localidade', geo.localidade)
+    } else {
+      query = query.is('localidade', null)
+    }
+    const { data: existing } = await query.maybeSingle()
+    if (existing) return (existing as { id: string }).id
+
+    const { data: inserted } = await supabase
+      .from('localidades')
+      .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
+      .select('id')
+      .single()
+    return inserted ? (inserted as { id: string }).id : null
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -85,6 +138,10 @@ export default function CadastrarTrilhaPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/login'); return }
 
+    // Obter localidade_id se geocoding disponível
+    let localidadeId: string | null = null
+    if (geoResult) localidadeId = await getOrCreateLocalidade(geoResult)
+
     const { error } = await supabase.from('trilhas_pendentes').insert({
       name: nome.trim(),
       regiao,
@@ -101,6 +158,7 @@ export default function CadastrarTrilhaPage() {
       observacoes: observacoes.trim() || null,
       user_id: user.id,
       status: 'pendente',
+      localidade_id: localidadeId,
     })
 
     setSaving(false)
@@ -116,6 +174,7 @@ export default function CadastrarTrilhaPage() {
     setAltitude(''); setSoloType(''); setExposicao(''); setTrailType('')
     setBioma(''); setDesnivel(''); setExtensao(''); setLinkRef('')
     setObservacoes(''); setErro(null); setSubmitted(false)
+    setGeoPreview(null); setGeoResult(null)
   }
 
   if (submitted) {
@@ -277,6 +336,12 @@ export default function CadastrarTrilhaPage() {
                   />
                 </div>
               </div>
+              {geocoding && (
+                <p style={{ fontSize: 12, color: '#bbb' }}>Detectando localização...</p>
+              )}
+              {!geocoding && geoPreview && (
+                <p style={{ fontSize: 12, color: '#22c55e', fontWeight: 500 }}>{geoPreview}</p>
+              )}
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
                   Altitude (m) <span style={{ color: '#ef4444' }}>*</span>

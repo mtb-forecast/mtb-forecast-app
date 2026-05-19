@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
+import { geocodeLatLon } from '@/lib/geocoding'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
@@ -22,19 +23,30 @@ type StravaSegment = {
 
 type ImportStatus = 'idle' | 'loading' | 'success' | 'error'
 
-// Nominatim reverse geocoding — fora do componente, sem dependências de estado
-async function getEstado(lat: number | null, lon: number | null): Promise<string | null> {
-  if (lat == null || lon == null) return null
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-      { headers: { 'User-Agent': 'mtb-forecast-app' } }
-    )
-    if (!res.ok) return null
-    const data = await res.json()
-    return data.address?.state_code?.replace('BR-', '') ?? null
-  } catch {
-    return null
+async function getOrCreateLocalidade(lat: number | null, lon: number | null) {
+  if (lat == null || lon == null) return { regiao: null, localidadeId: null }
+  const geo = await geocodeLatLon(lat, lon)
+  if (!geo) return { regiao: null, localidadeId: null }
+
+  let query = supabase.from('localidades').select('id')
+    .eq('estado', geo.estado)
+    .eq('cidade', geo.cidade)
+  if (geo.localidade) {
+    query = query.eq('localidade', geo.localidade)
+  } else {
+    query = query.is('localidade', null)
+  }
+  const { data: existing } = await query.maybeSingle()
+  if (existing) return { regiao: geo.estado, localidadeId: (existing as { id: string }).id }
+
+  const { data: inserted } = await supabase
+    .from('localidades')
+    .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
+    .select('id')
+    .single()
+  return {
+    regiao: geo.estado,
+    localidadeId: inserted ? (inserted as { id: string }).id : null,
   }
 }
 
@@ -178,8 +190,8 @@ function ImportarStravaContent() {
       console.warn('Erro ao buscar detalhe do segmento:', err)
     }
 
-    // 2. Reverse geocoding — detectar estado brasileiro via Nominatim
-    const regiao = await getEstado(seg.lat, seg.lon)
+    // 2. Geocoding reverso — estado + localidade_id via Nominatim
+    const { regiao, localidadeId } = await getOrCreateLocalidade(seg.lat, seg.lon)
 
     // 3. UPDATE se já existe registro pendente, INSERT caso contrário
     const { data: existing } = await supabase
@@ -200,7 +212,8 @@ function ImportarStravaContent() {
         desnivel_m: seg.desnivel_m,
         altitude_m,
         regiao,
-      }).eq('id', existing.id)
+        localidade_id: localidadeId,
+      }).eq('id', (existing as { id: string }).id)
       dbError = error
     } else {
       const { error } = await supabase.from('trilhas_pendentes').insert({
@@ -219,6 +232,7 @@ function ImportarStravaContent() {
         trail_type: null,
         regiao,
         bioma: null,
+        localidade_id: localidadeId,
       })
       dbError = error
     }

@@ -251,6 +251,8 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 # ---------------------------------------------------------------------------
 
 def _carregar_emails_por_regiao() -> dict:
+    # profiles.regiao = preferência de notificação do usuário (ex: "SP")
+    # Diferente de trilhas.regiao = localização da trilha (ex: "SP", "MG")
     if not SUPABASE_KEY or not SUPABASE_URL:
         print("  [Email] SUPABASE_KEY ou SUPABASE_URL ausente — pulando carga de emails")
         return {}
@@ -2967,6 +2969,10 @@ def _carregar_trilhas_supabase() -> list:
         print("  [Trilhas] SUPABASE_KEY ausente — usando trilhas.csv")
         return []
     try:
+        # regiao lido diretamente de trilhas.regiao (campo legado, estado em sigla ex: "SP").
+        # TODO: migrar para JOIN com localidades via trilhas.localidade_id:
+        #   ?select=...&localidades(estado,cidade,localidade)
+        #   Para trilhas novas: regiao = localidades.estado (fallback: trilhas.regiao)
         url = (
             f"{SUPABASE_URL}/rest/v1/trilhas"
             f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"

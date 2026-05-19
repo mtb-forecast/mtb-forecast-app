@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes, getRegioes } from '@/lib/domain'
+import { geocodeLatLon } from '@/lib/geocoding'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
 
@@ -45,6 +46,8 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
   const [exposicoes, setExposicoes] = useState<{ valor: string; label: string }[]>([])
   const [trailTypes, setTrailTypes] = useState<{ valor: string; label: string }[]>([])
   const [regioes, setRegioes] = useState<{ valor: string; label: string }[]>([])
+  const [geoPreview, setGeoPreview] = useState<Record<string, string>>({})
+  const fetchedGeoRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     Promise.all([getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes(), getRegioes()])
@@ -56,6 +59,28 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
         setRegioes(r)
       })
   }, [])
+
+  // Geocoding lazy — busca cidade+estado para cada card sequencialmente
+  useEffect(() => {
+    let cancelled = false
+    async function fetchGeo() {
+      for (const t of trilhas) {
+        if (cancelled || fetchedGeoRef.current.has(t.id)) continue
+        fetchedGeoRef.current.add(t.id)
+        try {
+          const geo = await geocodeLatLon(t.lat, t.lon)
+          if (!cancelled && geo) {
+            const city = geo.cidade || geo.localidade || ''
+            const preview = city ? `📍 ${city}, ${geo.estado}` : `📍 ${geo.estado}`
+            setGeoPreview(prev => ({ ...prev, [t.id]: preview }))
+          }
+        } catch { /* silencioso */ }
+        await new Promise(r => setTimeout(r, 1100))
+      }
+    }
+    fetchGeo()
+    return () => { cancelled = true }
+  }, [trilhas])
 
   function setField(id: string, field: keyof TrilhaPendente, value: unknown) {
     setEdits(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
@@ -234,6 +259,9 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                     <p style={{ fontSize: 12, color: '#111', fontWeight: 500 }}>
                       {trilha.lat?.toFixed(4)}, {trilha.lon?.toFixed(4)}
                     </p>
+                    {geoPreview[trilha.id] && (
+                      <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{geoPreview[trilha.id]}</p>
+                    )}
                   </div>
                 </div>
 
