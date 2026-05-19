@@ -106,7 +106,11 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {trilha.bioma && <span style={pill}>{trilha.bioma}</span>}
           <span style={pill}>{trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}</span>
-          <span style={pill}>{trilha.regiao}</span>
+          <span style={pill}>
+            {trilha.localidades?.cidade
+              ? `${trilha.localidades.cidade}, ${trilha.localidades.estado}`
+              : trilha.regiao}
+          </span>
         </div>
 
         {hasData && c ? (
