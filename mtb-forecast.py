@@ -1070,8 +1070,8 @@ def fator_absorcao(trail: dict) -> float:
     # Manter aqui causava triple counting: fator_absorcao + _meia_vida + _ajustar_meia_vida_clima
     if trail["altitude_m"] > 1200:
         base += 0.05
-    if trail.get("trail_type") == "bikepark":
-        base += -0.10 if trail.get("exposicao") == "fechada" else -0.20
+    # bikepark: terra compactada e drenagem projetada — comportamento neutro
+    # penalizador removido; proteção de veredicto já garantida pela regra BAIXA ADERÊNCIA
 
     inclinacao = calcular_inclinacao(trail)
     if inclinacao is not None:
