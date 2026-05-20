@@ -667,11 +667,17 @@ _BIOMAS_MICROCLIMA = {"Mata Atlântica"}
 
 def fator_microclima(trail: dict) -> float:
     bioma = trail.get("bioma", "Desconhecido")
-    if bioma not in _BIOMAS_MICROCLIMA:
-        return 1.0
-    if trail.get("altitude_m", 0) >= 600 and trail.get("exposicao") == "fechada":
-        return 0.75
-    return 0.90
+    for cfg in _carregar_microclima_config():
+        if cfg["bioma"] != bioma:
+            continue
+        alt_min = cfg.get("altitude_min")
+        expo    = cfg.get("exposicao")
+        if alt_min is not None and trail.get("altitude_m", 0) < alt_min:
+            continue
+        if expo is not None and trail.get("exposicao") != expo:
+            continue
+        return cfg["mult_threshold"]
+    return 1.0
 
 
 def _meia_vida(trail: dict) -> float:
@@ -679,13 +685,19 @@ def _meia_vida(trail: dict) -> float:
     expo = trail.get("exposicao", "fechada")
     tabela_mv = _carregar_meia_vida()
     base = float(tabela_mv.get((solo, expo), _MEIA_VIDA_DEFAULT))
-    # FIX #6 — Mata Atlântica retém umidade estruturalmente mais do que o solo_type sugere
+    # FIX #6 — microclima retém umidade estruturalmente além do que o solo_type sugere
     bioma = trail.get("bioma", "Desconhecido")
-    if bioma == "Mata Atlântica":
-        if trail.get("altitude_m", 0) >= 600 and expo == "fechada":
-            base *= 1.20  # orografia + dossel fechado = secagem muito mais lenta
-        else:
-            base *= 1.10  # mata atlântica em geral retém mais umidade
+    for cfg in _carregar_microclima_config():
+        if cfg["bioma"] != bioma:
+            continue
+        alt_min  = cfg.get("altitude_min")
+        expo_cfg = cfg.get("exposicao")
+        if alt_min is not None and trail.get("altitude_m", 0) < alt_min:
+            continue
+        if expo_cfg is not None and expo != expo_cfg:
+            continue
+        base *= cfg["mult_meia_vida"]
+        break
     return base
 
 def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
@@ -694,63 +706,49 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
                              cloud_pct: float | None = None,
                              humidity_pct: float | None = None) -> float:
     meia_vida = float(meia_vida_base)
+    registros = _carregar_meia_vida_clima_mult()
+
+    def _aplicar(valor: float, variavel: str, exposicao: str | None = None) -> None:
+        nonlocal meia_vida
+        for r in registros:
+            if r["variavel"] != variavel:
+                continue
+            if exposicao is not None and r.get("exposicao") != exposicao:
+                continue
+            v_min = r["valor_min"]
+            v_max = r["valor_max"]
+            if (v_min is None or valor >= v_min) and (v_max is None or valor <= v_max):
+                meia_vida *= r["multiplicador"]
+                return
 
     if temp_c is not None:
-        if temp_c >= 35:
-            meia_vida *= 0.65
-        elif temp_c >= 30:
-            meia_vida *= 0.75
-        elif temp_c >= 26:
-            meia_vida *= 0.86
-        elif temp_c <= 16:
-            meia_vida *= 1.12
-        elif temp_c <= 10:
-            meia_vida *= 1.22
+        _aplicar(temp_c, "temperatura")
 
     if wind_ms is not None:
         wind_kmh = wind_ms * 3.6
-        if wind_kmh >= 40:
-            meia_vida *= 0.75
-        elif wind_kmh >= 20:
-            meia_vida *= 0.85
-        elif wind_kmh >= 10.8:  # equivale a ~3 m/s
-            meia_vida *= 0.92
-        elif wind_ms <= 1:
-            meia_vida *= 1.05
-
-    # Fator combinado: calor + vento seca muito mais rápido
-    if temp_c is not None and wind_ms is not None:
-        wind_kmh = wind_ms * 3.6
-        if temp_c >= 30 and wind_kmh >= 20:
-            meia_vida *= 0.80  # redução adicional — combinação acelera evaporação
+        _aplicar(wind_kmh, "vento")
+        # Combo calor+vento: redução adicional — condição multi-variável, tratada separadamente
+        if temp_c is not None and temp_c >= 30 and wind_kmh >= 20:
+            combo = next((r["multiplicador"] for r in registros if r["variavel"] == "combo"), None)
+            if combo is not None:
+                meia_vida *= combo
 
     if cloud_pct is not None:
-        if cloud_pct >= 90:
-            meia_vida *= 1.12
-        elif cloud_pct >= 70:
-            meia_vida *= 1.06
-        elif cloud_pct <= 25:
-            meia_vida *= 0.94
+        _aplicar(cloud_pct, "nebulosidade")
 
     if humidity_pct is not None:
-        if humidity_pct >= 95:
-            meia_vida *= 1.15
-        elif humidity_pct >= 85:
-            meia_vida *= 1.08
-        elif humidity_pct <= 45:
-            meia_vida *= 0.93
+        _aplicar(humidity_pct, "umidade")
 
     # FIX #5: exposicao removida daqui — já está na tabela _MEIA_VIDA_SECAGEM base
     # Manter aqui causava double counting com a tabela (terra fechada=36h já embute o efeito)
 
-    # Bikepark: terra compactada + drenagem projetada — seca mais rápido que trilha natural
     if trail.get("trail_type") == "bikepark":
-        if trail.get("exposicao") == "fechada":
-            meia_vida *= 0.60
-        else:  # aberta
-            meia_vida *= 0.35
+        expo = trail.get("exposicao", "aberta")
+        _aplicar(0.0, "bikepark", exposicao=expo)
 
-    return round(max(4.0, min(72.0, meia_vida)), 1)
+    mv_min = float(_get_config("meia_vida_min") or 4.0)
+    mv_max = float(_get_config("meia_vida_max") or 72.0)
+    return round(max(mv_min, min(mv_max, meia_vida)), 1)
 
 
 def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) -> dict:
@@ -860,6 +858,8 @@ _CACHE_CONFIG: dict = {}
 _CACHE_ENSO_CONFIG: list = []
 _CACHE_ADERENCIA_THRESHOLDS: list = []
 _CACHE_VEREDICTO_PESOS: list = []
+_CACHE_MEIA_VIDA_CLIMA_MULT: list = []
+_CACHE_MICROCLIMA_CONFIG: list = []
 
 # Tabela local de fallback — usada se Supabase estiver indisponível
 _TABELA_SOLO_FALLBACK: list = [
@@ -1118,6 +1118,77 @@ def _carregar_veredicto_pesos() -> list:
     except Exception as exc:
         print(f"  [Veredicto] Erro: {exc} — lógica inline de veredicto() ativa")
         return []
+
+
+def _carregar_meia_vida_clima_mult() -> list:
+    """Carrega multiplicadores climáticos de meia-vida do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_MEIA_VIDA_CLIMA_MULT
+    if _CACHE_MEIA_VIDA_CLIMA_MULT:
+        return _CACHE_MEIA_VIDA_CLIMA_MULT
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/meia_vida_clima_mult"
+            f"?select=variavel,condicao,valor_min,valor_max,exposicao,multiplicador"
+            f"&ativo=eq.true&order=id.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_MEIA_VIDA_CLIMA_MULT = dados
+        print(f"  [MeiaVida] Mult clima carregados do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [MeiaVida] Erro: {exc} — usando multiplicadores padrão")
+        return [
+            {"variavel": "temperatura",  "valor_min": 35,   "valor_max": None, "exposicao": None,      "multiplicador": 0.65},
+            {"variavel": "temperatura",  "valor_min": 30,   "valor_max": 35,   "exposicao": None,      "multiplicador": 0.75},
+            {"variavel": "temperatura",  "valor_min": 26,   "valor_max": 30,   "exposicao": None,      "multiplicador": 0.86},
+            {"variavel": "temperatura",  "valor_min": None, "valor_max": 16,   "exposicao": None,      "multiplicador": 1.12},
+            {"variavel": "vento",        "valor_min": 40,   "valor_max": None, "exposicao": None,      "multiplicador": 0.75},
+            {"variavel": "vento",        "valor_min": 20,   "valor_max": 40,   "exposicao": None,      "multiplicador": 0.85},
+            {"variavel": "vento",        "valor_min": 10.8, "valor_max": 20,   "exposicao": None,      "multiplicador": 0.92},
+            {"variavel": "vento",        "valor_min": None, "valor_max": 3.6,  "exposicao": None,      "multiplicador": 1.05},
+            {"variavel": "combo",        "valor_min": None, "valor_max": None, "exposicao": None,      "multiplicador": 0.80},
+            {"variavel": "nebulosidade", "valor_min": 90,   "valor_max": None, "exposicao": None,      "multiplicador": 1.12},
+            {"variavel": "nebulosidade", "valor_min": 70,   "valor_max": 90,   "exposicao": None,      "multiplicador": 1.06},
+            {"variavel": "nebulosidade", "valor_min": None, "valor_max": 25,   "exposicao": None,      "multiplicador": 0.94},
+            {"variavel": "umidade",      "valor_min": 95,   "valor_max": None, "exposicao": None,      "multiplicador": 1.15},
+            {"variavel": "umidade",      "valor_min": 85,   "valor_max": 95,   "exposicao": None,      "multiplicador": 1.08},
+            {"variavel": "umidade",      "valor_min": None, "valor_max": 45,   "exposicao": None,      "multiplicador": 0.93},
+            {"variavel": "bikepark",     "valor_min": None, "valor_max": None, "exposicao": "fechada", "multiplicador": 0.60},
+            {"variavel": "bikepark",     "valor_min": None, "valor_max": None, "exposicao": "aberta",  "multiplicador": 0.35},
+        ]
+
+
+def _carregar_microclima_config() -> list:
+    """Carrega configurações de microclima do Supabase. Fallback: Mata Atlântica padrão."""
+    global _CACHE_MICROCLIMA_CONFIG
+    if _CACHE_MICROCLIMA_CONFIG:
+        return _CACHE_MICROCLIMA_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/microclima_config"
+            f"?select=bioma,altitude_min,exposicao,mult_threshold,mult_meia_vida"
+            f"&ativo=eq.true&order=id.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_MICROCLIMA_CONFIG = dados
+        print(f"  [Microclima] Config carregada do Supabase: {len(dados)} biomas")
+        return dados
+    except Exception as exc:
+        print(f"  [Microclima] Erro: {exc} — usando Mata Atlântica padrão")
+        return [
+            {"bioma": "Mata Atlântica", "altitude_min": 600, "exposicao": "fechada", "mult_threshold": 0.75, "mult_meia_vida": 1.20},
+            {"bioma": "Mata Atlântica", "altitude_min": None, "exposicao": None,     "mult_threshold": 0.90, "mult_meia_vida": 1.10},
+        ]
 
 
 def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
@@ -3195,6 +3266,8 @@ def main() -> None:
     _carregar_enso_config()
     _carregar_aderencia_thresholds()
     _carregar_veredicto_pesos()
+    _carregar_meia_vida_clima_mult()
+    _carregar_microclima_config()
 
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
