@@ -56,7 +56,8 @@
       "Bash(mkdir -p \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\supabase\\\\migrations\")",
       "Bash(git remote *)",
       "Bash(npx ts-node *)",
-      "Bash(python3 -c \"import os; key=os.environ.get\\('SUPABASE_SERVICE_KEY',''\\); print\\('KEY_FOUND' if key else 'NOT_FOUND'\\); print\\(key[:20]+'...' if key else ''\\)\")"
+      "Bash(python3 -c \"import os; key=os.environ.get\\('SUPABASE_SERVICE_KEY',''\\); print\\('KEY_FOUND' if key else 'NOT_FOUND'\\); print\\(key[:20]+'...' if key else ''\\)\")",
+      "PowerShell(git push)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
