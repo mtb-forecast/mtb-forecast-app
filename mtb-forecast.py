@@ -35,7 +35,7 @@ Alterações V5.22:
 Alterações V5.21:
 - Modelo de secagem do solo por decaimento exponencial
 - fetch_openmeteo_historico() retorna dict com bruto, efetivo, ultima_chuva_h, meia_vida_h
-- Tabela _MEIA_VIDA_SECAGEM: taxa de secagem por (solo_type, exposicao)
+- Tabela meia_vida_secagem (Supabase): taxa de secagem por (solo_type, exposicao)
 
 Alterações V5.20:
 - Badge automático "⛏ Quadrilátero Ferrífero" no card da trilha
@@ -643,49 +643,39 @@ def fetch_openmeteo(trail: dict) -> dict | None:
 # Modelo de secagem do solo — V5.21
 # ---------------------------------------------------------------------------
 
-_MEIA_VIDA_SECAGEM: dict = {
-    ("ferro",    "aberta"):  8,
-    ("ferro",    "fechada"): 14,
-    ("pedra",    "aberta"):  6,
-    ("pedra",    "fechada"): 10,
-    ("preto",    "aberta"):  14,
-    ("preto",    "fechada"): 24,
-    ("misto_mg", "aberta"):  12,
-    ("misto_mg", "fechada"): 18,
-    ("misto",    "aberta"):  18,
-    ("misto",    "fechada"): 28,
-    ("terra",    "aberta"):  24,
-    ("terra",    "fechada"): 36,
-}
-_MEIA_VIDA_DEFAULT = 24
-
-# ---------------------------------------------------------------------------
-# Microclima por bioma — V5.24
-# ---------------------------------------------------------------------------
-
-_BIOMAS_MICROCLIMA = {"Mata Atlântica"}
-
 def fator_microclima(trail: dict) -> float:
     bioma = trail.get("bioma", "Desconhecido")
-    if bioma not in _BIOMAS_MICROCLIMA:
-        return 1.0
-    if trail.get("altitude_m", 0) >= 600 and trail.get("exposicao") == "fechada":
-        return 0.75
-    return 0.90
+    for cfg in _carregar_microclima_config():
+        if cfg["bioma"] != bioma:
+            continue
+        alt_min = cfg.get("altitude_min")
+        expo    = cfg.get("exposicao")
+        if alt_min is not None and trail.get("altitude_m", 0) < alt_min:
+            continue
+        if expo is not None and trail.get("exposicao") != expo:
+            continue
+        return cfg["mult_threshold"]
+    return 1.0
 
 
 def _meia_vida(trail: dict) -> float:
     solo = trail.get("solo_type", "terra")
     expo = trail.get("exposicao", "fechada")
     tabela_mv = _carregar_meia_vida()
-    base = float(tabela_mv.get((solo, expo), _MEIA_VIDA_DEFAULT))
-    # FIX #6 — Mata Atlântica retém umidade estruturalmente mais do que o solo_type sugere
+    base = float(tabela_mv.get((solo, expo), 24))
+    # FIX #6 — microclima retém umidade estruturalmente além do que o solo_type sugere
     bioma = trail.get("bioma", "Desconhecido")
-    if bioma == "Mata Atlântica":
-        if trail.get("altitude_m", 0) >= 600 and expo == "fechada":
-            base *= 1.20  # orografia + dossel fechado = secagem muito mais lenta
-        else:
-            base *= 1.10  # mata atlântica em geral retém mais umidade
+    for cfg in _carregar_microclima_config():
+        if cfg["bioma"] != bioma:
+            continue
+        alt_min  = cfg.get("altitude_min")
+        expo_cfg = cfg.get("exposicao")
+        if alt_min is not None and trail.get("altitude_m", 0) < alt_min:
+            continue
+        if expo_cfg is not None and expo != expo_cfg:
+            continue
+        base *= cfg["mult_meia_vida"]
+        break
     return base
 
 def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
@@ -694,63 +684,49 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
                              cloud_pct: float | None = None,
                              humidity_pct: float | None = None) -> float:
     meia_vida = float(meia_vida_base)
+    registros = _carregar_meia_vida_clima_mult()
+
+    def _aplicar(valor: float, variavel: str, exposicao: str | None = None) -> None:
+        nonlocal meia_vida
+        for r in registros:
+            if r["variavel"] != variavel:
+                continue
+            if exposicao is not None and r.get("exposicao") != exposicao:
+                continue
+            v_min = r["valor_min"]
+            v_max = r["valor_max"]
+            if (v_min is None or valor >= v_min) and (v_max is None or valor <= v_max):
+                meia_vida *= r["multiplicador"]
+                return
 
     if temp_c is not None:
-        if temp_c >= 35:
-            meia_vida *= 0.65
-        elif temp_c >= 30:
-            meia_vida *= 0.75
-        elif temp_c >= 26:
-            meia_vida *= 0.86
-        elif temp_c <= 16:
-            meia_vida *= 1.12
-        elif temp_c <= 10:
-            meia_vida *= 1.22
+        _aplicar(temp_c, "temperatura")
 
     if wind_ms is not None:
         wind_kmh = wind_ms * 3.6
-        if wind_kmh >= 40:
-            meia_vida *= 0.75
-        elif wind_kmh >= 20:
-            meia_vida *= 0.85
-        elif wind_kmh >= 10.8:  # equivale a ~3 m/s
-            meia_vida *= 0.92
-        elif wind_ms <= 1:
-            meia_vida *= 1.05
-
-    # Fator combinado: calor + vento seca muito mais rápido
-    if temp_c is not None and wind_ms is not None:
-        wind_kmh = wind_ms * 3.6
-        if temp_c >= 30 and wind_kmh >= 20:
-            meia_vida *= 0.80  # redução adicional — combinação acelera evaporação
+        _aplicar(wind_kmh, "vento")
+        # Combo calor+vento: redução adicional — condição multi-variável, tratada separadamente
+        if temp_c is not None and temp_c >= 30 and wind_kmh >= 20:
+            combo = next((r["multiplicador"] for r in registros if r["variavel"] == "combo"), None)
+            if combo is not None:
+                meia_vida *= combo
 
     if cloud_pct is not None:
-        if cloud_pct >= 90:
-            meia_vida *= 1.12
-        elif cloud_pct >= 70:
-            meia_vida *= 1.06
-        elif cloud_pct <= 25:
-            meia_vida *= 0.94
+        _aplicar(cloud_pct, "nebulosidade")
 
     if humidity_pct is not None:
-        if humidity_pct >= 95:
-            meia_vida *= 1.15
-        elif humidity_pct >= 85:
-            meia_vida *= 1.08
-        elif humidity_pct <= 45:
-            meia_vida *= 0.93
+        _aplicar(humidity_pct, "umidade")
 
-    # FIX #5: exposicao removida daqui — já está na tabela _MEIA_VIDA_SECAGEM base
-    # Manter aqui causava double counting com a tabela (terra fechada=36h já embute o efeito)
+    # FIX #5: exposicao removida daqui — já está na tabela meia_vida_secagem (Supabase)
+    # Manter aqui causava double counting (terra fechada=36h já embute o efeito)
 
-    # Bikepark: terra compactada + drenagem projetada — seca mais rápido que trilha natural
     if trail.get("trail_type") == "bikepark":
-        if trail.get("exposicao") == "fechada":
-            meia_vida *= 0.60
-        else:  # aberta
-            meia_vida *= 0.35
+        expo = trail.get("exposicao", "aberta")
+        _aplicar(0.0, "bikepark", exposicao=expo)
 
-    return round(max(4.0, min(72.0, meia_vida)), 1)
+    mv_min = float(_get_config("meia_vida_min") or 4.0)
+    mv_max = float(_get_config("meia_vida_max") or 72.0)
+    return round(max(mv_min, min(mv_max, meia_vida)), 1)
 
 
 def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) -> dict:
@@ -860,23 +836,14 @@ _CACHE_CONFIG: dict = {}
 _CACHE_ENSO_CONFIG: list = []
 _CACHE_ADERENCIA_THRESHOLDS: list = []
 _CACHE_VEREDICTO_PESOS: list = []
+_CACHE_MEIA_VIDA_CLIMA_MULT: list = []
+_CACHE_MICROCLIMA_CONFIG: list = []
+_CACHE_SOLO_TYPE_CONFIG: list = []
+_CACHE_INCLINACAO_CONFIG: list = []
+_CACHE_SCORE_CONFIG: dict = {}
+_CACHE_ADERENCIA_DESCRICOES: dict = {}
 
 # Tabela local de fallback — usada se Supabase estiver indisponível
-_TABELA_SOLO_FALLBACK: list = [
-    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "SP",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
-    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "RJ",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
-    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "MG",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
-    {"solo_type": "terra",    "bioma": "Cerrado",        "regiao": "MG",    "clay_pct": 52, "sand_pct": 20, "texture_class": "Muito argiloso"},
-    {"solo_type": "terra",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 42, "sand_pct": 28, "texture_class": "Argiloso"},
-    {"solo_type": "misto",    "bioma": "Mata Atlântica", "regiao": "SP",    "clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"},
-    {"solo_type": "misto",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"},
-    {"solo_type": "preto",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 38, "sand_pct": 28, "texture_class": "Franco-argiloso"},
-    {"solo_type": "pedra",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 12, "sand_pct": 68, "texture_class": "Franco-arenoso"},
-    {"solo_type": "ferro",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 30, "sand_pct": 38, "texture_class": "Franco"},
-    {"solo_type": "misto_mg", "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 28, "sand_pct": 40, "texture_class": "Franco"},
-]
-
-
 def _carregar_configuracoes() -> dict:
     """
     Carrega configurações do sistema da tabela configuracoes_sistema.
@@ -916,17 +883,14 @@ def _get_config(chave: str, fallback_env: str = None) -> str | None:
 
 
 def _carregar_tabela_solo() -> list:
-    """
-    Carrega tabela mestra de solo do Supabase uma única vez por execução.
-    Fallback para tabela local se API falhar.
-    """
+    """Carrega tabela mestra de solo do Supabase uma única vez por execução."""
     global _CACHE_TABELA_SOLO
     if _CACHE_TABELA_SOLO:
         return _CACHE_TABELA_SOLO
 
     if not SUPABASE_KEY:
-        print("  [Solo] SUPABASE_KEY ausente — usando tabela local fallback")
-        return _TABELA_SOLO_FALLBACK
+        print("  [ERRO CRÍTICO] SUPABASE_KEY ausente — tabela_solo indisponível")
+        return []
 
     try:
         url = (
@@ -948,8 +912,8 @@ def _carregar_tabela_solo() -> list:
         print(f"  [Solo] Tabela mestra carregada do Supabase: {len(dados)} registros")
         return dados
     except Exception as exc:
-        print(f"  [Solo] Erro ao carregar tabela Supabase: {exc} — usando fallback local")
-        return _TABELA_SOLO_FALLBACK
+        print(f"  [ERRO CRÍTICO] tabela_solo indisponível no Supabase: {exc} — clay_pct não será calculado")
+        return []
 
 
 def _lookup_solo(solo_type: str, bioma: str, regiao: str) -> dict:
@@ -1036,8 +1000,8 @@ def _carregar_meia_vida() -> dict:
         print(f"  [MeiaVida] Carregado do Supabase: {len(dados)} registros")
         return tabela
     except Exception as exc:
-        print(f"  [MeiaVida] Erro: {exc} — usando fallback hardcoded")
-        return _MEIA_VIDA_SECAGEM
+        print(f"  [ERRO CRÍTICO] meia_vida_secagem indisponível no Supabase: {exc} — meia_vida usará default 24h")
+        return {}
 
 
 def _carregar_enso_config() -> list:
@@ -1120,6 +1084,203 @@ def _carregar_veredicto_pesos() -> list:
         return []
 
 
+def _carregar_meia_vida_clima_mult() -> list:
+    """Carrega multiplicadores climáticos de meia-vida do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_MEIA_VIDA_CLIMA_MULT
+    if _CACHE_MEIA_VIDA_CLIMA_MULT:
+        return _CACHE_MEIA_VIDA_CLIMA_MULT
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/meia_vida_clima_mult"
+            f"?select=variavel,condicao,valor_min,valor_max,exposicao,multiplicador"
+            f"&ativo=eq.true&order=id.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_MEIA_VIDA_CLIMA_MULT = dados
+        print(f"  [MeiaVida] Mult clima carregados do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [MeiaVida] Erro: {exc} — usando multiplicadores padrão")
+        return [
+            {"variavel": "temperatura",  "valor_min": 35,   "valor_max": None, "exposicao": None,      "multiplicador": 0.65},
+            {"variavel": "temperatura",  "valor_min": 30,   "valor_max": 35,   "exposicao": None,      "multiplicador": 0.75},
+            {"variavel": "temperatura",  "valor_min": 26,   "valor_max": 30,   "exposicao": None,      "multiplicador": 0.86},
+            {"variavel": "temperatura",  "valor_min": None, "valor_max": 16,   "exposicao": None,      "multiplicador": 1.12},
+            {"variavel": "vento",        "valor_min": 40,   "valor_max": None, "exposicao": None,      "multiplicador": 0.75},
+            {"variavel": "vento",        "valor_min": 20,   "valor_max": 40,   "exposicao": None,      "multiplicador": 0.85},
+            {"variavel": "vento",        "valor_min": 10.8, "valor_max": 20,   "exposicao": None,      "multiplicador": 0.92},
+            {"variavel": "vento",        "valor_min": None, "valor_max": 3.6,  "exposicao": None,      "multiplicador": 1.05},
+            {"variavel": "combo",        "valor_min": None, "valor_max": None, "exposicao": None,      "multiplicador": 0.80},
+            {"variavel": "nebulosidade", "valor_min": 90,   "valor_max": None, "exposicao": None,      "multiplicador": 1.12},
+            {"variavel": "nebulosidade", "valor_min": 70,   "valor_max": 90,   "exposicao": None,      "multiplicador": 1.06},
+            {"variavel": "nebulosidade", "valor_min": None, "valor_max": 25,   "exposicao": None,      "multiplicador": 0.94},
+            {"variavel": "umidade",      "valor_min": 95,   "valor_max": None, "exposicao": None,      "multiplicador": 1.15},
+            {"variavel": "umidade",      "valor_min": 85,   "valor_max": 95,   "exposicao": None,      "multiplicador": 1.08},
+            {"variavel": "umidade",      "valor_min": None, "valor_max": 45,   "exposicao": None,      "multiplicador": 0.93},
+            {"variavel": "bikepark",     "valor_min": None, "valor_max": None, "exposicao": "fechada", "multiplicador": 0.60},
+            {"variavel": "bikepark",     "valor_min": None, "valor_max": None, "exposicao": "aberta",  "multiplicador": 0.35},
+        ]
+
+
+def _carregar_microclima_config() -> list:
+    """Carrega configurações de microclima do Supabase. Fallback: Mata Atlântica padrão."""
+    global _CACHE_MICROCLIMA_CONFIG
+    if _CACHE_MICROCLIMA_CONFIG:
+        return _CACHE_MICROCLIMA_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/microclima_config"
+            f"?select=bioma,altitude_min,exposicao,mult_threshold,mult_meia_vida"
+            f"&ativo=eq.true&order=id.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_MICROCLIMA_CONFIG = dados
+        print(f"  [Microclima] Config carregada do Supabase: {len(dados)} biomas")
+        return dados
+    except Exception as exc:
+        print(f"  [Microclima] Erro: {exc} — usando Mata Atlântica padrão")
+        return [
+            {"bioma": "Mata Atlântica", "altitude_min": 600, "exposicao": "fechada", "mult_threshold": 0.75, "mult_meia_vida": 1.20},
+            {"bioma": "Mata Atlântica", "altitude_min": None, "exposicao": None,     "mult_threshold": 0.90, "mult_meia_vida": 1.10},
+        ]
+
+
+def _carregar_solo_type_config() -> list:
+    """Carrega configuração de solo_type do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_SOLO_TYPE_CONFIG
+    if _CACHE_SOLO_TYPE_CONFIG:
+        return _CACHE_SOLO_TYPE_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/solo_type_config"
+            f"?select=solo_type,fator_absorcao_base,score_mult,altitude_bonus_min,altitude_bonus"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_SOLO_TYPE_CONFIG = dados
+        print(f"  [Solo] Config carregada do Supabase: {len(dados)} tipos")
+        return dados
+    except Exception as exc:
+        print(f"  [Solo] Erro: {exc} — usando valores padrão")
+        return [
+            {"solo_type": "terra",    "fator_absorcao_base": 0.80, "score_mult": 1.05, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "preto",    "fator_absorcao_base": 0.60, "score_mult": 0.95, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "misto",    "fator_absorcao_base": 0.55, "score_mult": 1.00, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "misto_mg", "fator_absorcao_base": 0.45, "score_mult": 0.92, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "pedra",    "fator_absorcao_base": 0.25, "score_mult": 0.80, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "ferro",    "fator_absorcao_base": 0.30, "score_mult": 0.85, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+        ]
+
+
+def _carregar_inclinacao_config() -> list:
+    """Carrega penalizadores de inclinação do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_INCLINACAO_CONFIG
+    if _CACHE_INCLINACAO_CONFIG:
+        return _CACHE_INCLINACAO_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/inclinacao_config"
+            f"?select=tipo,grau_min,grau_max,delta_fator"
+            f"&ativo=eq.true&order=id.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_INCLINACAO_CONFIG = dados
+        print(f"  [Inclinação] Config carregada do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [Inclinação] Erro: {exc} — usando valores padrão")
+        return [
+            {"tipo": "inclinacao", "grau_min": 30,  "grau_max": None, "delta_fator": -0.22},
+            {"tipo": "inclinacao", "grau_min": 20,  "grau_max": 30,   "delta_fator": -0.15},
+            {"tipo": "inclinacao", "grau_min": 10,  "grau_max": 20,   "delta_fator": -0.08},
+            {"tipo": "desnivel",   "grau_min": 800, "grau_max": None, "delta_fator": -0.18},
+            {"tipo": "desnivel",   "grau_min": 500, "grau_max": 800,  "delta_fator": -0.10},
+            {"tipo": "desnivel",   "grau_min": 300, "grau_max": 500,  "delta_fator": -0.05},
+        ]
+
+
+def _carregar_score_config() -> dict:
+    """Carrega coeficientes de score do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_SCORE_CONFIG
+    if _CACHE_SCORE_CONFIG:
+        return _CACHE_SCORE_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/score_config"
+            f"?select=chave,valor"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        config = {row["chave"]: float(row["valor"]) for row in dados}
+        _CACHE_SCORE_CONFIG = config
+        print(f"  [Score] Config carregada do Supabase: {len(config)} chaves")
+        return config
+    except Exception as exc:
+        print(f"  [Score] Erro: {exc} — usando valores padrão")
+        return {
+            "coef_rain":                  0.6,
+            "coef_pico_descansado":       0.7,
+            "coef_pico_molhado":          1.0,
+            "coef_acumulo":               0.3,
+            "coef_base":                 10.0,
+            "pico_threshold":            10.0,
+            "bikepark_acumulo_threshold":  5.0,
+            "bikepark_score_mult":         0.90,
+            "bikepark_saturado_threshold": 10.0,
+        }
+
+
+def _carregar_aderencia_descricoes() -> dict:
+    """Carrega descrições de aderência do Supabase. Fallback: {} (dict inline de _descricao_aderencia())."""
+    global _CACHE_ADERENCIA_DESCRICOES
+    if _CACHE_ADERENCIA_DESCRICOES:
+        return _CACHE_ADERENCIA_DESCRICOES
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/aderencia_descricoes"
+            f"?select=status,solo_type,texto"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        config = {(row["status"], row["solo_type"]): row["texto"] for row in dados}
+        _CACHE_ADERENCIA_DESCRICOES = config
+        print(f"  [Aderência] Descrições carregadas do Supabase: {len(config)} registros")
+        return config
+    except Exception as exc:
+        print(f"  [Aderência] Erro ao carregar descrições: {exc} — usando dict inline")
+        return {}
+
+
 def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
                              bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
     """
@@ -1137,47 +1298,59 @@ def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
 
 
 def fator_absorcao(trail: dict) -> float:
+    solo_cfgs = _carregar_solo_type_config()
+    solo_cfg  = next((c for c in solo_cfgs if c["solo_type"] == trail.get("solo_type")), None)
+
     if trail.get("clay_pct") is not None:
         base = round(0.20 + (trail["clay_pct"] / 100) * 1.60, 3)
         base = max(0.25, min(0.90, base))
     else:
-        base = {"terra": 0.80, "preto": 0.60, "misto": 0.55, "misto_mg": 0.45, "pedra": 0.25, "ferro": 0.30}[trail["solo_type"]]
+        base = solo_cfg["fator_absorcao_base"] if solo_cfg else 0.55
+
     # FIX #5: exposicao removida daqui — já está embutida na meia_vida base por (solo_type, exposicao)
     # Manter aqui causava triple counting: fator_absorcao + _meia_vida + _ajustar_meia_vida_clima
-    if trail["altitude_m"] > 1200:
-        base += 0.05
+    if solo_cfg and solo_cfg.get("altitude_bonus_min") is not None:
+        if trail["altitude_m"] > solo_cfg["altitude_bonus_min"]:
+            base += solo_cfg["altitude_bonus"]
     # bikepark: terra compactada e drenagem projetada — comportamento neutro
     # penalizador removido; proteção de veredicto já garantida pela regra BAIXA ADERÊNCIA
 
     inclinacao = calcular_inclinacao(trail)
+    inclinacao_cfgs = _carregar_inclinacao_config()
     if inclinacao is not None:
-        if inclinacao >= 30:
-            base -= 0.22
-        elif inclinacao >= 20:
-            base -= 0.15
-        elif inclinacao >= 10:
-            base -= 0.08
+        for ic in (c for c in inclinacao_cfgs if c["tipo"] == "inclinacao"):
+            if inclinacao >= ic["grau_min"] and (ic["grau_max"] is None or inclinacao <= ic["grau_max"]):
+                base += ic["delta_fator"]
+                break
     elif trail.get("desnivel_m") is not None:
         d = trail["desnivel_m"]
-        if d >= 800:
-            base -= 0.18
-        elif d >= 500:
-            base -= 0.10
-        elif d >= 300:
-            base -= 0.05
+        for ic in (c for c in inclinacao_cfgs if c["tipo"] == "desnivel"):
+            if d >= ic["grau_min"] and (ic["grau_max"] is None or d <= ic["grau_max"]):
+                base += ic["delta_fator"]
+                break
 
     return max(0.05, min(1.0, base))
 
 def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
                           trail: dict, mes: int, enso: dict) -> dict:
+    sc              = _carregar_score_config()
+    pico_thr        = float(sc.get("pico_threshold",           10.0))
+    coef_pico_desc  = float(sc.get("coef_pico_descansado",      0.7))
+    coef_pico_mol   = float(sc.get("coef_pico_molhado",         1.0))
+    coef_rain       = float(sc.get("coef_rain",                 0.6))
+    coef_acumulo    = float(sc.get("coef_acumulo",              0.3))
+    coef_base       = float(sc.get("coef_base",                10.0))
+    bk_acumulo_thr  = float(sc.get("bikepark_acumulo_threshold", 5.0))
+    bk_score_mult   = float(sc.get("bikepark_score_mult",       0.90))
+
     thresh = threshold_solo_descansado(mes, enso, trail)
-    fator = fator_absorcao(trail)
+    fator  = fator_absorcao(trail)
     solo_descansado = acumulo_ef < thresh
 
-    if pico_3h >= 10.0:
-        impacto = pico_3h * (0.7 if solo_descansado else 1.0)
+    if pico_3h >= pico_thr:
+        impacto = pico_3h * (coef_pico_desc if solo_descansado else coef_pico_mol)
     else:
-        impacto = rain_mm * 0.6 if solo_descansado else (rain_mm + acumulo_ef * 0.3)
+        impacto = rain_mm * coef_rain if solo_descansado else (rain_mm + acumulo_ef * coef_acumulo)
 
     impacto *= fator
 
@@ -1185,21 +1358,17 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     # Quando clay_pct vem da tabela mestra, fator_absorcao já é calculado por ele
     # aplicar solo_mult manual por cima contradiz o dado real de argila
     if trail.get("clay_pct") is None:
-        solo_mult = {
-            "pedra": 0.80,
-            "ferro": 0.85,
-            "preto": 0.95,
-            "misto_mg": 0.92,
-            "misto": 1.00,
-            "terra": 1.05,
-        }.get(trail.get("solo_type", "terra"), 1.0)
-        impacto *= solo_mult
+        solo_cfg = next(
+            (c for c in _carregar_solo_type_config() if c["solo_type"] == trail.get("solo_type", "terra")),
+            None,
+        )
+        impacto *= solo_cfg["score_mult"] if solo_cfg else 1.0
 
     if trail.get("trail_type") == "bikepark":
-        if acumulo_ef < 5.0:
-            impacto *= 0.90
+        if acumulo_ef < bk_acumulo_thr:
+            impacto *= bk_score_mult
 
-    score = max(0.0, min(100.0, impacto * 10.0))
+    score = max(0.0, min(100.0, impacto * coef_base))
     return {
         "score": round(score, 1),
         "solo_descansado": solo_descansado,
@@ -1208,37 +1377,14 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     }
 
 def _descricao_aderencia(status: str, trail: dict, saturado: bool = False) -> str:
-    solo_type = trail["solo_type"]
     trail_type = trail.get("trail_type", "natural")
-    descricoes = {
-        ("SECO",            "terra"):    "Solo seco. Boa aderência para DH e Enduro.",
-        ("SECO",            "misto"):    "Solo seco. Boa aderência para DH e Enduro.",
-        ("SECO",            "misto_mg"): "Solo seco. Mistura de terra e minério oferece boa aderência.",
-        ("SECO",            "preto"):    "Solo seco. Terra preta oferece boa aderência.",
-        ("SECO",            "pedra"):    "Solo seco. Boa aderência sobre rocha.",
-        ("SECO",            "ferro"):    "Solo ferruginoso seco. Aderência excelente — grip firme sobre o minério.",
-        ("GRIP PERFEITO",   "terra"):    "Solo levemente úmido. Alta aderência — grip perfeito para DH e Enduro.",
-        ("GRIP PERFEITO",   "misto"):    "Solo levemente úmido. Grip excelente nos trechos de terra e pedra.",
-        ("GRIP PERFEITO",   "misto_mg"): "Solo levemente úmido. Minério úmido melhora o grip — condição favorável.",
-        ("GRIP PERFEITO",   "preto"):    "Terra preta levemente úmida. Grip perfeito — condição ideal.",
-        ("GRIP PERFEITO",   "pedra"):    "Rocha levemente úmida. Alta aderência — grip perfeito.",
-        ("GRIP PERFEITO",   "ferro"):    "Solo ferruginoso levemente úmido. Grip excelente — minério úmido oferece boa tração.",
-        ("BOA ADERÊNCIA",   "terra"):    "Solo úmido. Perda parcial de tração. Freios exigem antecipação.",
-        ("BOA ADERÊNCIA",   "misto"):    "Solo úmido. Trechos de terra com perda de tração.",
-        ("BOA ADERÊNCIA",   "misto_mg"): "Solo úmido. Trechos de terra com perda de tração — minério retém menos água mas atenção na lama.",
-        ("BOA ADERÊNCIA",   "preto"):    "Terra preta úmida. Aderência reduzida, especialmente na frenagem.",
-        ("BOA ADERÊNCIA",   "pedra"):    "Rocha molhada. Risco de escorregamento em curvas e frenagens.",
-        ("BOA ADERÊNCIA",   "ferro"):    "Solo ferruginoso úmido. Drena rápido, mas o minério molhado pode ficar traiçoeiro.",
-        ("BAIXA ADERÊNCIA", "terra"):    "Solo encharcado. Lama e poças — alto risco em curvas e descidas.",
-        ("BAIXA ADERÊNCIA", "misto"):    "Trechos encharcados com lama. Atenção máxima nas seções de terra.",
-        ("BAIXA ADERÊNCIA", "misto_mg"): "Solo encharcado. Terra misturada ao minério forma lama — alto risco em curvas e descidas.",
-        ("BAIXA ADERÊNCIA", "preto"):    "Terra preta encharcada. Solo muito liso e instável — alto risco em curvas e frenagens.",
-        ("BAIXA ADERÊNCIA", "pedra"):    "Rocha bem molhada. Sem lama, mas com escorregamento elevado e pouca margem de erro.",
-        ("BAIXA ADERÊNCIA", "ferro"):    "Solo ferruginoso muito molhado. Minério liso e imprevisível — alto risco em curvas e apoios.",
-    }
+    descricoes = _carregar_aderencia_descricoes()
     if trail_type == "bikepark" and saturado:
-        return "Bike park saturado. Drenagem insuficiente para o volume acumulado — risco de lama, valetas e perda de tração."
-    return descricoes.get((status, solo_type), f"Solo em condição de {status.lower()}.")
+        texto = descricoes.get(("BIKEPARK_SATURADO", "default"))
+        return texto or "Bike park saturado. Drenagem insuficiente para o volume acumulado — risco de lama, valetas e perda de tração."
+    solo_type = trail["solo_type"]
+    texto = descricoes.get((status, solo_type)) or descricoes.get((status, "default"))
+    return texto or f"Solo em condição de {status.lower()}."
 
 def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
                        pico_3h: float = 0.0, mes: int = None, enso: dict = None) -> dict:
@@ -3195,6 +3341,12 @@ def main() -> None:
     _carregar_enso_config()
     _carregar_aderencia_thresholds()
     _carregar_veredicto_pesos()
+    _carregar_meia_vida_clima_mult()
+    _carregar_microclima_config()
+    _carregar_solo_type_config()
+    _carregar_inclinacao_config()
+    _carregar_score_config()
+    _carregar_aderencia_descricoes()
 
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
