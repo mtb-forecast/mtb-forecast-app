@@ -319,9 +319,9 @@ def fetch_oni_atual() -> float:
         oni_val = 0.0
         for linha in reversed(linhas):
             partes = linha.split()
-            if len(partes) >= 3:
+            if len(partes) >= 4:
                 try:
-                    oni_val = float(partes[2])
+                    oni_val = float(partes[3])  # col 3 = ANOM (anomalia ONI); col 2 = SST absoluto
                     break
                 except ValueError:
                     continue
