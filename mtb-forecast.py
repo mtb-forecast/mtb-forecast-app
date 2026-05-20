@@ -306,39 +306,6 @@ ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADE
 # Sazonalidade e ENSO — V5.22
 # ---------------------------------------------------------------------------
 
-_THRESHOLD_SAZONAL_REGIONAL: dict = {
-    "SP": {
-        1:  (3.0,  7.0),
-        2:  (2.0,  6.0),
-        3:  (3.0,  7.0),
-        4:  (5.0, 10.0),
-        5:  (6.0, 12.0),
-        6:  (8.0, 15.0),
-        7:  (8.0, 15.0),
-        8:  (8.0, 15.0),
-        9:  (8.0, 15.0),
-        10: (5.0, 10.0),
-        11: (4.0,  9.0),
-        12: (3.0,  7.0),
-    },
-    "MG": {
-        1:  (2.5,  6.5),
-        2:  (2.0,  6.0),
-        3:  (2.5,  6.5),
-        4:  (4.5,  9.0),
-        5:  (5.5, 11.0),
-        6:  (7.0, 13.5),
-        7:  (7.0, 13.5),
-        8:  (7.0, 13.5),
-        9:  (7.0, 13.5),
-        10: (4.5,  9.0),
-        11: (3.5,  8.0),
-        12: (2.5,  6.5),
-    },
-}
-# FIX #9: DEFAULT era idêntico a SP — usar SP como fallback direto
-_THRESHOLD_FALLBACK = "SP"
-
 _CACHE_ONI: dict = {}
 
 def fetch_oni_atual() -> float:
@@ -381,9 +348,9 @@ def classificar_enso(oni: float) -> dict:
 
 def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float:
     """Threshold dinâmico: sazonalidade × ENSO × microclima de bioma."""
-    regiao = ((trail or {}).get("regiao") or _THRESHOLD_FALLBACK).upper()
+    regiao = ((trail or {}).get("regiao") or "").upper()
     tabela_sb = _carregar_threshold_sazonal()
-    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", _THRESHOLD_SAZONAL_REGIONAL.get(_THRESHOLD_FALLBACK, {})))
+    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", {}))
     base, _ = tabela.get(mes, (5.0, 10.0))
     valor = base * enso["mult"]
     if trail is not None:
@@ -392,9 +359,9 @@ def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float
 
 
 def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> float:
-    regiao = ((trail or {}).get("regiao") or _THRESHOLD_FALLBACK).upper()
+    regiao = ((trail or {}).get("regiao") or "").upper()
     tabela_sb = _carregar_threshold_sazonal()
-    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", _THRESHOLD_SAZONAL_REGIONAL.get(_THRESHOLD_FALLBACK, {})))
+    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", {}))
     _, sat = tabela.get(mes, (5.0, 10.0))
     valor = sat * enso["mult"]
     if trail is not None:
@@ -1024,8 +991,8 @@ def _carregar_threshold_sazonal() -> dict:
         print(f"  [Threshold] Carregado do Supabase: {len(dados)} registros")
         return tabela
     except Exception as exc:
-        print(f"  [Threshold] Erro: {exc} — usando fallback hardcoded")
-        return _THRESHOLD_SAZONAL_REGIONAL
+        print(f"  [Threshold] Erro: {exc} — sem dados; threshold de mes usa (5.0, 10.0)")
+        return {}
 
 
 def _carregar_meia_vida() -> dict:
