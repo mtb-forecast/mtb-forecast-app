@@ -929,14 +929,23 @@ impacto × 0.90         (bikepark com acumulo_ef < 5mm)
 score = max(0, min(100, impacto × 10))
 ```
 
-**Thresholds de aderência** (tabela `aderencia_thresholds`, `efetivo_combinado = acumulo_ef + pico_3h`):
+**Thresholds de aderência** (tabela `aderencia_thresholds`):
 
-| Status | ef_combinado | Borda semântica |
-|---|---|---|
-| SECO | ≤ 0.0 | Inclusivo no upper |
-| GRIP PERFEITO | 0.0 a 5.0 | Lower inclusivo, upper exclusivo |
-| BOA ADERÊNCIA | 5.0 a 7.0 | Lower inclusivo, upper exclusivo |
-| BAIXA ADERÊNCIA | ≥ 7.0 | First-match after all above |
+Antes de comparar, `efetivo_combinado = acumulo_ef + pico_3h` é normalizado pelo `fator_microclima(trail)`:
+
+```python
+efetivo_threshold = efetivo_combinado / fator_microclima(trail)
+```
+
+Isso torna os thresholds efetivamente mais rígidos para trilhas em ambientes com mais retenção de umidade (Mata Atlântica fechada de altitude):
+
+| Trilha | fator_mc | GRIP → BOA | BOA → BAIXA |
+|---|---|---|---|
+| Mata Atlântica + alt ≥ 600m + fechada | 0.75 | > **3.75 mm** | > **5.25 mm** |
+| Mata Atlântica (demais) | 0.90 | > **4.5 mm** | > **6.3 mm** |
+| Outros / sem microclima | 1.00 | > 5.0 mm | > 7.0 mm |
+
+Os thresholds fixos na tabela `aderencia_thresholds` são 0 / 5 / 7 mm. O ajuste microclimático não altera a tabela — é aplicado no código dividindo o efetivo antes da comparação. Valores calibráveis via `microclima_config.mult_threshold` no Supabase.
 
 **Fator de recuperação:** `BAIXA ADERÊNCIA → BOA ADERÊNCIA` se `acumulo_ef < threshold × 2.5` **e** não saturado. Multiplicador 2.5 lido de `configuracoes_sistema.aderencia_recovery_mult`.
 
@@ -1276,10 +1285,11 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 
 ### Estado atual (branch develop)
 
-**Fixes críticos aplicados:**
+**Fixes e melhorias aplicados:**
 - **ONI parsing** (`fetch_oni_atual`): corrigido para ler `partes[3]` (ANOM) em vez de `partes[2]` (SST absoluto ~27°C). Bug causava classificação errada como "El Niño Forte" com ONI=27.28 em vez do correto ~0.11 (ENSO Neutro), tornando todos os thresholds 25% mais permissivos.
 - **Bikepark recovery factor** (`calcular_aderencia`): adicionado `and not saturado` à condição de recuperação. Bug permitia downgrade incorreto de BAIXA → BOA ADERÊNCIA em bikepark saturado.
 - **Validação de formato ONI** (`fetch_oni_atual`): 3 camadas — header com ≠ 4 colunas, SST fora de 20–32°C, anomalia fora de −4..+4. Detecta mudanças no formato do arquivo NOAA e cai em neutro com aviso no log.
+- **Ajuste microclimático nos thresholds de aderência** (`calcular_aderencia`): trilhas em Mata Atlântica fechada de altitude (fator_mc=0.75) tinham thresholds SECO/GRIP/BOA/BAIXA iguais a trilhas abertas, causando GRIP PERFEITO superestimado. O `efetivo_combinado` agora é dividido por `fator_microclima(trail)` antes da comparação, tornando os limiares efetivos 25% mais rígidos (GRIP→BOA em 3.75mm em vez de 5mm). Valores calibráveis via `microclima_config.mult_threshold` no Supabase.
 
 **Migração Supabase concluída (Fases 1–4):**
 - 13 tabelas de configuração do modelo no Supabase — zero parâmetros hardcoded no Python
