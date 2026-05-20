@@ -331,10 +331,10 @@ elif trail.get("desnivel_m") is not None:
 return max(0.05, min(1.0, base))
 ```
 
-### Por que não afeta o status do rider
+### Relação com o status do rider
 
 `fator_absorcao` multiplica o `impacto` → determina o `score` numérico (0–100).  
-O `status` (SECO / GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA) é determinado diretamente por `efetivo_combinado = acumulo_ef + pico_3h`, **sem passar por `fator_absorcao`**.
+O `status` (SECO / GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA) **não passa por `fator_absorcao`**, mas é ajustado pelo `fator_microclima(trail)` aplicado sobre `efetivo_combinado` antes da comparação com os thresholds — ver Seção 7.
 
 ---
 
@@ -417,7 +417,7 @@ score = max(0.0, min(100.0, impacto * coef_base))
 
 ### Thresholds carregados de `aderencia_thresholds`
 
-O status é determinado pelo `efetivo_combinado = acumulo_ef + pico_3h`, comparado contra faixas da tabela `aderencia_thresholds` (avaliadas em ordem, primeiro match vence):
+Os thresholds fixos da tabela são:
 
 | status | ef_min | ef_max | Semântica do intervalo |
 |---|---|---|---|
@@ -426,17 +426,37 @@ O status é determinado pelo `efetivo_combinado = acumulo_ef + pico_3h`, compara
 | BOA ADERÊNCIA | 5.0 | 7.0 | `5.0 <= ef < 7.0` |
 | BAIXA ADERÊNCIA | 7.0 | — | `ef >= 7.0` |
 
+### Ajuste microclimático dos thresholds
+
+Antes de comparar contra a tabela, o `efetivo_combinado` é normalizado pelo `fator_microclima(trail)`. Trilhas em Mata Atlântica fechada de altitude retêm umidade estruturalmente — o mesmo `acumulo_ef` causa mais degradação do que em terreno aberto. Dividir por um fator < 1.0 infla o valor comparado contra os thresholds fixos, tornando-os efetivamente mais rígidos:
+
 ```python
 efetivo_combinado = acumulo_ef + pico_3h
+
+fator_mc = fator_microclima(trail)   # 0.75 · 0.90 · 1.00 — lido de microclima_config
+efetivo_threshold = efetivo_combinado / fator_mc if fator_mc > 0 else efetivo_combinado
+
 status = "BAIXA ADERÊNCIA"  # default seguro
 for thr in _carregar_aderencia_thresholds():
-    acima  = ef_min is None or efetivo_combinado >= ef_min
+    acima  = ef_min is None or efetivo_threshold >= ef_min
     abaixo = (ef_max is None or
-              (efetivo_combinado <= ef_max if ef_min is None else efetivo_combinado < ef_max))
+              (efetivo_threshold <= ef_max if ef_min is None else efetivo_threshold < ef_max))
     if acima and abaixo:
         status = thr["status"]
         break
 ```
+
+**Limiares efetivos resultantes** (thresholds fixos ÷ fator_mc):
+
+| Trilha | fator_mc | GRIP → BOA | BOA → BAIXA |
+|---|---|---|---|
+| Mata Atlântica + alt ≥ 600m + fechada | 0.75 | > **3.75 mm** | > **5.25 mm** |
+| Mata Atlântica (demais) | 0.90 | > **4.5 mm** | > **6.3 mm** |
+| Outros biomas / aberta sem microclima | 1.00 | > 5.0 mm | > 7.0 mm |
+
+Exemplo: `acumulo_ef = 4mm` em Mata Atlântica alta fechada → `efetivo_threshold = 4 / 0.75 = 5.33` → **BOA ADERÊNCIA** (era GRIP PERFEITO com fator=1.0).
+
+Os valores de `fator_mc` são ajustáveis via Supabase (`microclima_config.mult_threshold`) sem alteração de código. Quanto menor o valor, mais rígido o threshold efetivo.
 
 ### Fator de recuperação
 
@@ -626,6 +646,18 @@ O mesmo `microclima_config` é usado em `_meia_vida()` com a coluna `mult_meia_v
 |---|---|---|---|
 | Mata Atlântica | 600m | fechada | × 1.20 |
 | Mata Atlântica | — | — | × 1.10 |
+
+### Efeito nos thresholds de aderência
+
+O mesmo `mult_threshold` de `microclima_config` é reutilizado em `calcular_aderencia()` para normalizar o `efetivo_combinado` antes da comparação com `aderencia_thresholds`. Ver Seção 7 para fórmula e limiares efetivos por bioma.
+
+**Resumo dos três efeitos de `microclima_config` sobre uma trilha:**
+
+| Efeito | Coluna usada | Onde | Resultado |
+|---|---|---|---|
+| Threshold solo descansado menor | `mult_threshold` | `threshold_solo_descansado()` | Solo classificado como úmido com menos mm |
+| Thresholds de aderência mais rígidos | `mult_threshold` | `calcular_aderencia()` | GRIP → BOA em 3.75mm em vez de 5mm |
+| Meia-vida de secagem maior | `mult_meia_vida` | `_meia_vida()` | Umidade decai mais lentamente |
 
 ---
 
