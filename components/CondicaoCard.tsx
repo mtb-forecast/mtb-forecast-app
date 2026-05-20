@@ -1,4 +1,5 @@
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
+import { rainColor, peakColor, windColor, DISPLAY_THR } from '@/lib/display'
 
 type Props = {
   condicao: Condicao
@@ -24,23 +25,6 @@ function verdictBorderColor(v: string): string {
   return '#F59E0B'
 }
 
-function peakColor(mm: number): string {
-  if (mm < 5)   return '#22C55E'
-  if (mm <= 10) return '#F59E0B'
-  return '#EF4444'
-}
-
-function accumColor(mm: number): string {
-  if (mm < 10)  return '#22C55E'
-  if (mm <= 30) return '#F59E0B'
-  return '#EF4444'
-}
-
-function windColor(kmh: number): string {
-  if (kmh < 20)  return '#22C55E'
-  if (kmh <= 40) return '#F59E0B'
-  return '#EF4444'
-}
 
 function recalcularSolo(condicao: Condicao) {
   const agora    = new Date()
@@ -143,7 +127,7 @@ export default function CondicaoCard({ condicao }: Props) {
   const janela      = janelaStyle(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
   const windKmh     = condicao.wind_ms * 3.6
-  const showPico    = condicao.pico_3h != null && condicao.pico_3h >= 3
+  const showPico    = condicao.pico_3h != null && condicao.pico_3h >= DISPLAY_THR.picoMin
   const showInc     = condicao.inclinacao != null && condicao.inclinacao !== 0
 
   const solo = recalcularSolo(condicao)
@@ -243,12 +227,12 @@ export default function CondicaoCard({ condicao }: Props) {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
-            <LiveCell label="Umidade retida" icon="ti-calculator" value={`${acumuloAgora.toFixed(1)}mm`} color={accumColor(acumuloAgora)} tooltip="Umidade retida recalculada com decaimento desde o report" />
+            <LiveCell label="Umidade retida" icon="ti-calculator" value={`${acumuloAgora.toFixed(1)}mm`} color={rainColor(acumuloAgora)} tooltip="Umidade retida recalculada com decaimento desde o report" />
             <LiveCell label="Trilha seca em" icon="ti-clock" value={`${trilhaSecaEmAgora}h`} color="#6B7280" tooltip="Tempo restante estimado para o solo atingir condição ideal" />
             {condicao.ultima_chuva_h != null && (
               <LiveCell label="Última chuva" icon="ti-history" value={`${ultimaChuvaH}h atrás`} color="#6B7280" tooltip="Horas desde a última precipitação, ajustado pelo tempo desde o report" />
             )}
-            <ReportCell label="Chuva 48h" icon="ti-droplet" value={`${condicao.acumulo_48h.toFixed(1)}mm`} color={accumColor(condicao.acumulo_48h)} tooltip="Chuva acumulada histórica nas últimas 48h" />
+            <ReportCell label="Chuva 48h" icon="ti-droplet" value={`${condicao.acumulo_48h.toFixed(1)}mm`} color={rainColor(condicao.acumulo_48h)} tooltip="Chuva acumulada histórica nas últimas 48h" />
             {showPico && <ReportCell label="Pico prev. 3h" icon="ti-droplet-half" value={`${condicao.pico_3h.toFixed(1)}mm`} color={peakColor(condicao.pico_3h)} tooltip="Maior acumulado em janela de 3h na previsão" />}
             <ReportCell label="Vento prev. 24h" icon="ti-wind" value={`${windKmh.toFixed(1)} km/h`} color={windColor(windKmh)} tooltip="Vento máximo sustentado previsto nas próximas 24h" />
             {condicao.gust_max_kmh != null && (

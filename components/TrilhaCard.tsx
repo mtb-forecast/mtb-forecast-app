@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
+import { rainColor, peakColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_BG } from '@/lib/display'
 
 type Props = {
   trilha: TrilhaComCondicao
@@ -8,37 +9,6 @@ type Props = {
   onToggleFavorito?: () => void
 }
 
-const ACCENT_COLOR: Record<string, string> = {
-  'DROP LIBERADO':                  '#22C55E',
-  'DROP LIBERADO - Veja os alertas': '#F59E0B',
-  'MELHOR ESPERAR':                  '#EF4444',
-}
-
-const JANELA_BG: Record<string, string> = {
-  'DROP LIBERADO':                  '#F0FDF4',
-  'DROP LIBERADO - Veja os alertas': '#FFFBEB',
-  'MELHOR ESPERAR':                  '#FEF2F2',
-}
-
-function rainColor(mm: number | null | undefined): string {
-  if (mm == null) return '#6B7280'
-  if (mm < 10)   return '#22C55E'
-  if (mm <= 30)  return '#F59E0B'
-  return '#EF4444'
-}
-
-function peakColor(mm: number): string {
-  if (mm < 5)  return '#22C55E'
-  if (mm <= 10) return '#F59E0B'
-  return '#EF4444'
-}
-
-function windColor(kmh: number | null | undefined): string {
-  if (kmh == null) return '#6B7280'
-  if (kmh < 20)  return '#22C55E'
-  if (kmh <= 40) return '#F59E0B'
-  return '#EF4444'
-}
 
 export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
   const c = trilha.condicao
@@ -46,9 +16,9 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
   const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const hasData = c != null && vcfg != null
 
-  const accentColor = veredictoText ? (ACCENT_COLOR[veredictoText] ?? '#D1D5DB') : '#D1D5DB'
-  const janelaBg    = veredictoText ? (JANELA_BG[veredictoText]   ?? '#F9FAFB')  : '#F9FAFB'
-  const showPico    = c?.pico_3h != null && c.pico_3h >= 3
+  const accentColor = veredictoText ? (VEREDICTO_ACCENT[veredictoText] ?? '#D1D5DB') : '#D1D5DB'
+  const janelaBg    = veredictoText ? (VEREDICTO_JANELA_BG[veredictoText]   ?? '#F9FAFB')  : '#F9FAFB'
+  const showPico    = c?.pico_3h != null && c.pico_3h >= DISPLAY_THR.picoMin
 
   const pill: React.CSSProperties = {
     fontSize: '0.7rem', color: '#6B7280', background: '#F3F4F6',
