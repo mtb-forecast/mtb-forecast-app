@@ -28,29 +28,44 @@ Todas as tabelas deste grupo têm:
 
 ### `configuracoes_sistema`
 
-Chave-valor genérico para parâmetros de infra e negócio. Não tem schema fixo de colunas de negócio.
+Chave-valor central do sistema. Absorveu `score_config` na Fase 5, categorizada por `grupo`.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
 | `chave` | text UNIQUE | Nome da configuração |
 | `valor` | text | Valor (sempre string; conversão feita no Python) |
+| `grupo` | text | Categoria: `sistema`, `secagem`, `aderencia`, `solo`, `scoring` |
+| `ativo` | boolean DEFAULT true | Controle de ativação |
 
 **Registros presentes:**
 
-| Chave | Valor | Fase | Uso no sistema |
+| Chave | Valor | Grupo | Uso no sistema |
 |---|---|---|---|
-| `meia_vida_min` | `4` | Fase 2 | Clamp mínimo da meia_vida final (horas) |
-| `meia_vida_max` | `72` | Fase 2 | Clamp máximo da meia_vida final (horas) |
-| `aderencia_recovery_mult` | `2.5` | Fase 4 | Multiplicador do fator de recuperação de aderência |
-| `email_from` | endereço | Infra | Remetente dos alertas por e-mail |
-| `email_password` | senha/app-pw | Infra | Credencial do remetente |
-| `telegram_token` | token | Infra | Token do bot Telegram |
-| `telegram_chat_ids` | ids csv | Infra | Chat IDs separados por vírgula (broadcast) |
+| `meia_vida_min` | `4` | `secagem` | Clamp mínimo da meia_vida final (horas) |
+| `meia_vida_max` | `72` | `secagem` | Clamp máximo da meia_vida final (horas) |
+| `aderencia_recovery_mult` | `2.5` | `aderencia` | Multiplicador do fator de recuperação de aderência |
+| `altitude_bonus_min` | `1200` | `solo` | Altitude de corte para bônus de absorção (metros) |
+| `altitude_bonus` | `0.05` | `solo` | Valor somado ao fator_absorcao_base acima do corte |
+| `coef_rain` | `0.6` | `scoring` | `impacto = rain_mm × 0.6` (solo descansado, pico < 10) |
+| `coef_pico_descansado` | `0.7` | `scoring` | `impacto = pico_3h × 0.7` (solo descansado, pico ≥ 10) |
+| `coef_pico_molhado` | `1.0` | `scoring` | `impacto = pico_3h × 1.0` (solo saturado, pico ≥ 10) |
+| `coef_acumulo` | `0.3` | `scoring` | `impacto = rain + acumulo_ef × 0.3` (solo saturado, pico < 10) |
+| `coef_base` | `10.0` | `scoring` | `score = impacto × 10.0` — escala 0–100 |
+| `pico_threshold` | `10.0` | `scoring` | Limiar de ativação da lógica de pico (mm) |
+| `bikepark_acumulo_threshold` | `5.0` | `scoring` | Se `acumulo_ef < 5.0`: aplica redução bikepark |
+| `bikepark_score_mult` | `0.90` | `scoring` | Redução de impacto para bikepark não saturado |
+| `bikepark_saturado_threshold` | `10.0` | `scoring` | Fallback quando `threshold_sazonal` indisponível |
+| `email_from` | endereço | `sistema` | Remetente dos alertas por e-mail |
+| `email_password` | senha/app-pw | `sistema` | Credencial do remetente |
+| `telegram_token` | token | `sistema` | Token do bot Telegram |
+| `telegram_chat_ids` | ids csv | `sistema` | Chat IDs separados por vírgula (broadcast) |
 
 **Usado em:**
 - `mtb-forecast.py` → `_get_config(chave)` — busca lazy com fallback para `os.getenv()`
-- `mtb-forecast.py` → `_ajustar_meia_vida_clima()` — lê `meia_vida_min`/`meia_vida_max` para clamp
+- `mtb-forecast.py` → `_carregar_score_config()` — filtra `grupo=eq.scoring`
+- `mtb-forecast.py` → `fator_absorcao()` — lê `altitude_bonus_min` / `altitude_bonus`
+- `mtb-forecast.py` → `_ajustar_meia_vida_clima()` — lê `meia_vida_min`/`meia_vida_max`
 - `mtb-forecast.py` → `calcular_aderencia()` — lê `aderencia_recovery_mult`
 
 ---
@@ -63,16 +78,18 @@ Tabela mestra de composição do solo por tipo, bioma e região. Base para `clay
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
 | `solo_type` | text | Tipo de solo: `terra`, `preto`, `misto`, `misto_mg`, `pedra`, `ferro` |
-| `bioma` | text | Ex: `Mata Atlântica`, `Cerrado`, `TODOS` |
-| `regiao` | text | Sigla do estado: `SP`, `MG`, `TODOS` |
+| `bioma` | text | Ex: `Mata Atlântica`, `Cerrado` — `NULL` = wildcard (qualquer bioma) |
+| `regiao` | text | Sigla do estado: `SP`, `MG` — `NULL` = wildcard (qualquer região) |
 | `clay_pct` | numeric | % de argila (0–100) |
 | `sand_pct` | numeric | % de areia (0–100) |
 | `texture_class` | text | Ex: `Franco-argiloso`, `Argiloso` |
 
 **Prioridade de lookup (3 níveis):**
 1. Match exato: `solo_type + bioma + regiao`
-2. Match: `solo_type + bioma + regiao=TODOS`
-3. Fallback: `solo_type + regiao=TODOS`
+2. Match: `solo_type + bioma + regiao=NULL` (wildcard de região)
+3. Fallback: `solo_type + bioma=NULL + regiao=NULL` (wildcard universal)
+
+**Nota:** `bioma` e `regiao` são nullable (NOT NULL removido na Fase 5). Índice único usa `COALESCE(bioma,'')` e `COALESCE(regiao,'')` para tratar NULLs como wildcards únicos.
 
 **Crítica:** Sem fallback hardcoded — se indisponível, `clay_pct` não será calculado (`[ERRO CRÍTICO]`).
 
@@ -182,44 +199,50 @@ Faixas de `efetivo_combinado` que mapeiam para os status de aderência do rider.
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
 | `status` | text | `SECO`, `GRIP PERFEITO`, `BOA ADERÊNCIA`, `BAIXA ADERÊNCIA` |
-| `ef_min` | numeric | Limite inferior do efetivo_combinado (null = desde 0) |
+| `ef_min` | numeric | Limite inferior do efetivo_threshold (null = desde 0) |
 | `ef_max` | numeric | Limite superior (null = sem teto) |
-| `ordem` | integer | Ordem de avaliação — menor ordem avaliado primeiro |
 | `ativo` | boolean | Controle de ativação |
 
-**Valores atuais (efetivo_combinado = acumulo_ef + pico_3h):**
+**Nota:** o campo `ordem` foi removido na Fase 5 — redundante com os intervalos naturais de `ef_min`. A query ordena por `ef_min asc nulls first`.
 
-| ordem | status | ef_min | ef_max | Semântica |
-|---|---|---|---|---|
-| 1 | SECO | — | 0.0 | `ef <= 0.0` (inclusivo — captura ef==0) |
-| 2 | GRIP PERFEITO | 0.0 | 5.0 | `0 < ef < 5.0` |
-| 3 | BOA ADERÊNCIA | 5.0 | 7.0 | `5.0 <= ef < 7.0` |
-| 4 | BAIXA ADERÊNCIA | 7.0 | — | `ef >= 7.0` |
+**Valores atuais** (`efetivo_threshold = efetivo_combinado / fator_microclima`):**
 
-**Fallback:** lista hardcoded idêntica aos valores acima.
+| status | ef_min | ef_max | Semântica |
+|---|---|---|---|
+| SECO | — | 0.0 | `ef <= 0.0` (inclusivo — captura ef==0) |
+| GRIP PERFEITO | 0.0 | **3.0** | `0 ≤ ef < 3.0` |
+| BOA ADERÊNCIA | **3.0** | 7.0 | `3.0 ≤ ef < 7.0` |
+| BAIXA ADERÊNCIA | 7.0 | — | `ef ≥ 7.0` |
+
+**Thresholds efetivos por bioma** (após divisão por `fator_threshold`):
+
+| Bioma / config | fator_threshold | GRIP→BOA em | BOA→BAIXA em |
+|---|---|---|---|
+| Outros (padrão) | 1.00 | 3.0 mm | 7.0 mm |
+| Mata Atlântica geral | 0.90 | 2.7 mm | 6.3 mm |
+| Mata Atlântica alta fechada | 0.50 | 1.5 mm | 3.5 mm |
+
+**Fallback:** lista hardcoded com os valores atuais (3.0 / 3.0 / 7.0).
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_aderencia_thresholds()` → `calcular_aderencia()` — loop sobre thresholds
 
 ---
 
-### `veredicto_risco_pesos`
+### `veredicto_pesos`
 
-Pesos e limiares do sistema de pontuação de risco que gera o veredicto final.
+Pesos de risco do sistema de pontuação que gera o veredicto final. Separada de `veredicto_limiares` na Fase 5.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
-| `fator` | text | Identificador do fator de risco |
-| `condicao` | text | Documentação da condição (não executada em SQL) |
-| `peso` | integer | Pontos adicionados ao risco (null para limiares de decisão) |
-| `limiar_max` | integer | Usado pelos registros de decisão final |
-| `texto_veredicto` | text | Texto do veredicto (null para pesos) |
+| `fator` | text UNIQUE | Identificador do fator de risco |
+| `peso` | integer | Pontos adicionados ao risco total |
 | `ativo` | boolean | Controle de ativação |
 
-**Registros de peso:**
+**Registros atuais (12 linhas):**
 
-| fator | condição | peso |
+| fator | condição de ativação | peso |
 |---|---|---|
 | `aderencia_baixa` | BAIXA ADERÊNCIA | +3 |
 | `aderencia_boa` | BOA ADERÊNCIA | +2 |
@@ -234,18 +257,39 @@ Pesos e limiares do sistema de pontuação de risco que gera o veredicto final.
 | `vento_estrutural_med` | gust_max_kmh > 65 | +1 |
 | `solo_encharcado` | solo saturado + BAIXA ADERÊNCIA | +1 |
 
-**Registros de decisão:**
+**Nota:** a condição de ativação de cada fator é avaliada integralmente no Python — alterar `fator` no banco sem atualizar o código não tem efeito.
 
-| fator | limiar_max | texto_veredicto |
-|---|---|---|
-| `limiar_liberado` | 1 | DROP LIBERADO |
-| `limiar_alertas` | 3 | DROP LIBERADO - Veja os alertas |
-| `limiar_esperar` | 3 (>`limiar_max`) | MELHOR ESPERAR |
-
-**Fallback:** `[]` — se vazio, lógica inline de `veredicto()` é ativada.
+**Fallback:** lista hardcoded com os 12 registros acima.
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_veredicto_pesos()` → `veredicto()`
+
+---
+
+### `veredicto_limiares`
+
+Limiares de decisão que mapeiam o risco acumulado para o texto de veredicto. Separada de `veredicto_pesos` na Fase 5.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | serial PK | Auto-incremento |
+| `limiar_max` | integer | Risco máximo para este veredicto |
+| `texto_veredicto` | text | Texto exibido ao rider |
+| `ordem` | integer | Ordem de avaliação (menor limiar primeiro) |
+| `ativo` | boolean | Controle de ativação |
+
+**Registros atuais (2 linhas — avaliados em ordem crescente de `limiar_max`):**
+
+| ordem | limiar_max | texto_veredicto |
+|---|---|---|
+| 1 | 1 | DROP LIBERADO |
+| 2 | 3 | DROP LIBERADO - Veja os alertas |
+| — | > 3 | MELHOR ESPERAR (implícito, sem linha necessária) |
+
+**Fallback:** `[{"limiar_max": 1, ...}, {"limiar_max": 3, ...}]`
+
+**Usado em:**
+- `mtb-forecast.py` → `_carregar_veredicto_limiares()` → `veredicto()`
 
 ---
 
@@ -257,14 +301,15 @@ Multiplicadores climáticos que ajustam a meia-vida de secagem com base no clima
 |---|---|---|
 | `id` | serial PK | Auto-incremento — define a ordem de avaliação |
 | `variavel` | text | `temperatura`, `vento`, `nebulosidade`, `umidade`, `combo`, `bikepark` |
-| `condicao` | text | Documentação da condição (não executada em SQL) |
 | `valor_min` | numeric | Limite inferior da variável (null = sem limite) |
 | `valor_max` | numeric | Limite superior da variável (null = sem limite) |
 | `exposicao` | text | `aberta` / `fechada` — só relevante para `variavel=bikepark` |
 | `multiplicador` | numeric | Fator multiplicado sobre a meia_vida atual |
-| `ativo` | boolean | `false` = dead code documentado (ex: `temp <= 10`) |
+| `ativo` | boolean | Controle de ativação |
 
-**Registros ativos por variável:**
+**Nota:** o campo `condicao` (documentação textual) foi removido na Fase 5 — nunca era lido pelo código. A linha `temp <= 10` (ativo=false) também foi deletada.
+
+**Registros ativos por variável (17 linhas):**
 
 | variavel | valor_min | valor_max | exposicao | mult |
 |---|---|---|---|---|
@@ -272,7 +317,6 @@ Multiplicadores climáticos que ajustam a meia-vida de secagem com base no clima
 | `temperatura` | 30 | 35 | — | 0.75 |
 | `temperatura` | 26 | 30 | — | 0.86 |
 | `temperatura` | — | 16 | — | 1.12 |
-| `temperatura` | — | 10 | — | 1.22 (**ativo=false**) |
 | `vento` | 40 | — | — | 0.75 |
 | `vento` | 20 | 40 | — | 0.85 |
 | `vento` | 10.8 | 20 | — | 0.92 |
@@ -289,7 +333,7 @@ Multiplicadores climáticos que ajustam a meia-vida de secagem com base no clima
 
 **Nota:** Vento em km/h (`wind_ms × 3.6`). `combo` é condição multi-variável tratada separadamente.
 
-**Fallback:** lista hardcoded com 17 registros (mesmo conteúdo).
+**Fallback:** lista hardcoded com os 17 registros acima.
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_meia_vida_clima_mult()` → `_ajustar_meia_vida_clima()`
@@ -306,24 +350,30 @@ Fatores de retenção de umidade por bioma, altitude e exposição. Afeta thresh
 | `bioma` | text | Ex: `Mata Atlântica` |
 | `altitude_min` | integer | Altitude mínima (null = sem requisito) |
 | `exposicao` | text | `aberta` / `fechada` (null = qualquer) |
-| `mult_threshold` | numeric | Multiplicador aplicado ao threshold de solo descansado |
-| `mult_meia_vida` | numeric | Multiplicador aplicado à meia_vida base em `_meia_vida()` |
+| `fator_threshold` | numeric | Divisor aplicado ao `efetivo_combinado` antes da comparação com thresholds — valores < 1.0 tornam os limites mais rígidos |
+| `fator_secagem` | numeric | Multiplicador aplicado à `meia_vida` base — valores > 1.0 = seca mais devagar |
 | `ativo` | boolean | Controle de ativação |
+
+**Nota:** renomeado de `mult_threshold`/`mult_meia_vida` na Fase 5 para deixar explícito que `fator_threshold` é um divisor e `fator_secagem` é um multiplicador — sentidos opostos com nomes anteriores simétricos criavam confusão.
 
 **Valores atuais:**
 
-| bioma | altitude_min | exposicao | mult_threshold | mult_meia_vida |
+| bioma | altitude_min | exposicao | fator_threshold | fator_secagem |
 |---|---|---|---|---|
-| Mata Atlântica | 600m | fechada | 0.75 | 1.20 |
+| Mata Atlântica | 600m | fechada | **0.50** | 1.20 |
 | Mata Atlântica | — | — | 0.90 | 1.10 |
 
-**Semântica:** primeiro match vence (mais restritivo primeiro). Biomas não cadastrados → neutro (1.0).
+**Semântica:** primeiro match vence (mais restritivo primeiro). Biomas não cadastrados → neutro (fator_threshold=1.0, sem divisão).
 
-**Fallback:** lista hardcoded com as 2 linhas acima.
+**Guia de calibração:**
+- `fator_threshold` menor → thresholds efetivos mais apertados → GRIP PERFEITO em menos mm
+- `fator_secagem` maior → meia-vida mais longa → solo demora mais para "descansar"
+
+**Fallback:** lista hardcoded com as 2 linhas acima (fator_threshold=0.50/0.90, fator_secagem=1.20/1.10).
 
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_microclima_config()` → `fator_microclima()` — usa `mult_threshold`
-- `mtb-forecast.py` → `_carregar_microclima_config()` → `_meia_vida()` — usa `mult_meia_vida`
+- `mtb-forecast.py` → `_carregar_microclima_config()` → `fator_microclima()` — retorna `fator_threshold`
+- `mtb-forecast.py` → `_carregar_microclima_config()` → `_meia_vida()` — multiplica base por `fator_secagem`
 
 ---
 
@@ -337,25 +387,25 @@ Parâmetros de absorção e multiplicadores de score por tipo de solo quando `cl
 | `solo_type` | text | `terra`, `preto`, `misto`, `misto_mg`, `pedra`, `ferro` |
 | `fator_absorcao_base` | numeric | Base do fator de absorção quando `clay_pct` ausente |
 | `score_mult` | numeric | Multiplicador de impacto no score (apenas sem `clay_pct`) |
-| `altitude_bonus_min` | integer | Altitude acima da qual aplica o bonus (null = sem bonus) |
-| `altitude_bonus` | numeric | Valor somado à base quando `altitude_m > altitude_bonus_min` |
 | `ativo` | boolean | Controle de ativação |
+
+**Nota:** `altitude_bonus_min` e `altitude_bonus` foram removidos na Fase 5 — idênticos em todos os 6 tipos, eram constantes globais repetidas. Agora vivem em `configuracoes_sistema` como `altitude_bonus_min=1200` e `altitude_bonus=0.05`.
 
 **Valores atuais:**
 
-| solo_type | fator_absorcao_base | score_mult | altitude_bonus_min | altitude_bonus |
-|---|---|---|---|---|
-| `terra` | 0.80 | 1.05 | 1200m | +0.05 |
-| `preto` | 0.60 | 0.95 | 1200m | +0.05 |
-| `misto` | 0.55 | 1.00 | 1200m | +0.05 |
-| `misto_mg` | 0.45 | 0.92 | 1200m | +0.05 |
-| `pedra` | 0.25 | 0.80 | 1200m | +0.05 |
-| `ferro` | 0.30 | 0.85 | 1200m | +0.05 |
+| solo_type | fator_absorcao_base | score_mult |
+|---|---|---|
+| `terra` | 0.80 | 1.05 |
+| `preto` | 0.60 | 0.95 |
+| `misto` | 0.55 | 1.00 |
+| `misto_mg` | 0.45 | 0.92 |
+| `pedra` | 0.25 | 0.80 |
+| `ferro` | 0.30 | 0.85 |
 
 **Fallback:** lista hardcoded com os 6 registros acima.
 
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_solo_type_config()` → `fator_absorcao()` — `fator_absorcao_base` + bonus altitude
+- `mtb-forecast.py` → `_carregar_solo_type_config()` → `fator_absorcao()` — `fator_absorcao_base`
 - `mtb-forecast.py` → `calcular_score_trilha()` — `score_mult` quando `clay_pct is None`
 
 ---
@@ -368,14 +418,16 @@ Penalizadores do fator de absorção conforme a inclinação da trilha.
 |---|---|---|
 | `id` | serial PK | Ordem de avaliação — menor id avaliado primeiro |
 | `tipo` | text | `inclinacao` (graus %) ou `desnivel` (metros brutos, fallback) |
-| `grau_min` | numeric | Limite inferior (graus % ou metros) |
-| `grau_max` | numeric | Limite superior (null = sem limite) |
+| `valor_min` | numeric | Limite inferior — graus % quando `tipo=inclinacao`, metros quando `tipo=desnivel` |
+| `valor_max` | numeric | Limite superior (null = sem limite) |
 | `delta_fator` | numeric | Valor subtraído da base (negativo = penalizador) |
 | `ativo` | boolean | Controle de ativação |
 
+**Nota:** renomeado de `grau_min`/`grau_max` na Fase 5 — o nome anterior sugeria graus em ambos os tipos, mas para `desnivel` a unidade é metros. `valor_min`/`valor_max` é agnóstico à unidade.
+
 **Valores atuais:**
 
-| tipo | grau_min | grau_max | delta_fator | Condição |
+| tipo | valor_min | valor_max | delta_fator | Condição |
 |---|---|---|---|---|
 | `inclinacao` | 30 | — | −0.22 | inclinacao% >= 30 |
 | `inclinacao` | 20 | 30 | −0.15 | 20 <= inclinacao% < 30 |
@@ -393,35 +445,11 @@ Penalizadores do fator de absorção conforme a inclinação da trilha.
 
 ---
 
-### `score_config`
+### ~~`score_config`~~ — absorvida pela Fase 5
 
-Coeficientes do modelo de score de impacto da chuva no solo.
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | serial PK | Auto-incremento |
-| `chave` | text UNIQUE | Nome do coeficiente |
-| `valor` | numeric | Valor do coeficiente |
-| `ativo` | boolean | Controle de ativação |
-
-**Registros atuais:**
-
-| chave | valor | Uso |
-|---|---|---|
-| `coef_rain` | 0.6 | `impacto = rain_mm × 0.6` (solo descansado + pico < limiar) |
-| `coef_pico_descansado` | 0.7 | `impacto = pico_3h × 0.7` (solo descansado + pico >= limiar) |
-| `coef_pico_molhado` | 1.0 | `impacto = pico_3h × 1.0` (solo saturado + pico >= limiar) |
-| `coef_acumulo` | 0.3 | `impacto = rain_mm + acumulo_ef × 0.3` (solo saturado + pico < limiar) |
-| `coef_base` | 10.0 | `score = impacto × 10.0` (escala 0–100) |
-| `pico_threshold` | 10.0 | Limiar para lógica de pico_3h |
-| `bikepark_acumulo_threshold` | 5.0 | acumulo_ef < 5.0 → aplica `bikepark_score_mult` |
-| `bikepark_score_mult` | 0.90 | Redução de impacto para bikepark não saturado |
-| `bikepark_saturado_threshold` | 10.0 | Fallback quando `threshold_sazonal` indisponível |
-
-**Fallback:** dict hardcoded com os 9 registros acima.
-
-**Usado em:**
-- `mtb-forecast.py` → `_carregar_score_config()` → `calcular_score_trilha()`
+> **Esta tabela foi eliminada.** Os 9 coeficientes de score foram migrados para `configuracoes_sistema` com `grupo='scoring'`. Ver seção `configuracoes_sistema` acima para os valores atuais.
+>
+> `_carregar_score_config()` agora consulta `configuracoes_sistema?grupo=eq.scoring`.
 
 ---
 
@@ -857,7 +885,7 @@ Workflow de dupla aprovação para alterações nas tabelas de configuração do
 
 | Arquivo | Tabelas acessadas |
 |---|---|
-| `mtb-forecast.py` | `configuracoes_sistema`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_risco_pesos`, `meia_vida_clima_mult`, `microclima_config`, `solo_type_config`, `inclinacao_config`, `score_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais` |
+| `mtb-forecast.py` | `configuracoes_sistema` (inclui scoring), `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `microclima_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais` |
 | `app/(app)/dashboard/page.tsx` | `profiles`, `favoritos`, `trilhas` + `condicoes`, `trilhas_pessoais`, `condicoes_strava`, `observacoes_trilha` |
 | `app/(app)/trilhas/[id]/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `profiles`, `trilhas_pessoais`, `condicoes_strava` |
 | `app/(app)/trilhas/page.tsx` | `trilhas`, `favoritos`, `profiles`, `localidades` |

@@ -42,6 +42,8 @@ function windColor(kmh: number): string {
   return '#EF4444'
 }
 
+const GRIP_THRESHOLD = 3.0  // ef_max GRIP PERFEITO em aderencia_thresholds
+
 function recalcularSolo(condicao: Condicao) {
   const agora    = new Date()
   const geradoEm = new Date(condicao.gerado_em)
@@ -66,7 +68,6 @@ function recalcularSolo(condicao: Condicao) {
   }
 
   const acumuloFinal = Math.max(acumuloAgora, chuvaFutura)
-  const GRIP_THRESHOLD = 5.0
   const efetivo = acumuloFinal + (condicao.pico_3h ?? 0)
   let horasParaGrip = 0
   if (efetivo > GRIP_THRESHOLD) {
@@ -150,7 +151,9 @@ export default function CondicaoCard({ condicao }: Props) {
   const { driftHoras, acumuloAgora, ultimaChuvaH,
           horasParaGrip, progresso, temChuvaFutura, trilhaSecaEmAgora } = solo
 
-  const indicatorColor = progresso >= 80 ? '#22C55E' : progresso >= 50 ? '#F59E0B' : '#EF4444'
+  const isGripOk = condicao.aderencia_status === 'GRIP PERFEITO' || condicao.aderencia_status === 'SECO'
+  const progressoExibido = isGripOk ? progresso : Math.min(progresso, 95)
+  const indicatorColor = progressoExibido >= 80 ? '#22C55E' : progressoExibido >= 50 ? '#F59E0B' : '#EF4444'
   const horaReport = new Date(condicao.gerado_em).toLocaleTimeString('pt-BR', {
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
   })
@@ -161,8 +164,7 @@ export default function CondicaoCard({ condicao }: Props) {
     return `~${dias}d ${hrs}h restantes`
   }
 
-  const efetivoAgora = acumuloAgora + (condicao.pico_3h ?? 0)
-  const labelGrip = progresso >= 100 || efetivoAgora <= 5
+  const labelGrip = isGripOk
     ? 'Grip Perfeito ✓'
     : horasParaGrip < 24 ? `~${Math.round(horasParaGrip)}h restantes` : formatHoras(horasParaGrip)
 
@@ -286,11 +288,11 @@ export default function CondicaoCard({ condicao }: Props) {
               </span>
               <span style={{ fontSize: 11, fontWeight: 500, color: indicatorColor }}>
                 {labelGrip}
-                {temChuvaFutura && progresso < 100 && <span style={{ color: '#F59E0B' }}> (chuva prevista)</span>}
+                {temChuvaFutura && !isGripOk && <span style={{ color: '#F59E0B' }}> (chuva prevista)</span>}
               </span>
             </div>
             <div style={{ height: 8, borderRadius: 999, position: 'relative', background: 'linear-gradient(to right, #EF4444 0%, #F59E0B 50%, #22C55E 100%)' }}>
-              <div style={{ position: 'absolute', left: `${progresso}%`, top: -3, transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#FFFFFF', border: `2px solid ${indicatorColor}`, boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+              <div style={{ position: 'absolute', left: `${progressoExibido}%`, top: -3, transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#FFFFFF', border: `2px solid ${indicatorColor}`, boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
             </div>
           </div>
         </div>

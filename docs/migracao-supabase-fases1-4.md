@@ -1,4 +1,4 @@
-# Migração de Dados Hardcoded para Supabase — Fases 1 a 4
+# Migração de Dados Hardcoded para Supabase — Fases 1 a 5
 
 **Branch:** `develop`  
 **Data:** 20/05/2026  
@@ -8,13 +8,14 @@
 
 ## Visão Geral das Fases
 
-| Fase | Commits | Tabelas criadas | Linhas removidas do Python |
+| Fase | Commits | Tabelas criadas / alteradas | Linhas removidas do Python |
 |------|---------|-----------------|---------------------------|
-| 1 | `3163b36` | `enso_config`, `aderencia_thresholds`, `veredicto_risco_pesos` | ~60 |
-| 2 | `a8d6db6` · `4d3707d` | `meia_vida_clima_mult`, `microclima_config` | ~80 |
-| 3 | `edcfbf7` · `60ca591` | `solo_type_config`, `inclinacao_config`, `score_config` | ~50 |
-| 4 | `3d788d8` · `d47ee0e` | `aderencia_descricoes` | ~80 |
-| **Total** | **8 commits** | **9 tabelas novas + 5 INSERTs em tabelas existentes** | **~270** |
+| 1 | `3163b36` | `enso_config`, `aderencia_thresholds`, `veredicto_risco_pesos` (criadas) | ~60 |
+| 2 | `a8d6db6` · `4d3707d` | `meia_vida_clima_mult`, `microclima_config` (criadas) | ~80 |
+| 3 | `edcfbf7` · `60ca591` | `solo_type_config`, `inclinacao_config`, `score_config` (criadas) | ~50 |
+| 4 | `3d788d8` · `d47ee0e` | `aderencia_descricoes` (criada) | ~80 |
+| 5 | `b2af1a2` · `f47ac83` | `veredicto_pesos`, `veredicto_limiares` (criadas); `score_config` DROP; renaming colunas; consolidação schema | ~0 (refatoração) |
+| **Total** | **10 commits** | **10 tabelas novas · 1 tabela eliminada · 5 renaming de colunas** | **~270** |
 
 ---
 
@@ -392,6 +393,123 @@ texto = descricoes.get((status, solo_type))   # 1º: match exato
 
 ---
 
+## Fase 5 — Consolidação de Schema
+
+**Migration:** `supabase/migrations/fase5_consolidacao_schema.sql`  
+**Commits:** `b2af1a2` (SQL + Python) · `f47ac83` (fix NOT NULL tabela_solo)
+
+Fase de refatoração pura: sem novos dados de negócio, sem mudança de modelo. Objetivo: eliminar anti-padrões identificados na análise de consultoria de banco de dados.
+
+---
+
+### 5A — `veredicto_risco_pesos` → `veredicto_pesos` + `veredicto_limiares`
+
+**Problema:** a tabela original misturava dois conceitos usando `null` como seletor de tipo. Campo `condicao` (documentação textual) nunca era lido pelo código.
+
+**Solução:** separação em duas tabelas com schema limpo.
+
+**`veredicto_pesos`** — 12 linhas, sem campos nulos:
+
+| fator | peso |
+|---|---|
+| `aderencia_baixa` | 3 |
+| `aderencia_boa` | 2 |
+| *(demais 10 fatores)* | ... |
+
+**`veredicto_limiares`** — 2 linhas, avaliadas em ordem crescente de `limiar_max`:
+
+| limiar_max | texto_veredicto |
+|---|---|
+| 1 | DROP LIBERADO |
+| 3 | DROP LIBERADO - Veja os alertas |
+
+Risco > 3 → MELHOR ESPERAR (implícito, sem linha necessária).
+
+**Python:** `veredicto()` passa a usar `_carregar_veredicto_pesos()` + `_carregar_veredicto_limiares()` separadamente.
+
+---
+
+### 5B — `microclima_config`: renaming de colunas
+
+| Nome anterior | Nome novo | Razão |
+|---|---|---|
+| `mult_threshold` | `fator_threshold` | É um divisor (`ef / fator_threshold`) — "mult" sugeria multiplicador |
+| `mult_meia_vida` | `fator_secagem` | Descreve o efeito real (retenção de umidade) em vez da operação matemática |
+
+**Valores atuais:**
+
+| bioma | altitude_min | exposicao | fator_threshold | fator_secagem |
+|---|---|---|---|---|
+| Mata Atlântica | 600m | fechada | **0.50** | 1.20 |
+| Mata Atlântica | — | — | 0.90 | 1.10 |
+
+---
+
+### 5C — `inclinacao_config`: renaming de colunas
+
+| Nome anterior | Nome novo | Razão |
+|---|---|---|
+| `grau_min` | `valor_min` | Para `tipo=desnivel`, a unidade é metros — não graus |
+| `grau_max` | `valor_max` | Idem |
+
+---
+
+### 5D — `meia_vida_clima_mult`: limpeza
+
+- DROP coluna `condicao` — documentação textual nunca lida pelo código
+- DELETE linha `ativo=false` (temperatura ≤ 10°C) — dead code coberto pela faixa ≤ 16°C
+
+---
+
+### 5E — `aderencia_thresholds`: remoção do campo `ordem`
+
+O campo `ordem` era redundante com a ordenação natural por `ef_min asc nulls first`. Manter um campo de ordem manual cria risco de inconsistência quando novas linhas são inseridas com número errado.
+
+A query agora usa: `order=ef_min.asc.nullsfirst`
+
+---
+
+### 5F — `solo_type_config`: `altitude_bonus` → `configuracoes_sistema`
+
+`altitude_bonus_min` e `altitude_bonus` eram idênticos em todos os 6 tipos de solo — não tinham poder de calibração por tipo. Movidos para `configuracoes_sistema` como constantes globais:
+
+| chave | valor | grupo |
+|---|---|---|
+| `altitude_bonus_min` | `1200` | `solo` |
+| `altitude_bonus` | `0.05` | `solo` |
+
+---
+
+### 5G — `score_config` → `configuracoes_sistema`
+
+Dois key-value stores sem distinção clara de responsabilidade. `configuracoes_sistema` ganhou coluna `grupo` e absorveu todos os 9 registros de `score_config`. A tabela `score_config` foi dropada.
+
+`_carregar_score_config()` agora consulta `configuracoes_sistema?grupo=eq.scoring`.
+
+Grupos em `configuracoes_sistema`:
+
+| grupo | chaves |
+|---|---|
+| `secagem` | `meia_vida_min`, `meia_vida_max` |
+| `aderencia` | `aderencia_recovery_mult` |
+| `solo` | `altitude_bonus_min`, `altitude_bonus` |
+| `scoring` | `coef_rain`, `coef_pico_*`, `coef_acumulo`, `coef_base`, `pico_threshold`, `bikepark_*` |
+| `sistema` | credenciais, tokens |
+
+---
+
+### 5H — `tabela_solo`: sentinela `"TODOS"` → `NULL`
+
+Padrão inconsistente com todas as outras tabelas que usam `NULL` para "sem requisito". A string `"TODOS"` dependia de convenção no Python.
+
+- `bioma` e `regiao` tiveram NOT NULL removido
+- `UPDATE SET bioma = NULL WHERE bioma = 'TODOS'` (idem para regiao)
+- Índice único recriado com `COALESCE(bioma,'')` e `COALESCE(regiao,'')` para garantir unicidade correta
+
+**Python `_lookup_solo()`:** `row["regiao"] == "TODOS"` → `row["regiao"] is None`
+
+---
+
 ## Constantes Removidas do Python
 
 | Constante | Tipo | Linhas | Substituída por |
@@ -420,21 +538,22 @@ texto = descricoes.get((status, solo_type))   # 1º: match exato
 |---|--------|------|--------|---------------------------|---------------|-------|
 | 1 | `enso_config` | 1 | 5 | `classificar_enso()` | `_carregar_enso_config()` | `_CACHE_ENSO_CONFIG` |
 | 2 | `aderencia_thresholds` | 1 | 4 | `calcular_aderencia()` | `_carregar_aderencia_thresholds()` | `_CACHE_ADERENCIA_THRESHOLDS` |
-| 3 | `veredicto_risco_pesos` | 1 | 15 | `veredicto()` | `_carregar_veredicto_pesos()` | `_CACHE_VEREDICTO_PESOS` |
-| 4 | `meia_vida_clima_mult` | 2 | 18 | `_ajustar_meia_vida_clima()` | `_carregar_meia_vida_clima_mult()` | `_CACHE_MEIA_VIDA_CLIMA_MULT` |
-| 5 | `microclima_config` | 2 | 2 | `fator_microclima()`, `_meia_vida()` | `_carregar_microclima_config()` | `_CACHE_MICROCLIMA_CONFIG` |
-| 6 | `solo_type_config` | 3 | 6 | `fator_absorcao()`, `calcular_score_trilha()` | `_carregar_solo_type_config()` | `_CACHE_SOLO_TYPE_CONFIG` |
-| 7 | `inclinacao_config` | 3 | 6 | `fator_absorcao()` | `_carregar_inclinacao_config()` | `_CACHE_INCLINACAO_CONFIG` |
-| 8 | `score_config` | 3 | 9 | `calcular_score_trilha()` | `_carregar_score_config()` | `_CACHE_SCORE_CONFIG` |
-| 9 | `aderencia_descricoes` | 4 | 25 | `_descricao_aderencia()` | `_carregar_aderencia_descricoes()` | `_CACHE_ADERENCIA_DESCRICOES` |
+| 3 | `veredicto_pesos` | 5 (era 1) | 12 | `veredicto()` | `_carregar_veredicto_pesos()` | `_CACHE_VEREDICTO_PESOS` |
+| 4 | `veredicto_limiares` | 5 | 2 | `veredicto()` | `_carregar_veredicto_limiares()` | `_CACHE_VEREDICTO_LIMIARES` |
+| 5 | `meia_vida_clima_mult` | 2 | 17 | `_ajustar_meia_vida_clima()` | `_carregar_meia_vida_clima_mult()` | `_CACHE_MEIA_VIDA_CLIMA_MULT` |
+| 6 | `microclima_config` | 2 | 2 | `fator_microclima()`, `_meia_vida()` | `_carregar_microclima_config()` | `_CACHE_MICROCLIMA_CONFIG` |
+| 7 | `solo_type_config` | 3 | 6 | `fator_absorcao()`, `calcular_score_trilha()` | `_carregar_solo_type_config()` | `_CACHE_SOLO_TYPE_CONFIG` |
+| 8 | `inclinacao_config` | 3 | 6 | `fator_absorcao()` | `_carregar_inclinacao_config()` | `_CACHE_INCLINACAO_CONFIG` |
+| 9 | ~~`score_config`~~ → absorvida | 5 | — | — | `_carregar_score_config()` lê `configuracoes_sistema` | `_CACHE_SCORE_CONFIG` |
+| 10 | `aderencia_descricoes` | 4 | 25 | `_descricao_aderencia()` | `_carregar_aderencia_descricoes()` | `_CACHE_ADERENCIA_DESCRICOES` |
 
-**Tabelas preexistentes com INSERTs adicionados:**
+**`configuracoes_sistema` — chaves adicionadas por fase:**
 
-| Tabela | Fase | Chaves adicionadas |
-|--------|------|--------------------|
-| `configuracoes_sistema` | 2 | `meia_vida_min`, `meia_vida_max` |
-| `configuracoes_sistema` | 2 | *(mesma migration)* |
-| `configuracoes_sistema` | 4 | `aderencia_recovery_mult` |
+| Fase | Chaves adicionadas |
+|------|--------------------|
+| 2 | `meia_vida_min`, `meia_vida_max` |
+| 4 | `aderencia_recovery_mult` |
+| 5 | `altitude_bonus_min`, `altitude_bonus` + 9 chaves de scoring (absorção de `score_config`) |
 
 ---
 
@@ -450,30 +569,32 @@ _CACHE_MEIA_VIDA:             dict = {}   # pré-existente
 _CACHE_CONFIG:                dict = {}   # pré-existente
 _CACHE_ENSO_CONFIG:           list = []   # Fase 1
 _CACHE_ADERENCIA_THRESHOLDS:  list = []   # Fase 1
-_CACHE_VEREDICTO_PESOS:       list = []   # Fase 1
+_CACHE_VEREDICTO_PESOS:       list = []   # Fase 1 (aponta para veredicto_pesos)
+_CACHE_VEREDICTO_LIMIARES:    list = []   # Fase 5
 _CACHE_MEIA_VIDA_CLIMA_MULT:  list = []   # Fase 2
 _CACHE_MICROCLIMA_CONFIG:     list = []   # Fase 2
 _CACHE_SOLO_TYPE_CONFIG:      list = []   # Fase 3
 _CACHE_INCLINACAO_CONFIG:     list = []   # Fase 3
-_CACHE_SCORE_CONFIG:          dict = {}   # Fase 3
+_CACHE_SCORE_CONFIG:          dict = {}   # Fase 3 (lê configuracoes_sistema?grupo=scoring)
 _CACHE_ADERENCIA_DESCRICOES:  dict = {}   # Fase 4
 ```
 
 ### Warmup em `main()` (ordem de execução)
 
 ```python
-_carregar_tabela_solo()           # pré-existente
-_carregar_threshold_sazonal()     # pré-existente
-_carregar_meia_vida()             # pré-existente
-_carregar_enso_config()           # Fase 1
-_carregar_aderencia_thresholds()  # Fase 1
-_carregar_veredicto_pesos()       # Fase 1
-_carregar_meia_vida_clima_mult()  # Fase 2
-_carregar_microclima_config()     # Fase 2
-_carregar_solo_type_config()      # Fase 3
-_carregar_inclinacao_config()     # Fase 3
-_carregar_score_config()          # Fase 3
-_carregar_aderencia_descricoes()  # Fase 4
+_carregar_tabela_solo()            # pré-existente
+_carregar_threshold_sazonal()      # pré-existente
+_carregar_meia_vida()              # pré-existente
+_carregar_enso_config()            # Fase 1
+_carregar_aderencia_thresholds()   # Fase 1
+_carregar_veredicto_pesos()        # Fase 5 (era veredicto_risco_pesos)
+_carregar_veredicto_limiares()     # Fase 5 (novo)
+_carregar_meia_vida_clima_mult()   # Fase 2
+_carregar_microclima_config()      # Fase 2
+_carregar_solo_type_config()       # Fase 3
+_carregar_inclinacao_config()      # Fase 3
+_carregar_score_config()           # Fase 3 (lê configuracoes_sistema)
+_carregar_aderencia_descricoes()   # Fase 4
 ```
 
 ### Constantes restantes (schema / validação — não são dados)
@@ -533,4 +654,4 @@ _descricao_aderencia()                 _descricao_aderencia()
 
 ---
 
-*Gerado em 20/05/2026 — branch `develop` — 8 commits de migração*
+*Atualizado em 20/05/2026 — branch `develop` — 10 commits de migração (Fases 1–5)*
