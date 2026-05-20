@@ -680,7 +680,7 @@ def fator_microclima(trail: dict) -> float:
             continue
         if expo is not None and trail.get("exposicao") != expo:
             continue
-        return cfg["mult_threshold"]
+        return cfg["fator_threshold"]
     return 1.0
 
 
@@ -700,7 +700,7 @@ def _meia_vida(trail: dict) -> float:
             continue
         if expo_cfg is not None and expo != expo_cfg:
             continue
-        base *= cfg["mult_meia_vida"]
+        base *= cfg["fator_secagem"]
         break
     return base
 
@@ -862,6 +862,7 @@ _CACHE_CONFIG: dict = {}
 _CACHE_ENSO_CONFIG: list = []
 _CACHE_ADERENCIA_THRESHOLDS: list = []
 _CACHE_VEREDICTO_PESOS: list = []
+_CACHE_VEREDICTO_LIMIARES: list = []
 _CACHE_MEIA_VIDA_CLIMA_MULT: list = []
 _CACHE_MICROCLIMA_CONFIG: list = []
 _CACHE_SOLO_TYPE_CONFIG: list = []
@@ -946,13 +947,13 @@ def _lookup_solo(solo_type: str, bioma: str, regiao: str) -> dict:
     """
     Consulta tabela mestra com prioridade:
     1. Match exato: solo_type + bioma + regiao
-    2. Match: solo_type + bioma + regiao=TODOS
-    3. Fallback: solo_type + bioma=TODOS + regiao=TODOS
+    2. Match: solo_type + bioma + regiao=NULL (wildcard de região)
+    3. Fallback: solo_type + bioma=NULL + regiao=NULL (wildcard universal)
     4. Default misto padrão
     """
     tabela = _carregar_tabela_solo()
-    regiao_upper = (regiao or "").upper().strip()
-    bioma_norm   = (bioma or "TODOS").strip()
+    regiao_upper = (regiao or "").upper().strip() or None
+    bioma_norm   = (bioma or "").strip() or None
     solo_norm    = (solo_type or "misto").strip().lower()
 
     for row in tabela:
@@ -964,11 +965,11 @@ def _lookup_solo(solo_type: str, bioma: str, regiao: str) -> dict:
     for row in tabela:
         if (row["solo_type"] == solo_norm and
                 row["bioma"] == bioma_norm and
-                row["regiao"] == "TODOS"):
+                row["regiao"] is None):
             return {"clay_pct": row["clay_pct"], "sand_pct": row["sand_pct"], "texture_class": row["texture_class"]}
 
     for row in tabela:
-        if row["solo_type"] == solo_norm and row["regiao"] == "TODOS":
+        if row["solo_type"] == solo_norm and row["bioma"] is None and row["regiao"] is None:
             return {"clay_pct": row["clay_pct"], "sand_pct": row["sand_pct"], "texture_class": row["texture_class"]}
 
     return {"clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"}
@@ -1063,8 +1064,8 @@ def _carregar_aderencia_thresholds() -> list:
     try:
         url = (
             f"{SUPABASE_URL}/rest/v1/aderencia_thresholds"
-            f"?select=status,ef_min,ef_max,ordem"
-            f"&ativo=eq.true&order=ordem.asc"
+            f"?select=status,ef_min,ef_max"
+            f"&ativo=eq.true&order=ef_min.asc.nullsfirst"
         )
         req = urllib.request.Request(url, headers={
             "apikey":        SUPABASE_KEY,
@@ -1078,22 +1079,22 @@ def _carregar_aderencia_thresholds() -> list:
     except Exception as exc:
         print(f"  [Aderência] Erro: {exc} — usando thresholds padrão")
         return [
-            {"status": "SECO",            "ef_min": None, "ef_max": 0.0,  "ordem": 1},
-            {"status": "GRIP PERFEITO",   "ef_min": 0.0,  "ef_max": 5.0,  "ordem": 2},
-            {"status": "BOA ADERÊNCIA",   "ef_min": 5.0,  "ef_max": 7.0,  "ordem": 3},
-            {"status": "BAIXA ADERÊNCIA", "ef_min": 7.0,  "ef_max": None, "ordem": 4},
+            {"status": "SECO",            "ef_min": None, "ef_max": 0.0},
+            {"status": "GRIP PERFEITO",   "ef_min": 0.0,  "ef_max": 3.0},
+            {"status": "BOA ADERÊNCIA",   "ef_min": 3.0,  "ef_max": 7.0},
+            {"status": "BAIXA ADERÊNCIA", "ef_min": 7.0,  "ef_max": None},
         ]
 
 
 def _carregar_veredicto_pesos() -> list:
-    """Carrega pesos e limiares de veredicto do Supabase. Fallback: lista vazia (lógica inline ativa)."""
+    """Carrega pesos de risco da tabela veredicto_pesos. Fallback: lista hardcoded."""
     global _CACHE_VEREDICTO_PESOS
     if _CACHE_VEREDICTO_PESOS:
         return _CACHE_VEREDICTO_PESOS
     try:
         url = (
-            f"{SUPABASE_URL}/rest/v1/veredicto_risco_pesos"
-            f"?select=fator,condicao,peso,limiar_max,texto_veredicto"
+            f"{SUPABASE_URL}/rest/v1/veredicto_pesos"
+            f"?select=fator,peso"
             f"&ativo=eq.true"
         )
         req = urllib.request.Request(url, headers={
@@ -1103,11 +1104,52 @@ def _carregar_veredicto_pesos() -> list:
         with urllib.request.urlopen(req, timeout=10) as r:
             dados = json.loads(r.read())
         _CACHE_VEREDICTO_PESOS = dados
-        print(f"  [Veredicto] Pesos carregados do Supabase: {len(dados)} registros")
+        print(f"  [Veredicto] Pesos carregados do Supabase: {len(dados)} fatores")
         return dados
     except Exception as exc:
-        print(f"  [Veredicto] Erro: {exc} — lógica inline de veredicto() ativa")
-        return []
+        print(f"  [Veredicto] Erro ao carregar pesos: {exc} — usando fallback")
+        return [
+            {"fator": "aderencia_baixa",       "peso": 3},
+            {"fator": "aderencia_boa",         "peso": 2},
+            {"fator": "aderencia_grip",        "peso": 1},
+            {"fator": "pico_3h_muito_alto",    "peso": 2},
+            {"fator": "pico_3h_alto",          "peso": 1},
+            {"fator": "rain_alto",             "peso": 1},
+            {"fator": "vento_alto",            "peso": 1},
+            {"fator": "inclinacao_alta",       "peso": 2},
+            {"fator": "inclinacao_media",      "peso": 1},
+            {"fator": "vento_estrutural_alto", "peso": 2},
+            {"fator": "vento_estrutural_med",  "peso": 1},
+            {"fator": "solo_encharcado",       "peso": 1},
+        ]
+
+
+def _carregar_veredicto_limiares() -> list:
+    """Carrega limiares de decisão da tabela veredicto_limiares. Fallback: DROP≤1, ALERTAS≤3."""
+    global _CACHE_VEREDICTO_LIMIARES
+    if _CACHE_VEREDICTO_LIMIARES:
+        return _CACHE_VEREDICTO_LIMIARES
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/veredicto_limiares"
+            f"?select=limiar_max,texto_veredicto"
+            f"&ativo=eq.true&order=ordem.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_VEREDICTO_LIMIARES = dados
+        print(f"  [Veredicto] Limiares carregados do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [Veredicto] Erro ao carregar limiares: {exc} — usando fallback")
+        return [
+            {"limiar_max": 1, "texto_veredicto": "DROP LIBERADO"},
+            {"limiar_max": 3, "texto_veredicto": "DROP LIBERADO - Veja os alertas"},
+        ]
 
 
 def _carregar_meia_vida_clima_mult() -> list:
@@ -1118,7 +1160,7 @@ def _carregar_meia_vida_clima_mult() -> list:
     try:
         url = (
             f"{SUPABASE_URL}/rest/v1/meia_vida_clima_mult"
-            f"?select=variavel,condicao,valor_min,valor_max,exposicao,multiplicador"
+            f"?select=variavel,valor_min,valor_max,exposicao,multiplicador"
             f"&ativo=eq.true&order=id.asc"
         )
         req = urllib.request.Request(url, headers={
@@ -1161,7 +1203,7 @@ def _carregar_microclima_config() -> list:
     try:
         url = (
             f"{SUPABASE_URL}/rest/v1/microclima_config"
-            f"?select=bioma,altitude_min,exposicao,mult_threshold,mult_meia_vida"
+            f"?select=bioma,altitude_min,exposicao,fator_threshold,fator_secagem"
             f"&ativo=eq.true&order=id.asc"
         )
         req = urllib.request.Request(url, headers={
@@ -1176,8 +1218,8 @@ def _carregar_microclima_config() -> list:
     except Exception as exc:
         print(f"  [Microclima] Erro: {exc} — usando Mata Atlântica padrão")
         return [
-            {"bioma": "Mata Atlântica", "altitude_min": 600, "exposicao": "fechada", "mult_threshold": 0.75, "mult_meia_vida": 1.20},
-            {"bioma": "Mata Atlântica", "altitude_min": None, "exposicao": None,     "mult_threshold": 0.90, "mult_meia_vida": 1.10},
+            {"bioma": "Mata Atlântica", "altitude_min": 600, "exposicao": "fechada", "fator_threshold": 0.50, "fator_secagem": 1.20},
+            {"bioma": "Mata Atlântica", "altitude_min": None, "exposicao": None,     "fator_threshold": 0.90, "fator_secagem": 1.10},
         ]
 
 
@@ -1189,7 +1231,7 @@ def _carregar_solo_type_config() -> list:
     try:
         url = (
             f"{SUPABASE_URL}/rest/v1/solo_type_config"
-            f"?select=solo_type,fator_absorcao_base,score_mult,altitude_bonus_min,altitude_bonus"
+            f"?select=solo_type,fator_absorcao_base,score_mult"
             f"&ativo=eq.true"
         )
         req = urllib.request.Request(url, headers={
@@ -1204,12 +1246,12 @@ def _carregar_solo_type_config() -> list:
     except Exception as exc:
         print(f"  [Solo] Erro: {exc} — usando valores padrão")
         return [
-            {"solo_type": "terra",    "fator_absorcao_base": 0.80, "score_mult": 1.05, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
-            {"solo_type": "preto",    "fator_absorcao_base": 0.60, "score_mult": 0.95, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
-            {"solo_type": "misto",    "fator_absorcao_base": 0.55, "score_mult": 1.00, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
-            {"solo_type": "misto_mg", "fator_absorcao_base": 0.45, "score_mult": 0.92, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
-            {"solo_type": "pedra",    "fator_absorcao_base": 0.25, "score_mult": 0.80, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
-            {"solo_type": "ferro",    "fator_absorcao_base": 0.30, "score_mult": 0.85, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "terra",    "fator_absorcao_base": 0.80, "score_mult": 1.05},
+            {"solo_type": "preto",    "fator_absorcao_base": 0.60, "score_mult": 0.95},
+            {"solo_type": "misto",    "fator_absorcao_base": 0.55, "score_mult": 1.00},
+            {"solo_type": "misto_mg", "fator_absorcao_base": 0.45, "score_mult": 0.92},
+            {"solo_type": "pedra",    "fator_absorcao_base": 0.25, "score_mult": 0.80},
+            {"solo_type": "ferro",    "fator_absorcao_base": 0.30, "score_mult": 0.85},
         ]
 
 
@@ -1221,7 +1263,7 @@ def _carregar_inclinacao_config() -> list:
     try:
         url = (
             f"{SUPABASE_URL}/rest/v1/inclinacao_config"
-            f"?select=tipo,grau_min,grau_max,delta_fator"
+            f"?select=tipo,valor_min,valor_max,delta_fator"
             f"&ativo=eq.true&order=id.asc"
         )
         req = urllib.request.Request(url, headers={
@@ -1236,25 +1278,25 @@ def _carregar_inclinacao_config() -> list:
     except Exception as exc:
         print(f"  [Inclinação] Erro: {exc} — usando valores padrão")
         return [
-            {"tipo": "inclinacao", "grau_min": 30,  "grau_max": None, "delta_fator": -0.22},
-            {"tipo": "inclinacao", "grau_min": 20,  "grau_max": 30,   "delta_fator": -0.15},
-            {"tipo": "inclinacao", "grau_min": 10,  "grau_max": 20,   "delta_fator": -0.08},
-            {"tipo": "desnivel",   "grau_min": 800, "grau_max": None, "delta_fator": -0.18},
-            {"tipo": "desnivel",   "grau_min": 500, "grau_max": 800,  "delta_fator": -0.10},
-            {"tipo": "desnivel",   "grau_min": 300, "grau_max": 500,  "delta_fator": -0.05},
+            {"tipo": "inclinacao", "valor_min": 30,  "valor_max": None, "delta_fator": -0.22},
+            {"tipo": "inclinacao", "valor_min": 20,  "valor_max": 30,   "delta_fator": -0.15},
+            {"tipo": "inclinacao", "valor_min": 10,  "valor_max": 20,   "delta_fator": -0.08},
+            {"tipo": "desnivel",   "valor_min": 800, "valor_max": None, "delta_fator": -0.18},
+            {"tipo": "desnivel",   "valor_min": 500, "valor_max": 800,  "delta_fator": -0.10},
+            {"tipo": "desnivel",   "valor_min": 300, "valor_max": 500,  "delta_fator": -0.05},
         ]
 
 
 def _carregar_score_config() -> dict:
-    """Carrega coeficientes de score do Supabase. Fallback: valores originais hardcoded."""
+    """Carrega coeficientes de score de configuracoes_sistema (grupo=scoring). Fallback: hardcoded."""
     global _CACHE_SCORE_CONFIG
     if _CACHE_SCORE_CONFIG:
         return _CACHE_SCORE_CONFIG
     try:
         url = (
-            f"{SUPABASE_URL}/rest/v1/score_config"
+            f"{SUPABASE_URL}/rest/v1/configuracoes_sistema"
             f"?select=chave,valor"
-            f"&ativo=eq.true"
+            f"&grupo=eq.scoring&ativo=eq.true"
         )
         req = urllib.request.Request(url, headers={
             "apikey":        SUPABASE_KEY,
@@ -1335,9 +1377,10 @@ def fator_absorcao(trail: dict) -> float:
 
     # FIX #5: exposicao removida daqui — já está embutida na meia_vida base por (solo_type, exposicao)
     # Manter aqui causava triple counting: fator_absorcao + _meia_vida + _ajustar_meia_vida_clima
-    if solo_cfg and solo_cfg.get("altitude_bonus_min") is not None:
-        if trail["altitude_m"] > solo_cfg["altitude_bonus_min"]:
-            base += solo_cfg["altitude_bonus"]
+    alt_bonus_min = float(_get_config("altitude_bonus_min") or 1200)
+    alt_bonus     = float(_get_config("altitude_bonus")     or 0.05)
+    if trail.get("altitude_m") is not None and trail["altitude_m"] > alt_bonus_min:
+        base += alt_bonus
     # bikepark: terra compactada e drenagem projetada — comportamento neutro
     # penalizador removido; proteção de veredicto já garantida pela regra BAIXA ADERÊNCIA
 
@@ -1345,13 +1388,13 @@ def fator_absorcao(trail: dict) -> float:
     inclinacao_cfgs = _carregar_inclinacao_config()
     if inclinacao is not None:
         for ic in (c for c in inclinacao_cfgs if c["tipo"] == "inclinacao"):
-            if inclinacao >= ic["grau_min"] and (ic["grau_max"] is None or inclinacao <= ic["grau_max"]):
+            if inclinacao >= ic["valor_min"] and (ic["valor_max"] is None or inclinacao <= ic["valor_max"]):
                 base += ic["delta_fator"]
                 break
     elif trail.get("desnivel_m") is not None:
         d = trail["desnivel_m"]
         for ic in (c for c in inclinacao_cfgs if c["tipo"] == "desnivel"):
-            if d >= ic["grau_min"] and (ic["grau_max"] is None or d <= ic["grau_max"]):
+            if d >= ic["valor_min"] and (ic["valor_max"] is None or d <= ic["valor_max"]):
                 base += ic["delta_fator"]
                 break
 
@@ -1483,12 +1526,12 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
               inclinacao: float | None = None, trail: dict | None = None,
               acumulo_ef: float = 0.0, vento_hist: dict | None = None,
               aderencia_futura: dict = None) -> dict:
-    # NOTA: condicao no Supabase é documentação — avaliação sempre acontece em Python.
-    # Adicionar um fator no banco sem atualizar o código não tem efeito.
-    todos_pesos    = _carregar_veredicto_pesos()
-    peso_por_fator = {p["fator"]: p["peso"] for p in todos_pesos if p.get("peso") is not None}
-    lim_liberado   = next((p["limiar_max"] for p in todos_pesos if p.get("fator") == "limiar_liberado"), 1)
-    lim_alertas    = next((p["limiar_max"] for p in todos_pesos if p.get("fator") == "limiar_alertas"), 3)
+    # NOTA: avaliação sempre acontece em Python. Adicionar fator no banco
+    # sem atualizar o código não tem efeito.
+    peso_por_fator = {p["fator"]: p["peso"] for p in _carregar_veredicto_pesos()}
+    limiares       = _carregar_veredicto_limiares()
+    lim_liberado   = limiares[0]["limiar_max"] if len(limiares) > 0 else 1
+    lim_alertas    = limiares[1]["limiar_max"] if len(limiares) > 1 else 3
 
     status = aderencia["status"]
     risco = 0
@@ -3378,6 +3421,7 @@ def main() -> None:
     _carregar_enso_config()
     _carregar_aderencia_thresholds()
     _carregar_veredicto_pesos()
+    _carregar_veredicto_limiares()
     _carregar_meia_vida_clima_mult()
     _carregar_microclima_config()
     _carregar_solo_type_config()
