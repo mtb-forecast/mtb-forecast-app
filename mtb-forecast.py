@@ -334,16 +334,32 @@ def fetch_oni_atual() -> float:
 
 
 def classificar_enso(oni: float) -> dict:
-    if oni >= 1.5:
-        return {"fase": "El Niño Forte",    "oni": oni, "mult": 0.75, "emoji": "🔴"}
-    elif oni >= 0.5:
-        return {"fase": "El Niño",          "oni": oni, "mult": 0.85, "emoji": "🟠"}
-    elif oni <= -1.5:
-        return {"fase": "La Niña Forte",    "oni": oni, "mult": 1.25, "emoji": "🔵"}
-    elif oni <= -0.5:
-        return {"fase": "La Niña",          "oni": oni, "mult": 1.15, "emoji": "🟦"}
-    else:
-        return {"fase": "ENSO Neutro",      "oni": oni, "mult": 1.00, "emoji": "⚪"}
+    _FASE_DISPLAY = {
+        "el_nino_forte": "El Niño Forte",
+        "el_nino":       "El Niño",
+        "neutro":        "ENSO Neutro",
+        "la_nina":       "La Niña",
+        "la_nina_forte": "La Niña Forte",
+    }
+    for cfg in _carregar_enso_config():
+        min_v = cfg.get("oni_min")
+        max_v = cfg.get("oni_max")
+        if min_v is not None and max_v is not None:
+            # Fases El Niño (min_v >= 0): lower inclusivo, upper exclusivo
+            # Fases La Niña (min_v < 0):  lower exclusivo, upper inclusivo
+            match = (min_v <= oni < max_v) if min_v >= 0 else (min_v < oni <= max_v)
+        elif min_v is not None:
+            match = oni >= min_v          # el_nino_forte: sem limite superior
+        else:
+            match = max_v is not None and oni <= max_v  # la_nina_forte: sem limite inferior
+        if match:
+            return {
+                "fase":  _FASE_DISPLAY.get(cfg["fase"], cfg["fase"]),
+                "oni":   oni,
+                "mult":  cfg["multiplicador"],
+                "emoji": cfg["emoji"],
+            }
+    return {"fase": "ENSO Neutro", "oni": oni, "mult": 1.00, "emoji": "⚪"}
 
 
 def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float:
@@ -841,6 +857,9 @@ _CACHE_TABELA_SOLO: list = []
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
 _CACHE_CONFIG: dict = {}
+_CACHE_ENSO_CONFIG: list = []
+_CACHE_ADERENCIA_THRESHOLDS: list = []
+_CACHE_VEREDICTO_PESOS: list = []
 
 # Tabela local de fallback — usada se Supabase estiver indisponível
 _TABELA_SOLO_FALLBACK: list = [
@@ -1021,6 +1040,86 @@ def _carregar_meia_vida() -> dict:
         return _MEIA_VIDA_SECAGEM
 
 
+def _carregar_enso_config() -> list:
+    """Carrega multiplicadores ENSO do Supabase. Fallback: registro neutro (mult=1.0)."""
+    global _CACHE_ENSO_CONFIG
+    if _CACHE_ENSO_CONFIG:
+        return _CACHE_ENSO_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/enso_config"
+            f"?select=fase,oni_min,oni_max,multiplicador,emoji"
+            f"&ativo=eq.true&order=oni_min.desc.nullslast"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_ENSO_CONFIG = dados
+        print(f"  [ENSO] Config carregada do Supabase: {len(dados)} fases")
+        return dados
+    except Exception as exc:
+        print(f"  [ENSO] Erro: {exc} — usando neutro como fallback")
+        return [{"fase": "neutro", "oni_min": -0.5, "oni_max": 0.5, "multiplicador": 1.00, "emoji": "🌤️"}]
+
+
+def _carregar_aderencia_thresholds() -> list:
+    """Carrega thresholds de aderência do Supabase. Fallback: thresholds padrão."""
+    global _CACHE_ADERENCIA_THRESHOLDS
+    if _CACHE_ADERENCIA_THRESHOLDS:
+        return _CACHE_ADERENCIA_THRESHOLDS
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/aderencia_thresholds"
+            f"?select=status,ef_min,ef_max,ordem"
+            f"&ativo=eq.true&order=ordem.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_ADERENCIA_THRESHOLDS = dados
+        print(f"  [Aderência] Thresholds carregados do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [Aderência] Erro: {exc} — usando thresholds padrão")
+        return [
+            {"status": "SECO",            "ef_min": None, "ef_max": 0.0,  "ordem": 1},
+            {"status": "GRIP PERFEITO",   "ef_min": 0.0,  "ef_max": 5.0,  "ordem": 2},
+            {"status": "BOA ADERÊNCIA",   "ef_min": 5.0,  "ef_max": 7.0,  "ordem": 3},
+            {"status": "BAIXA ADERÊNCIA", "ef_min": 7.0,  "ef_max": None, "ordem": 4},
+        ]
+
+
+def _carregar_veredicto_pesos() -> list:
+    """Carrega pesos e limiares de veredicto do Supabase. Fallback: lista vazia (lógica inline ativa)."""
+    global _CACHE_VEREDICTO_PESOS
+    if _CACHE_VEREDICTO_PESOS:
+        return _CACHE_VEREDICTO_PESOS
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/veredicto_risco_pesos"
+            f"?select=fator,condicao,peso,limiar_max,texto_veredicto"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_VEREDICTO_PESOS = dados
+        print(f"  [Veredicto] Pesos carregados do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [Veredicto] Erro: {exc} — lógica inline de veredicto() ativa")
+        return []
+
+
 def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
                              bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
     """
@@ -1152,16 +1251,20 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     s = base["score"]
     saturado = _bikepark_saturado(trail, acumulo_ef, mes, enso)
 
-    # Thresholds diretos calibrados por rider — efetivo combinado com pico_3h
+    # Thresholds carregados do Supabase (tabela aderencia_thresholds) — efetivo combinado com pico_3h
     efetivo_combinado = acumulo_ef + pico_3h
-    if efetivo_combinado == 0:
-        status = "SECO"
-    elif efetivo_combinado < 5.0:
-        status = "GRIP PERFEITO"
-    elif efetivo_combinado < 7.0:
-        status = "BOA ADERÊNCIA"
-    else:
-        status = "BAIXA ADERÊNCIA"
+    status = "BAIXA ADERÊNCIA"  # default seguro caso nenhum threshold dê match
+    for thr in _carregar_aderencia_thresholds():
+        ef_min = thr["ef_min"]
+        ef_max = thr["ef_max"]
+        # SECO (ef_min=null): inclusivo no upper (captura ef==0)
+        # Demais: lower inclusivo, upper exclusivo
+        acima  = ef_min is None or efetivo_combinado >= ef_min
+        abaixo = (ef_max is None or
+                  (efetivo_combinado <= ef_max if ef_min is None else efetivo_combinado < ef_max))
+        if acima and abaixo:
+            status = thr["status"]
+            break
 
     # Fator de recuperação: solo abaixo de 2.5x o threshold sazonal não justifica BAIXA ADERÊNCIA
     thresh_local = threshold_solo_descansado(mes, enso, trail)
@@ -1197,33 +1300,40 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
               inclinacao: float | None = None, trail: dict | None = None,
               acumulo_ef: float = 0.0, vento_hist: dict | None = None,
               aderencia_futura: dict = None) -> dict:
+    # NOTA: condicao no Supabase é documentação — avaliação sempre acontece em Python.
+    # Adicionar um fator no banco sem atualizar o código não tem efeito.
+    todos_pesos    = _carregar_veredicto_pesos()
+    peso_por_fator = {p["fator"]: p["peso"] for p in todos_pesos if p.get("peso") is not None}
+    lim_liberado   = next((p["limiar_max"] for p in todos_pesos if p.get("fator") == "limiar_liberado"), 1)
+    lim_alertas    = next((p["limiar_max"] for p in todos_pesos if p.get("fator") == "limiar_alertas"), 3)
+
     status = aderencia["status"]
     risco = 0
     motivos = []
 
     if status == "BAIXA ADERÊNCIA":
-        risco += 3
+        risco += peso_por_fator.get("aderencia_baixa", 3)
         motivos.append("aderência baixa")
     elif status == "BOA ADERÊNCIA":
-        risco += 2
+        risco += peso_por_fator.get("aderencia_boa", 2)
         motivos.append("aderência moderada")
     elif status == "GRIP PERFEITO":
-        risco += 1
+        risco += peso_por_fator.get("aderencia_grip", 1)
         motivos.append("aderência boa")
 
     if pico_3h >= 15.0:
-        risco += 2
+        risco += peso_por_fator.get("pico_3h_muito_alto", 2)
         motivos.append("pico_3h muito alto")
     elif pico_3h >= 10.0:
-        risco += 1
+        risco += peso_por_fator.get("pico_3h_alto", 1)
         motivos.append("pico_3h alto")
 
     if rain_mm >= 8.0:
-        risco += 1
+        risco += peso_por_fator.get("rain_alto", 1)
         motivos.append("chuva acumulada relevante")
 
     if wind_ms >= 12.0:
-        risco += 1
+        risco += peso_por_fator.get("vento_alto", 1)
         motivos.append("vento forte")
 
     if inclinacao is not None:
@@ -1231,10 +1341,10 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         solo_com_umidade = rain_mm > 0 or acumulo_ef > 0
         if solo_com_umidade:
             if inclinacao > 30:
-                risco += 2
+                risco += peso_por_fator.get("inclinacao_alta", 2)
                 motivos.append("inclinação muito alta")
             elif inclinacao > 20:
-                risco += 1
+                risco += peso_por_fator.get("inclinacao_media", 1)
                 motivos.append("inclinação alta")
 
     if trail is not None and trail.get("trail_type") == "bikepark":
@@ -1255,21 +1365,21 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         solo_encharcado = aderencia.get("solo_descansado") is False  # acumulo_ef >= threshold
 
         if nivel >= 3:
-            # Tempestade (>90 km/h): sobe veredicto automaticamente +2 pontos
-            risco += 2
+            # Tempestade (>90 km/h): sobe veredicto automaticamente
+            risco += peso_por_fator.get("vento_estrutural_alto", 2)
             motivos.append("vento de tempestade — risco alto de queda de árvores")
         elif nivel == 2:
-            # Ventos fortes (65–90 km/h): sobe +1 ponto
-            risco += 1
+            # Ventos fortes (65–90 km/h)
+            risco += peso_por_fator.get("vento_estrutural_med", 1)
             motivos.append("ventos fortes — árvores saudáveis em risco")
-            # Combinação solo encharcado + ventos fortes: raízes instáveis → +1 adicional
+            # Combinação solo encharcado + ventos fortes: raízes instáveis → adicional
             if solo_encharcado:
-                risco += 1
+                risco += peso_por_fator.get("solo_encharcado", 1)
                 motivos.append("solo encharcado agrava risco de queda")
         elif nivel == 1:
             # Moderado a forte (55–65 km/h): impacto só se solo encharcado
             if solo_encharcado:
-                risco += 1
+                risco += peso_por_fator.get("solo_encharcado", 1)
                 motivos.append("vento moderado com solo encharcado — galhos comprometidos")
 
     gust_kmh = trail.get("gust_max_kmh", 0.0) if trail else 0.0
@@ -1319,7 +1429,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             return "Grip perfeito — condição estável"
         return ""
 
-    if risco <= 1:
+    if risco <= lim_liberado:
         return {
             "texto": "DROP LIBERADO",
             "emoji": "✅",
@@ -1329,7 +1439,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             "motivo": ", ".join(motivos) if motivos else "condição favorável",
             "texto_dinamico": _tdyn("DROP LIBERADO"),
         }
-    elif risco <= 3:
+    elif risco <= lim_alertas:
         return {
             "texto": "DROP LIBERADO - Veja os alertas",
             "emoji": "⚠️",
@@ -3082,6 +3192,9 @@ def main() -> None:
     _carregar_tabela_solo()
     _carregar_threshold_sazonal()
     _carregar_meia_vida()
+    _carregar_enso_config()
+    _carregar_aderencia_thresholds()
+    _carregar_veredicto_pesos()
 
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
