@@ -1413,8 +1413,9 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
             break
 
     # Fator de recuperação: solo abaixo de 2.5x o threshold sazonal não justifica BAIXA ADERÊNCIA
+    # Exceção: bikepark saturado mantém BAIXA — já passou do limiar de drenagem
     thresh_local = threshold_solo_descansado(mes, enso, trail)
-    if status == "BAIXA ADERÊNCIA" and acumulo_ef < thresh_local * 2.5:
+    if status == "BAIXA ADERÊNCIA" and acumulo_ef < thresh_local * 2.5 and not saturado:
         status = "BOA ADERÊNCIA"
 
     if trail.get("trail_type") == "bikepark":
