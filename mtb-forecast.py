@@ -1510,6 +1510,14 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
     desc = _descricao_aderencia(status, trail, saturado=saturado)
 
+    # Threshold efetivo para GRIP PERFEITO em unidades de efetivo_combinado (acumulo_ef + pico_3h).
+    # Frontend usa este valor para a barra de progresso — elimina o 3.0 hardcoded.
+    grip_ef_max = next(
+        (t["ef_max"] for t in _carregar_aderencia_thresholds() if t.get("status") == "GRIP PERFEITO"),
+        3.0
+    )
+    grip_threshold_ef = round(grip_ef_max * fator_mc, 3) if fator_mc > 0 else grip_ef_max
+
     return {
         "status": status,
         "score": s,
@@ -1520,6 +1528,7 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
         "emoji": emojis[status],
         "cor": cores[status],
         "desc": desc,
+        "grip_threshold_ef": grip_threshold_ef,
     }
 
 def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 0.0,
@@ -1973,6 +1982,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "aderencia_futura_rain":   resultado.get("aderencia_futura", {}).get("rain_mm"),
             "texto_dinamico":          veredicto.get("texto_dinamico"),
             "previsao_24h":            resultado.get("previsao_24h"),
+            "grip_threshold_ef":       aderencia.get("grip_threshold_ef"),
             "fds_d1_veredicto":   fds.get("d1", {}).get("veredicto", {}).get("texto"),
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
@@ -2119,6 +2129,7 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
             "aderencia_futura_rain":   resultado.get("aderencia_futura", {}).get("rain_mm"),
             "texto_dinamico":          veredicto.get("texto_dinamico"),
             "previsao_24h":            resultado.get("previsao_24h"),
+            "grip_threshold_ef":       aderencia.get("grip_threshold_ef"),
             "fds_d1_veredicto":   fds.get("d1", {}).get("veredicto", {}).get("texto"),
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),

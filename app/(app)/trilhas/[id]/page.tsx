@@ -11,6 +11,7 @@ import {
   VEREDICTO_CONFIG,
 } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
+import { deveAlertarRajada } from '@/lib/display'
 import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
@@ -163,9 +164,7 @@ export default function TrilhaDetalhe() {
   const isMatAtlantica = trilha.bioma === 'Mata Atlântica'
   const mapsUrl = `https://www.google.com/maps?q=${trilha.lat},${trilha.lon}`
 
-  const alertaRajada = c?.alerta_rajada_kmh != null &&
-    ((trilha.exposicao?.toLowerCase() === 'aberta' && c.alerta_rajada_kmh >= 30) ||
-     (trilha.exposicao?.toLowerCase() !== 'aberta' && c.alerta_rajada_kmh >= 50))
+  const alertaRajada = deveAlertarRajada(c?.alerta_rajada_kmh, trilha.exposicao)
   const nivelVento = c?.alerta_vento_nivel ?? 0
 
   function compartilharWhatsApp() {

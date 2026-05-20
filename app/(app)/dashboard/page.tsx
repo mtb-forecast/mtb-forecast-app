@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao, Profile, VEREDICTO_CONFIG, ADERENCIA_CONFIG } from '@/lib/types'
+import { rainColor, peakColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_BG } from '@/lib/display'
 import TrilhaCard from '@/components/TrilhaCard'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
@@ -58,37 +59,6 @@ const RANKING_ADERENCIA: Record<string, number> = {
 
 // ── cores Strava card ─────────────────────────────────────────────────────────
 
-const STRAVA_ACCENT: Record<string, string> = {
-  'DROP LIBERADO':                   '#22C55E',
-  'DROP LIBERADO - Veja os alertas': '#F59E0B',
-  'MELHOR ESPERAR':                  '#EF4444',
-}
-
-const STRAVA_JANELA_BG: Record<string, { bg: string; color: string }> = {
-  'DROP LIBERADO':                   { bg: '#F0FDF4', color: '#166534' },
-  'DROP LIBERADO - Veja os alertas': { bg: '#FFFBEB', color: '#92400E' },
-  'MELHOR ESPERAR':                  { bg: '#FEF2F2', color: '#991B1B' },
-}
-
-function rainClr(mm: number | null | undefined): string {
-  if (mm == null) return '#6B7280'
-  if (mm === 0)   return '#22C55E'
-  if (mm <= 20)   return '#F59E0B'
-  return '#EF4444'
-}
-
-function windClr(kmh: number | null | undefined): string {
-  if (kmh == null) return '#6B7280'
-  if (kmh < 20)   return '#22C55E'
-  if (kmh <= 40)  return '#F59E0B'
-  return '#EF4444'
-}
-
-function peakClr(mm: number): string {
-  if (mm < 5)   return '#22C55E'
-  if (mm <= 10) return '#F59E0B'
-  return '#EF4444'
-}
 
 // ── helpers visuais ───────────────────────────────────────────────────────────
 
@@ -140,9 +110,9 @@ function StravaCardItem({ t, avaliacao }: {
 }) {
   const c             = t.condicao
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
-  const accentColor   = veredictoText ? (STRAVA_ACCENT[veredictoText] ?? '#E34402') : '#E34402'
-  const janelaStyle   = veredictoText ? (STRAVA_JANELA_BG[veredictoText] ?? { bg: '#F9FAFB', color: '#6B7280' }) : { bg: '#F9FAFB', color: '#6B7280' }
-  const showPico      = c?.pico_3h != null && c.pico_3h >= 3
+  const accentColor   = veredictoText ? (VEREDICTO_ACCENT[veredictoText] ?? '#E34402') : '#E34402'
+  const janelaBg      = veredictoText ? (VEREDICTO_JANELA_BG[veredictoText]    ?? '#F9FAFB') : '#F9FAFB'
+  const showPico      = c?.pico_3h != null && c.pico_3h >= DISPLAY_THR.picoMin
   const windKmh       = c?.wind_ms != null ? c.wind_ms * 3.6 : null
 
   return (
@@ -200,7 +170,7 @@ function StravaCardItem({ t, avaliacao }: {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                 <div style={metricBox}>
                   <div style={metricLabel}>Chuva 48h</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: rainClr(c.acumulo_48h), display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: rainColor(c.acumulo_48h), display: 'flex', alignItems: 'center', gap: 4 }}>
                     <i className="ti ti-droplet" style={{ fontSize: 14 }} />
                     {c.acumulo_48h?.toFixed(1) ?? '—'}mm
                   </div>
@@ -208,7 +178,7 @@ function StravaCardItem({ t, avaliacao }: {
                 {showPico && (
                   <div style={metricBox}>
                     <div style={metricLabel}>Pico 3h</div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: peakClr(c.pico_3h!), display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: peakColor(c.pico_3h!), display: 'flex', alignItems: 'center', gap: 4 }}>
                       <i className="ti ti-droplet-half" style={{ fontSize: 14 }} />
                       {c.pico_3h!.toFixed(1)}mm
                     </div>
@@ -216,7 +186,7 @@ function StravaCardItem({ t, avaliacao }: {
                 )}
                 <div style={metricBox}>
                   <div style={metricLabel}>Vento máx.</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: windClr(windKmh), display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: windColor(windKmh), display: 'flex', alignItems: 'center', gap: 4 }}>
                     <i className="ti ti-wind" style={{ fontSize: 14 }} />
                     {windKmh != null ? windKmh.toFixed(1) : '—'} km/h
                   </div>
@@ -241,7 +211,7 @@ function StravaCardItem({ t, avaliacao }: {
 
               {/* Janela */}
               {c.janela ? (
-                <div style={{ background: janelaStyle.bg, borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ background: janelaBg, borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <i className="ti ti-clock" style={{ fontSize: 13, color: '#6B7280' }} />
                   <span style={{ color: '#374151' }}>{c.janela}</span>
                 </div>

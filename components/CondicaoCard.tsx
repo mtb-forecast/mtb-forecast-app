@@ -1,4 +1,5 @@
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
+import { rainColor, windColor, DISPLAY_THR } from '@/lib/display'
 
 type Props = {
   condicao: Condicao
@@ -24,32 +25,13 @@ function verdictBorderColor(v: string): string {
   return '#F59E0B'
 }
 
-function peakColor(mm: number): string {
-  if (mm < 5)   return '#22C55E'
-  if (mm <= 10) return '#F59E0B'
-  return '#EF4444'
-}
-
-function accumColor(mm: number): string {
-  if (mm < 10)  return '#22C55E'
-  if (mm <= 30) return '#F59E0B'
-  return '#EF4444'
-}
-
-function windColor(kmh: number): string {
-  if (kmh < 20)  return '#22C55E'
-  if (kmh <= 40) return '#F59E0B'
-  return '#EF4444'
-}
-
-const GRIP_THRESHOLD = 3.0  // ef_max GRIP PERFEITO em aderencia_thresholds
-
 function recalcularSolo(condicao: Condicao) {
   const agora    = new Date()
   const geradoEm = new Date(condicao.gerado_em)
   const driftHoras = (agora.getTime() - geradoEm.getTime()) / 3600000
   const meiaVida   = condicao.meia_vida_h ?? 24
   const acumuloBase = condicao.acumulo_ef ?? 0
+  const GRIP_THRESHOLD = condicao.grip_threshold_ef ?? 3.0
 
   let acumuloAgora = acumuloBase * Math.pow(0.5, driftHoras / meiaVida)
 
@@ -97,43 +79,7 @@ const SEC: React.CSSProperties = {
   letterSpacing: '0.06em', fontWeight: 500,
 }
 
-const ML: React.CSSProperties = {
-  fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase',
-  letterSpacing: '0.04em', marginBottom: 3,
-}
-
 const DIV: React.CSSProperties = { borderTop: '0.5px solid #E5E7EB' }
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function LiveCell({ label, icon, value, color = '#111111', tooltip }: {
-  label: string; icon: string; value: string; color?: string; tooltip?: string
-}) {
-  return (
-    <div style={{ background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 10, padding: '8px 10px' }} title={tooltip}>
-      <div style={ML}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 500, color, display: 'flex', alignItems: 'center', gap: 4 }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 14 }} />{value}
-      </div>
-    </div>
-  )
-}
-
-function ReportCell({ label, icon, value, color = '#111111', tooltip }: {
-  label: string; icon: string; value: string; color?: string; tooltip?: string
-}) {
-  return (
-    <div style={{ background: '#EFF6FF', border: '0.5px solid #BFDBFE', borderRadius: 10, padding: '8px 10px' }} title={tooltip}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
-        <span style={{ ...ML, marginBottom: 0 }}>{label}</span>
-        <span style={{ fontSize: 9, fontWeight: 700, color: '#3B82F6', background: '#DBEAFE', borderRadius: 3, padding: '1px 4px', textTransform: 'uppercase' }}>RPT</span>
-      </div>
-      <div style={{ fontSize: 13, fontWeight: 500, color, display: 'flex', alignItems: 'center', gap: 4 }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 14 }} />{value}
-      </div>
-    </div>
-  )
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -144,8 +90,6 @@ export default function CondicaoCard({ condicao }: Props) {
   const janela      = janelaStyle(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
   const windKmh     = condicao.wind_ms * 3.6
-  const showPico    = condicao.pico_3h != null && condicao.pico_3h >= 3
-  const showInc     = condicao.inclinacao != null && condicao.inclinacao !== 0
 
   const solo = recalcularSolo(condicao)
   const { driftHoras, acumuloAgora, ultimaChuvaH,
@@ -187,6 +131,23 @@ export default function CondicaoCard({ condicao }: Props) {
   const hasAlerta = !!(condicao.aderencia_futura_status && condicao.aderencia_futura_label &&
     condicao.aderencia_futura_status !== condicao.aderencia_status)
 
+  // Alertas 24h
+  const nivelVento   = condicao.alerta_vento_nivel ?? 0
+  const temRajada    = condicao.gust_max_kmh != null && condicao.gust_max_kmh >= DISPLAY_THR.rajada.fechada
+  const chuvasPrev   = condicao.previsao_24h?.filter(b => b.rain_mm > 1) ?? []
+  const temChuva24h  = chuvasPrev.length > 0
+  const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta
+
+  const ventoTextos: Record<number, { titulo: string; msg: string; cor: string; border: string }> = {
+    1: { titulo: 'Vento moderado a forte nas últimas 48h', cor: '#713f12', border: '#fde047',
+         msg: 'Ventos entre 55–65 km/h podem quebrar galhos de árvores com saúde comprometida.' },
+    2: { titulo: 'Ventos fortes nas últimas 48h', cor: '#7c2d12', border: '#fdba74',
+         msg: 'Ventos entre 65–90 km/h podem derrubar árvores. Avalie as condições antes de pedalar.' },
+    3: { titulo: 'Risco alto — vento de tempestade', cor: '#7f1d1d', border: '#fca5a5',
+         msg: 'Ventos acima de 90 km/h com risco severo de obstrução. Avalie presencialmente.' },
+  }
+  const vCfg = nivelVento > 0 ? ventoTextos[Math.min(nivelVento, 3) as 1 | 2 | 3] : null
+
   return (
     <div style={{ background: '#FFFFFF', borderRadius: 16, border: '0.5px solid #E5E7EB', overflow: 'hidden' }}>
       <style>{`@keyframes cc-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }`}</style>
@@ -208,18 +169,18 @@ export default function CondicaoCard({ condicao }: Props) {
 
       <div style={{ padding: '14px 18px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        {/* ── 1. Agora — próximas 12h ──────────────────────────────── */}
+        {/* ── 1. Veredicto ─────────────────────────────────────────── */}
         <div>
-          <div style={{ ...SEC, marginBottom: 8 }}>Agora — próximas 12h</div>
+          <div style={{ ...SEC, marginBottom: 8 }}>Veredicto</div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: condicao.texto_dinamico || condicao.frase_secagem ? 10 : 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ background: badge.bg, color: badge.color, fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '4px 12px' }}>
                 {veredictoDisplay}
               </span>
               {has12h && <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>12h</span>}
             </div>
-            <span style={{ fontSize: 11, color: '#6B7280' }}>{condicao.aderencia_status}</span>
+            <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>{condicao.aderencia_status}</span>
           </div>
 
           {condicao.texto_dinamico && (
@@ -236,42 +197,12 @@ export default function CondicaoCard({ condicao }: Props) {
 
         <div style={DIV} />
 
-        {/* ── 2. Solo — calculado agora ────────────────────────────── */}
+        {/* ── 2. Condição do Solo — Agora ──────────────────────────── */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={SEC}>Solo — calculado agora</span>
-            <span style={{ fontSize: 10, color: '#9CA3AF' }}>Report das {horaReport}</span>
-          </div>
+          <div style={{ ...SEC, marginBottom: 10 }}>Condição do Solo — Agora</div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 10 }}>
-            <LiveCell label="Umidade retida" icon="ti-calculator" value={`${acumuloAgora.toFixed(1)}mm`} color={accumColor(acumuloAgora)} tooltip="Umidade retida recalculada com decaimento desde o report" />
-            <LiveCell label="Trilha seca em" icon="ti-clock" value={`${trilhaSecaEmAgora}h`} color="#6B7280" tooltip="Tempo restante estimado para o solo atingir condição ideal" />
-            {condicao.ultima_chuva_h != null && (
-              <LiveCell label="Última chuva" icon="ti-history" value={`${ultimaChuvaH}h atrás`} color="#6B7280" tooltip="Horas desde a última precipitação, ajustado pelo tempo desde o report" />
-            )}
-            <ReportCell label="Chuva 48h" icon="ti-droplet" value={`${condicao.acumulo_48h.toFixed(1)}mm`} color={accumColor(condicao.acumulo_48h)} tooltip="Chuva acumulada histórica nas últimas 48h" />
-            {showPico && <ReportCell label="Pico prev. 3h" icon="ti-droplet-half" value={`${condicao.pico_3h.toFixed(1)}mm`} color={peakColor(condicao.pico_3h)} tooltip="Maior acumulado em janela de 3h na previsão" />}
-            <ReportCell label="Vento prev. 24h" icon="ti-wind" value={`${windKmh.toFixed(1)} km/h`} color={windColor(windKmh)} tooltip="Vento máximo sustentado previsto nas próximas 24h" />
-            {condicao.gust_max_kmh != null && (
-              <ReportCell label="Rajada prev. 24h" icon="ti-wind" value={`${condicao.gust_max_kmh.toFixed(0)} km/h`} color={windColor(condicao.gust_max_kmh)} tooltip="Rajada máxima prevista nas próximas 24h" />
-            )}
-            {condicao.alerta_vento_kmh != null && condicao.alerta_vento_kmh > 0 && (
-              <ReportCell label="Vento hist. 48h" icon="ti-wind" value={`${condicao.alerta_vento_kmh.toFixed(1)} km/h`} color={windColor(condicao.alerta_vento_kmh)} tooltip="Vento máximo sustentado registrado nas últimas 48h" />
-            )}
-            {condicao.alerta_rajada_kmh != null && condicao.alerta_rajada_kmh > 0 && (
-              <ReportCell label="Rajada hist. 48h" icon="ti-wind" value={`${condicao.alerta_rajada_kmh.toFixed(0)} km/h`} color={windColor(condicao.alerta_rajada_kmh)} tooltip="Rajada máxima registrada nas últimas 48h" />
-            )}
-            {showInc && (
-              <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '8px 10px' }}>
-                <div style={ML}>Inclinação</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <i className="ti ti-trending-up" style={{ fontSize: 14 }} />{condicao.inclinacao}%
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', gap: 14, fontSize: 10, color: '#9CA3AF', marginBottom: 12 }}>
+          {/* Legenda */}
+          <div style={{ display: 'flex', gap: 14, fontSize: 10, color: '#9CA3AF', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E' }} />Calculado agora
             </div>
@@ -280,12 +211,33 @@ export default function CondicaoCard({ condicao }: Props) {
             </div>
           </div>
 
-          {/* Barra gradiente */}
+          {/* 3 badges */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
+              <i className="ti ti-droplet" style={{ fontSize: 13, color: rainColor(acumuloAgora) }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: rainColor(acumuloAgora) }}>{acumuloAgora.toFixed(1)}mm</span>
+              <span style={{ fontSize: 11, color: '#6B7280' }}>retidos</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '5px 12px' }}>
+              <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
+                {trilhaSecaEmAgora === 0 ? 'Solo seco' : `seca em ~${trilhaSecaEmAgora}h`}
+              </span>
+            </div>
+
+            {condicao.ultima_chuva_h != null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '5px 12px' }}>
+                <i className="ti ti-history" style={{ fontSize: 13, color: '#9CA3AF' }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>última chuva {ultimaChuvaH}h atrás</span>
+              </div>
+            )}
+          </div>
+
+          {/* Barra Grip Perfeito */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: '#9CA3AF', cursor: 'default' }} title="Estimativa recalculada com decaimento desde o report, pico de chuva e secagem do solo.">
-                Caminho para Grip Perfeito
-              </span>
+              <span style={{ fontSize: 11, color: '#9CA3AF' }}>Caminho para Grip Perfeito</span>
               <span style={{ fontSize: 11, fontWeight: 500, color: indicatorColor }}>
                 {labelGrip}
                 {temChuvaFutura && !isGripOk && <span style={{ color: '#F59E0B' }}> (chuva prevista)</span>}
@@ -297,25 +249,67 @@ export default function CondicaoCard({ condicao }: Props) {
           </div>
         </div>
 
+        {/* ── 3. Alertas — próximas 24h ────────────────────────────── */}
+        {hasAlertas && (
+          <>
+            <div style={DIV} />
+            <div>
+              <div style={{ ...SEC, marginBottom: 10 }}>Alertas — próximas 24h</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+                {/* Aderência futura */}
+                {hasAlerta && (
+                  <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E', fontWeight: 600 }}>
+                      <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#F59E0B' }} />
+                      Previsão {condicao.aderencia_futura_label}: {condicao.aderencia_futura_status}
+                      {condicao.aderencia_futura_rain != null && condicao.aderencia_futura_rain > 0
+                        ? ` (${condicao.aderencia_futura_rain.toFixed(1)}mm previstos)` : ''}
+                    </div>
+                    <span style={{ fontSize: 11, color: '#B45309', paddingLeft: 19 }}>Evite a trilha neste período.</span>
+                  </div>
+                )}
+
+                {/* Vento histórico */}
+                {vCfg && (
+                  <div style={{ background: '#FEFCE8', borderLeft: `3px solid ${vCfg.border}`, borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, color: vCfg.cor, fontWeight: 600, marginBottom: 3 }}>
+                      <i className="ti ti-wind" style={{ fontSize: 12, marginRight: 5 }} />
+                      {vCfg.titulo}
+                      {condicao.alerta_vento_kmh != null && ` · ${condicao.alerta_vento_kmh.toFixed(0)} km/h`}
+                    </div>
+                    <p style={{ fontSize: 11, color: vCfg.cor, margin: 0, opacity: 0.8, paddingLeft: 19 }}>{vCfg.msg}</p>
+                  </div>
+                )}
+
+                {/* Rajada prevista */}
+                {temRajada && condicao.gust_max_kmh != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F9FAFB', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#374151' }}>
+                    <i className="ti ti-wind" style={{ fontSize: 14, color: windColor(condicao.gust_max_kmh) }} />
+                    <span>Rajada prevista de até <b>{condicao.gust_max_kmh.toFixed(0)} km/h</b> nas próximas 24h</span>
+                  </div>
+                )}
+
+                {/* Chuva prevista */}
+                {temChuva24h && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F9FAFB', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#374151' }}>
+                    <i className="ti ti-droplet" style={{ fontSize: 14, color: '#3B82F6' }} />
+                    <span>
+                      Chuva prevista: {chuvasPrev.map(b => `${b.rain_mm.toFixed(1)}mm (${b.label})`).join(', ')}
+                    </span>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </>
+        )}
+
         <div style={DIV} />
 
-        {/* ── 3. Previsão — próximas 24h ───────────────────────────── */}
+        {/* ── 4. Previsão — próximas 24h ───────────────────────────── */}
         <div>
           <div style={{ ...SEC, marginBottom: 10 }}>Previsão — próximas 24h</div>
-
-          {hasAlerta && (
-            <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: 8, padding: '8px 12px', marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E' }}>
-                <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#F59E0B' }} />
-                <span>
-                  Previsão {condicao.aderencia_futura_label}: {condicao.aderencia_futura_status}
-                  {condicao.aderencia_futura_rain != null && condicao.aderencia_futura_rain > 0
-                    ? ` (${condicao.aderencia_futura_rain.toFixed(1)}mm previstos)` : ''}
-                </span>
-              </div>
-              <span style={{ fontSize: 11, color: '#B45309', paddingLeft: 19 }}>Evite a trilha neste período.</span>
-            </div>
-          )}
 
           {hasPrev24 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: condicao.horarios_chuva ? 8 : 0 }}>
@@ -344,12 +338,12 @@ export default function CondicaoCard({ condicao }: Props) {
             </div>
           )}
 
-          {!hasAlerta && !hasPrev24 && !condicao.horarios_chuva && (
+          {!hasPrev24 && !condicao.horarios_chuva && (
             <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', margin: 0 }}>Sem dados de previsão disponíveis.</p>
           )}
         </div>
 
-        {/* ── 4. Próximos 3 dias ───────────────────────────────────── */}
+        {/* ── 5. Próximos 3 dias ───────────────────────────────────── */}
         {hasFds && (
           <>
             <div style={DIV} />
@@ -378,7 +372,7 @@ export default function CondicaoCard({ condicao }: Props) {
 
         <div style={DIV} />
 
-        {/* ── 5. Melhor janela ─────────────────────────────────────── */}
+        {/* ── 6. Melhor janela ─────────────────────────────────────── */}
         {condicao.janela ? (
           <div style={{ background: janela.bg, borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela</span>

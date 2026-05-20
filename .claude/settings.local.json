@@ -65,7 +65,10 @@
       "WebFetch(domain:www.cpc.ncep.noaa.gov)",
       "WebFetch(domain:api.open-meteo.com)",
       "WebFetch(domain:www.climatempo.com.br)",
-      "WebFetch(domain:wttr.in)"
+      "WebFetch(domain:wttr.in)",
+      "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Include \"*.tsx\", \"*.ts\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(Select-Object FullName)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
