@@ -760,6 +760,13 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
     # FIX #5: exposicao removida daqui — já está na tabela _MEIA_VIDA_SECAGEM base
     # Manter aqui causava double counting com a tabela (terra fechada=36h já embute o efeito)
 
+    # Bikepark: terra compactada + drenagem projetada — seca mais rápido que trilha natural
+    if trail.get("trail_type") == "bikepark":
+        if trail.get("exposicao") == "fechada":
+            meia_vida *= 0.60
+        else:  # aberta
+            meia_vida *= 0.35
+
     return round(max(4.0, min(72.0, meia_vida)), 1)
 
 
