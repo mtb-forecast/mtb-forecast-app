@@ -316,15 +316,41 @@ def fetch_oni_atual() -> float:
         req = urllib.request.Request(url, headers={"User-Agent": "MTBAgent/5.23"})
         with urllib.request.urlopen(req, timeout=15) as r:
             linhas = r.read().decode("utf-8").splitlines()
+
+        # Camada 1: número de colunas no header (formato esperado: SEAS YR TOTAL ANOM = 4 cols)
+        header = linhas[0].split() if linhas else []
+        if len(header) != 4:
+            print(f"[ENSO] AVISO formato: header com {len(header)} colunas (esperado 4): {linhas[0]!r}")
+
         oni_val = 0.0
+        formato_ok = True
         for linha in reversed(linhas):
             partes = linha.split()
             if len(partes) >= 4:
                 try:
-                    oni_val = float(partes[3])  # col 3 = ANOM (anomalia ONI); col 2 = SST absoluto
-                    break
+                    sst   = float(partes[2])  # col 2 = TOTAL (SST absoluto, ~20-32°C)
+                    anom  = float(partes[3])  # col 3 = ANOM  (anomalia ONI, -4 a +4)
                 except ValueError:
                     continue
+
+                # Camada 2: SST fora de 20-32°C indica coluna errada
+                if not (20.0 <= sst <= 32.0):
+                    print(f"[ENSO] AVISO formato: partes[2]={sst} fora de 20-32°C (esperado SST) — arquivo pode ter mudado de formato")
+                    formato_ok = False
+                    break
+
+                # Camada 3: anomalia ONI fora de -4 a +4 indica coluna errada
+                if not (-4.0 <= anom <= 4.0):
+                    print(f"[ENSO] AVISO formato: partes[3]={anom} fora de -4..+4 (esperado anomalia ONI) — arquivo pode ter mudado de formato")
+                    formato_ok = False
+                    break
+
+                oni_val = anom
+                break
+
+        if not formato_ok:
+            print("[ENSO] Formato inesperado — usando neutro (0.0). Verifique oni.ascii.txt manualmente.")
+
         _CACHE_ONI["oni"] = oni_val
         return oni_val
     except Exception as exc:
