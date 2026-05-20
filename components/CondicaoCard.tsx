@@ -42,14 +42,13 @@ function windColor(kmh: number): string {
   return '#EF4444'
 }
 
-const GRIP_THRESHOLD = 3.0  // ef_max GRIP PERFEITO em aderencia_thresholds
-
 function recalcularSolo(condicao: Condicao) {
   const agora    = new Date()
   const geradoEm = new Date(condicao.gerado_em)
   const driftHoras = (agora.getTime() - geradoEm.getTime()) / 3600000
   const meiaVida   = condicao.meia_vida_h ?? 24
   const acumuloBase = condicao.acumulo_ef ?? 0
+  const GRIP_THRESHOLD = condicao.grip_threshold_ef ?? 3.0
 
   let acumuloAgora = acumuloBase * Math.pow(0.5, driftHoras / meiaVida)
 
