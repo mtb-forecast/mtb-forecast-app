@@ -59,7 +59,13 @@
       "Bash(python3 -c \"import os; key=os.environ.get\\('SUPABASE_SERVICE_KEY',''\\); print\\('KEY_FOUND' if key else 'NOT_FOUND'\\); print\\(key[:20]+'...' if key else ''\\)\")",
       "PowerShell(git push)",
       "PowerShell(supabase --version 2>&1)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(curl -s \"https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/trilhas?name=ilike.*UGLY*&select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma&apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxODA4NTEsImV4cCI6MjA5Mzc1Njg1MX0.1wH1lsLpFG_tmyMj9a7LulBZl3_xruHa4wpIlBECEKE\")",
+      "Bash(curl -s \"https://eydlkvrjopffyqpdstzh.supabase.co/rest/v1/condicoes?trilha_id=eq.fa695b50-5262-4a03-bb15-61aac0527473&select=*&apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxODA4NTEsImV4cCI6MjA5Mzc1Njg1MX0.1wH1lsLpFG_tmyMj9a7LulBZl3_xruHa4wpIlBECEKE\")",
+      "WebFetch(domain:www.cpc.ncep.noaa.gov)",
+      "WebFetch(domain:api.open-meteo.com)",
+      "WebFetch(domain:www.climatempo.com.br)",
+      "WebFetch(domain:wttr.in)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

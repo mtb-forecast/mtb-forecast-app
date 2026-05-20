@@ -1425,15 +1425,25 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
 
     # Thresholds carregados do Supabase (tabela aderencia_thresholds) — efetivo combinado com pico_3h
     efetivo_combinado = acumulo_ef + pico_3h
+
+    # Ajuste microclimático: Mata Atlântica fechada de altitude retém umidade estruturalmente —
+    # o mesmo acumulo_ef causa mais degradação do que em terreno aberto.
+    # Divide pelo fator_microclima (0.75–1.0) para tornar os thresholds proporcionalmente mais
+    # rígidos. Reutiliza a tabela microclima_config já usada em threshold_solo_descansado.
+    # Exemplo: ef=4mm em Mata Atlântica alta (fator=0.75) → ef_norm=5.33mm → BOA ADERÊNCIA
+    # Em terreno sem ajuste (fator=1.0): ef=4mm → GRIP PERFEITO
+    fator_mc = fator_microclima(trail)
+    efetivo_threshold = efetivo_combinado / fator_mc if fator_mc > 0 else efetivo_combinado
+
     status = "BAIXA ADERÊNCIA"  # default seguro caso nenhum threshold dê match
     for thr in _carregar_aderencia_thresholds():
         ef_min = thr["ef_min"]
         ef_max = thr["ef_max"]
         # SECO (ef_min=null): inclusivo no upper (captura ef==0)
         # Demais: lower inclusivo, upper exclusivo
-        acima  = ef_min is None or efetivo_combinado >= ef_min
+        acima  = ef_min is None or efetivo_threshold >= ef_min
         abaixo = (ef_max is None or
-                  (efetivo_combinado <= ef_max if ef_min is None else efetivo_combinado < ef_max))
+                  (efetivo_threshold <= ef_max if ef_min is None else efetivo_threshold < ef_max))
         if acima and abaixo:
             status = thr["status"]
             break

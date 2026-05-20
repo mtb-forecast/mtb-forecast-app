@@ -3,8 +3,9 @@
 Plataforma completa de monitoramento climático para trilhas de **Mountain Bike — DH, Enduro, XCC e XCM** no Brasil.
 
 Composta por dois sistemas integrados:
-- **Web App** — Next.js 14 App Router com autenticação (email + Google OAuth), favoritos, avaliações, integração Strava, cadastro manual de trilhas, compartilhamento por WhatsApp e PWA
-- **Agente Python** — roda diariamente via GitHub Actions, coleta APIs meteorológicas, modela condição do solo com dados do Supabase e grava resultados no banco
+
+- **Web App** — Next.js 14 App Router com autenticação (e-mail + Google OAuth), favoritos, avaliações de riders, integração Strava, cadastro manual de trilhas, notificações por Telegram, compartilhamento por WhatsApp e PWA
+- **Agente Python** — executa a cada 6 horas via GitHub Actions, coleta dados de 3 fontes meteorológicas, modela condição do solo com 13 tabelas de configuração no Supabase e grava resultados no banco
 
 ---
 
@@ -25,16 +26,19 @@ Composta por dois sistemas integrados:
 - [Web App — Componentes](#web-app--componentes)
 - [PWA — Progressive Web App](#pwa--progressive-web-app)
 - [Integração Strava](#integração-strava)
+- [Integração Telegram](#integração-telegram)
 - [Banco de dados — Supabase](#banco-de-dados--supabase)
 - [Agente Python — Pipeline completo](#agente-python--pipeline-completo)
+- [Modelo de solo e aderência](#modelo-de-solo-e-aderência)
+- [Cálculo de veredicto](#cálculo-de-veredicto)
+- [Migração Supabase — Fases 1 a 4](#migração-supabase--fases-1-a-4)
 - [GitHub Actions — Workflow](#github-actions--workflow)
 - [Configuração — Secrets e variáveis de ambiente](#configuração--secrets-e-variáveis-de-ambiente)
 - [Desenvolvimento local](#desenvolvimento-local)
 - [Como adicionar trilhas](#como-adicionar-trilhas)
-- [Campos da trilha (CSV)](#campos-da-trilha-csv)
-- [Lógica de análise do solo](#lógica-de-análise-do-solo)
-- [Cálculo de veredicto](#cálculo-de-veredicto)
+- [Campos da trilha](#campos-da-trilha)
 - [APIs utilizadas](#apis-utilizadas)
+- [Dependências](#dependências)
 - [Notas de versão](#notas-de-versão)
 
 ---
@@ -42,48 +46,59 @@ Composta por dois sistemas integrados:
 ## Visão geral da arquitetura
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        GitHub Actions (cron diário)                  │
-│                                                                       │
-│  OpenWeather One Call 3.0 ──┐                                        │
-│  Open-Meteo Forecast        ├──► mtb-forecast.py ──► Supabase        │
-│  Open-Meteo Archive         │       (agente Python V8.0)              │
-│  NOAA ONI (ENSO)            │                                         │
-│  Claude AI (Anthropic)  ────┘    tabelas gravadas:                   │
-│  GPT-3.5 (OpenAI)                condicoes · condicoes_strava         │
-│                                                                       │
-│  Configuração lida do Supabase:                                       │
-│  tabela_solo · threshold_sazonal · meia_vida_secagem                 │
-│  configuracoes_sistema (email credentials)                            │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     Supabase (PostgreSQL + Auth + RLS)               │
-│                                                                       │
-│  trilhas · condicoes · condicoes_strava · favoritos                  │
-│  profiles · trilhas_pessoais · observacoes_trilha                    │
-│  strava_segmentos_config · trilhas_pendentes                         │
-│  tabela_solo · threshold_sazonal · meia_vida_secagem                 │
-│  configuracoes_sistema · admin_aprovacoes                            │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Web App (Next.js 14 App Router)                  │
-│                                                                       │
-│  /                    Landing page pública                            │
-│  /login               E-mail + Google OAuth                          │
-│  /cadastro            Cadastro completo (7 campos + Google OAuth)    │
-│  /dashboard           Favoritas + Strava pessoais                    │
-│  /trilhas             Listagem por estado (27 UFs) + busca + ranking │
-│  /trilhas/[id]        Detalhe: condição + avaliações + compartilhar  │
-│  /trilhas/cadastrar   Cadastro manual de trilha pelo rider           │
-│  /t/[id]              Preview público (sem login) para WhatsApp      │
-│  /perfil              Dados pessoais + preferências de email         │
-│  /admin               Aprovações de trilhas + sugestões Strava       │
-│  /admin/tabelas       Edição das tabelas mestras (dupla aprovação)   │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│              GitHub Actions (cron a cada 6h + dispatch manual)        │
+│                                                                        │
+│  OpenWeather One Call 3.0 ──┐                                         │
+│  Open-Meteo Forecast         ├──► mtb-forecast.py ──────► Supabase    │
+│  Open-Meteo Archive (ERA5)  ─┘       Agente Python                    │
+│  NOAA ONI (ENSO)            ─────────────────────────────►            │
+│  Anthropic Claude AI        ─────────────────────────────►            │
+│                                                                        │
+│  13 tabelas de config lidas do Supabase na inicialização:             │
+│  enso_config · aderencia_thresholds · veredicto_risco_pesos           │
+│  meia_vida_clima_mult · microclima_config · configuracoes_sistema      │
+│  solo_type_config · inclinacao_config · score_config                  │
+│  aderencia_descricoes · threshold_sazonal · meia_vida_secagem         │
+│  tabela_solo                                                           │
+└──────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                   Supabase (PostgreSQL + Auth + RLS)                   │
+│                                                                        │
+│  DADOS OPERACIONAIS                                                    │
+│  trilhas · condicoes · condicoes_strava                                │
+│  favoritos · profiles · trilhas_pessoais                               │
+│  observacoes_trilha · strava_segmentos_config                          │
+│  trilhas_pendentes · localidades · admin_aprovacoes                   │
+│                                                                        │
+│  TABELAS DE CONFIGURAÇÃO DO MODELO (13)                                │
+│  enso_config · aderencia_thresholds · veredicto_risco_pesos           │
+│  meia_vida_clima_mult · microclima_config · configuracoes_sistema      │
+│  solo_type_config · inclinacao_config · score_config                  │
+│  aderencia_descricoes · threshold_sazonal · meia_vida_secagem         │
+│  tabela_solo                                                           │
+└──────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                     Web App (Next.js 14 App Router)                    │
+│                                                                        │
+│  /                    Landing page pública                             │
+│  /login               E-mail + Google OAuth                           │
+│  /cadastro            Cadastro completo + Google OAuth                │
+│  /dashboard           Favoritas + Strava pessoais                     │
+│  /trilhas             Listagem por estado (27 UFs) + busca + ranking  │
+│  /trilhas/[id]        Detalhe: condição + avaliações + compartilhar   │
+│  /trilhas/cadastrar   Cadastro manual de trilha pelo rider            │
+│  /t/[id]              Preview público (sem login) para WhatsApp       │
+│  /perfil              Dados pessoais + email + Telegram               │
+│  /perfil/strava       Gerenciamento de segmentos Strava               │
+│  /planos              Planos de assinatura (Stripe)                   │
+│  /admin               Aprovações de trilhas + sugestões Strava        │
+│  /admin/tabelas       Edição das tabelas mestras (dupla aprovação)    │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Middleware de autenticação
@@ -108,11 +123,11 @@ Página pública de apresentação. Não requer autenticação.
 **Seções:**
 1. **Hero split-screen** — painel preto com CTA "Criar conta grátis" + painel com imagem de trilha e cards mockup de condições
 2. **Faixa amarela** com ticker de stats (trilhas, chuva 48h, meia-vida, atualização)
-3. **Seção Strava** (fundo `#111`, stripe laranja) — integração com Strava, 2 colunas: texto à esquerda + cards mockup à direita
+3. **Seção Strava** (fundo `#111`, stripe laranja) — integração com Strava, 2 colunas: texto + cards mockup
 4. **Como funciona** — 3 cards: Chuva acumulada · Tipo de solo · Janela de pedal
 5. **CTA final** — link para `/cadastro`
 
-**Design system:** preto `#111` + amarelo `#FFE000` + stripe amarela 3px + fundo `#f7f7f5` + cards brancos + font `WheatSmile` para títulos
+**Design system:** preto `#111` + amarelo `#FFE000` + stripe amarela 3px + fundo `#f7f7f5` + cards brancos + font `WheatSmile` para títulos.
 
 ---
 
@@ -125,8 +140,8 @@ Formulário de login com suporte a **e-mail/senha** e **Google OAuth**.
 2. Erro inline; sucesso redireciona para `/dashboard`
 
 **Fluxo Google OAuth:**
-1. `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'https://www.mtbforecaster.com.br/auth/callback', queryParams: { access_type: 'offline', prompt: 'consent' } } })`
-2. Supabase redireciona para Google → usuário autentica → Google retorna para `/auth/callback`
+1. `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: '.../auth/callback' } })`
+2. Supabase redireciona para Google → usuário autentica → retorna para `/auth/callback`
 3. `/auth/callback` troca o código por sessão e redireciona para `/dashboard`
 
 ---
@@ -153,17 +168,17 @@ Implementado com `Suspense` boundary para suportar `useSearchParams()`.
 1. `validate()` — retorna objeto `Errors` com todos os campos inválidos
 2. Botão desabilitado (`opacity: 0.5`) até formulário válido após primeiro submit
 3. `supabase.auth.signUp({ email, password, options: { data: { nome, apelido, regiao, telegram_username } } })`
-4. `supabase.from('profiles').upsert({ id, email, nome, apelido, telefone, telefone_whatsapp, telegram_username, regiao, is_admin: false })`
-5. `localStorage.setItem('show-pwa-prompt', 'true')` — aciona o prompt de instalação PWA após cadastro
-6. Redireciona para `/login` após 3 segundos (tela de sucesso com ✅)
+4. `supabase.from('profiles').upsert({ id, email, nome, apelido, telefone, telegram_username, regiao, is_admin: false })`
+5. `localStorage.setItem('show-pwa-prompt', 'true')` — aciona prompt de instalação PWA
+6. Redireciona para `/login` após 3 segundos
 
-**Redirect via WhatsApp:** quando URL contém `?ref=whatsapp&trilha=[id]`, redireciona para `/login?redirect=/trilhas/[id]` em vez de `/login` simples.
+**Redirect via WhatsApp:** quando URL contém `?ref=whatsapp&trilha=[id]`, redireciona para `/login?redirect=/trilhas/[id]` após cadastro.
 
 ---
 
 ### `/dashboard` — Dashboard principal
 
-Página autenticada. Mostra apenas trilhas pessoais do usuário (sem ranking regional).
+Página autenticada. Mostra apenas trilhas pessoais do usuário.
 
 **Steps de carregamento:**
 1. `supabase.auth.getUser()` — redireciona para `/login` se não autenticado
@@ -174,33 +189,30 @@ Página autenticada. Mostra apenas trilhas pessoais do usuário (sem ranking reg
 6. Para cada trilha pessoal: `supabase.from('condicoes_strava').select(...)` — condição mais recente
 
 **Seções:**
-- **Banner de perfil incompleto** — exibido quando `nome`, `apelido`, `telefone` ou `regiao` estão ausentes; link para `/perfil`
+- **Banner de perfil incompleto** — quando `nome`, `apelido`, `telefone` ou `regiao` ausentes; link para `/perfil`
 - **Minhas trilhas favoritas** — grid de `TrilhaCard`; link "Ver todas em [estado]" → `/trilhas`
 - **Minhas trilhas Strava** — cards com borda laranja `#FC4C02`
 
 **Saudação:** usa `apelido` → `nome.split(' ')[0]` → `email.split('@')[0]`
 
-**PWA:** renderiza `<PWAInstallPrompt />` na página.
-
 ---
 
 ### `/trilhas` — Listagem de trilhas
 
-Listagem pública (autenticada) com filtro obrigatório por estado.
+Listagem autenticada com filtro obrigatório por estado.
 Implementada com `Suspense` boundary (`TrilhasContent` + `TrilhasPage`) para `useSearchParams()`.
-Estado selecionado é persistido na URL: `/trilhas?estado=SP`.
+Estado selecionado persistido na URL: `/trilhas?estado=SP`.
 
-**Comportamento sem estado selecionado:**
+**Sem estado selecionado:**
 - Seção de dicas com fotos MTB (hover mostra dica)
 - 4 cards "Como usar o app": Selecione estado · Favorite · Importe do Strava · Avalie
-- Banner Strava com `ti-brand-strava` e texto explicativo
-- Ícones via **Tabler Icons** (webfont CDN)
+- Banner Strava com ícone e texto explicativo
 
 **Com estado selecionado:**
 1. `supabase.from('trilhas').select('*, condicoes(*)')` com `aprovada = true` e `regiao = [estado]`
 2. `supabase.from('favoritos').select('trilha_id')` — prepopula Set de favoritos
-3. Busca local por nome (só exibida quando estado selecionado)
-4. **Ranking** automático por: veredicto 12h (`DROP LIBERADO` → `DROP LIBERADO - Veja os alertas` → `MELHOR ESPERAR` → sem dados) e desempate por `aderencia_score` ASC
+3. Busca local por nome
+4. **Ranking** por veredicto 12h (`DROP LIBERADO` → `DROP LIBERADO - Veja os alertas` → `MELHOR ESPERAR` → sem dados) com desempate por `aderencia_score` ASC
 
 **Header:** botão "+ Cadastrar trilha" e seletor de estado.
 
@@ -208,9 +220,9 @@ Estado selecionado é persistido na URL: `/trilhas?estado=SP`.
 
 ### `/trilhas/cadastrar` — Cadastro manual de trilha
 
-Formulário em 5 seções para riders cadastrarem novas trilhas. Submetidas para aprovação pelo admin.
+Formulário em 5 seções para riders cadastrarem novas trilhas, submetidas para aprovação pelo admin.
 
-**Seções do formulário:**
+**Seções:**
 
 | Seção | Campos |
 |---|---|
@@ -220,28 +232,15 @@ Formulário em 5 seções para riders cadastrarem novas trilhas. Submetidas para
 | Métricas | Desnível (m), Extensão (km) |
 | Informações extras | Link referência (Trailforks, Wikiloc etc.), Observações |
 
-**Extração automática de coordenadas** (`extrairCoordenadas`): suporta 4 formatos de URL do Google Maps:
-- `/@lat,lon`
-- `?q=lat,lon`
-- `?ll=lat,lon`
-- URLs de places (extração via regex do pathname)
+**Extração automática de coordenadas** (`extrairCoordenadas`): suporta 4 formatos de URL do Google Maps — `/@lat,lon`, `?q=lat,lon`, `?ll=lat,lon`, e URLs de places.
 
-**Submissão:** `supabase.from('trilhas_pendentes').insert({ ..., status: 'pendente', user_id })` — trilha fica aguardando aprovação.
-
-**Tela de sucesso:** dois botões — "Ver minhas trilhas" → `/perfil` e "Cadastrar outra" → reset do formulário.
+**Submissão:** `supabase.from('trilhas_pendentes').insert({ ..., status: 'pendente', user_id })`.
 
 ---
 
 ### `/trilhas/[id]` — Detalhe da trilha
 
-Página completa da condição da trilha, espelhando o card do e-mail gerado pelo agente.
-
-**Steps de carregamento:**
-1. Verifica autenticação
-2. `supabase.from('trilhas').select('*, condicoes(*)')` por `id` — trilha oficial
-3. `supabase.from('favoritos')` — verifica favorito do usuário
-4. Se não encontrada: tenta `supabase.from('trilhas_pessoais')` — trilha Strava pessoal
-5. Se trilha Strava: `supabase.from('condicoes_strava')` — condição do segmento correspondente
+Página completa da condição da trilha, espelhando o card do e-mail do agente.
 
 **Seções exibidas:**
 
@@ -251,32 +250,30 @@ Página completa da condição da trilha, espelhando o card do e-mail gerado pel
 | Aderência + veredicto | ADERÊNCIA ATUAL · ADERÊNCIA FUTURA [label] · veredicto + texto_dinamico |
 | Mapa | iframe Google Maps satélite (ou StravaMap + ElevationProfile para Strava pessoal) |
 | Condição do Solo | frase de secagem + chuva 48h bruto/efetivo + solo descansado/úmido + última chuva + meia-vida |
-| Previsão 24h | 4 blocos de 6h com mm / % / m/s / °C; fallback 12h/24h |
+| Previsão 24h | 4 blocos de 6h com mm / % / m/s / °C |
 | Pico 3h | só quando ≥ 5mm |
 | Janela limpa | melhor janela calculada pelo agente |
 | Alertas | rajada futura · vento histórico |
 | Avaliações dos riders | timeline vertical com estrelas, texto 150 chars, edição em 24h |
 | Próximos 3 dias | 3 cards D+1/D+2/D+3 com emoji + veredicto + chuva/vento/temp |
-| Fontes | OpenWeather / ENSO / vento ERA5 |
+| Fontes | OpenWeather / ENSO (ONI NOAA) / vento ERA5 |
 
-**Botão WhatsApp:** abre `https://wa.me/?text=...` com link direto para `/t/[id]` e texto pré-formatado.
+**Botão WhatsApp:** abre `https://wa.me/?text=...` com link para `/t/[id]` e texto pré-formatado.
 **Botão Favoritar:** estrela que faz upsert/delete em `favoritos`.
-**Mobile:** layout otimizado com classes CSS responsivas via `globals.css`.
 
 ---
 
 ### `/t/[id]` — Preview público (sem login)
 
-Página acessível **sem autenticação** para compartilhamento via WhatsApp. Não exibe dados meteorológicos.
+Página acessível **sem autenticação** para compartilhamento via WhatsApp.
 
 **Layout:**
-- Navbar simplificada: logo MTB FORECASTER + botão "Criar conta grátis" (link `/cadastro?ref=whatsapp&trilha=[id]`)
+- Navbar simplificada: logo + botão "Criar conta grátis"
 - Header preto com nome, badges (tipo, região, bioma, Quadrilátero) e dados físicos
 - Google Maps embed
-- **Seção bloqueada:** ícone `ti-lock` + CTA "Criar conta grátis" → `/cadastro?ref=whatsapp&trilha=[id]` + link "Já tenho conta — Entrar" → `/login?redirect=/trilhas/[id]`
-- Rodapé: "MTB Forecaster · Condições de trilhas DH e Enduro em tempo real"
+- **Seção bloqueada:** ícone de cadeado + CTA "Criar conta grátis" → `/cadastro?ref=whatsapp&trilha=[id]`
 
-**Query:** `supabase.from('trilhas').select('*').eq('id', id)` — anon key, sem autenticação, sem condições meteorológicas.
+**Query:** `supabase.from('trilhas').select('*').eq('id', id)` — anon key, sem dados meteorológicos.
 
 ---
 
@@ -284,26 +281,19 @@ Página acessível **sem autenticação** para compartilhamento via WhatsApp. N�
 
 Formulário de edição de dados pessoais com 3 estados de salvamento (`idle` / `success` / `error`).
 
-**Campos editáveis:** nome, apelido, e-mail (read-only + 🔒), telefone (máscara), checkbox WhatsApp, Telegram (prefixo `@` automático), região (27 estados).
+**Campos editáveis:** nome, apelido, e-mail (read-only), telefone (máscara), checkbox WhatsApp, Telegram (prefixo `@` automático), região.
 
-**Steps de salvamento:**
-1. `supabase.from('profiles').upsert({ id, nome, apelido, telefone, telefone_whatsapp, telegram_username, regiao })`
-2. Botão exibe "Salvo ✓" por 2 segundos, depois retorna a "Salvar"
-
-**Seção "Trilhas que cadastrei":** busca `trilhas_pendentes` do usuário com badges de 3 estados:
-- `pendente` — aguardando aprovação
-- `aprovada` — aprovada pelo admin
-- `rejeitada` — exibe `motivo_rejeicao` inline
+**Seção "Trilhas que cadastrei":** busca `trilhas_pendentes` do usuário com badges de 3 estados: `pendente` / `aprovada` / `rejeitada` (com `motivo_rejeicao` inline).
 
 **Seção "Notificações por Email":** 3 toggles com auto-save:
 - **Receber emails** — ativa/desativa todos os emails (`receber_email`)
 - **Trilhas favoritas** — inclui condição das trilhas favoritadas (`email_trilhas_favoritas`)
-- **Trilhas do Strava** — inclui condição dos segmentos Strava do usuário (`email_trilhas_strava`)
+- **Trilhas do Strava** — inclui condição dos segmentos Strava (`email_trilhas_strava`)
 
-Cada toggle chama `supabase.from('profiles').update({ [field]: value })` e exibe "Preferências salvas" por 2 segundos.
+**Seção Telegram:** exibe status de conexão (`telegram_ativo`). Instruções para ativar notificações via bot.
 
-**Seção Strava:** 
-- Se `trilhasPessoais.length > 0`: link para `/perfil/strava` + botão "Desconectar Strava" que limpa `trilhas_pessoais`, `strava_segmentos_config` e chama `DELETE /api/strava/disconnect`
+**Seção Strava:**
+- Se `trilhasPessoais.length > 0`: link para `/perfil/strava` + botão "Desconectar Strava"
 - Caso contrário: botão "Conectar com Strava" → `/api/strava/auth`
 
 ---
@@ -312,17 +302,19 @@ Cada toggle chama `supabase.from('profiles').update({ [field]: value })` e exibe
 
 Gerenciamento de segmentos Strava pessoais com sugestões do agente.
 
-**Steps de carregamento:**
-1. `supabase.from('trilhas_pessoais').select('*')` — segmentos salvos pelo usuário
-2. `supabase.from('strava_segmentos_config').select('*')` — sugestões do agente
-
 **Interações:**
-- **Adicionar por URL:** extrai `segment_id` via regex → chama `/api/strava/segments?id=[segment_id]` → salva em `trilhas_pessoais`
+- **Adicionar por URL:** extrai `segment_id` → chama `/api/strava/segments?id=[segment_id]` → salva em `trilhas_pessoais`
 - **Remover:** `supabase.from('trilhas_pessoais').delete()`
 - **Aceitar sugestão do agente:** `supabase.from('trilhas_pessoais').insert()` com dados pré-preenchidos
 - **Rejeitar sugestão:** `supabase.from('strava_segmentos_config').delete()`
 
-**Badge:** fundo amarelo `#FFE000` com texto "Sugerido pela API"
+---
+
+### `/planos` — Planos de assinatura
+
+Página de planos com integração Stripe (em desenvolvimento).
+
+**Libs:** `lib/stripe.ts` (instância do SDK) + `lib/stripe-config.ts` (IDs de produtos e preços por plano).
 
 ---
 
@@ -331,29 +323,24 @@ Gerenciamento de segmentos Strava pessoais com sugestões do agente.
 Rota protegida: verifica `is_admin` no banco + redireciona para `/dashboard` se falso.
 
 **Cards de navegação:**
-- **Trilhas pendentes** — contador + link para `AdminPanel` inline
+- **Trilhas pendentes** — contador + `AdminPanel` inline
 - **Sugestões Strava** — contador de sugestões pendentes
-- **Tabelas Mestras** — card com badge vermelho de aprovações pendentes + link para `/admin/tabelas`
+- **Tabelas Mestras** — badge vermelho com aprovações pendentes + link para `/admin/tabelas`
 
-**Seções:**
-
-**1. Trilhas pendentes (AdminPanel):**
+**1. Trilhas pendentes (`AdminPanel`):**
 - Busca `trilhas_pendentes` onde `status = 'pendente'`
-- Exibe 9 campos + Google Maps link + link_referencia + observacoes
-- **Aprovar:** insert em `trilhas` + update `status = 'aprovada'`
+- **Aprovar:** geocodifica lat/lon via Nominatim → salva `localidade_id` → insert em `trilhas` + update `status = 'aprovada'`
 - **Rejeitar:** modal com textarea de motivo → update `status = 'rejeitada', motivo_rejeicao`
 
 **2. Sugestões Strava:**
 - Cards comparativos: config atual vs. sugestão do agente
 - Campos: solo_type · exposicao · trail_type · bioma
-- **Aprovar:** update em `strava_segmentos_config` + marca como aprovada
-- **Rejeitar:** marca como rejeitada
 
 ---
 
 ### `/admin/tabelas` — Tabelas Mestras
 
-Painel de edição das três tabelas mestras do modelo. **Todas as alterações requerem aprovação do outro admin antes de serem aplicadas** (fluxo dual-admin via `admin_aprovacoes`).
+Painel de edição das tabelas mestras do modelo. **Todas as alterações requerem aprovação do outro admin** (fluxo dual-admin via `admin_aprovacoes`).
 
 **3 tabs:**
 
@@ -363,108 +350,62 @@ Painel de edição das três tabelas mestras do modelo. **Todas as alterações 
 | Thresholds Sazonais | `threshold_sazonal` | threshold_descansado, threshold_saturado |
 | Meia-vida de Secagem | `meia_vida_secagem` | meia_vida_h |
 
-**Legenda em cada tab:** card explicativo com descrição de todos os campos, notas de uso (TODOS/DEFAULT, prioridade de lookup, fatores ENSO, escala de referência de meia-vida).
-
 **Fluxo de edição:**
-1. Rider admin clica "Editar" em uma linha
-2. Altera o valor inline (input numérico ou select)
-3. Clica "Salvar" → abre modal de confirmação com diff antes/depois, linha de impacto estimado e campo de motivo (mín. 20 caracteres)
-4. Clica "Enviar para aprovação" → insere em `admin_aprovacoes` com `solicitante_id` e `aprovador_id` (outro admin)
-5. Linha fica marcada com badge "⏳ Pendente" — não editável até resolução
+1. Admin edita o valor inline → modal de confirmação com diff antes/depois + motivo (mín. 20 chars)
+2. "Enviar para aprovação" → insert em `admin_aprovacoes` com `solicitante_id` e `aprovador_id`
+3. Linha marcada com badge "⏳ Pendente"
+4. Outro admin aprova/rejeita na fila do topo da página
 
-**Fila de aprovações (topo da página):** exibe registros onde `aprovador_id = user.id AND status = 'pendente'`. Cada item mostra quem solicitou, tabela, diff de campos, timestamp. Botões "Aprovar" (executa update/insert + marca 'aprovada') e "Rejeitar" (input de motivo + marca 'rejeitada').
-
-**Badge na Navbar:** link Admin mostra badge vermelho com contagem de aprovações pendentes onde o usuário é `aprovador_id`.
+**Badge na Navbar:** link Admin mostra badge vermelho com contagem de aprovações pendentes.
 
 ---
 
 ## Web App — API Routes
 
 ### `GET /api/strava/auth`
-
-Inicia o fluxo OAuth do Strava. Redireciona para:
-```
-https://www.strava.com/oauth/authorize?client_id=...&redirect_uri=...&response_type=code&scope=read,activity:read
-```
-
-**Env vars:** `NEXT_PUBLIC_STRAVA_CLIENT_ID`, `NEXT_PUBLIC_STRAVA_REDIRECT_URI`
-
----
+Inicia o fluxo OAuth do Strava. Redireciona para `strava.com/oauth/authorize`.
 
 ### `GET /api/strava/callback`
-
-Callback OAuth do Strava após autorização.
-
-**Steps:**
-1. Lê `code` da query string
-2. POST para `https://www.strava.com/oauth/token` com `client_id`, `client_secret`, `code`, `grant_type: authorization_code`
-3. Usa o `access_token` para buscar segmentos favoritos: `GET https://www.strava.com/api/v3/segments/starred?per_page=50`
-4. Filtra: `kom_rank != null` OU `distance > 500m`; limita a 15 segmentos
-5. Extrai por segmento: `id, name, distance, total_elevation_gain, elevation_high, start_latlng, end_latlng, city, state, country, polyline (map.summary_polyline)`
-6. Serializa em JSON → passa como query param `?segments=...` para `/perfil/strava`
-7. Seta cookie `strava_token` (httpOnly, maxAge 3600s)
-
-**Env vars:** `NEXT_PUBLIC_STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`
-
----
+Callback OAuth do Strava.
+1. Troca `code` por `access_token`
+2. Busca segmentos favoritos starred (`/api/v3/segments/starred?per_page=50`)
+3. Filtra (kom_rank != null OU distance > 500m), limita a 15
+4. Seta cookie `strava_token` (httpOnly, 1h) e redireciona para `/perfil/strava?segments=[JSON]`
 
 ### `GET /api/strava/segments`
-
-Busca metadados de um segmento Strava individual por ID.
-
-**Query param:** `?id=[segment_id]`
-
-**Env vars:** `STRAVA_CLIENT_SECRET` (usa cookie `strava_token`)
-
----
+Busca metadados de um segmento Strava individual por `?id=[segment_id]`.
 
 ### `POST /api/strava/disconnect`
-
-Desconecta o Strava do usuário. Remove cookies `strava_access_token` e `strava_refresh_token`.
-
-```typescript
-// Chamado pelo botão "Desconectar Strava" no /perfil
-// Antes da chamada: apaga trilhas_pessoais + strava_segmentos_config do usuário
-cookieStore.delete('strava_access_token')
-cookieStore.delete('strava_refresh_token')
-```
-
----
+Remove cookies `strava_access_token` e `strava_refresh_token`.
 
 ### `GET /auth/callback`
-
-Callback de autenticação Google OAuth. Troca o `code` por sessão Supabase.
-
+Callback Google OAuth. Troca `code` por sessão Supabase e redireciona para `/dashboard`.
 ```typescript
 await supabase.auth.exchangeCodeForSession(code)
-// redireciona para https://www.mtbforecaster.com.br/dashboard
 ```
 
-Usa `createRouteHandlerClient` do `@supabase/auth-helpers-nextjs`.
+### `POST /api/openlandmap`
+Proxy interno para consultas de composição de solo (uso interno — sem chamadas externas reais; rota mantida por compatibilidade com versões anteriores).
 
 ---
 
 ## Web App — Componentes
 
 ### `TrilhaCard`
+Card de trilha usado em `/trilhas` e `/dashboard`.
 
-Card de trilha usado em `/trilhas`, `/dashboard` e buscas.
-
-**Exibe:** nome, região, bioma, trail_type, veredicto (borda colorida à esquerda via `VEREDICTO_CONFIG`), aderência, chuva 48h, pico 3h, vento, frase de secagem, janela limpa, botão estrela de favorito.
+**Exibe:** nome, região, bioma, trail_type, veredicto (borda colorida esquerda), aderência, chuva 48h, pico 3h, vento, frase de secagem, janela limpa, botão estrela de favorito.
 
 **Cor da borda:** derivada do veredicto 12h (prioridade) ou 48h. Sem condição → borda cinza `#e5e5e5`.
 
 ---
 
 ### `TrailObservations`
-
 Timeline vertical de avaliações de riders.
 
-**Gate:** usuário precisa ter favoritado a trilha para publicar. Se não favoritou, exibe botão "Favoritar trilha" que faz insert em `favoritos` sem sair da página.
+**Gate:** usuário precisa ter favoritado a trilha para publicar.
 
-**StarSelector:** estado `hovered` local — estrela preenchida se `i < (hovered || value)`. Mobile: `font-size: 20px` via classe `.star-selector-star`.
-
-**Publicar:** `supabase.from('observacoes_trilha').insert({ trilha_id, user_id, estrelas, texto, veredicto_sistema })` — registra o veredicto atual do sistema no momento da avaliação.
+**Publicar:** `supabase.from('observacoes_trilha').insert({ trilha_id, user_id, estrelas, texto, veredicto_sistema })` — registra o veredicto do sistema no momento da avaliação.
 
 **Edição (24h):** textarea pré-preenchida + `supabase.from('observacoes_trilha').update()`.
 
@@ -473,55 +414,34 @@ Timeline vertical de avaliações de riders.
 ---
 
 ### `Navbar`
+Barra sticky. Oculta em `/`, `/login`, `/cadastro` e `/t/*`.
 
-Barra sticky (`position: sticky; top: 0; z-index: 100`). Oculta em `/`, `/login`, `/cadastro` e `/t/*`.
-
-**Perfil assíncrono:**
-```typescript
-const [profile, setProfile] = useState<Profile | null>(null)
-const [loadingProfile, setLoadingProfile] = useState(true)
-const [pendingApprovals, setPendingApprovals] = useState(0)
-```
-Usa `supabase.auth.getUser()` + busca `is_admin, nome, apelido`. Se admin, consulta `admin_aprovacoes` onde `aprovador_id = user.id AND status = 'pendente'` para o badge.
-
-O link Admin só aparece quando `!loadingProfile && profile?.is_admin` — sem flicker durante carregamento. Badge vermelho exibido se `pendingApprovals > 0`, em desktop e mobile.
-
-**`onAuthStateChange`:** re-executa `fetchProfile()` completo ao mudar estado de autenticação.
+**Perfil assíncrono:** busca `is_admin`, `nome`, `apelido` e aprovações pendentes. Link Admin visível apenas quando `!loadingProfile && profile?.is_admin` — sem flicker. Badge vermelho se `pendingApprovals > 0`.
 
 ---
 
 ### `AdminPanel`
-
-Lista trilhas em `trilhas_pendentes` com `status = 'pendente'`.
-
-**Props:**
-```typescript
-onAprovar: (p: TrilhaPendente) => Promise<void>
-onRejeitar: (id: string, motivo: string) => Promise<void>
-```
-
-Exibe grid de 9 campos + Google Maps link + link_referencia + observacoes + modal de rejeição com textarea obrigatória.
+Lista `trilhas_pendentes` com `status = 'pendente'`. Grid de 9 campos + Maps link + modal de rejeição.
 
 ---
 
 ### `StravaMap` + `ElevationProfile`
-
-Renderizados apenas para trilhas pessoais com polyline.
-
-- `StravaMap`: mapa Leaflet (`dynamic import, ssr: false`) com polyline decodificado
-- `ElevationProfile`: imagem estática da URL `strava_elevation_profile`; fallback com desnível e extensão em texto
+- `StravaMap`: mapa Leaflet (`dynamic import, ssr: false`) com polyline decodificado para trilhas pessoais
+- `ElevationProfile`: imagem estática da URL `strava_elevation_profile`; fallback em texto
 
 ---
 
 ### `PWAInstallPrompt`
+Gerencia o prompt de instalação do PWA.
+- **Android/Chrome:** captura `beforeinstallprompt` → botão "Instalar"
+- **iOS/Safari:** detecta `userAgent` → instrução "Safari → Compartilhar → Adicionar à Tela de Início"
 
-Componente client-side que gerencia o prompt de instalação do PWA.
+---
 
-**Lógica:**
-1. Verifica `localStorage.getItem('pwa-dismissed')` — skip se dispensado
-2. Verifica `localStorage.getItem('show-pwa-prompt')` — exibe logo após cadastro
-3. **Android/Chrome:** captura evento `beforeinstallprompt` → botão "Instalar" chama `deferredPrompt.prompt()`
-4. **iOS (Safari):** detecta via `/iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase())` → exibe instrução "Safari → Compartilhar → Adicionar à Tela de Início"
+### `CondicaoCard`
+Card detalhado de condição de uma trilha. Usado na página `/trilhas/[id]`.
+
+Exibe previsão 24h em 4 blocos, aderência futura, alertas de vento, janela de pedal e dados de solo.
 
 ---
 
@@ -529,9 +449,7 @@ Componente client-side que gerencia o prompt de instalação do PWA.
 
 O app é instalável como PWA em Android e iOS.
 
-### Arquivos
-
-**`public/manifest.json`**
+**`public/manifest.json`:**
 ```json
 {
   "name": "MTB Forecaster",
@@ -543,15 +461,9 @@ O app é instalável como PWA em Android e iOS.
 }
 ```
 
-**`public/icons/icon.svg`** — 512×512px, fundo preto com bordas arredondadas, "MTB" amarelo + "FORECASTER" cinza.
+**`public/sw.js`:** Service Worker com cache-first strategy para `/`, `/dashboard`, `/trilhas`, `/manifest.json`, `/icons/icon.svg`. Cache name: `mtb-forecaster-v1`.
 
-**`public/sw.js`** — Service Worker com cache-first strategy para:
-```
-/ · /dashboard · /trilhas · /manifest.json · /icons/icon.svg
-```
-Cache name: `mtb-forecaster-v1`
-
-**`app/layout.tsx`** — registra o SW e inclui meta tags Apple Web App.
+**`app/layout.tsx`:** registra o SW e inclui meta tags Apple Web App.
 
 ---
 
@@ -578,9 +490,8 @@ GET /api/strava/callback?code=...
   5. Redirect /perfil/strava?segments=[JSON]
         │
         ▼
-/perfil/strava
-  Rider configura cada segmento (solo, exposição, tipo, bioma)
-  Salva em trilhas_pessoais
+/perfil/strava — rider configura solo, exposição, tipo, bioma
+  └─ salva em trilhas_pessoais
 ```
 
 ### Dados salvos por segmento (`trilhas_pessoais`)
@@ -594,153 +505,126 @@ GET /api/strava/callback?code=...
 | `desnivel_m` | `s.total_elevation_gain` |
 | `altitude_m` | `s.elevation_high` |
 | `polyline` | `s.map.summary_polyline` |
-| `strava_url` | construído: `https://www.strava.com/segments/{id}` |
 | `solo_type`, `exposicao`, `trail_type`, `bioma` | configurado pelo rider na UI |
 | `regiao` | derivado de `s.state` |
 
-### Env vars necessárias
+---
+
+## Integração Telegram
+
+O agente Python envia notificações personalizadas por Telegram após cada processamento.
+
+### Fluxo de ativação
+
+1. Rider acessa o bot pelo link fornecido no `/perfil` e envia `/start`
+2. Bot salva `telegram_chat_id` em `profiles` e ativa `telegram_ativo = true`
+3. A cada execução do agente, notificações são enviadas via `Bot API → sendMessage`
+
+### Endpoint `/start` no agente
+
+O webhook `POST /telegram/webhook` captura a mensagem `/start`, lê o `chat_id` do payload e faz:
+```python
+supabase.from('profiles').update({ 'telegram_chat_id': chat_id, 'telegram_ativo': True })
+```
+
+### Conteúdo das notificações
+
+Para cada usuário com `telegram_ativo = true`:
+- Trilhas favoritadas com veredicto atual
+- Condições críticas destacadas (MELHOR ESPERAR)
+- Texto em Markdown com `parse_mode: "Markdown"`
+
+### Variável de ambiente necessária
 
 ```env
-NEXT_PUBLIC_STRAVA_CLIENT_ID=...
-NEXT_PUBLIC_STRAVA_REDIRECT_URI=https://www.mtbforecaster.com.br/api/strava/callback
-STRAVA_CLIENT_SECRET=...
+TELEGRAM_BOT_TOKEN=seu_token_aqui
 ```
 
 ---
 
 ## Banco de dados — Supabase
 
-### Tabelas principais
+O banco tem **25 tabelas** organizadas em 5 grupos.
+
+### Grupo 1 — Configuração do modelo (13 tabelas)
+
+Todas com RLS habilitado, coluna `ativo`, carregadas em cache global na inicialização do agente.
 
 | Tabela | Descrição |
 |---|---|
-| `trilhas` | Trilhas oficiais aprovadas pelo admin |
-| `condicoes` | Condição atual por trilha — DELETE+INSERT por `trilha_id` |
-| `condicoes_strava` | Condição de segmentos Strava — DELETE+INSERT por `strava_segment_id` |
-| `favoritos` | Trilhas favoritas (`user_id` + `trilha_id`) |
-| `profiles` | Perfil público: apelido, telefone, região, `is_admin`, preferências de email |
-| `trilhas_pessoais` | Segmentos Strava vinculados pelo rider |
-| `observacoes_trilha` | Avaliações de riders com estrelas, texto e veredicto do sistema |
-| `strava_segmentos_config` | Sugestões automáticas de configuração geradas pelo agente |
-| `trilhas_pendentes` | Trilhas submetidas por riders aguardando aprovação |
-| `tabela_solo` | Composição do solo por solo_type + bioma + regiao (tabela mestra) |
-| `threshold_sazonal` | Thresholds de chuva por regiao + mes (tabela mestra) |
-| `meia_vida_secagem` | Taxa de secagem por solo_type + exposicao (tabela mestra) |
-| `configuracoes_sistema` | Configurações chave-valor: credenciais de email, parâmetros do agente |
-| `admin_aprovacoes` | Fila de aprovação dual entre admins para edição de tabelas mestras |
+| `enso_config` | Fases ENSO, intervalos ONI e multiplicadores sobre threshold sazonal |
+| `aderencia_thresholds` | Limites de ef_combinado para SECO / GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA |
+| `veredicto_risco_pesos` | Pesos de risco e limiares de decisão para DROP LIBERADO / MELHOR ESPERAR |
+| `meia_vida_clima_mult` | Multiplicadores de secagem por temperatura, vento, nebulosidade, umidade e bikepark |
+| `microclima_config` | Fatores de retenção de umidade por bioma, altitude e exposição |
+| `configuracoes_sistema` | Chave-valor: email, parâmetros do modelo (meia_vida_min/max, aderencia_recovery_mult) |
+| `solo_type_config` | `fator_absorcao_base` e `score_mult` por tipo de solo; altitude bonus |
+| `inclinacao_config` | Penalizadores de absorção por inclinação calculada (graus) ou desnível bruto (metros) |
+| `score_config` | Coeficientes do cálculo de score: coef_rain, coef_pico, coef_acumulo, coef_base, bikepark thresholds |
+| `aderencia_descricoes` | 25 textos descritivos por (status × solo_type) exibidos no card da trilha |
+| `threshold_sazonal` | Thresholds mensais de acúmulo efetivo por região (solo descansado e bikepark saturado) |
+| `meia_vida_secagem` | Taxa base de secagem por (solo_type, exposicao) em horas |
+| `tabela_solo` | Composição do solo: clay_pct, sand_pct, texture_class por (solo_type, bioma, regiao) |
 
 ---
 
-### Tabela `trilhas_pendentes`
+### Grupo 2 — Dados operacionais principais (4 tabelas)
+
+**`trilhas`** — trilhas oficiais aprovadas pelo admin.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | uuid | PK |
-| `user_id` | uuid | FK para `auth.users` |
 | `name` | text | Nome da trilha |
-| `regiao` | text | Sigla do estado (UF) |
 | `lat` / `lon` | numeric | Coordenadas decimais |
-| `altitude_m` | numeric | Altitude em metros |
-| `solo_type` | text | Tipo de solo |
-| `exposicao` | text | `aberta` ou `fechada` |
-| `trail_type` | text | `natural` ou `bikepark` |
-| `bioma` | text | Ex: `Mata Atlântica` |
+| `altitude_m` | numeric | Altitude média (m) |
+| `solo_type` | text | terra · misto · misto_mg · preto · pedra · ferro |
+| `exposicao` | text | aberta · fechada |
+| `trail_type` | text | natural · bikepark |
+| `regiao` | text | Sigla UF (SP, MG, ...) |
+| `bioma` | text | Ex: Mata Atlântica |
 | `desnivel_m` | numeric | Desnível total (m) |
 | `extensao_km` | numeric | Extensão total (km) |
-| `link_referencia` | text | URL Trailforks / Wikiloc etc. |
-| `observacoes` | text | Informações adicionais do rider |
-| `status` | text | `pendente` · `aprovada` · `rejeitada` |
-| `motivo_rejeicao` | text | Preenchido pelo admin ao rejeitar |
-| `created_at` | timestamptz | Automático |
+| `aprovada` | boolean | `true` para entrar no processamento do agente |
+| `localidade_id` | uuid | FK para `localidades` (geocodificado na aprovação) |
 
----
+**`trilhas_pendentes`** — trilhas submetidas por riders aguardando aprovação.
 
-### Tabela `profiles` — campos de email
+Mesmos campos de `trilhas` + `status` (pendente/aprovada/rejeitada) + `motivo_rejeicao` + `user_id`.
 
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `receber_email` | boolean | Ativa/desativa envio de email personalizado |
-| `email_trilhas_favoritas` | boolean | Inclui condição das trilhas favoritadas |
-| `email_trilhas_strava` | boolean | Inclui condição dos segmentos Strava pessoais |
-
----
-
-### Tabelas mestras do modelo
-
-**`tabela_solo`** — composição do solo com prioridade de lookup:
-1. Match exato: `solo_type + bioma + regiao`
-2. Match por bioma: `solo_type + bioma + TODOS`
-3. Match global: `solo_type + TODOS + TODOS`
+**`localidades`** — cache de geocodificação reversa (Nominatim / OpenStreetMap).
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `solo_type` | text | terra, misto, misto_mg, preto, pedra, ferro |
-| `bioma` | text | Mata Atlântica, Cerrado, TODOS... |
-| `regiao` | text | SP, MG, TODOS... |
-| `clay_pct` | numeric | % de argila (0–100) |
-| `sand_pct` | numeric | % de areia (0–100) |
-| `texture_class` | text | Argiloso, Franco, Arenoso... |
+| `id` | uuid | PK |
+| `lat` / `lon` | numeric | Coordenadas (chave de lookup) |
+| `pais` | text | País |
+| `estado` | text | Sigla UF (ISO 3166-2) |
+| `cidade` | text | Cidade/município |
+| `localidade` | text | Bairro, vila, subdistrito |
 
-**`threshold_sazonal`** — thresholds mensais por região:
+**`condicoes`** — condição atual por trilha, gravada a cada execução do agente.
 
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `regiao` | text | UF ou DEFAULT (fallback) |
-| `mes` | int | 1–12 |
-| `threshold_descansado` | numeric | mm abaixo do qual o solo é descansado |
-| `threshold_saturado` | numeric | mm acima do qual o bike park é saturado |
-
-**`meia_vida_secagem`** — taxa de secagem:
+Estratégia de escrita: DELETE + INSERT por `trilha_id` (evita conflito sem UNIQUE constraint).
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `solo_type` | text | Tipo de solo |
-| `exposicao` | text | aberta / semi-aberta / fechada |
-| `meia_vida_h` | numeric | Horas para perder metade da umidade (6–36h) |
-
-**`configuracoes_sistema`** — chave-valor para o agente:
-
-| Chave | Descrição |
-|---|---|
-| `email_from` | Endereço remetente do email |
-| `email_password` | Senha do email (Gmail App Password) |
-| `email_smtp_host` | Host SMTP (padrão: smtp.gmail.com) |
-| `email_smtp_port` | Porta SMTP (padrão: 587) |
-
-**`admin_aprovacoes`** — fila de aprovação dual:
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `solicitante_id` | uuid | Admin que fez a alteração |
-| `aprovador_id` | uuid | Admin que precisa aprovar |
-| `tabela` | text | tabela_solo / threshold_sazonal / meia_vida_secagem |
-| `operacao` | text | update / insert |
-| `dados_anteriores` | jsonb | Estado anterior da linha |
-| `dados_novos` | jsonb | Valores propostos |
-| `status` | text | pendente / aprovada / rejeitada |
-| `motivo_rejeicao` | text | Preenchido ao rejeitar |
-
----
-
-### Colunas da tabela `condicoes`
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `trilha_id` | uuid | FK para `trilhas` — chave de DELETE+INSERT |
-| `gerado_em` | timestamptz | Momento da geração |
+| `trilha_id` | uuid | FK para `trilhas` |
+| `gerado_em` | timestamptz | Momento da geração (BRT) |
 | `aderencia_status` | text | SECO / GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA |
 | `aderencia_score` | numeric | Score 0–100 do modelo |
-| `aderencia_futura_status` | text | Status futuro previsto |
-| `aderencia_futura_label` | text | Label do bloco futuro (ex: `06h→12h`) |
+| `aderencia_desc` | text | Texto descritivo do status do solo |
+| `aderencia_futura_status` | text | Status do pior bloco futuro de 6h |
+| `aderencia_futura_label` | text | Rótulo do bloco (ex: `12h→18h`) |
 | `aderencia_futura_rain` | numeric | Chuva prevista no bloco futuro (mm) |
 | `veredicto` | text | DROP LIBERADO / DROP LIBERADO - Veja os alertas / MELHOR ESPERAR |
 | `veredicto_12h` | text | Veredicto para as próximas 12h |
 | `texto_dinamico` | text | Frase contextual do veredicto |
 | `previsao_24h` | jsonb | Array de 4 blocos de 6h: `{label, rain_mm, pop_max, wind_max, temp_med}` |
-| `rain_mm` | numeric | Chuva acumulada 24h (mm) |
+| `rain_mm` | numeric | Chuva acumulada 24h (mm) — fusão OWM 70% + OM 30% |
 | `rain_12h` | numeric | Chuva acumulada 12h (mm) |
 | `pico_3h` | numeric | Maior acumulado em janela deslizante de 3h (mm) |
-| `acumulo_48h` | numeric | Acúmulo bruto últimas 48h (mm) |
+| `acumulo_48h` | numeric | Acúmulo bruto últimas 48h (mm) — Open-Meteo Archive |
 | `acumulo_ef` | numeric | Acúmulo efetivo com decaimento exponencial (mm) |
 | `wind_ms` | numeric | Velocidade máxima de vento 24h (m/s) |
 | `wind_12h` | numeric | Velocidade máxima de vento 12h (m/s) |
@@ -748,125 +632,389 @@ STRAVA_CLIENT_SECRET=...
 | `temp_max` | numeric | Temperatura máxima prevista (°C) |
 | `pop_48h` | numeric | Probabilidade de chuva 48h (%) |
 | `pop_12h` | numeric | Probabilidade de chuva 12h (%) |
-| `janela` | text | Melhor janela para pedal |
-| `horarios_chuva` | text | Horários com chuva prevista (JSON) |
-| `frase_secagem` | text | Frase descritiva do estado do solo (GPT-3.5) |
+| `janela` | text | Melhor janela para pedal calculada pelo agente |
+| `horarios_chuva` | text | Blocos com chuva prevista (JSON) |
+| `frase_secagem` | text | Frase descritiva do estado do solo (Claude AI) |
 | `solo_descansado` | boolean | `true` se `acumulo_ef < threshold` |
-| `thresh_desc` | numeric | Threshold de solo descansado calculado |
+| `thresh_desc` | numeric | Threshold de solo descansado calculado (mm) |
 | `meia_vida_h` | numeric | Meia-vida de secagem ajustada (horas) |
 | `clay_pct` | numeric | Teor de argila via tabela_solo (%) |
 | `sand_pct` | numeric | Teor de areia (%) |
-| `texture_class` | text | Classificação textural USDA (ex: Argiloso, Franco) |
-| `inclinacao` | numeric | Inclinação média calculada (%) |
-| `ultima_chuva_h` | numeric | Horas desde a última chuva significativa |
-| `enso_fase` | text | Fase ENSO atual (El Niño / Neutro / La Niña) |
-| `enso_oni` | numeric | Índice ONI da NOAA |
-| `fonte` | text | Fonte meteorológica principal |
-| `alerta_vento_nivel` | numeric | Nível de alerta de vento histórico (1–3) |
-| `alerta_vento_kmh` | numeric | Vento sustentado máximo histórico (km/h) |
-| `alerta_rajada_kmh` | numeric | Rajada máxima futura (km/h) |
-| `fds_d1_veredicto` | text | Veredicto D+1 |
-| `fds_d1_rain` | numeric | Chuva prevista D+1 (mm) |
-| `fds_d1_wind` | numeric | Vento máximo D+1 (m/s) |
-| `fds_d1_temp` | numeric | Temperatura máxima D+1 (°C) |
-| `fds_d2_veredicto` | text | Veredicto D+2 |
-| `fds_d2_rain` | numeric | Chuva prevista D+2 (mm) |
-| `fds_d2_wind` | numeric | Vento máximo D+2 (m/s) |
-| `fds_d2_temp` | numeric | Temperatura máxima D+2 (°C) |
-| `fds_d3_veredicto` | text | Veredicto D+3 |
-| `fds_d3_rain` | numeric | Chuva prevista D+3 (mm) |
-| `fds_d3_wind` | numeric | Vento máximo D+3 (m/s) |
-| `fds_d3_temp` | numeric | Temperatura máxima D+3 (°C) |
+| `texture_class` | text | Classificação textural USDA (ex: Argiloso) |
+| `inclinacao` | numeric | Inclinação média calculada: `desnivel / (extensao × 1000) × 100` (%) |
+| `ultima_chuva_h` | numeric | Horas desde a última chuva significativa (≥ 0.5mm) |
+| `enso_fase` | text | Fase ENSO atual (El Niño Forte / El Niño / ENSO Neutro / La Niña / La Niña Forte) |
+| `enso_oni` | numeric | Anomalia ONI da NOAA (col ANOM do arquivo oni.ascii.txt) |
+| `fonte` | text | Fonte meteorológica: OpenWeather + Open-Meteo |
+| `alerta_vento_nivel` | integer | Nível histórico de vento 1 (55–65) / 2 (65–90) / 3 (> 90 km/h) |
+| `alerta_vento_kmh` | numeric | Vento sustentado máximo histórico ERA5 (km/h) |
+| `alerta_rajada_kmh` | numeric | Rajada máxima futura prevista (km/h) |
+| `fds_d1_veredicto` / `fds_d1_rain` / `fds_d1_wind` / `fds_d1_temp` | text/numeric | Previsão D+1 |
+| `fds_d2_*` | text/numeric | Previsão D+2 |
+| `fds_d3_*` | text/numeric | Previsão D+3 |
 
-> A tabela `condicoes_strava` tem a mesma estrutura, com `strava_segment_id` como chave de DELETE+INSERT em vez de `trilha_id`.
+> A tabela `condicoes_strava` tem a mesma estrutura, com `strava_segment_id` como chave de DELETE+INSERT.
+
+---
+
+### Grupo 3 — Strava (3 tabelas)
+
+**`strava_segmentos_config`** — sugestões automáticas de configuração geradas pelo agente, exibidas no painel admin para aprovação.
+
+**`trilhas_pessoais`** — segmentos Strava vinculados por cada rider no `/perfil/strava`.
+
+**`strava_config_sugestoes`** — log de sugestões de configuração processadas.
+
+---
+
+### Grupo 4 — Usuários (2 tabelas)
+
+**`profiles`** — perfil público com 16+ colunas:
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | uuid | FK para `auth.users` |
+| `nome` / `apelido` | text | Dados do rider |
+| `email` | text | E-mail |
+| `telefone` / `telefone_whatsapp` | text | Contato |
+| `regiao` | text | Sigla UF |
+| `telegram_username` | text | Handle do Telegram (ex: `@rider`) |
+| `telegram_chat_id` | bigint | ID interno do Telegram (preenchido pelo bot) |
+| `telegram_ativo` | boolean | Notificações Telegram habilitadas |
+| `is_admin` | boolean | Acesso ao painel admin |
+| `receber_email` | boolean | Ativa/desativa emails |
+| `email_trilhas_favoritas` | boolean | Inclui favoritas no email |
+| `email_trilhas_strava` | boolean | Inclui Strava no email |
+
+**`favoritos`** — relação rider ↔ trilha com `user_id` + `trilha_id`.
+
+---
+
+### Grupo 5 — Conteúdo e moderação (2 tabelas)
+
+**`observacoes_trilha`** — avaliações de riders com `strava_segment_id` (sem FK rígida), `estrelas`, `texto` (150 chars), `veredicto_sistema` (captura do veredicto no momento da avaliação), `created_at`. Editável pelo autor em 24h.
+
+**`admin_aprovacoes`** — fila de aprovação dual para edição das tabelas mestras.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `solicitante_id` | uuid | Admin que fez a alteração |
+| `aprovador_id` | uuid | Admin que precisa aprovar |
+| `tabela` | text | tabela_solo / threshold_sazonal / meia_vida_secagem |
+| `operacao` | text | update / insert |
+| `dados_anteriores` | jsonb | Estado anterior |
+| `dados_novos` | jsonb | Valores propostos |
+| `status` | text | pendente / aprovada / rejeitada |
+| `motivo_rejeicao` | text | Preenchido ao rejeitar |
 
 ---
 
 ## Agente Python — Pipeline completo
 
-O agente `mtb-forecast.py` (V8.0) é executado diariamente pelo GitHub Actions e grava resultados no Supabase.
+O agente `mtb-forecast.py` executa a cada 6 horas via GitHub Actions.
 
 ```
-GitHub Actions (cron 05:00 BRT ou sexta 21:00 BRT)
+GitHub Actions (cron a cada 6h + workflow_dispatch manual)
         │
         ▼
-Step 1 — _carregar_trilhas_supabase()
-  Carrega trilhas aprovadas do Supabase (aprovada=true)
-  Fallback: lê trilhas.csv se Supabase falhar
+1. _validar_env()
+   Verifica OPENWEATHER_API_KEY + SUPABASE_SERVICE_KEY
+   Lança EnvironmentError se ausentes
         │
         ▼
-Step 2 — _validar_env()
-  Verifica variáveis obrigatórias: OPENWEATHER_API_KEY + SUPABASE_SERVICE_KEY
-  Lança EnvironmentError se ausentes
+2. Carregamento de tabelas de config (uma vez por execução)
+   13 caches globais: enso_config, aderencia_thresholds, veredicto_risco_pesos,
+   meia_vida_clima_mult, microclima_config, configuracoes_sistema, solo_type_config,
+   inclinacao_config, score_config, aderencia_descricoes, threshold_sazonal,
+   meia_vida_secagem, tabela_solo
+   Cada cache: if cache: return cache → fetch Supabase → fallback hardcoded
         │
         ▼
-Step 3 — Carrega tabelas mestras do Supabase (uma vez por execução)
-  _carregar_configuracoes() → _CACHE_CONFIG {chave: valor}
-  _carregar_tabela_solo()   → _CACHE_TABELA_SOLO + fallback hardcoded
-  _carregar_threshold_sazonal() → _CACHE_THRESHOLD {regiao: {mes: (desc, sat)}}
-  _carregar_meia_vida()     → _CACHE_MEIA_VIDA {(solo_type, exposicao): h}
+3. fetch_oni_atual() → NOAA oni.ascii.txt
+   Lê coluna ANOM (partes[3]) do arquivo de 4 colunas (SEAS YR TOTAL ANOM)
+   Validação de formato em 3 camadas:
+     Camada 1: header != 4 colunas → aviso
+     Camada 2: partes[2] (SST) fora de 20–32°C → aviso + fallback
+     Camada 3: partes[3] (ANOM) fora de -4..+4 → aviso + fallback
+   Fallback: oni = 0.0 (ENSO Neutro, mult = 1.00)
         │
         ▼
-Step 4 — proximos_dias()
-  Calcula datas D+1, D+2, D+3 em BRT
+4. _carregar_trilhas_supabase()
+   Carrega trilhas com aprovada = true
+   Fallback: lê trilhas.csv
         │
         ▼
-Step 5 — Lookup de solo via tabela mestra — por trilha
-  buscar_solo_openlandmap() chama _lookup_solo(solo_type, bioma, regiao)
-  Prioridade: exact match → solo+bioma+TODOS → solo+TODOS+TODOS → fallback hardcoded
-  Retorna: {clay_pct, sand_pct, texture_class}
-  Sem chamadas HTTP externas — dados 100% do Supabase
+5. proximos_dias() → D+1, D+2, D+3 em BRT
         │
         ▼
-Step 6 — fetch_oni_noaa()
-  Fonte: NOAA CPC / oni.ascii.txt
-  Multiplicadores ENSO sobre threshold de solo descansado:
-    El Niño Forte (≥1.5) → ×0.75
-    El Niño (≥0.5)       → ×0.85
-    Neutro               → ×1.00
-    La Niña (≤−0.5)      → ×1.15
-    La Niña Forte (≤−1.5)→ ×1.25
+6. Para cada trilha — processar_trilha():
+   ├── buscar_solo_openlandmap() → _lookup_solo(solo_type, bioma, regiao)
+   │     Prioridade: exact match → solo+bioma+TODOS → solo+TODOS+TODOS → fallback
+   │     Retorna: {clay_pct, sand_pct, texture_class}
+   │
+   ├── fetch_onecall() — previsão horária 48h (OWM, fonte primária, 70%)
+   │
+   ├── fetch_onecall_historico() — timemachine OWM: últimas 48h hora a hora
+   │     Retorna: {meia_vida_h} (base × microclima × ajuste climático)
+   │
+   ├── fetch_historico_chuva_om() — Open-Meteo Archive ERA5 (última 48h)
+   │     Calcula acumulo_ef via decaimento exponencial: Σ p × 0.5^(t/τ)
+   │
+   ├── fetch_openmeteo() — previsão horária 48h (OM, 30%)
+   │
+   ├── Fusão 70/30: rain = OWM×0.7 + OM×0.3 (rain, wind, pop, pico_3h)
+   │
+   ├── fetch_vento_historico() — ERA5 rajadas 48h → nível alerta 1/2/3
+   │
+   ├── calcular_aderencia() — score + status + descrição
+   │     efetivo_combinado = acumulo_ef + pico_3h → lookup aderencia_thresholds
+   │     Fator de recuperação: BAIXA → BOA se acumulo_ef < thresh × 2.5 e não saturado
+   │     Regras bikepark: teto BOA se acumulo_ef < 5mm; saturado via threshold_bikepark_saturado
+   │
+   ├── calcular_aderencia_futura_oc() — pior bloco de 6h nas próximas 24h
+   │
+   ├── calcular_blocos_24h_oc() — 4 blocos de 6h para previsao_24h
+   │
+   ├── veredicto() — acumula risco → DROP LIBERADO / alertas / MELHOR ESPERAR
+   │
+   ├── calcular_janela_oc() — maior bloco limpo (pop<30%, rain<1mm/h, vento<15m/s)
+   │
+   ├── calcular_horarios_chuva_oc() — blocos com chuva (≥1mm/h ou pop≥40%)
+   │
+   ├── resumo_dia_oc() × 3 — D+1, D+2, D+3
+   │     acumulo_ate(alvo): ef_decaido + chuva prevista até o dia alvo
+   │
+   └── Análise Claude AI — texto de secagem contextualizado por região e ENSO
         │
         ▼
-Step 7 — processar_trilha() — por trilha
-  ├── fetch_onecall() — previsão horária 48h (OW, 70%)
-  ├── fetch_onecall_historico() — timemachine 3×: −48h, −24h, 0h
-  ├── fetch_openmeteo() — previsão horária 48h (OM, 30%)
-  ├── fetch_vento_historico() — ERA5 últimas 48h → nível alerta 1/2/3
-  ├── Fusão 70/30: rain_mm, pico_3h, wind_ms, pop, gust_max_kmh
-  ├── calcular_aderencia() — decaimento exponencial + score
-  ├── calcular_aderencia_futura_oc() — pior bloco de 6h futuro
-  ├── calcular_blocos_24h_oc() — 4 blocos de 6h para previsao_24h
-  ├── veredicto() — pontuação de risco → DROP LIBERADO / veja os alertas / MELHOR ESPERAR
-  ├── calcular_janela_oc() — maior bloco limpo (pop<30%, rain<1mm/h, vento<15m/s)
-  ├── calcular_horarios_chuva_oc() — blocos com chuva (≥1mm/h ou pop≥40%)
-  ├── resumo_dia_oc() × 3 — D+1, D+2, D+3
-  └── gerar_analise_secagem_gpt() — frase GPT-3.5 (fallback local)
+7. gravar_supabase()
+   DELETE /rest/v1/condicoes?trilha_id=eq.{id}
+   POST   /rest/v1/condicoes (nova linha completa — ~45 campos)
         │
         ▼
-Step 8 — gravar_supabase() — por trilha
-  DELETE /rest/v1/condicoes?trilha_id=eq.{id}
-  POST   /rest/v1/condicoes (nova linha completa)
+8. processar_segmentos_strava()
+   Mesmo pipeline → gravar_condicoes_strava()
+   DELETE + POST em condicoes_strava por strava_segment_id
         │
         ▼
-Step 9 — processar_segmentos_strava()
-  Busca strava_segmentos_config → mesmo pipeline → gravar_condicoes_strava()
-  DELETE /rest/v1/condicoes_strava?strava_segment_id=eq.{id}
-  POST   /rest/v1/condicoes_strava
+9. Notificações personalizadas
+   Email: _buscar_usuarios_email() → profiles com receber_email = true
+          envia email com favoritas e/ou Strava por usuário
+          credenciais via configuracoes_sistema (email_from, email_password)
+   Telegram: _buscar_usuarios_telegram() → profiles com telegram_ativo = true
+             envia mensagem via Bot API por chat_id
         │
         ▼
-Step 10 — Email personalizado por usuário
-  _buscar_usuarios_email() — profiles onde receber_email=true
-  Para cada usuário:
-    _buscar_favoritos_usuario(user_id) → IDs das trilhas favoritas
-    _buscar_strava_usuario(user_id)    → segmentos Strava
-    enviar_email_usuario() — email com trilhas favoritas e/ou Strava
-  Credenciais de email via _get_config("email_from") → configuracoes_sistema
-        │
-        ▼
-Step 11 — Log e artefato
-  tee → debug_YYYY-MM-DD.log (upload como artifact no GitHub Actions, 30 dias)
+10. Log e artefato
+    tee → debug_YYYY-MM-DD.log
+    Upload como artifact GitHub Actions (retido 30 dias)
 ```
+
+---
+
+## Modelo de solo e aderência
+
+### 1. Composição do solo via `tabela_solo`
+
+Lookup prioritário — sem chamadas HTTP externas:
+```
+1. Match exato:    solo_type + bioma + regiao
+2. Bioma genérico: solo_type + bioma + regiao = TODOS
+3. Global:         solo_type + bioma = TODOS + regiao = TODOS
+4. Fallback:       clay=32, sand=35, texture=Franco-argiloso
+```
+
+Com `clay_pct` disponível:
+```python
+base = 0.20 + (clay_pct / 100) × 1.60    # fator_absorcao
+base = max(0.25, min(0.90, base))
+# clay 10% → 0.36 | clay 40% → 0.84 | clay 70% → 0.90 (teto)
+```
+
+Sem `clay_pct`: usa `fator_absorcao_base` de `solo_type_config`.
+
+### 2. Penalizadores de inclinação
+
+Aplicados sobre `fator_absorcao_base` (first-match por id ascendente, mais restritivo primeiro):
+
+| Tipo | Condição | Delta |
+|---|---|---|
+| `inclinacao` (calculada) | ≥ 30% | −0.22 |
+| `inclinacao` (calculada) | 20–30% | −0.15 |
+| `inclinacao` (calculada) | 10–20% | −0.08 |
+| `desnivel` (fallback) | ≥ 800m | −0.18 |
+| `desnivel` (fallback) | 500–800m | −0.10 |
+| `desnivel` (fallback) | 300–500m | −0.05 |
+
+`inclinacao_calculada = (desnivel_m / (extensao_km × 1000)) × 100`
+
+### 3. Decaimento exponencial — acúmulo efetivo
+
+```python
+acumulo_ef = Σ precip_i × 0.5 ^ (horas_atras_i / meia_vida_h)
+```
+
+**Meia-vida base** por `(solo_type, exposicao)` em `meia_vida_secagem`:
+
+| solo_type | aberta | fechada |
+|---|---|---|
+| terra | 24h | 36h |
+| misto | 18h | 28h |
+| misto_mg | 12h | 18h |
+| preto | 14h | 24h |
+| pedra | 6h | 10h |
+| ferro | 8h | 14h |
+
+**Multiplicadores climáticos** (tabela `meia_vida_clima_mult`):
+
+| Variável | Condição | Mult |
+|---|---|---|
+| Temperatura | ≥ 35°C | × 0.65 |
+| Temperatura | 30–35°C | × 0.75 |
+| Temperatura | 26–30°C | × 0.86 |
+| Temperatura | ≤ 16°C | × 1.12 |
+| Vento | ≥ 40 km/h | × 0.75 |
+| Vento | 20–40 km/h | × 0.85 |
+| Vento | 10.8–20 km/h | × 0.92 |
+| Vento | ≤ 3.6 km/h | × 1.05 |
+| Combo (calor+vento) | temp ≥ 30°C + vento ≥ 20 km/h | × 0.80 adicional |
+| Nebulosidade | ≥ 90% | × 1.12 |
+| Nebulosidade | 70–90% | × 1.06 |
+| Nebulosidade | ≤ 25% | × 0.94 |
+| Umidade | ≥ 95% | × 1.15 |
+| Umidade | 85–95% | × 1.08 |
+| Umidade | ≤ 45% | × 0.93 |
+| Bikepark fechado | — | × 0.60 |
+| Bikepark aberto | — | × 0.35 |
+
+**Microclima** (`microclima_config`):
+
+| Condição | mult_threshold | mult_meia_vida |
+|---|---|---|
+| Mata Atlântica + altitude ≥ 600m + fechada | × 0.75 (threshold 25% menor) | × 1.20 |
+| Mata Atlântica (demais) | × 0.90 | × 1.10 |
+
+**Clamp final:** `max(4h, min(72h, meia_vida))`
+
+### 4. Thresholds sazonais + ENSO
+
+Thresholds lidos de `threshold_sazonal` (por região + mês) e multiplicados pelo fator ENSO:
+
+| Fase ENSO | ONI | Multiplicador |
+|---|---|---|
+| El Niño Forte | ≥ 1.5 | × 0.75 — threshold menor, mais conservador |
+| El Niño | 0.5 a 1.5 | × 0.85 |
+| Neutro | −0.5 a +0.5 | × 1.00 |
+| La Niña | −1.5 a −0.5 | × 1.15 |
+| La Niña Forte | ≤ −1.5 | × 1.25 |
+
+`threshold_final = base_sazonal × enso_mult × fator_microclima(trail)`
+
+### 5. Cálculo de score e aderência
+
+```python
+# Score de impacto
+solo_descansado = acumulo_ef < threshold_final
+
+if pico_3h >= 10mm:   # evento convectivo — tratado qualitativamente
+    impacto = pico_3h × (0.7 se descansado | 1.0 se úmido)
+else:
+    impacto = rain_mm × 0.6              # solo descansado
+    impacto = rain_mm + acumulo_ef × 0.3 # solo úmido
+
+impacto × fator_absorcao
+impacto × score_mult   (solo sem clay_pct — solo_type_config)
+impacto × 0.90         (bikepark com acumulo_ef < 5mm)
+
+score = max(0, min(100, impacto × 10))
+```
+
+**Thresholds de aderência** (tabela `aderencia_thresholds`, `efetivo_combinado = acumulo_ef + pico_3h`):
+
+| Status | ef_combinado | Borda semântica |
+|---|---|---|
+| SECO | ≤ 0.0 | Inclusivo no upper |
+| GRIP PERFEITO | 0.0 a 5.0 | Lower inclusivo, upper exclusivo |
+| BOA ADERÊNCIA | 5.0 a 7.0 | Lower inclusivo, upper exclusivo |
+| BAIXA ADERÊNCIA | ≥ 7.0 | First-match after all above |
+
+**Fator de recuperação:** `BAIXA ADERÊNCIA → BOA ADERÊNCIA` se `acumulo_ef < threshold × 2.5` **e** não saturado. Multiplicador 2.5 lido de `configuracoes_sistema.aderencia_recovery_mult`.
+
+**Regras de bikepark:**
+- Saturado quando `acumulo_ef > threshold_bikepark_saturado` (threshold sazonal)
+- Não saturado: teto em BOA ADERÊNCIA (cap quando `acumulo_ef < 5mm`)
+- Saturado: permite BAIXA ADERÊNCIA sem teto; descrição especial `BIKEPARK_SATURADO`
+
+---
+
+## Cálculo de veredicto
+
+Pontos de risco acumulados (pesos na tabela `veredicto_risco_pesos`):
+
+| Condição | Pontos |
+|---|---|
+| BAIXA ADERÊNCIA | +3 |
+| BOA ADERÊNCIA | +2 |
+| GRIP PERFEITO | +1 |
+| pico_3h ≥ 15mm | +2 |
+| pico_3h ≥ 10mm | +1 |
+| rain_mm ≥ 8mm | +1 |
+| wind_ms ≥ 12 m/s | +1 |
+| Inclinação > 30% com umidade | +2 |
+| Inclinação > 20% com umidade | +1 |
+| Natural inclinada + chuva + aderência ≤ BOA | +1 |
+| Bikepark (redução) | −1 |
+| Bikepark saturado | +2 |
+| Vento histórico nível 3 (> 90 km/h) | +2 |
+| Vento histórico nível 2 (65–90 km/h) | +1 |
+| Vento histórico nível 2 + solo encharcado | +1 adicional |
+| Vento histórico nível 1 (55–65 km/h) + encharcado | +1 |
+| Rajada prevista ≥ 30 km/h (aberta) | risco mínimo = 2 |
+| Rajada prevista ≥ 50 km/h (fechada) | risco mínimo = 2 |
+| Aderência futura piora 2 graus | +2 |
+| Aderência futura piora 1 grau | +1 |
+| Aderência futura melhora | −1 |
+
+| Total | Veredicto |
+|---|---|
+| ≤ 1 | DROP LIBERADO |
+| 2–3 | DROP LIBERADO - Veja os alertas |
+| ≥ 4 | MELHOR ESPERAR |
+
+**Ranking em `/trilhas`:** veredicto 12h → desempate por `aderencia_score` ASC (menor score = melhor grip).
+
+---
+
+## Migração Supabase — Fases 1 a 4
+
+Todo o modelo era hardcoded em Python. As 4 fases migraram os parâmetros para o Supabase, tornando-os editáveis sem alterar código.
+
+### Fase 1 — `enso_config`, `aderencia_thresholds`, `veredicto_risco_pesos`
+`supabase/migrations/fase1_enso_aderencia_veredicto.sql`
+
+- `enso_config`: 5 fases ONI com multiplicadores — substitui `classificar_enso()` hardcoded
+- `aderencia_thresholds`: limites ef_combinado → status — substitui `if/elif` em `calcular_aderencia()`
+- `veredicto_risco_pesos`: pesos + limiares → veredicto — substitui `if/elif` em `veredicto()`
+
+### Fase 2 — `meia_vida_clima_mult`, `microclima_config`
+`supabase/migrations/fase2_meia_vida_clima_microclima.sql`
+
+- `meia_vida_clima_mult`: 17 registros de multiplicadores climáticos — substitui `_ajustar_meia_vida_clima()` hardcoded
+- `microclima_config`: 2 regras de Mata Atlântica — substitui lógica hardcoded em `fator_microclima()` e `_meia_vida()`
+- `configuracoes_sistema` INSERT: `meia_vida_min=4`, `meia_vida_max=72`
+
+### Fase 3 — `solo_type_config`, `inclinacao_config`, `score_config`
+`supabase/migrations/fase3_solo_score_inclinacao.sql`
+
+- `solo_type_config`: 6 tipos de solo com `fator_absorcao_base`, `score_mult`, altitude_bonus
+- `inclinacao_config`: 6 penalizadores por inclinação calculada e desnível bruto
+- `score_config`: 9 coeficientes do modelo de score
+
+### Fase 4 — `aderencia_descricoes`
+`supabase/migrations/fase4_limpeza_fallbacks.sql`
+
+- `aderencia_descricoes`: 25 textos (4 status × 6 solo_types + 1 bikepark saturado)
+- `configuracoes_sistema` INSERT: `aderencia_recovery_mult=2.5`
 
 ---
 
@@ -879,18 +1027,30 @@ Arquivo: `.github/workflows/mtb-forecast-workflow.yml`
 ```yaml
 on:
   schedule:
-    - cron: "0 8 * * *"   # 05:00 BRT todos os dias
-    - cron: "0 0 * * 6"   # Sexta às 21:00 BRT (Sábado 00:00 UTC)
-  workflow_dispatch:        # execução manual via UI do GitHub
+    - cron: "0 */6 * * *"   # a cada 6 horas (00h, 06h, 12h, 18h UTC)
+  workflow_dispatch:          # execução manual via UI do GitHub
 ```
 
 ### Steps do job
 
 ```yaml
 - actions/checkout@v4
-- actions/setup-python@v5   # Python 3.11 — só stdlib, sem pip install
+- actions/setup-python@v5        # Python 3.11
+- run: pip install -r requirements.txt   # pytest + supabase SDK
 - run: python mtb-forecast.py 2>&1 | tee debug_$(date +%Y-%m-%d).log
-- actions/upload-artifact@v4  # if: always() — log retido 30 dias
+- actions/upload-artifact@v4     # if: always() — log retido 30 dias
+```
+
+### Variáveis de ambiente no job
+
+```yaml
+env:
+  OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
+  ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+  SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
+  SUPABASE_URL:              https://[projeto].supabase.co
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+  TELEGRAM_BOT_TOKEN:        ${{ secrets.TELEGRAM_BOT_TOKEN }}
 ```
 
 ---
@@ -901,14 +1061,12 @@ on:
 
 | Secret | Obrigatório | Uso |
 |---|---|---|
-| `OPENWEATHER_API_KEY` | Sim | One Call 3.0 + timemachine |
+| `OPENWEATHER_API_KEY` | Sim | One Call 3.0 + timemachine histórico |
 | `SUPABASE_SERVICE_KEY` | Sim | Leitura/gravação no Supabase (service_role) |
-| `ANTHROPIC_API_KEY` | Recomendado | Claude AI — análise textual regional |
-| `OPENAI_API_KEY` | Opcional | GPT-3.5 — frases de secagem; fallback local se ausente |
+| `ANTHROPIC_API_KEY` | Recomendado | Claude AI — análise textual e frases de secagem |
+| `TELEGRAM_BOT_TOKEN` | Opcional | Notificações por Telegram |
 
-> `SUPABASE_URL` é fixo no workflow (hardcoded) e não precisa de secret.
-
-> Credenciais de email (`email_from`, `email_password`) são armazenadas na tabela `configuracoes_sistema` do Supabase — não precisam de secret no Actions.
+> Credenciais de email (`email_from`, `email_password`, `email_smtp_host`, `email_smtp_port`) são armazenadas em `configuracoes_sistema` no Supabase — sem necessidade de secret no Actions.
 
 ### Next.js — `.env.local`
 
@@ -917,19 +1075,23 @@ on:
 NEXT_PUBLIC_SUPABASE_URL=https://[projeto].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key_aqui
 
-# Strava OAuth (obrigatório para integração Strava)
+# Strava OAuth
 NEXT_PUBLIC_STRAVA_CLIENT_ID=seu_client_id
 NEXT_PUBLIC_STRAVA_REDIRECT_URI=https://www.mtbforecaster.com.br/api/strava/callback
 STRAVA_CLIENT_SECRET=seu_client_secret
+
+# Stripe (planos de assinatura)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_...
+STRIPE_SECRET_KEY=sk_...
 ```
 
-> O web app usa apenas a **anon key** com Row Level Security do Supabase. A `service_role key` é usada exclusivamente pelo agente Python.
+> O web app usa apenas a **anon key** com Row Level Security. A `service_role key` é usada exclusivamente pelo agente Python.
 
 ### Variáveis Vercel
 
 Configure em **Vercel → Settings → Environment Variables** as mesmas do `.env.local`.
 
-Para Google OAuth, configure também em **Supabase → Authentication → Providers → Google** com Client ID e Client Secret do Google Cloud Console.
+Para Google OAuth: configure em **Supabase → Authentication → Providers → Google** com Client ID e Secret do Google Cloud Console.
 
 ---
 
@@ -940,7 +1102,7 @@ Para Google OAuth, configure também em **Supabase → Authentication → Provid
 - Node.js 18+
 - Python 3.11+
 - Conta no [Supabase](https://supabase.com)
-- Conta no [Strava API](https://www.strava.com/settings/api) (opcional — para integração Strava)
+- Conta no [Strava API](https://www.strava.com/settings/api) (opcional)
 
 ### Instalação
 
@@ -949,7 +1111,7 @@ Para Google OAuth, configure também em **Supabase → Authentication → Provid
 git clone https://github.com/mtb-forecast/mtb-forecast-app.git
 cd mtb-forecast-app
 
-# 2. Instalar dependências
+# 2. Instalar dependências Node
 npm install
 
 # 3. Configurar variáveis de ambiente
@@ -965,46 +1127,61 @@ O app estará disponível em `http://localhost:3000`.
 ### Rodar o agente localmente
 
 ```bash
+# Instalar dependências Python
+pip install -r requirements.txt
+
+# Configurar variáveis de ambiente
 export OPENWEATHER_API_KEY=sua_chave
 export SUPABASE_SERVICE_KEY=sua_service_key
 export ANTHROPIC_API_KEY=sua_chave   # opcional
-export OPENAI_API_KEY=sua_chave      # opcional
+export TELEGRAM_BOT_TOKEN=seu_token  # opcional
 
 python mtb-forecast.py
 ```
 
-O agente usa apenas Python 3.11+ stdlib — **nenhum `pip install` necessário**.
+### Aplicar migrações Supabase
+
+```bash
+# Via Supabase CLI
+supabase db push
+
+# Ou manualmente no SQL Editor do Supabase Dashboard
+# Arquivos em supabase/migrations/ na ordem:
+# fase1_enso_aderencia_veredicto.sql
+# fase2_meia_vida_clima_microclima.sql
+# fase3_solo_score_inclinacao.sql
+# fase4_limpeza_fallbacks.sql
+```
 
 ---
 
 ## Como adicionar trilhas
 
-### Via Supabase (preferido — V7.9+)
+### Via painel admin (recomendado)
 
-Trilhas aprovadas na tabela `trilhas` do Supabase são carregadas automaticamente pelo agente. O campo `aprovada = true` é obrigatório para que a trilha entre no processamento.
+Riders autenticados cadastram trilhas em `/trilhas/cadastrar`. A trilha entra em `trilhas_pendentes` com `status = 'pendente'` e aguarda aprovação em `/admin`. Na aprovação:
+1. Geocodificação reversa via Nominatim salva `localidade_id` na trilha
+2. Registro inserido em `trilhas` com `aprovada = true`
+
+### Via SQL direto no Supabase
 
 ```sql
 INSERT INTO trilhas (name, lat, lon, solo_type, exposicao, altitude_m, trail_type, regiao, desnivel_m, extensao_km, bioma, aprovada)
-VALUES ('ZigZag - Campos do Jordão - SP', -22.768683, -45.614767, 'preto', 'fechada', 1630, 'natural', 'SP', 480, 32, 'Mata Atlântica', true);
+VALUES ('ZigZag - Campos do Jordão', -22.768683, -45.614767, 'preto', 'fechada', 1630, 'natural', 'SP', 480, 32, 'Mata Atlântica', true);
 ```
 
-### Via formulário web (riders)
+### Via CSV (fallback do agente)
 
-Riders autenticados podem cadastrar trilhas em `/trilhas/cadastrar`. Após submissão, a trilha entra em `trilhas_pendentes` com `status = 'pendente'` e aguarda aprovação pelo admin no `/admin`.
-
-### Via CSV (fallback)
-
-Se o Supabase estiver indisponível, o agente faz fallback para `trilhas.csv` na mesma pasta:
+Se o Supabase estiver indisponível, o agente faz fallback para `trilhas.csv`:
 
 ```csv
 name;lat;lon;solo_type;exposicao;altitude_m;trail_type;desnivel_m;extensao_km;regiao;bioma
 ZigZag - Campos do Jordao - SP;-22.768683;-45.614767;preto;fechada;1630;natural;480;32;SP;Mata Atlântica
-DH Heineken short - Itabirito - MG;-20.224394;-43.971293;ferro;aberta;1445;bikepark;93;0.40;MG;
 ```
 
 ---
 
-## Campos da trilha (CSV)
+## Campos da trilha
 
 | Campo | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
@@ -1015,9 +1192,9 @@ DH Heineken short - Itabirito - MG;-20.224394;-43.971293;ferro;aberta;1445;bikep
 | `exposicao` | string | Sim | `aberta` ou `fechada` |
 | `altitude_m` | int | Sim | Altitude média em metros |
 | `trail_type` | string | Sim | `natural` ou `bikepark` |
-| `regiao` | string | Sim | Sigla UF: AC, AL, AM... SP, TO (27 estados + DF) |
-| `desnivel_m` | float | Não | Desnível total em metros |
-| `extensao_km` | float | Não | Extensão total em km |
+| `regiao` | string | Sim | Sigla UF: SP, MG, RJ, RS... |
+| `desnivel_m` | float | Não | Desnível total (m) — habilita cálculo de inclinação |
+| `extensao_km` | float | Não | Extensão total (km) — habilita cálculo de inclinação |
 | `bioma` | string | Não | Ex: `Mata Atlântica` — ativa ajuste microclimático |
 
 ### Valores de `solo_type`
@@ -1031,7 +1208,7 @@ DH Heineken short - Itabirito - MG;-20.224394;-43.971293;ferro;aberta;1445;bikep
 | `pedra` | 6h / 10h | Trilhas predominantemente rochosas |
 | `ferro` | 8h / 14h | Solo ferruginoso — Quadrilátero Ferrífero |
 
-> Os valores de meia-vida são carregados da tabela `meia_vida_secagem` do Supabase. Os valores acima são referência — edite via `/admin/tabelas`.
+> Valores de meia-vida carregados de `meia_vida_secagem` — editáveis via `/admin/tabelas`.
 
 > `ferro` e `misto_mg` exibem automaticamente o badge **Quadrilátero Ferrífero**.
 
@@ -1042,133 +1219,7 @@ DH Heineken short - Itabirito - MG;-20.224394;-43.971293;ferro;aberta;1445;bikep
 | `fechada` | Mata densa, sombra, pouca ventilação |
 | `aberta` | Campos, chapadas, cristas, bike parks sem cobertura |
 
-> Threshold alerta de rajada: ≥ 30 km/h (aberta) · ≥ 50 km/h (fechada)
-
----
-
-## Lógica de análise do solo
-
-### 1. Composição do solo via tabela mestra (`tabela_solo`)
-
-O agente não faz mais chamadas HTTP externas para composição do solo. Os dados são lidos do Supabase na inicialização (`_carregar_tabela_solo()`) e consultados por lookup prioritário:
-
-```python
-# _lookup_solo(solo_type, bioma, regiao)
-# 1. Match exato:    solo_type + bioma + regiao
-# 2. Bioma genérico: solo_type + bioma + TODOS
-# 3. Global:         solo_type + TODOS + TODOS
-# Retorna: {clay_pct, sand_pct, texture_class}
-
-base = 0.20 + (clay_pct / 100) × 1.60
-base = max(0.25, min(0.90, base))
-# clay 10% → 0.36 | clay 40% → 0.84 | clay 70% → 0.90 (teto)
-```
-
-### 2. Modelo de secagem — decaimento exponencial
-
-```python
-acumulo_ef = Σ precip_hora × 0.5 ^ (horas_atras / meia_vida)
-```
-
-Meia-vida lida da tabela `meia_vida_secagem` e ajustada por multiplicadores climáticos:
-
-| Fator | Condição | Efeito |
-|---|---|---|
-| Temperatura | ≥ 30°C | ×0.78 |
-| Temperatura | ≥ 26°C | ×0.86 |
-| Temperatura | ≤ 16°C | ×1.12 |
-| Temperatura | ≤ 10°C | ×1.22 |
-| Vento | ≥ 6 m/s | ×0.84 |
-| Vento | ≥ 3 m/s | ×0.92 |
-| Vento | ≤ 1 m/s | ×1.05 |
-| Nebulosidade | ≥ 90% | ×1.12 |
-| Nebulosidade | ≥ 70% | ×1.06 |
-| Nebulosidade | ≤ 25% | ×0.94 |
-| Umidade rel. | ≥ 95% | ×1.15 |
-| Umidade rel. | ≥ 85% | ×1.08 |
-| Umidade rel. | ≤ 45% | ×0.93 |
-| Mata Atlântica | alt ≥ 600m + fechada | ×1.20 |
-| Mata Atlântica | demais | ×1.10 |
-
-> Meia-vida final limitada ao intervalo `[4h, 72h]`.
-
-### 3. Cálculo de aderência
-
-```python
-# Solo descansado (acumulo_ef < threshold)
-impacto = pico_3h × 0.7   se pico_3h ≥ 10mm
-impacto = rain_mm × 0.6   se pico_3h < 10mm
-
-# Solo já úmido (acumulo_ef ≥ threshold)
-impacto = pico_3h × 1.0               se pico_3h ≥ 10mm
-impacto = rain_mm + acumulo_ef × 0.3  se pico_3h < 10mm
-
-impacto × fator_absorcao × mult_bikepark (×0.90 se bikepark)
-score = max(0, min(100, impacto × 10))
-```
-
-| Score | Status |
-|---|---|
-| < 10 | SECO |
-| 10–35 | GRIP PERFEITO |
-| 35–70 | BOA ADERÊNCIA |
-| ≥ 70 | BAIXA ADERÊNCIA |
-
-### 4. Thresholds sazonais + ENSO
-
-Os thresholds são lidos da tabela `threshold_sazonal` do Supabase e multiplicados pelo fator ENSO (via NOAA ONI):
-
-| Fase ENSO | ONI | Multiplicador |
-|---|---|---|
-| El Niño Forte | ≥ 1.5 | × 0.75 (threshold menor = mais conservador) |
-| El Niño | ≥ 0.5 | × 0.85 |
-| Neutro | −0.5 a +0.5 | × 1.00 |
-| La Niña | ≤ −0.5 | × 1.15 |
-| La Niña Forte | ≤ −1.5 | × 1.25 |
-
----
-
-## Cálculo de veredicto
-
-Pontos de risco acumulados:
-
-| Condição | Pontos |
-|---|---|
-| BAIXA ADERÊNCIA | +3 |
-| BOA ADERÊNCIA | +2 |
-| GRIP PERFEITO | +1 |
-| pico_3h ≥ 15mm | +2 |
-| pico_3h ≥ 10mm | +1 |
-| rain_mm ≥ 8mm | +1 |
-| wind_ms ≥ 12 m/s | +1 |
-| Inclinação > 30% (com umidade) | +2 |
-| Inclinação > 20% (com umidade) | +1 |
-| Natural inclinado + chuva + aderência ≤ BOA | +1 |
-| Bikepark | −1 |
-| Bikepark saturado | +2 |
-| Vento histórico nível 3 (> 90 km/h) | +2 |
-| Vento histórico nível 2 (65–90 km/h) | +1 |
-| Vento histórico nível 2 + solo encharcado | +1 adicional |
-| Vento histórico nível 1 (55–65 km/h) + encharcado | +1 |
-| Rajada futura ≥ 30 km/h (aberta) | risco mínimo = 2 |
-| Rajada futura ≥ 50 km/h (fechada) | risco mínimo = 2 |
-| Aderência futura pior (+2 graus) | +2 |
-| Aderência futura pior (+1 grau) | +1 |
-| Aderência futura melhor | −1 |
-
-| Total | Veredicto |
-|---|---|
-| ≤ 1 | DROP LIBERADO |
-| 2–3 | DROP LIBERADO - Veja os alertas |
-| ≥ 4 | MELHOR ESPERAR |
-
-### Ranking no web app (`/trilhas`)
-
-Ordenado por veredicto 12h, desempate por `aderencia_score` ASC:
-```
-DROP LIBERADO (0) → DROP LIBERADO - Veja os alertas (1) → MELHOR ESPERAR (2) → sem dados (3)
-aderencia_score menor = melhor grip
-```
+> Threshold de alerta de rajada: ≥ 30 km/h (aberta) · ≥ 50 km/h (fechada).
 
 ---
 
@@ -1176,14 +1227,16 @@ aderencia_score menor = melhor grip
 
 | API | Uso | Requer cadastro |
 |---|---|---|
-| [OpenWeather One Call 3.0](https://openweathermap.org/api/one-call-3) | Previsão horária 48h + timemachine | Sim |
+| [OpenWeather One Call 3.0](https://openweathermap.org/api/one-call-3) | Previsão horária 48h + timemachine histórico | Sim |
 | [Open-Meteo Forecast](https://open-meteo.com) | Previsão horária 30% + rajada futura | Não |
-| [Open-Meteo Archive](https://open-meteo.com/en/docs/historical-weather-api) | Rajadas ERA5 últimas 48h | Não |
-| [NOAA CPC](https://www.cpc.ncep.noaa.gov) | Índice ONI para classificação ENSO | Não |
-| [Anthropic Claude](https://console.anthropic.com) | Análise textual por região | Sim |
-| [OpenAI GPT-3.5](https://platform.openai.com) | Frases de secagem por trilha | Sim |
+| [Open-Meteo Archive](https://open-meteo.com/en/docs/historical-weather-api) | Precipitação e rajadas ERA5 últimas 48h | Não |
+| [NOAA CPC](https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt) | Índice ONI para classificação ENSO | Não |
+| [Anthropic Claude](https://console.anthropic.com) | Análise textual por região + frases de secagem | Sim |
 | [Supabase](https://supabase.com) | Banco de dados + Auth (e-mail + Google OAuth) | Sim |
 | [Strava API v3](https://developers.strava.com) | OAuth + segmentos favoritos starred | Sim |
+| [Nominatim (OpenStreetMap)](https://nominatim.openstreetmap.org) | Geocodificação reversa na aprovação de trilhas | Não |
+| [Telegram Bot API](https://core.telegram.org/bots/api) | Notificações personalizadas por chat_id | Sim |
+| [Stripe](https://stripe.com) | Planos de assinatura | Sim |
 | [Tabler Icons](https://tabler.io/icons) | Ícones vetoriais (webfont CDN) | Não |
 
 ---
@@ -1193,86 +1246,92 @@ aderencia_score menor = melhor grip
 ### Web App
 
 ```json
-"next": "14.x",
-"react": "18.x",
+"next": "14.2.29",
+"react": "^18",
 "@supabase/auth-helpers-nextjs": "^0.10.0",
-"@supabase/supabase-js": "^2.x",
-"leaflet": "^1.9.x",
-"tailwindcss": "3.x",
+"@supabase/supabase-js": "^2.49.4",
+"leaflet": "^1.9.4",
+"@types/leaflet": "^1.9.21",
+"@stripe/stripe-js": "^9.5.0",
+"stripe": "^22.1.1",
+"tailwindcss": "^3.4.1",
 "typescript": "^5"
 ```
 
-**Externas (CDN):**
-- `@tabler/icons-webfont@latest` — ícones vetoriais
+**Externas (CDN):** `@tabler/icons-webfont@latest`
 
 ### Agente Python
 
-Apenas stdlib Python 3.11 — **zero `pip install`**:
+```
+# requirements.txt
+pytest>=8.0.0
+supabase>=2.0.0
+```
 
-`os · json · html · urllib.request · urllib.error · datetime · csv · pathlib · time · smtplib · email.mime`
+Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `datetime`, `csv`, `time`, `smtplib`, `email.mime`). O SDK `supabase` é usado nos testes.
 
 ---
 
 ## Notas de versão
 
-### V8.0 — atual
+### Estado atual (branch develop)
 
-- **Composição do solo via Supabase:** `buscar_solo_openlandmap()` não faz mais chamadas HTTP externas. Dados lidos da tabela `tabela_solo` do Supabase com lookup prioritário (exact → bioma+TODOS → TODOS)
-- **Thresholds sazonais via Supabase:** `_carregar_threshold_sazonal()` substitui o dict hardcoded `_THRESHOLD_SAZONAL_REGIONAL`. Editável via `/admin/tabelas`
-- **Meia-vida via Supabase:** `_carregar_meia_vida()` substitui a tabela `_MEIA_VIDA_SECAGEM` hardcoded. Editável via `/admin/tabelas`
-- **Configurações de email via Supabase:** `_carregar_configuracoes()` lê `email_from`, `email_password`, `email_smtp_host` da tabela `configuracoes_sistema`. Sem variáveis de ambiente para email
-- **Email personalizado por usuário:** `_buscar_usuarios_email()` busca profiles com `receber_email=true`, envia email com trilhas favoritas e/ou Strava conforme preferências individuais
-- **Painel `/admin/tabelas`:** edição das 3 tabelas mestras com dupla aprovação entre admins, fila de aprovação, modal com diff e impacto estimado, card de legenda em cada tab
-- **Badge de aprovações pendentes na Navbar:** admin vê contador em tempo real de aprovações aguardando
-- **DELETE+INSERT no lugar de upsert:** evita erro de conflict sem UNIQUE constraint nas tabelas `condicoes` e `condicoes_strava`
+**Fixes críticos aplicados:**
+- **ONI parsing** (`fetch_oni_atual`): corrigido para ler `partes[3]` (ANOM) em vez de `partes[2]` (SST absoluto ~27°C). Bug causava classificação errada como "El Niño Forte" com ONI=27.28 em vez do correto ~0.11 (ENSO Neutro), tornando todos os thresholds 25% mais permissivos.
+- **Bikepark recovery factor** (`calcular_aderencia`): adicionado `and not saturado` à condição de recuperação. Bug permitia downgrade incorreto de BAIXA → BOA ADERÊNCIA em bikepark saturado.
+- **Validação de formato ONI** (`fetch_oni_atual`): 3 camadas — header com ≠ 4 colunas, SST fora de 20–32°C, anomalia fora de −4..+4. Detecta mudanças no formato do arquivo NOAA e cai em neutro com aviso no log.
 
-### V7.9
+**Migração Supabase concluída (Fases 1–4):**
+- 13 tabelas de configuração do modelo no Supabase — zero parâmetros hardcoded no Python
+- `veredicto_risco_pesos`, `aderencia_thresholds`, `enso_config` — editáveis sem alterar código
+- `configuracoes_sistema`: parâmetros do modelo (`meia_vida_min/max`, `aderencia_recovery_mult`) e credenciais de email
 
-- **Trilhas do Supabase:** `_carregar_trilhas_supabase()` carrega trilhas aprovadas do Supabase em vez do CSV. Fallback para `trilhas.csv` se indisponível
-- **Botão "Desconectar Strava"** no perfil: limpa `trilhas_pessoais` + `strava_segmentos_config` + cookie
-- **Preferências de email no perfil:** 3 toggles com auto-save (`receber_email`, `email_trilhas_favoritas`, `email_trilhas_strava`)
+**Geocodificação de trilhas:**
+- `lib/geocoding.ts`: `geocodeLatLon()` via Nominatim/OpenStreetMap
+- Aprovação de trilha salva `localidade_id` na tabela `localidades` (cache de geocodificação)
+- Estado extraído via `ISO3166-2-lvl4` para garantir sigla correta (SP, MG...)
+
+**Telegram:**
+- Bot com webhook `/start` captura `chat_id` e ativa notificações
+- Notificações personalizadas pós-processamento por usuário
+- Secret `TELEGRAM_BOT_TOKEN` no GitHub Actions
+
+### V8.0 — Migração Supabase principal
+
+- Trilhas carregadas do Supabase (`aprovada = true`) com fallback para CSV
+- Tabelas mestras editáveis via `/admin/tabelas` com dupla aprovação dual-admin
+- Email personalizado por usuário com base em preferências (`receber_email`, `email_trilhas_*`)
+- Credenciais de email armazenadas em `configuracoes_sistema` (sem secret no Actions)
+- DELETE+INSERT no lugar de upsert para evitar conflitos em `condicoes` e `condicoes_strava`
 
 ### V7.8
 
-- **Veredicto renomeado:** `ATENÇÃO` → `DROP LIBERADO - Veja os alertas` em todo o sistema
-- **Google OAuth:** login e cadastro com Google — callback route `/auth/callback`
-- **PWA:** manifest.json · icon.svg · service worker · `PWAInstallPrompt` (Android + iOS)
-- **Cadastro manual de trilhas:** `/trilhas/cadastrar` · tabela `trilhas_pendentes` · admin com modal de rejeição
-- **Compartilhar por WhatsApp:** botão verde na página de detalhe + página pública `/t/[id]`
-- **Lista completa de estados:** 27 estados + DF (`ESTADOS_BRASIL`)
-- **Filtro de estado obrigatório em `/trilhas`:** com Suspense boundary + URL sync (`?estado=SP`)
-- **Dashboard simplificado:** apenas favoritas + trilhas Strava pessoais
-- **Navbar estável:** link Admin com `loadingProfile` state — sem flicker
-- **Ícones Tabler:** webfont CDN
-- **Mobile otimizado** na página de detalhe
-
-### V7.7
-
-- Envio de email por região desativado — agente grava exclusivamente no Supabase
-- `_validar_env()` exige `OPENWEATHER_API_KEY` + `SUPABASE_SERVICE_KEY`
+- Google OAuth: login e cadastro com Google — callback `/auth/callback`
+- PWA: manifest.json · icon.svg · service worker · `PWAInstallPrompt`
+- Cadastro manual de trilhas: `/trilhas/cadastrar` · `trilhas_pendentes` · admin com modal
+- Compartilhamento por WhatsApp: botão + página pública `/t/[id]`
+- Veredicto renomeado: `ATENÇÃO` → `DROP LIBERADO - Veja os alertas`
+- Filtro de estado obrigatório em `/trilhas` com Suspense + URL sync
+- Navbar estável com `loadingProfile` state (sem flicker)
+- Mobile otimizado na página de detalhe
 
 ### V7.6
 
-- Sync web app ↔ email: `/trilhas/[id]` espelha o card do email
+- `/trilhas/[id]` espelha o card do email do agente
 - Aderência futura com label de bloco e chuva prevista
-- Previsão 24h em 4 blocos de 6h
-- `texto_dinamico` após veredicto
+- Previsão 24h em 4 blocos de 6h com `previsao_24h` jsonb
+- `texto_dinamico` contextual após veredicto
 - D+1/D+2/D+3 com vento e temperatura
 
-### V7.5
-
-- Segmentos Strava como entidade única (não por usuário)
-- `strava_segmentos_config`: sugestões automáticas do agente
-- Painel admin: comparação rider vs. sugestão
-
-### V5.22–V5.24
+### V5.22–V5.24 (agente)
 
 - Sazonalidade: thresholds derivados de ERA5-Land 30 anos
-- ENSO Nível 3 via ONI NOAA
-- Campo `bioma` com microclima Mata Atlântica
-- One Call API 3.0 como fonte principal
-- Modelo de secagem por decaimento exponencial
+- ENSO Nível 3 via ONI NOAA — multiplicador sobre threshold sazonal
+- Campo `bioma` com microclima Mata Atlântica (threshold 25% menor + meia-vida 20% maior)
+- One Call API 3.0 como fonte primária (previsão horária 48h + timemachine)
+- Modelo de secagem por decaimento exponencial com meia-vida por (solo_type, exposicao)
+- Fusão 70% OWM + 30% Open-Meteo
 
 ---
 
-*MTB Forecaster V8.0 · Criado por Guilherme Leal e Douglas Santos · Saiba antes de pedalar*
+*MTB Forecaster · Criado por Guilherme Leal e Douglas Santos · Saiba antes de pedalar*
