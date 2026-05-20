@@ -860,6 +860,9 @@ _CACHE_ADERENCIA_THRESHOLDS: list = []
 _CACHE_VEREDICTO_PESOS: list = []
 _CACHE_MEIA_VIDA_CLIMA_MULT: list = []
 _CACHE_MICROCLIMA_CONFIG: list = []
+_CACHE_SOLO_TYPE_CONFIG: list = []
+_CACHE_INCLINACAO_CONFIG: list = []
+_CACHE_SCORE_CONFIG: dict = {}
 
 # Tabela local de fallback — usada se Supabase estiver indisponível
 _TABELA_SOLO_FALLBACK: list = [
@@ -1191,6 +1194,106 @@ def _carregar_microclima_config() -> list:
         ]
 
 
+def _carregar_solo_type_config() -> list:
+    """Carrega configuração de solo_type do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_SOLO_TYPE_CONFIG
+    if _CACHE_SOLO_TYPE_CONFIG:
+        return _CACHE_SOLO_TYPE_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/solo_type_config"
+            f"?select=solo_type,fator_absorcao_base,score_mult,altitude_bonus_min,altitude_bonus"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_SOLO_TYPE_CONFIG = dados
+        print(f"  [Solo] Config carregada do Supabase: {len(dados)} tipos")
+        return dados
+    except Exception as exc:
+        print(f"  [Solo] Erro: {exc} — usando valores padrão")
+        return [
+            {"solo_type": "terra",    "fator_absorcao_base": 0.80, "score_mult": 1.05, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "preto",    "fator_absorcao_base": 0.60, "score_mult": 0.95, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "misto",    "fator_absorcao_base": 0.55, "score_mult": 1.00, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "misto_mg", "fator_absorcao_base": 0.45, "score_mult": 0.92, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "pedra",    "fator_absorcao_base": 0.25, "score_mult": 0.80, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+            {"solo_type": "ferro",    "fator_absorcao_base": 0.30, "score_mult": 0.85, "altitude_bonus_min": 1200, "altitude_bonus": 0.05},
+        ]
+
+
+def _carregar_inclinacao_config() -> list:
+    """Carrega penalizadores de inclinação do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_INCLINACAO_CONFIG
+    if _CACHE_INCLINACAO_CONFIG:
+        return _CACHE_INCLINACAO_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/inclinacao_config"
+            f"?select=tipo,grau_min,grau_max,delta_fator"
+            f"&ativo=eq.true&order=id.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_INCLINACAO_CONFIG = dados
+        print(f"  [Inclinação] Config carregada do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [Inclinação] Erro: {exc} — usando valores padrão")
+        return [
+            {"tipo": "inclinacao", "grau_min": 30,  "grau_max": None, "delta_fator": -0.22},
+            {"tipo": "inclinacao", "grau_min": 20,  "grau_max": 30,   "delta_fator": -0.15},
+            {"tipo": "inclinacao", "grau_min": 10,  "grau_max": 20,   "delta_fator": -0.08},
+            {"tipo": "desnivel",   "grau_min": 800, "grau_max": None, "delta_fator": -0.18},
+            {"tipo": "desnivel",   "grau_min": 500, "grau_max": 800,  "delta_fator": -0.10},
+            {"tipo": "desnivel",   "grau_min": 300, "grau_max": 500,  "delta_fator": -0.05},
+        ]
+
+
+def _carregar_score_config() -> dict:
+    """Carrega coeficientes de score do Supabase. Fallback: valores originais hardcoded."""
+    global _CACHE_SCORE_CONFIG
+    if _CACHE_SCORE_CONFIG:
+        return _CACHE_SCORE_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/score_config"
+            f"?select=chave,valor"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        config = {row["chave"]: float(row["valor"]) for row in dados}
+        _CACHE_SCORE_CONFIG = config
+        print(f"  [Score] Config carregada do Supabase: {len(config)} chaves")
+        return config
+    except Exception as exc:
+        print(f"  [Score] Erro: {exc} — usando valores padrão")
+        return {
+            "coef_rain":                  0.6,
+            "coef_pico_descansado":       0.7,
+            "coef_pico_molhado":          1.0,
+            "coef_acumulo":               0.3,
+            "coef_base":                 10.0,
+            "pico_threshold":            10.0,
+            "bikepark_acumulo_threshold":  5.0,
+            "bikepark_score_mult":         0.90,
+            "bikepark_saturado_threshold": 10.0,
+        }
+
+
 def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
                              bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
     """
@@ -1208,47 +1311,59 @@ def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
 
 
 def fator_absorcao(trail: dict) -> float:
+    solo_cfgs = _carregar_solo_type_config()
+    solo_cfg  = next((c for c in solo_cfgs if c["solo_type"] == trail.get("solo_type")), None)
+
     if trail.get("clay_pct") is not None:
         base = round(0.20 + (trail["clay_pct"] / 100) * 1.60, 3)
         base = max(0.25, min(0.90, base))
     else:
-        base = {"terra": 0.80, "preto": 0.60, "misto": 0.55, "misto_mg": 0.45, "pedra": 0.25, "ferro": 0.30}[trail["solo_type"]]
+        base = solo_cfg["fator_absorcao_base"] if solo_cfg else 0.55
+
     # FIX #5: exposicao removida daqui — já está embutida na meia_vida base por (solo_type, exposicao)
     # Manter aqui causava triple counting: fator_absorcao + _meia_vida + _ajustar_meia_vida_clima
-    if trail["altitude_m"] > 1200:
-        base += 0.05
+    if solo_cfg and solo_cfg.get("altitude_bonus_min") is not None:
+        if trail["altitude_m"] > solo_cfg["altitude_bonus_min"]:
+            base += solo_cfg["altitude_bonus"]
     # bikepark: terra compactada e drenagem projetada — comportamento neutro
     # penalizador removido; proteção de veredicto já garantida pela regra BAIXA ADERÊNCIA
 
     inclinacao = calcular_inclinacao(trail)
+    inclinacao_cfgs = _carregar_inclinacao_config()
     if inclinacao is not None:
-        if inclinacao >= 30:
-            base -= 0.22
-        elif inclinacao >= 20:
-            base -= 0.15
-        elif inclinacao >= 10:
-            base -= 0.08
+        for ic in (c for c in inclinacao_cfgs if c["tipo"] == "inclinacao"):
+            if inclinacao >= ic["grau_min"] and (ic["grau_max"] is None or inclinacao <= ic["grau_max"]):
+                base += ic["delta_fator"]
+                break
     elif trail.get("desnivel_m") is not None:
         d = trail["desnivel_m"]
-        if d >= 800:
-            base -= 0.18
-        elif d >= 500:
-            base -= 0.10
-        elif d >= 300:
-            base -= 0.05
+        for ic in (c for c in inclinacao_cfgs if c["tipo"] == "desnivel"):
+            if d >= ic["grau_min"] and (ic["grau_max"] is None or d <= ic["grau_max"]):
+                base += ic["delta_fator"]
+                break
 
     return max(0.05, min(1.0, base))
 
 def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
                           trail: dict, mes: int, enso: dict) -> dict:
+    sc              = _carregar_score_config()
+    pico_thr        = float(sc.get("pico_threshold",           10.0))
+    coef_pico_desc  = float(sc.get("coef_pico_descansado",      0.7))
+    coef_pico_mol   = float(sc.get("coef_pico_molhado",         1.0))
+    coef_rain       = float(sc.get("coef_rain",                 0.6))
+    coef_acumulo    = float(sc.get("coef_acumulo",              0.3))
+    coef_base       = float(sc.get("coef_base",                10.0))
+    bk_acumulo_thr  = float(sc.get("bikepark_acumulo_threshold", 5.0))
+    bk_score_mult   = float(sc.get("bikepark_score_mult",       0.90))
+
     thresh = threshold_solo_descansado(mes, enso, trail)
-    fator = fator_absorcao(trail)
+    fator  = fator_absorcao(trail)
     solo_descansado = acumulo_ef < thresh
 
-    if pico_3h >= 10.0:
-        impacto = pico_3h * (0.7 if solo_descansado else 1.0)
+    if pico_3h >= pico_thr:
+        impacto = pico_3h * (coef_pico_desc if solo_descansado else coef_pico_mol)
     else:
-        impacto = rain_mm * 0.6 if solo_descansado else (rain_mm + acumulo_ef * 0.3)
+        impacto = rain_mm * coef_rain if solo_descansado else (rain_mm + acumulo_ef * coef_acumulo)
 
     impacto *= fator
 
@@ -1256,21 +1371,17 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     # Quando clay_pct vem da tabela mestra, fator_absorcao já é calculado por ele
     # aplicar solo_mult manual por cima contradiz o dado real de argila
     if trail.get("clay_pct") is None:
-        solo_mult = {
-            "pedra": 0.80,
-            "ferro": 0.85,
-            "preto": 0.95,
-            "misto_mg": 0.92,
-            "misto": 1.00,
-            "terra": 1.05,
-        }.get(trail.get("solo_type", "terra"), 1.0)
-        impacto *= solo_mult
+        solo_cfg = next(
+            (c for c in _carregar_solo_type_config() if c["solo_type"] == trail.get("solo_type", "terra")),
+            None,
+        )
+        impacto *= solo_cfg["score_mult"] if solo_cfg else 1.0
 
     if trail.get("trail_type") == "bikepark":
-        if acumulo_ef < 5.0:
-            impacto *= 0.90
+        if acumulo_ef < bk_acumulo_thr:
+            impacto *= bk_score_mult
 
-    score = max(0.0, min(100.0, impacto * 10.0))
+    score = max(0.0, min(100.0, impacto * coef_base))
     return {
         "score": round(score, 1),
         "solo_descansado": solo_descansado,
@@ -3268,6 +3379,9 @@ def main() -> None:
     _carregar_veredicto_pesos()
     _carregar_meia_vida_clima_mult()
     _carregar_microclima_config()
+    _carregar_solo_type_config()
+    _carregar_inclinacao_config()
+    _carregar_score_config()
 
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
