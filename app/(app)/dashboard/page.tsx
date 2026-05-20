@@ -323,6 +323,7 @@ export default function DashboardPage() {
   const [avaliacoesPorTrilha, setAvaliacoesPorTrilha] = useState<Record<string, { count: number; media: number }>>({})
   const [avaliacoesPorSegmento, setAvaliacoesPorSegmento] = useState<Record<number, { count: number; media: number }>>({})
   const [loading, setLoading] = useState(true)
+  const [selecionadas, setSelecionadas] = useState<string[]>([])
 
   useEffect(() => {
     async function load() {
@@ -484,7 +485,27 @@ export default function DashboardPage() {
 
         {/* Seção: Trilhas favoritas */}
         <section style={{ marginBottom: 36 }}>
-          <SectionHeader title="Minhas trilhas favoritas" linkHref="/trilhas" linkLabel="Ver todas →" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 500, color: '#111111' }}>Minhas trilhas favoritas</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {selecionadas.length === 2 && (
+                <Link
+                  href={`/dashboard/comparar?a=${selecionadas[0]}&b=${selecionadas[1]}`}
+                  style={{
+                    background: '#FFE000', color: '#111', border: '1.5px solid #111',
+                    borderRadius: 4, padding: '6px 14px', fontSize: 13, fontWeight: 600,
+                    textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  <i className="ti ti-arrows-diff" style={{ fontSize: 14 }} />
+                  Comparar trilhas
+                </Link>
+              )}
+              <Link href="/trilhas" style={{ fontSize: 13, color: '#6B7280', fontWeight: 400, textDecoration: 'none' }}>
+                Ver todas →
+              </Link>
+            </div>
+          </div>
           {favoritas.length === 0 ? (
             <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 40, textAlign: 'center' }}>
               <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>Você ainda não tem trilhas favoritas.</p>
@@ -499,25 +520,56 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {favoritas.map(t => (
-                <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <TrilhaCard trilha={t} />
-                  {avaliacoesPorTrilha[t.id] && (
+              {favoritas.map(t => {
+                const isSel = selecionadas.includes(t.id)
+                const canSelect = isSel || selecionadas.length < 2
+                return (
+                  <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      fontSize: 11, fontWeight: 500, color: '#92400E',
-                      background: '#FFFBEB', borderRadius: 6,
-                      padding: '3px 9px', width: 'fit-content',
+                      borderRadius: 16,
+                      outline: isSel ? '2.5px solid #FFE000' : '2.5px solid transparent',
+                      transition: 'outline 0.15s',
                     }}>
-                      <i className="ti ti-star-filled" style={{ fontSize: 12, color: '#F59E0B' }} />
-                      {avaliacoesPorTrilha[t.id].media}
-                      <span style={{ color: '#888', fontWeight: 400 }}>
-                        ({avaliacoesPorTrilha[t.id].count} avaliação{avaliacoesPorTrilha[t.id].count > 1 ? 'ões' : ''} recente{avaliacoesPorTrilha[t.id].count > 1 ? 's' : ''})
-                      </span>
+                      <TrilhaCard trilha={t} />
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => setSelecionadas(prev =>
+                          prev.includes(t.id) ? prev.filter(id => id !== t.id) : prev.length < 2 ? [...prev, t.id] : prev
+                        )}
+                        disabled={!canSelect}
+                        style={{
+                          background: isSel ? '#1A1A1A' : '#F3F4F6',
+                          color: isSel ? '#FFE000' : '#6B7280',
+                          border: isSel ? '1.5px solid #1A1A1A' : '1.5px solid #E5E7EB',
+                          borderRadius: 6, fontSize: 12, fontWeight: 600,
+                          padding: '4px 12px', cursor: canSelect ? 'pointer' : 'not-allowed',
+                          opacity: canSelect ? 1 : 0.5,
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <i className={`ti ${isSel ? 'ti-check' : 'ti-plus'}`} style={{ fontSize: 12 }} />
+                        {isSel ? 'Selecionada' : 'Comparar'}
+                      </button>
+                      {avaliacoesPorTrilha[t.id] && (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          fontSize: 11, fontWeight: 500, color: '#92400E',
+                          background: '#FFFBEB', borderRadius: 6,
+                          padding: '3px 9px',
+                        }}>
+                          <i className="ti ti-star-filled" style={{ fontSize: 12, color: '#F59E0B' }} />
+                          {avaliacoesPorTrilha[t.id].media}
+                          <span style={{ color: '#888', fontWeight: 400 }}>
+                            ({avaliacoesPorTrilha[t.id].count} avaliação{avaliacoesPorTrilha[t.id].count > 1 ? 'ões' : ''} recente{avaliacoesPorTrilha[t.id].count > 1 ? 's' : ''})
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </section>
