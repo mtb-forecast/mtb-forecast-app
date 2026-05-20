@@ -219,7 +219,8 @@ export default function CondicaoCard({ condicao }: Props) {
               <span style={{ fontSize: 11, color: '#6B7280' }}>retidos</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '5px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
               <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
               <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
                 {trilhaSecaEmAgora === 0 ? 'Solo seco' : `seca em ~${trilhaSecaEmAgora}h`}
@@ -227,7 +228,8 @@ export default function CondicaoCard({ condicao }: Props) {
             </div>
 
             {condicao.ultima_chuva_h != null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '5px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
                 <i className="ti ti-history" style={{ fontSize: 13, color: '#9CA3AF' }} />
                 <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>última chuva {ultimaChuvaH}h atrás</span>
               </div>
