@@ -133,6 +133,9 @@ DROP TABLE IF EXISTS score_config;
 -- Python, não de constraint de banco.
 -- ATENÇÃO: ajuste o nome do índice único se diferente abaixo.
 -- ──────────────────────────────────────────────────────────────
+ALTER TABLE tabela_solo ALTER COLUMN bioma  DROP NOT NULL;
+ALTER TABLE tabela_solo ALTER COLUMN regiao DROP NOT NULL;
+
 UPDATE tabela_solo SET bioma  = NULL WHERE bioma  = 'TODOS';
 UPDATE tabela_solo SET regiao = NULL WHERE regiao = 'TODOS';
 
