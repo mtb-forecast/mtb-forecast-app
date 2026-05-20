@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
-import { rainColor, peakColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_BG } from '@/lib/display'
+import { rainColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_BG } from '@/lib/display'
 
 type Props = {
   trilha: TrilhaComCondicao
@@ -9,39 +9,30 @@ type Props = {
   onToggleFavorito?: () => void
 }
 
-
 export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
   const c = trilha.condicao
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
-  const vcfg = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-  const hasData = c != null && vcfg != null
-
+  const vcfg      = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
+  const hasData   = c != null && vcfg != null
   const accentColor = veredictoText ? (VEREDICTO_ACCENT[veredictoText] ?? '#D1D5DB') : '#D1D5DB'
-  const janelaBg    = veredictoText ? (VEREDICTO_JANELA_BG[veredictoText]   ?? '#F9FAFB')  : '#F9FAFB'
-  const showPico    = c?.pico_3h != null && c.pico_3h >= DISPLAY_THR.picoMin
+  const janelaBg    = veredictoText ? (VEREDICTO_JANELA_BG[veredictoText] ?? '#F9FAFB') : '#F9FAFB'
+  const has12h    = !!c?.veredicto_12h?.trim()
+  const showPico  = c?.pico_3h != null && c.pico_3h >= DISPLAY_THR.picoMin
+  const windKmh   = c?.wind_ms != null ? c.wind_ms * 3.6 : null
+  const hasAlerta = !!(c?.aderencia_futura_status && c?.aderencia_futura_label &&
+    c.aderencia_futura_status !== c.aderencia_status)
 
   const pill: React.CSSProperties = {
     fontSize: '0.7rem', color: '#6B7280', background: '#F3F4F6',
     borderRadius: 999, padding: '2px 9px',
   }
 
-  const metricBox: React.CSSProperties = {
-    background: '#F9FAFB', borderRadius: 10, padding: '8px 10px',
-  }
-
-  const metricLabel: React.CSSProperties = {
-    fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase',
-    letterSpacing: '0.04em', marginBottom: 3,
-  }
-
   return (
     <div
       style={{
-        background: '#FFFFFF',
-        borderRadius: 16,
+        background: '#FFFFFF', borderRadius: 16,
         boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        display: 'flex',
-        overflow: 'hidden',
+        display: 'flex', overflow: 'hidden',
         transition: 'box-shadow 0.2s ease',
       }}
       onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.10)')}
@@ -82,83 +73,27 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
 
         {hasData && c ? (
           <>
-            {/* Badges + alerta futuro */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              {c.aderencia_status && (
+            {/* Veredicto */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{
-                  background: '#F3F4F6', color: '#6B7280',
-                  borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
+                  background: accentColor + '26', color: accentColor,
+                  borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
                 }}>
+                  {vcfg.emoji} {veredictoText}
+                </span>
+                {has12h && (
+                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>12h</span>
+                )}
+              </div>
+              {c.aderencia_status && (
+                <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>
                   {c.aderencia_status}
                 </span>
               )}
-              {veredictoText && vcfg && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{
-                    background: accentColor + '26',
-                    color: accentColor,
-                    borderRadius: 6, fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
-                  }}>
-                    {vcfg.emoji} {veredictoText}
-                  </span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    12h
-                  </span>
-                </div>
-              )}
-              {c.aderencia_futura_status && c.aderencia_futura_label &&
-               c.aderencia_futura_status !== c.aderencia_status && (
-                <span style={{
-                  background: '#FFFBEB', color: '#92400E',
-                  borderRadius: 6, fontSize: 11, padding: '3px 9px',
-                  display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                  <i className="ti ti-alert-triangle" style={{ fontSize: 12 }} />
-                  {c.aderencia_futura_label}: {c.aderencia_futura_status}
-                </span>
-              )}
             </div>
 
-            {/* Métricas */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-              <div style={metricBox}>
-                <div style={metricLabel}>Chuva 48h</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: rainColor(c.acumulo_48h), display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <i className="ti ti-droplet" style={{ fontSize: 14 }} />
-                  {c.acumulo_48h?.toFixed(1) ?? '—'}mm
-                </div>
-              </div>
-
-              {showPico && (
-                <div style={metricBox}>
-                  <div style={metricLabel}>Pico 3h</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: peakColor(c.pico_3h!), display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <i className="ti ti-droplet-half" style={{ fontSize: 14 }} />
-                    {c.pico_3h!.toFixed(1)}mm
-                  </div>
-                </div>
-              )}
-
-              <div style={metricBox}>
-                <div style={metricLabel}>Vento prev. 48h</div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: windColor(c.wind_ms != null ? c.wind_ms * 3.6 : null), display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <i className="ti ti-wind" style={{ fontSize: 14 }} />
-                  {c.wind_ms != null ? (c.wind_ms * 3.6).toFixed(1) : '—'} km/h
-                </div>
-              </div>
-
-              {c.gust_max_kmh != null && (
-                <div style={metricBox}>
-                  <div style={metricLabel}>Rajada prev. 48h</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: windColor(c.gust_max_kmh), display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <i className="ti ti-wind" style={{ fontSize: 14 }} />
-                    {c.gust_max_kmh.toFixed(0)} km/h
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Texto dinâmico (ou frase de secagem como fallback) */}
+            {/* Texto dinâmico */}
             {(c.texto_dinamico || c.frase_secagem) && (
               <p style={{
                 fontSize: 12, color: '#374151', lineHeight: 1.6, margin: 0,
@@ -172,17 +107,62 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
               </p>
             )}
 
+            {/* Badges solo */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {c.acumulo_48h != null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
+                  <i className="ti ti-droplet" style={{ fontSize: 12, color: rainColor(c.acumulo_48h) }} />
+                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.acumulo_48h) }}>{c.acumulo_48h.toFixed(1)}mm</span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>chuva 48h</span>
+                </div>
+              )}
+              {showPico && c.pico_3h != null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
+                  <i className="ti ti-droplet-half" style={{ fontSize: 12, color: rainColor(c.pico_3h) }} />
+                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.pico_3h) }}>{c.pico_3h.toFixed(1)}mm</span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>pico 3h</span>
+                </div>
+              )}
+              {windKmh != null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
+                  <i className="ti ti-wind" style={{ fontSize: 12, color: windColor(windKmh) }} />
+                  <span style={{ fontSize: 11, fontWeight: 500, color: windColor(windKmh) }}>{windKmh.toFixed(0)} km/h</span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento</span>
+                </div>
+              )}
+              {c.ultima_chuva_h != null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
+                  <i className="ti ti-history" style={{ fontSize: 12, color: '#9CA3AF' }} />
+                  <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }}>{Math.round(c.ultima_chuva_h)}h atrás</span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>última chuva</span>
+                </div>
+              )}
+            </div>
+
+            {/* Alerta aderência futura */}
+            {hasAlerta && (
+              <div style={{
+                background: '#FFFBEB', borderLeft: '3px solid #F59E0B',
+                borderRadius: 8, padding: '6px 10px',
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 11, color: '#92400E',
+              }}>
+                <i className="ti ti-alert-triangle" style={{ fontSize: 12, color: '#F59E0B', flexShrink: 0 }} />
+                <span>{c.aderencia_futura_label}: <b>{c.aderencia_futura_status}</b></span>
+              </div>
+            )}
+
             {/* Janela de pedal */}
             {c.janela ? (
-              <div style={{ background: janelaBg, borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ background: janelaBg, borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <i className="ti ti-clock" style={{ fontSize: 13, color: '#6B7280' }} />
                 <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela:</span>
-                <span style={{ color: '#374151' }}>{c.janela}</span>
+                <span style={{ fontSize: 12, color: '#374151' }}>{c.janela}</span>
               </div>
             ) : (
-              <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#9CA3AF' }} />
-                <span style={{ color: '#9CA3AF' }}>Sem janela definida</span>
+                <span style={{ fontSize: 12, color: '#9CA3AF' }}>Sem janela definida</span>
               </div>
             )}
           </>
@@ -207,8 +187,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
           >
             <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#111111' }}>Ver detalhes</span>
             <span style={{
-              background: '#F3F4F6', borderRadius: '50%',
-              width: 22, height: 22,
+              background: '#F3F4F6', borderRadius: '50%', width: 22, height: 22,
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
               <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#111111' }} />
