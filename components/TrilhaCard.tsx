@@ -130,6 +130,13 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
                   <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento</span>
                 </div>
               )}
+              {c.ultima_chuva_h != null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
+                  <i className="ti ti-history" style={{ fontSize: 12, color: '#9CA3AF' }} />
+                  <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }}>{Math.round(c.ultima_chuva_h)}h atrás</span>
+                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>última chuva</span>
+                </div>
+              )}
             </div>
 
             {/* Alerta aderência futura */}
