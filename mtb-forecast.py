@@ -35,7 +35,7 @@ Alterações V5.22:
 Alterações V5.21:
 - Modelo de secagem do solo por decaimento exponencial
 - fetch_openmeteo_historico() retorna dict com bruto, efetivo, ultima_chuva_h, meia_vida_h
-- Tabela _MEIA_VIDA_SECAGEM: taxa de secagem por (solo_type, exposicao)
+- Tabela meia_vida_secagem (Supabase): taxa de secagem por (solo_type, exposicao)
 
 Alterações V5.20:
 - Badge automático "⛏ Quadrilátero Ferrífero" no card da trilha
@@ -643,28 +643,6 @@ def fetch_openmeteo(trail: dict) -> dict | None:
 # Modelo de secagem do solo — V5.21
 # ---------------------------------------------------------------------------
 
-_MEIA_VIDA_SECAGEM: dict = {
-    ("ferro",    "aberta"):  8,
-    ("ferro",    "fechada"): 14,
-    ("pedra",    "aberta"):  6,
-    ("pedra",    "fechada"): 10,
-    ("preto",    "aberta"):  14,
-    ("preto",    "fechada"): 24,
-    ("misto_mg", "aberta"):  12,
-    ("misto_mg", "fechada"): 18,
-    ("misto",    "aberta"):  18,
-    ("misto",    "fechada"): 28,
-    ("terra",    "aberta"):  24,
-    ("terra",    "fechada"): 36,
-}
-_MEIA_VIDA_DEFAULT = 24
-
-# ---------------------------------------------------------------------------
-# Microclima por bioma — V5.24
-# ---------------------------------------------------------------------------
-
-_BIOMAS_MICROCLIMA = {"Mata Atlântica"}
-
 def fator_microclima(trail: dict) -> float:
     bioma = trail.get("bioma", "Desconhecido")
     for cfg in _carregar_microclima_config():
@@ -684,7 +662,7 @@ def _meia_vida(trail: dict) -> float:
     solo = trail.get("solo_type", "terra")
     expo = trail.get("exposicao", "fechada")
     tabela_mv = _carregar_meia_vida()
-    base = float(tabela_mv.get((solo, expo), _MEIA_VIDA_DEFAULT))
+    base = float(tabela_mv.get((solo, expo), 24))
     # FIX #6 — microclima retém umidade estruturalmente além do que o solo_type sugere
     bioma = trail.get("bioma", "Desconhecido")
     for cfg in _carregar_microclima_config():
@@ -739,8 +717,8 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
     if humidity_pct is not None:
         _aplicar(humidity_pct, "umidade")
 
-    # FIX #5: exposicao removida daqui — já está na tabela _MEIA_VIDA_SECAGEM base
-    # Manter aqui causava double counting com a tabela (terra fechada=36h já embute o efeito)
+    # FIX #5: exposicao removida daqui — já está na tabela meia_vida_secagem (Supabase)
+    # Manter aqui causava double counting (terra fechada=36h já embute o efeito)
 
     if trail.get("trail_type") == "bikepark":
         expo = trail.get("exposicao", "aberta")
@@ -863,23 +841,9 @@ _CACHE_MICROCLIMA_CONFIG: list = []
 _CACHE_SOLO_TYPE_CONFIG: list = []
 _CACHE_INCLINACAO_CONFIG: list = []
 _CACHE_SCORE_CONFIG: dict = {}
+_CACHE_ADERENCIA_DESCRICOES: dict = {}
 
 # Tabela local de fallback — usada se Supabase estiver indisponível
-_TABELA_SOLO_FALLBACK: list = [
-    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "SP",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
-    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "RJ",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
-    {"solo_type": "terra",    "bioma": "Mata Atlântica", "regiao": "MG",    "clay_pct": 45, "sand_pct": 25, "texture_class": "Argiloso"},
-    {"solo_type": "terra",    "bioma": "Cerrado",        "regiao": "MG",    "clay_pct": 52, "sand_pct": 20, "texture_class": "Muito argiloso"},
-    {"solo_type": "terra",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 42, "sand_pct": 28, "texture_class": "Argiloso"},
-    {"solo_type": "misto",    "bioma": "Mata Atlântica", "regiao": "SP",    "clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"},
-    {"solo_type": "misto",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 32, "sand_pct": 35, "texture_class": "Franco-argiloso"},
-    {"solo_type": "preto",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 38, "sand_pct": 28, "texture_class": "Franco-argiloso"},
-    {"solo_type": "pedra",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 12, "sand_pct": 68, "texture_class": "Franco-arenoso"},
-    {"solo_type": "ferro",    "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 30, "sand_pct": 38, "texture_class": "Franco"},
-    {"solo_type": "misto_mg", "bioma": "TODOS",          "regiao": "TODOS", "clay_pct": 28, "sand_pct": 40, "texture_class": "Franco"},
-]
-
-
 def _carregar_configuracoes() -> dict:
     """
     Carrega configurações do sistema da tabela configuracoes_sistema.
@@ -919,17 +883,14 @@ def _get_config(chave: str, fallback_env: str = None) -> str | None:
 
 
 def _carregar_tabela_solo() -> list:
-    """
-    Carrega tabela mestra de solo do Supabase uma única vez por execução.
-    Fallback para tabela local se API falhar.
-    """
+    """Carrega tabela mestra de solo do Supabase uma única vez por execução."""
     global _CACHE_TABELA_SOLO
     if _CACHE_TABELA_SOLO:
         return _CACHE_TABELA_SOLO
 
     if not SUPABASE_KEY:
-        print("  [Solo] SUPABASE_KEY ausente — usando tabela local fallback")
-        return _TABELA_SOLO_FALLBACK
+        print("  [ERRO CRÍTICO] SUPABASE_KEY ausente — tabela_solo indisponível")
+        return []
 
     try:
         url = (
@@ -951,8 +912,8 @@ def _carregar_tabela_solo() -> list:
         print(f"  [Solo] Tabela mestra carregada do Supabase: {len(dados)} registros")
         return dados
     except Exception as exc:
-        print(f"  [Solo] Erro ao carregar tabela Supabase: {exc} — usando fallback local")
-        return _TABELA_SOLO_FALLBACK
+        print(f"  [ERRO CRÍTICO] tabela_solo indisponível no Supabase: {exc} — clay_pct não será calculado")
+        return []
 
 
 def _lookup_solo(solo_type: str, bioma: str, regiao: str) -> dict:
@@ -1039,8 +1000,8 @@ def _carregar_meia_vida() -> dict:
         print(f"  [MeiaVida] Carregado do Supabase: {len(dados)} registros")
         return tabela
     except Exception as exc:
-        print(f"  [MeiaVida] Erro: {exc} — usando fallback hardcoded")
-        return _MEIA_VIDA_SECAGEM
+        print(f"  [ERRO CRÍTICO] meia_vida_secagem indisponível no Supabase: {exc} — meia_vida usará default 24h")
+        return {}
 
 
 def _carregar_enso_config() -> list:
@@ -1294,6 +1255,32 @@ def _carregar_score_config() -> dict:
         }
 
 
+def _carregar_aderencia_descricoes() -> dict:
+    """Carrega descrições de aderência do Supabase. Fallback: {} (dict inline de _descricao_aderencia())."""
+    global _CACHE_ADERENCIA_DESCRICOES
+    if _CACHE_ADERENCIA_DESCRICOES:
+        return _CACHE_ADERENCIA_DESCRICOES
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/aderencia_descricoes"
+            f"?select=status,solo_type,texto"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        config = {(row["status"], row["solo_type"]): row["texto"] for row in dados}
+        _CACHE_ADERENCIA_DESCRICOES = config
+        print(f"  [Aderência] Descrições carregadas do Supabase: {len(config)} registros")
+        return config
+    except Exception as exc:
+        print(f"  [Aderência] Erro ao carregar descrições: {exc} — usando dict inline")
+        return {}
+
+
 def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
                              bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
     """
@@ -1390,37 +1377,14 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     }
 
 def _descricao_aderencia(status: str, trail: dict, saturado: bool = False) -> str:
-    solo_type = trail["solo_type"]
     trail_type = trail.get("trail_type", "natural")
-    descricoes = {
-        ("SECO",            "terra"):    "Solo seco. Boa aderência para DH e Enduro.",
-        ("SECO",            "misto"):    "Solo seco. Boa aderência para DH e Enduro.",
-        ("SECO",            "misto_mg"): "Solo seco. Mistura de terra e minério oferece boa aderência.",
-        ("SECO",            "preto"):    "Solo seco. Terra preta oferece boa aderência.",
-        ("SECO",            "pedra"):    "Solo seco. Boa aderência sobre rocha.",
-        ("SECO",            "ferro"):    "Solo ferruginoso seco. Aderência excelente — grip firme sobre o minério.",
-        ("GRIP PERFEITO",   "terra"):    "Solo levemente úmido. Alta aderência — grip perfeito para DH e Enduro.",
-        ("GRIP PERFEITO",   "misto"):    "Solo levemente úmido. Grip excelente nos trechos de terra e pedra.",
-        ("GRIP PERFEITO",   "misto_mg"): "Solo levemente úmido. Minério úmido melhora o grip — condição favorável.",
-        ("GRIP PERFEITO",   "preto"):    "Terra preta levemente úmida. Grip perfeito — condição ideal.",
-        ("GRIP PERFEITO",   "pedra"):    "Rocha levemente úmida. Alta aderência — grip perfeito.",
-        ("GRIP PERFEITO",   "ferro"):    "Solo ferruginoso levemente úmido. Grip excelente — minério úmido oferece boa tração.",
-        ("BOA ADERÊNCIA",   "terra"):    "Solo úmido. Perda parcial de tração. Freios exigem antecipação.",
-        ("BOA ADERÊNCIA",   "misto"):    "Solo úmido. Trechos de terra com perda de tração.",
-        ("BOA ADERÊNCIA",   "misto_mg"): "Solo úmido. Trechos de terra com perda de tração — minério retém menos água mas atenção na lama.",
-        ("BOA ADERÊNCIA",   "preto"):    "Terra preta úmida. Aderência reduzida, especialmente na frenagem.",
-        ("BOA ADERÊNCIA",   "pedra"):    "Rocha molhada. Risco de escorregamento em curvas e frenagens.",
-        ("BOA ADERÊNCIA",   "ferro"):    "Solo ferruginoso úmido. Drena rápido, mas o minério molhado pode ficar traiçoeiro.",
-        ("BAIXA ADERÊNCIA", "terra"):    "Solo encharcado. Lama e poças — alto risco em curvas e descidas.",
-        ("BAIXA ADERÊNCIA", "misto"):    "Trechos encharcados com lama. Atenção máxima nas seções de terra.",
-        ("BAIXA ADERÊNCIA", "misto_mg"): "Solo encharcado. Terra misturada ao minério forma lama — alto risco em curvas e descidas.",
-        ("BAIXA ADERÊNCIA", "preto"):    "Terra preta encharcada. Solo muito liso e instável — alto risco em curvas e frenagens.",
-        ("BAIXA ADERÊNCIA", "pedra"):    "Rocha bem molhada. Sem lama, mas com escorregamento elevado e pouca margem de erro.",
-        ("BAIXA ADERÊNCIA", "ferro"):    "Solo ferruginoso muito molhado. Minério liso e imprevisível — alto risco em curvas e apoios.",
-    }
+    descricoes = _carregar_aderencia_descricoes()
     if trail_type == "bikepark" and saturado:
-        return "Bike park saturado. Drenagem insuficiente para o volume acumulado — risco de lama, valetas e perda de tração."
-    return descricoes.get((status, solo_type), f"Solo em condição de {status.lower()}.")
+        texto = descricoes.get(("BIKEPARK_SATURADO", "default"))
+        return texto or "Bike park saturado. Drenagem insuficiente para o volume acumulado — risco de lama, valetas e perda de tração."
+    solo_type = trail["solo_type"]
+    texto = descricoes.get((status, solo_type)) or descricoes.get((status, "default"))
+    return texto or f"Solo em condição de {status.lower()}."
 
 def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
                        pico_3h: float = 0.0, mes: int = None, enso: dict = None) -> dict:
@@ -3382,6 +3346,7 @@ def main() -> None:
     _carregar_solo_type_config()
     _carregar_inclinacao_config()
     _carregar_score_config()
+    _carregar_aderencia_descricoes()
 
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
