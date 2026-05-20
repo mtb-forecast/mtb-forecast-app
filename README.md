@@ -31,7 +31,7 @@ Composta por dois sistemas integrados:
 - [Agente Python — Pipeline completo](#agente-python--pipeline-completo)
 - [Modelo de solo e aderência](#modelo-de-solo-e-aderência)
 - [Cálculo de veredicto](#cálculo-de-veredicto)
-- [Migração Supabase — Fases 1 a 4](#migração-supabase--fases-1-a-4)
+- [Migração Supabase — Fases 1 a 5](#migração-supabase--fases-1-a-5)
 - [GitHub Actions — Workflow](#github-actions--workflow)
 - [Configuração — Secrets e variáveis de ambiente](#configuração--secrets-e-variáveis-de-ambiente)
 - [Desenvolvimento local](#desenvolvimento-local)
@@ -56,9 +56,9 @@ Composta por dois sistemas integrados:
 │  Anthropic Claude AI        ─────────────────────────────►            │
 │                                                                        │
 │  13 tabelas de config lidas do Supabase na inicialização:             │
-│  enso_config · aderencia_thresholds · veredicto_risco_pesos           │
-│  meia_vida_clima_mult · microclima_config · configuracoes_sistema      │
-│  solo_type_config · inclinacao_config · score_config                  │
+│  enso_config · aderencia_thresholds · veredicto_pesos                 │
+│  veredicto_limiares · meia_vida_clima_mult · microclima_config        │
+│  configuracoes_sistema · solo_type_config · inclinacao_config         │
 │  aderencia_descricoes · threshold_sazonal · meia_vida_secagem         │
 │  tabela_solo                                                           │
 └──────────────────────────────────────────────────────────────────────┘
@@ -554,13 +554,13 @@ Todas com RLS habilitado, coluna `ativo`, carregadas em cache global na iniciali
 |---|---|
 | `enso_config` | Fases ENSO, intervalos ONI e multiplicadores sobre threshold sazonal |
 | `aderencia_thresholds` | Limites de ef_combinado para SECO / GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA |
-| `veredicto_risco_pesos` | Pesos de risco e limiares de decisão para DROP LIBERADO / MELHOR ESPERAR |
+| `veredicto_pesos` | Pesos de risco por condição (aderencia_baixa, pico_3h_alto, vento_alto, etc.) |
+| `veredicto_limiares` | Limiares de decisão: ≤1 → DROP LIBERADO, ≤3 → Veja alertas, >3 → MELHOR ESPERAR |
 | `meia_vida_clima_mult` | Multiplicadores de secagem por temperatura, vento, nebulosidade, umidade e bikepark |
 | `microclima_config` | Fatores de retenção de umidade por bioma, altitude e exposição |
-| `configuracoes_sistema` | Chave-valor: email, parâmetros do modelo (meia_vida_min/max, aderencia_recovery_mult) |
-| `solo_type_config` | `fator_absorcao_base` e `score_mult` por tipo de solo; altitude bonus |
+| `configuracoes_sistema` | Chave-valor: email, parâmetros do modelo, coeficientes de scoring e altitude_bonus |
+| `solo_type_config` | `fator_absorcao_base` e `score_mult` por tipo de solo |
 | `inclinacao_config` | Penalizadores de absorção por inclinação calculada (graus) ou desnível bruto (metros) |
-| `score_config` | Coeficientes do cálculo de score: coef_rain, coef_pico, coef_acumulo, coef_base, bikepark thresholds |
 | `aderencia_descricoes` | 25 textos descritivos por (status × solo_type) exibidos no card da trilha |
 | `threshold_sazonal` | Thresholds mensais de acúmulo efetivo por região (solo descansado e bikepark saturado) |
 | `meia_vida_secagem` | Taxa base de secagem por (solo_type, exposicao) em horas |
@@ -723,7 +723,7 @@ GitHub Actions (cron a cada 6h + workflow_dispatch manual)
         │
         ▼
 2. Carregamento de tabelas de config (uma vez por execução)
-   13 caches globais: enso_config, aderencia_thresholds, veredicto_risco_pesos,
+   14 caches globais: enso_config, aderencia_thresholds, veredicto_pesos, veredicto_limiares,
    meia_vida_clima_mult, microclima_config, configuracoes_sistema, solo_type_config,
    inclinacao_config, score_config, aderencia_descricoes, threshold_sazonal,
    meia_vida_secagem, tabela_solo
@@ -819,8 +819,8 @@ GitHub Actions (cron a cada 6h + workflow_dispatch manual)
 Lookup prioritário — sem chamadas HTTP externas:
 ```
 1. Match exato:    solo_type + bioma + regiao
-2. Bioma genérico: solo_type + bioma + regiao = TODOS
-3. Global:         solo_type + bioma = TODOS + regiao = TODOS
+2. Bioma genérico: solo_type + bioma + regiao = NULL (wildcard)
+3. Global:         solo_type + bioma = NULL + regiao = NULL (wildcard universal)
 4. Fallback:       clay=32, sand=35, texture=Franco-argiloso
 ```
 
@@ -889,10 +889,10 @@ acumulo_ef = Σ precip_i × 0.5 ^ (horas_atras_i / meia_vida_h)
 
 **Microclima** (`microclima_config`):
 
-| Condição | mult_threshold | mult_meia_vida |
+| Condição | fator_threshold | fator_secagem |
 |---|---|---|
-| Mata Atlântica + altitude ≥ 600m + fechada | × 0.75 (threshold 25% menor) | × 1.20 |
-| Mata Atlântica (demais) | × 0.90 | × 1.10 |
+| Mata Atlântica + altitude ≥ 600m + fechada | 0.50 (thresholds 50% mais rígidos) | × 1.20 |
+| Mata Atlântica (demais) | 0.90 | × 1.10 |
 
 **Clamp final:** `max(4h, min(72h, meia_vida))`
 
@@ -939,13 +939,13 @@ efetivo_threshold = efetivo_combinado / fator_microclima(trail)
 
 Isso torna os thresholds efetivamente mais rígidos para trilhas em ambientes com mais retenção de umidade (Mata Atlântica fechada de altitude):
 
-| Trilha | fator_mc | GRIP → BOA | BOA → BAIXA |
+| Trilha | fator_threshold | GRIP → BOA | BOA → BAIXA |
 |---|---|---|---|
-| Mata Atlântica + alt ≥ 600m + fechada | 0.75 | > **3.75 mm** | > **5.25 mm** |
-| Mata Atlântica (demais) | 0.90 | > **4.5 mm** | > **6.3 mm** |
-| Outros / sem microclima | 1.00 | > 5.0 mm | > 7.0 mm |
+| Mata Atlântica + alt ≥ 600m + fechada | 0.50 | > **1.5 mm** | > **3.5 mm** |
+| Mata Atlântica (demais) | 0.90 | > **2.7 mm** | > **6.3 mm** |
+| Outros / sem microclima | 1.00 | > 3.0 mm | > 7.0 mm |
 
-Os thresholds fixos na tabela `aderencia_thresholds` são 0 / 5 / 7 mm. O ajuste microclimático não altera a tabela — é aplicado no código dividindo o efetivo antes da comparação. Valores calibráveis via `microclima_config.mult_threshold` no Supabase.
+Os thresholds fixos na tabela `aderencia_thresholds` são 0 / 3 / 7 mm. O ajuste microclimático não altera a tabela — é aplicado no código dividindo o efetivo antes da comparação (`efetivo_threshold = efetivo_combinado / fator_threshold`). Valores calibráveis via `microclima_config.fator_threshold` no Supabase.
 
 **Fator de recuperação:** `BAIXA ADERÊNCIA → BOA ADERÊNCIA` se `acumulo_ef < threshold × 2.5` **e** não saturado. Multiplicador 2.5 lido de `configuracoes_sistema.aderencia_recovery_mult`.
 
@@ -958,7 +958,7 @@ Os thresholds fixos na tabela `aderencia_thresholds` são 0 / 5 / 7 mm. O ajuste
 
 ## Cálculo de veredicto
 
-Pontos de risco acumulados (pesos na tabela `veredicto_risco_pesos`):
+Pontos de risco acumulados (pesos na tabela `veredicto_pesos`, limiares em `veredicto_limiares`):
 
 | Condição | Pontos |
 |---|---|
@@ -994,16 +994,16 @@ Pontos de risco acumulados (pesos na tabela `veredicto_risco_pesos`):
 
 ---
 
-## Migração Supabase — Fases 1 a 4
+## Migração Supabase — Fases 1 a 5
 
-Todo o modelo era hardcoded em Python. As 4 fases migraram os parâmetros para o Supabase, tornando-os editáveis sem alterar código.
+Todo o modelo era hardcoded em Python. As 5 fases migraram os parâmetros para o Supabase, tornando-os editáveis sem alterar código.
 
 ### Fase 1 — `enso_config`, `aderencia_thresholds`, `veredicto_risco_pesos`
 `supabase/migrations/fase1_enso_aderencia_veredicto.sql`
 
 - `enso_config`: 5 fases ONI com multiplicadores — substitui `classificar_enso()` hardcoded
 - `aderencia_thresholds`: limites ef_combinado → status — substitui `if/elif` em `calcular_aderencia()`
-- `veredicto_risco_pesos`: pesos + limiares → veredicto — substitui `if/elif` em `veredicto()`
+- `veredicto_risco_pesos`: pesos + limiares → veredicto — substitui `if/elif` em `veredicto()` *(refatorado na Fase 5)*
 
 ### Fase 2 — `meia_vida_clima_mult`, `microclima_config`
 `supabase/migrations/fase2_meia_vida_clima_microclima.sql`
@@ -1015,15 +1015,29 @@ Todo o modelo era hardcoded em Python. As 4 fases migraram os parâmetros para o
 ### Fase 3 — `solo_type_config`, `inclinacao_config`, `score_config`
 `supabase/migrations/fase3_solo_score_inclinacao.sql`
 
-- `solo_type_config`: 6 tipos de solo com `fator_absorcao_base`, `score_mult`, altitude_bonus
+- `solo_type_config`: 6 tipos de solo com `fator_absorcao_base`, `score_mult`, altitude_bonus *(altitude_bonus movido na Fase 5)*
 - `inclinacao_config`: 6 penalizadores por inclinação calculada e desnível bruto
-- `score_config`: 9 coeficientes do modelo de score
+- `score_config`: 9 coeficientes do modelo de score *(absorvido em `configuracoes_sistema` na Fase 5)*
 
 ### Fase 4 — `aderencia_descricoes`
 `supabase/migrations/fase4_limpeza_fallbacks.sql`
 
 - `aderencia_descricoes`: 25 textos (4 status × 6 solo_types + 1 bikepark saturado)
 - `configuracoes_sistema` INSERT: `aderencia_recovery_mult=2.5`
+
+### Fase 5 — Consolidação de schema
+`supabase/migrations/fase5_consolidacao_schema.sql`
+
+Foco: clareza semântica, remoção de dead code e normalização de convenções.
+
+- **5A** `veredicto_risco_pesos` → `veredicto_pesos` + `veredicto_limiares`: separação de dois conceitos que viviam na mesma tabela com colunas nulláveis como seletor de tipo
+- **5B** `microclima_config`: `mult_threshold` → `fator_threshold`, `mult_meia_vida` → `fator_secagem` (nomes refletem papel real: divisor e multiplicador)
+- **5C** `inclinacao_config`: `grau_min`/`grau_max` → `valor_min`/`valor_max` (tipo `desnivel` armazena metros, não graus)
+- **5D** `meia_vida_clima_mult`: removida coluna `condicao` (documentação nunca lida pelo código); removida linha `ativo=false` (dead code coberto pela regra ≤16°C)
+- **5E** `aderencia_thresholds`: removida coluna `ordem` (redundante — `ef_min asc nulls first` já é a ordenação natural)
+- **5F** `solo_type_config`: `altitude_bonus_min` e `altitude_bonus` movidos para `configuracoes_sistema` (valores idênticos nos 6 tipos — sem poder de calibração por tipo)
+- **5G** `score_config` absorvida por `configuracoes_sistema`: adicionada coluna `grupo` para categorizar chaves; `score_config` dropada
+- **5H** `tabela_solo`: sentinela `"TODOS"` → `NULL`; índice único recriado com `COALESCE` para tratar NULL como wildcard em PostgreSQL
 
 ---
 
@@ -1289,12 +1303,12 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 - **ONI parsing** (`fetch_oni_atual`): corrigido para ler `partes[3]` (ANOM) em vez de `partes[2]` (SST absoluto ~27°C). Bug causava classificação errada como "El Niño Forte" com ONI=27.28 em vez do correto ~0.11 (ENSO Neutro), tornando todos os thresholds 25% mais permissivos.
 - **Bikepark recovery factor** (`calcular_aderencia`): adicionado `and not saturado` à condição de recuperação. Bug permitia downgrade incorreto de BAIXA → BOA ADERÊNCIA em bikepark saturado.
 - **Validação de formato ONI** (`fetch_oni_atual`): 3 camadas — header com ≠ 4 colunas, SST fora de 20–32°C, anomalia fora de −4..+4. Detecta mudanças no formato do arquivo NOAA e cai em neutro com aviso no log.
-- **Ajuste microclimático nos thresholds de aderência** (`calcular_aderencia`): trilhas em Mata Atlântica fechada de altitude (fator_mc=0.75) tinham thresholds SECO/GRIP/BOA/BAIXA iguais a trilhas abertas, causando GRIP PERFEITO superestimado. O `efetivo_combinado` agora é dividido por `fator_microclima(trail)` antes da comparação, tornando os limiares efetivos 25% mais rígidos (GRIP→BOA em 3.75mm em vez de 5mm). Valores calibráveis via `microclima_config.mult_threshold` no Supabase.
+- **Ajuste microclimático nos thresholds de aderência** (`calcular_aderencia`): trilhas em Mata Atlântica fechada de altitude tinham thresholds iguais a trilhas abertas, causando GRIP PERFEITO superestimado. O `efetivo_combinado` agora é dividido por `fator_threshold` antes da comparação. Com `fator_threshold=0.50` (Mata Atlântica alta fechada), GRIP→BOA ocorre em 1.5mm e BOA→BAIXA em 3.5mm. Calibrável via `microclima_config.fator_threshold` no Supabase.
 
-**Migração Supabase concluída (Fases 1–4):**
-- 13 tabelas de configuração do modelo no Supabase — zero parâmetros hardcoded no Python
-- `veredicto_risco_pesos`, `aderencia_thresholds`, `enso_config` — editáveis sem alterar código
-- `configuracoes_sistema`: parâmetros do modelo (`meia_vida_min/max`, `aderencia_recovery_mult`) e credenciais de email
+**Migração Supabase concluída (Fases 1–5):**
+- 14 caches de configuração no Supabase — zero parâmetros hardcoded no Python
+- Fase 5: schema consolidado — `veredicto_risco_pesos` → `veredicto_pesos` + `veredicto_limiares`; `score_config` absorvida em `configuracoes_sistema`; colunas renomeadas para semântica clara; `tabela_solo` usa NULL em vez de `"TODOS"`
+- `aderencia_thresholds`, `enso_config`, `veredicto_pesos` — editáveis sem alterar código
 
 **Geocodificação de trilhas:**
 - `lib/geocoding.ts`: `geocodeLatLon()` via Nominatim/OpenStreetMap
