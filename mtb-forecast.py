@@ -739,6 +739,10 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
     if trail.get("trail_type") == "bikepark":
         expo = trail.get("exposicao", "aberta")
         _aplicar(0.0, "bikepark", exposicao=expo)
+    elif trail.get("trail_type") == "natural":
+        # Trilha natural não tem drenagem projetada — retém umidade mais que bikepark
+        fator_natural = float(_get_config("natural_meia_vida_mult") or 1.15)
+        meia_vida *= fator_natural
 
     mv_min = float(_get_config("meia_vida_min") or 4.0)
     mv_max = float(_get_config("meia_vida_max") or 72.0)
@@ -1642,9 +1646,12 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             motivos.append("bikepark saturado")
 
     if trail is not None and trail.get("trail_type") == "natural":
-        if inclinacao is not None and inclinacao > 20 and rain_mm > 0 and status in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA"):
+        if status in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA"):
             risco += 1
-            motivos.append("trilha natural inclinada com chuva")
+            motivos.append("trilha natural com solo úmido")
+        elif inclinacao is not None and inclinacao > 20 and rain_mm > 0:
+            risco += 1
+            motivos.append("trilha natural inclinada com chuva prevista")
 
     # Vento histórico: impacto no veredicto por nível graduado
     if vento_hist is not None:
