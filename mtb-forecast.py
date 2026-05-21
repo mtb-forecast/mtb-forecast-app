@@ -110,7 +110,7 @@ import pathlib as _pathlib
 
 _CAMPOS_OBRIGATORIOS = ("name", "lat", "lon", "solo_type", "exposicao", "altitude_m", "trail_type", "regiao")
 _SOLO_VALIDOS        = {"terra", "misto", "preto", "pedra", "ferro", "misto_mg"}
-_EXPOSICAO_VALIDOS   = {"aberta", "fechada"}
+_EXPOSICAO_VALIDOS   = {"aberta", "fechada", "mista"}
 _TRAIL_VALIDOS       = {"natural", "bikepark"}
 
 def _carregar_trilhas(csv_path: str = "trilhas.csv") -> list:
@@ -736,13 +736,9 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
     # FIX #5: exposicao removida daqui — já está na tabela meia_vida_secagem (Supabase)
     # Manter aqui causava double counting (terra fechada=36h já embute o efeito)
 
-    if trail.get("trail_type") == "bikepark":
-        expo = trail.get("exposicao", "aberta")
-        _aplicar(0.0, "bikepark", exposicao=expo)
-    elif trail.get("trail_type") == "natural":
-        # Trilha natural não tem drenagem projetada — retém umidade mais que bikepark
-        fator_natural = float(_get_config("natural_meia_vida_mult") or 1.15)
-        meia_vida *= fator_natural
+    # trail_type_config: multiplica meia_vida por (trail_type × exposicao)
+    # Substitui: bikepark rows em meia_vida_clima_mult + natural_meia_vida_mult em configuracoes_sistema
+    meia_vida *= _lookup_trail_type(trail)["meia_vida_mult"]
 
     mv_min = float(_get_config("meia_vida_min") or 4.0)
     mv_max = float(_get_config("meia_vida_max") or 72.0)
@@ -860,6 +856,7 @@ _CACHE_VEREDICTO_LIMIARES: list = []
 _CACHE_MEIA_VIDA_CLIMA_MULT: list = []
 _CACHE_MICROCLIMA_CONFIG: list = []
 _CACHE_BIOMAS: list = []
+_CACHE_TRAIL_TYPE_CONFIG: list = []
 _CACHE_SOLO_TYPE_CONFIG: list = []
 _CACHE_INCLINACAO_CONFIG: list = []
 _CACHE_SCORE_CONFIG: dict = {}
@@ -1254,13 +1251,15 @@ def _carregar_biomas() -> list:
 def _lookup_bioma(trail: dict, mes: int = None) -> dict:
     """Retorna coeficientes do bioma para a trilha, aplicando sazonalidade se aplicável.
     Prioridade: altitude_min preenchida (mais específico) antes de NULL (geral).
-    Fallback: sem interceptação (coeficientes = 1.0)."""
+    Fallback: sem interceptação (coeficientes = 1.0).
+    mista → usa 'fechada' como proxy conservador (biomas não tem linha mista)."""
     bioma     = trail.get("bioma", "Desconhecido")
     exposicao = trail.get("exposicao", "fechada")
     altitude  = trail.get("altitude_m", 0) or 0
+    lookup_exposicao = "fechada" if exposicao == "mista" else exposicao
 
     for row in _carregar_biomas():
-        if row["bioma"] != bioma or row["exposicao"] != exposicao:
+        if row["bioma"] != bioma or row["exposicao"] != lookup_exposicao:
             continue
         alt_min = row.get("altitude_min")
         if alt_min is not None and altitude < alt_min:
@@ -1277,6 +1276,56 @@ def _lookup_bioma(trail: dict, mes: int = None) -> dict:
         return row
 
     return {"chuva_pct": 1.0, "vento_pct": 1.0, "sol_pct": 1.0, "fator_threshold": 1.0}
+
+
+def _carregar_trail_type_config() -> list:
+    """Multiplicadores de meia_vida e score por trail_type × exposição.
+    Centraliza: natural_meia_vida_mult (era configuracoes_sistema) e bikepark mult
+    (era meia_vida_clima_mult variavel=bikepark, agora desativados nessa tabela)."""
+    global _CACHE_TRAIL_TYPE_CONFIG
+    if _CACHE_TRAIL_TYPE_CONFIG:
+        return _CACHE_TRAIL_TYPE_CONFIG
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/trail_type_config"
+            f"?select=trail_type,exposicao,meia_vida_mult,score_mult"
+            f"&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_TRAIL_TYPE_CONFIG = dados
+        print(f"  [TrailType] Config carregada do Supabase: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [TrailType] Erro: {exc} — usando valores padrão")
+        return [
+            {"trail_type": "natural",  "exposicao": "aberta",  "meia_vida_mult": 1.08, "score_mult": 1.00},
+            {"trail_type": "natural",  "exposicao": "mista",   "meia_vida_mult": 1.15, "score_mult": 1.00},
+            {"trail_type": "natural",  "exposicao": "fechada", "meia_vida_mult": 1.22, "score_mult": 1.00},
+            {"trail_type": "bikepark", "exposicao": "aberta",  "meia_vida_mult": 0.35, "score_mult": 0.90},
+            {"trail_type": "bikepark", "exposicao": "mista",   "meia_vida_mult": 0.48, "score_mult": 0.90},
+            {"trail_type": "bikepark", "exposicao": "fechada", "meia_vida_mult": 0.60, "score_mult": 0.90},
+        ]
+
+
+def _lookup_trail_type(trail: dict) -> dict:
+    """Retorna multiplicadores (meia_vida_mult, score_mult) para (trail_type, exposicao).
+    Prioridade: match exato de exposição → row com exposicao NULL → padrão neutro."""
+    trail_type = trail.get("trail_type", "natural")
+    exposicao  = trail.get("exposicao", "fechada")
+    rows       = _carregar_trail_type_config()
+
+    exact   = next((r for r in rows if r["trail_type"] == trail_type and r["exposicao"] == exposicao), None)
+    if exact:
+        return exact
+    generic = next((r for r in rows if r["trail_type"] == trail_type and r["exposicao"] is None), None)
+    if generic:
+        return generic
+    return {"meia_vida_mult": 1.0, "score_mult": 1.0}
 
 
 def _carregar_solo_type_config() -> list:
@@ -1466,7 +1515,7 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     coef_acumulo    = float(sc.get("coef_acumulo",              0.3))
     coef_base       = float(sc.get("coef_base",                10.0))
     bk_acumulo_thr  = float(sc.get("bikepark_acumulo_threshold", 5.0))
-    bk_score_mult   = float(sc.get("bikepark_score_mult",       0.90))
+    ttc_score_mult  = _lookup_trail_type(trail)["score_mult"]
 
     thresh = threshold_solo_descansado(mes, enso, trail)
     fator  = fator_absorcao(trail)
@@ -1491,7 +1540,7 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
 
     if trail.get("trail_type") == "bikepark":
         if acumulo_ef < bk_acumulo_thr:
-            impacto *= bk_score_mult
+            impacto *= ttc_score_mult
 
     score = max(0.0, min(100.0, impacto * coef_base))
     return {
@@ -3496,6 +3545,7 @@ def main() -> None:
     _carregar_veredicto_limiares()
     _carregar_meia_vida_clima_mult()
     _carregar_biomas()
+    _carregar_trail_type_config()
     _carregar_solo_type_config()
     _carregar_inclinacao_config()
     _carregar_score_config()

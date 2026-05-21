@@ -48,6 +48,16 @@ type TabelaBioma = {
   ativo: boolean
 }
 
+type TabelaTrailType = {
+  id: string
+  trail_type: string
+  exposicao: string | null
+  meia_vida_mult: number
+  score_mult: number
+  descricao: string | null
+  ativo: boolean
+}
+
 type Aprovacao = {
   id: string
   solicitante_id: string
@@ -77,12 +87,13 @@ export default function TabelasPage() {
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'solo' | 'threshold' | 'meiavida' | 'biomas'>('solo')
+  const [tab, setTab] = useState<'solo' | 'threshold' | 'meiavida' | 'biomas' | 'trailtype'>('solo')
 
   const [solo, setSolo] = useState<TabelaSolo[]>([])
   const [threshold, setThreshold] = useState<TabelaThreshold[]>([])
   const [meiaVida, setMeiaVida] = useState<TabelaMeiaVida[]>([])
   const [biomasData, setBiomasData] = useState<TabelaBioma[]>([])
+  const [trailTypeData, setTrailTypeData] = useState<TabelaTrailType[]>([])
   const [aprovacoes, setAprovacoes] = useState<Aprovacao[]>([])
   const [pendentesIds, setPendentesIds] = useState<Set<string>>(new Set())
 
@@ -124,6 +135,7 @@ export default function TabelasPage() {
         loadThreshold(),
         loadMeiaVida(),
         loadBiomasData(),
+        loadTrailTypeData(),
         loadAprovacoes(user.id),
       ])
       setLoading(false)
@@ -146,6 +158,10 @@ export default function TabelasPage() {
   async function loadBiomasData() {
     const { data } = await supabase.from('biomas').select('*').order('bioma').order('exposicao').order('altitude_min', { nullsFirst: true })
     setBiomasData(data || [])
+  }
+  async function loadTrailTypeData() {
+    const { data } = await supabase.from('trail_type_config').select('*').order('trail_type').order('exposicao', { nullsFirst: true })
+    setTrailTypeData(data || [])
   }
   async function loadAprovacoes(uid: string) {
     const { data } = await supabase
@@ -231,6 +247,7 @@ export default function TabelasPage() {
     if (apr.tabela === 'threshold_sazonal') loadThreshold()
     if (apr.tabela === 'meia_vida_secagem') loadMeiaVida()
     if (apr.tabela === 'biomas') loadBiomasData()
+    if (apr.tabela === 'trail_type_config') loadTrailTypeData()
     showToast('✓ Alteração aprovada e aplicada!')
   }
 
@@ -344,6 +361,7 @@ export default function TabelasPage() {
             { key: 'threshold', label: 'Thresholds Sazonais' },
             { key: 'meiavida', label: 'Meia-vida de Secagem' },
             { key: 'biomas', label: 'Biomas' },
+            { key: 'trailtype', label: 'Trail Type' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -924,6 +942,82 @@ export default function TabelasPage() {
                   <button onClick={() => { setAddingRow(true); setNewRow({ fator_threshold: 1.0 }); cancelEdit() }} style={{ ...btnSm('#f7f7f5', '#111'), fontSize: 13 }}>+ Adicionar linha</button>
                 </div>
               )}
+            </div>
+          </>
+        )}
+
+        {/* ── TAB: Trail Type ───────────────────────────────────────── */}
+        {tab === 'trailtype' && (
+          <>
+            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', marginBottom: 12 }}>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>trail_type</span><br /><span style={{ color: '#555' }}>Tipo da trilha: <code>natural</code> (sem drenagem projetada, retém mais umidade) ou <code>bikepark</code> (drenagem projetada, seca mais rápido)</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>exposicao</span><br /><span style={{ color: '#555' }}>Exposição ao sol/vento: <code>aberta</code> (campos, cristas), <code>mista</code> (cobertura parcial), <code>fechada</code> (mata densa). NULL = genérico para o trail_type</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>meia_vida_mult</span><br /><span style={{ color: '#555' }}>Multiplicador sobre a meia_vida_base calculada. Natural/fechada (1.22) seca 22% mais devagar; bikepark/aberta (0.35) seca 65% mais rápido que uma trilha natural/aberta equivalente</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>score_mult</span><br /><span style={{ color: '#555' }}>Multiplicador de score de impacto. Bikepark (0.90) aplica 10% de desconto quando o solo não está saturado — drenagem reduz o impacto real da chuva. Natural = 1.00 (sem desconto)</span></div>
+              </div>
+              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
+                ⚡ Prioridade de lookup: match exato (trail_type + exposicao) → row com exposicao NULL (genérico por trail_type) → padrão neutro (mult = 1.0)
+              </div>
+              <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '10px 14px', fontSize: 11, color: '#555' }}>
+                <b style={{ color: '#111' }}>Referência — Trilha Macaco (natural/fechada/Mata Atlântica):</b> meia_vida terra/fechada base = 36h × 1.22 = <b>43.9h</b>. Bikepark fechado equivalente: 36h × 0.60 = 21.6h. Esta tabela centraliza multiplicadores que antes estavam espalhados em <code>configuracoes_sistema</code> (natural_meia_vida_mult) e <code>meia_vida_clima_mult</code> (variavel=bikepark).
+              </div>
+            </div>
+
+            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle} title="natural ou bikepark">trail_type</th>
+                      <th style={thStyle} title="aberta / mista / fechada / NULL (genérico)">exposição</th>
+                      <th style={thStyle} title="Multiplicador sobre meia_vida_base">meia_vida_mult</th>
+                      <th style={thStyle} title="Multiplicador de score de impacto">score_mult</th>
+                      <th style={thStyle} title="Descrição e exemplos numéricos">descrição</th>
+                      <th style={thStyle}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trailTypeData.map(row => {
+                      const isEditing = editingId === row.id
+                      const isPendente = pendentesIds.has(row.id)
+                      return (
+                        <tr key={row.id} style={{ background: isPendente ? '#fefce8' : isEditing ? '#f7f7f5' : '#fff' }}>
+                          <td style={tdStyle}><code style={{ fontSize: 12 }}>{row.trail_type}</code></td>
+                          <td style={tdStyle}>{row.exposicao ?? <span style={{ color: '#aaa' }}>NULL</span>}</td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.01" min="0.1" max="3" value={editValues.meia_vida_mult as number} onChange={e => setEditValues(v => ({ ...v, meia_vida_mult: +e.target.value }))} style={{ ...inputSm, width: 75 }} />
+                              : <b>{(row.meia_vida_mult as number).toFixed(2)}</b>}
+                          </td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.01" min="0.1" max="2" value={editValues.score_mult as number} onChange={e => setEditValues(v => ({ ...v, score_mult: +e.target.value }))} style={{ ...inputSm, width: 75 }} />
+                              : (row.score_mult as number).toFixed(2)}
+                          </td>
+                          <td style={{ ...tdStyle, fontSize: 11, color: '#555', maxWidth: 320 }}>
+                            {isEditing
+                              ? <input value={editValues.descricao as string ?? ''} onChange={e => setEditValues(v => ({ ...v, descricao: e.target.value }))} style={{ ...inputSm }} />
+                              : row.descricao}
+                          </td>
+                          <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                            {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
+                            {isEditing ? (
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'trail_type_config', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                              </div>
+                            ) : (
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}
