@@ -3488,7 +3488,7 @@ def main() -> None:
     _carregar_veredicto_pesos()
     _carregar_veredicto_limiares()
     _carregar_meia_vida_clima_mult()
-    _carregar_microclima_config()
+    _carregar_biomas()
     _carregar_solo_type_config()
     _carregar_inclinacao_config()
     _carregar_score_config()

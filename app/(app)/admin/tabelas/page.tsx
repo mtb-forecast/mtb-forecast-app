@@ -206,6 +206,7 @@ export default function TabelasPage() {
       dados_anteriores: modal.dadosAnteriores,
       dados_novos: modal.dadosNovos,
       status: 'pendente',
+      motivo: modal.motivo,
     })
 
     const editedId = modal.dadosAnteriores?.id as string | undefined
@@ -619,7 +620,7 @@ export default function TabelasPage() {
                 <div style={{ ...legendFieldStyle, gridColumn: '1 / -1' }}><span style={legendKeyStyle}>meia_vida_h</span><br /><span style={{ color: '#555' }}>Tempo em horas para o solo perder metade da umidade acumulada. Ex: 36h significa que após 36h sem chuva, metade da água ainda está retida no solo</span></div>
               </div>
               <div style={{ background: '#f0fdf4', borderLeft: '3px solid #22c55e', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
-                🌡 A meia-vida é ajustada automaticamente pelo clima: temperatura alta acelera a secagem, alta umidade relativa retarda. Solo em Mata Atlântica recebe multiplicador adicional de 1.10–1.20x
+                🌡 A meia-vida é ajustada automaticamente pelo clima: temperatura alta acelera a secagem, alta umidade relativa retarda. O efeito do dossel (vento e sol filtrados) é aplicado via tabela Biomas.
               </div>
               <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '10px 14px' }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>Escala de referência</p>
