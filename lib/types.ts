@@ -83,6 +83,7 @@ export type Condicao = {
 
   // Veredicto dinâmico
   texto_dinamico?: string | null
+  motivo_veredicto?: string | null
 
   // Previsão 24h em blocos de 6h
   previsao_24h?: Array<{ label: string; rain_mm: number; pop_max: number; wind_max: number; temp_med: number }> | null

@@ -31,6 +31,23 @@ type TabelaMeiaVida = {
   meia_vida_h: number
 }
 
+type TabelaBioma = {
+  id: string
+  bioma: string
+  exposicao: string
+  altitude_min: number | null
+  chuva_pct: number
+  vento_pct: number
+  sol_pct: number
+  mes_sazonal_inicio: number | null
+  mes_sazonal_fim: number | null
+  chuva_pct_sazonal: number | null
+  vento_pct_sazonal: number | null
+  sol_pct_sazonal: number | null
+  fator_threshold: number
+  ativo: boolean
+}
+
 type Aprovacao = {
   id: string
   solicitante_id: string
@@ -60,11 +77,12 @@ export default function TabelasPage() {
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'solo' | 'threshold' | 'meiavida'>('solo')
+  const [tab, setTab] = useState<'solo' | 'threshold' | 'meiavida' | 'biomas'>('solo')
 
   const [solo, setSolo] = useState<TabelaSolo[]>([])
   const [threshold, setThreshold] = useState<TabelaThreshold[]>([])
   const [meiaVida, setMeiaVida] = useState<TabelaMeiaVida[]>([])
+  const [biomasData, setBiomasData] = useState<TabelaBioma[]>([])
   const [aprovacoes, setAprovacoes] = useState<Aprovacao[]>([])
   const [pendentesIds, setPendentesIds] = useState<Set<string>>(new Set())
 
@@ -105,6 +123,7 @@ export default function TabelasPage() {
         loadSolo(),
         loadThreshold(),
         loadMeiaVida(),
+        loadBiomasData(),
         loadAprovacoes(user.id),
       ])
       setLoading(false)
@@ -123,6 +142,10 @@ export default function TabelasPage() {
   async function loadMeiaVida() {
     const { data } = await supabase.from('meia_vida_secagem').select('*').order('solo_type').order('exposicao')
     setMeiaVida(data || [])
+  }
+  async function loadBiomasData() {
+    const { data } = await supabase.from('biomas').select('*').order('bioma').order('exposicao').order('altitude_min', { nullsFirst: true })
+    setBiomasData(data || [])
   }
   async function loadAprovacoes(uid: string) {
     const { data } = await supabase
@@ -206,6 +229,7 @@ export default function TabelasPage() {
     if (apr.tabela === 'tabela_solo') loadSolo()
     if (apr.tabela === 'threshold_sazonal') loadThreshold()
     if (apr.tabela === 'meia_vida_secagem') loadMeiaVida()
+    if (apr.tabela === 'biomas') loadBiomasData()
     showToast('✓ Alteração aprovada e aplicada!')
   }
 
@@ -318,6 +342,7 @@ export default function TabelasPage() {
             { key: 'solo', label: 'Solo' },
             { key: 'threshold', label: 'Thresholds Sazonais' },
             { key: 'meiavida', label: 'Meia-vida de Secagem' },
+            { key: 'biomas', label: 'Biomas' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -684,6 +709,167 @@ export default function TabelasPage() {
             </div>
           </>
         )}
+        {/* ── TAB: Biomas ────────────────────────────────────────────── */}
+        {tab === 'biomas' && (
+          <>
+            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', marginBottom: 12 }}>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>chuva_pct</span><br /><span style={{ color: '#555' }}>Fração da chuva que efetivamente chega ao solo (0–1). Dossel denso intercepta até 80% da precipitação</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>vento_pct</span><br /><span style={{ color: '#555' }}>Fração do vento externo que chega ao nível do solo (0–1). Mata fechada reduz a quase zero</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>sol_pct</span><br /><span style={{ color: '#555' }}>Fração da radiação solar que chega ao solo (0–1). Amazônia fechada ≈ 2%, Cerrado aberto ≈ 92%</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>fator_threshold</span><br /><span style={{ color: '#555' }}>Multiplicador do threshold de grip. &lt; 1.0 = mais conservador (ex: Mata Atlântica serrana = 0.50)</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>altitude_min</span><br /><span style={{ color: '#555' }}>Altitude mínima em metros para aplicar esta linha. NULL = vale para qualquer altitude</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>sazonalidade</span><br /><span style={{ color: '#555' }}>Meses em que o dossel abre (ex: Cerrado abr–set, Caatinga jun–set). Coeficientes sazonais sobrepõem os principais</span></div>
+              </div>
+              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555' }}>
+                ⚡ Prioridade de lookup: altitude_min preenchida (mais específico) antes de NULL (geral). Sazonalidade prevalece nos meses definidos.
+              </div>
+            </div>
+
+            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>bioma</th>
+                      <th style={thStyle}>exposição</th>
+                      <th style={thStyle} title="NULL = qualquer altitude">alt_min (m)</th>
+                      <th style={thStyle} title="Fração da chuva ao solo (0–1)">chuva_pct</th>
+                      <th style={thStyle} title="Fração do vento ao solo (0–1)">vento_pct</th>
+                      <th style={thStyle} title="Fração do sol ao solo (0–1)">sol_pct</th>
+                      <th style={thStyle} title="Multiplicador threshold grip">f_threshold</th>
+                      <th style={thStyle} title="Meses sazonais (início–fim)">sazonal</th>
+                      <th style={thStyle}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {biomasData.map(row => {
+                      const isEditing = editingId === row.id
+                      const isPendente = pendentesIds.has(row.id)
+                      const sazLabel = row.mes_sazonal_inicio && row.mes_sazonal_fim
+                        ? `${MESES[row.mes_sazonal_inicio]?.slice(0,3)}–${MESES[row.mes_sazonal_fim]?.slice(0,3)}`
+                        : '—'
+                      return (
+                        <tr key={row.id} style={{ background: isPendente ? '#fefce8' : isEditing ? '#f7f7f5' : '#fff' }}>
+                          <td style={tdStyle}>{row.bioma}</td>
+                          <td style={tdStyle}>{row.exposicao}</td>
+                          <td style={tdStyle}>{row.altitude_min ?? '—'}</td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.005" min="0" max="1" value={editValues.chuva_pct as number} onChange={e => setEditValues(v => ({ ...v, chuva_pct: +e.target.value }))} style={{ ...inputSm, width: 70 }} />
+                              : row.chuva_pct.toFixed(3)}
+                          </td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.005" min="0" max="1" value={editValues.vento_pct as number} onChange={e => setEditValues(v => ({ ...v, vento_pct: +e.target.value }))} style={{ ...inputSm, width: 70 }} />
+                              : row.vento_pct.toFixed(3)}
+                          </td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.005" min="0" max="1" value={editValues.sol_pct as number} onChange={e => setEditValues(v => ({ ...v, sol_pct: +e.target.value }))} style={{ ...inputSm, width: 70 }} />
+                              : row.sol_pct.toFixed(3)}
+                          </td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.05" min="0" max="2" value={editValues.fator_threshold as number} onChange={e => setEditValues(v => ({ ...v, fator_threshold: +e.target.value }))} style={{ ...inputSm, width: 70 }} />
+                              : row.fator_threshold.toFixed(2)}
+                          </td>
+                          <td style={{ ...tdStyle, fontSize: 11, color: '#888' }}>
+                            {isEditing ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <select value={(editValues.mes_sazonal_inicio as number) ?? ''} onChange={e => setEditValues(v => ({ ...v, mes_sazonal_inicio: e.target.value ? +e.target.value : null }))} style={{ ...inputSm, width: 90 }}>
+                                    <option value="">—</option>
+                                    {MESES.slice(1).map((m, i) => <option key={i+1} value={i+1}>{m.slice(0,3)}</option>)}
+                                  </select>
+                                  <select value={(editValues.mes_sazonal_fim as number) ?? ''} onChange={e => setEditValues(v => ({ ...v, mes_sazonal_fim: e.target.value ? +e.target.value : null }))} style={{ ...inputSm, width: 90 }}>
+                                    <option value="">—</option>
+                                    {MESES.slice(1).map((m, i) => <option key={i+1} value={i+1}>{m.slice(0,3)}</option>)}
+                                  </select>
+                                </div>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <input type="number" step="0.01" placeholder="chuva" value={(editValues.chuva_pct_sazonal as number) ?? ''} onChange={e => setEditValues(v => ({ ...v, chuva_pct_sazonal: e.target.value ? +e.target.value : null }))} style={{ ...inputSm, width: 58 }} />
+                                  <input type="number" step="0.01" placeholder="vento" value={(editValues.vento_pct_sazonal as number) ?? ''} onChange={e => setEditValues(v => ({ ...v, vento_pct_sazonal: e.target.value ? +e.target.value : null }))} style={{ ...inputSm, width: 58 }} />
+                                  <input type="number" step="0.01" placeholder="sol" value={(editValues.sol_pct_sazonal as number) ?? ''} onChange={e => setEditValues(v => ({ ...v, sol_pct_sazonal: e.target.value ? +e.target.value : null }))} style={{ ...inputSm, width: 52 }} />
+                                </div>
+                              </div>
+                            ) : sazLabel}
+                          </td>
+                          <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                            {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
+                            {isEditing ? (
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'biomas', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                              </div>
+                            ) : (
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {addingRow ? (
+                <div style={{ padding: 16, borderTop: '0.5px solid #e5e5e5', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>bioma</label>
+                    <select value={newRow.bioma as string || ''} onChange={e => setNewRow(v => ({ ...v, bioma: e.target.value }))} style={{ ...inputSm, width: 150 }}>
+                      <option value="">--</option>
+                      {['Amazônia','Mata Atlântica','Cerrado','Caatinga','Pantanal','Pampa'].map(b => <option key={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>exposição</label>
+                    <select value={newRow.exposicao as string || ''} onChange={e => setNewRow(v => ({ ...v, exposicao: e.target.value }))} style={{ ...inputSm, width: 100 }}>
+                      <option value="">--</option>
+                      <option>aberta</option>
+                      <option>fechada</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>alt_min (m)</label>
+                    <input type="number" placeholder="NULL" value={newRow.altitude_min as number || ''} onChange={e => setNewRow(v => ({ ...v, altitude_min: e.target.value ? +e.target.value : null }))} style={{ ...inputSm, width: 70 }} />
+                    <p style={hintStyle}>vazio = qualquer</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>chuva_pct</label>
+                    <input type="number" step="0.005" min="0" max="1" placeholder="0.225" value={newRow.chuva_pct as number || ''} onChange={e => setNewRow(v => ({ ...v, chuva_pct: +e.target.value }))} style={{ ...inputSm, width: 80 }} />
+                    <p style={hintStyle}>0–1</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>vento_pct</label>
+                    <input type="number" step="0.005" min="0" max="1" placeholder="0.125" value={newRow.vento_pct as number || ''} onChange={e => setNewRow(v => ({ ...v, vento_pct: +e.target.value }))} style={{ ...inputSm, width: 80 }} />
+                    <p style={hintStyle}>0–1</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>sol_pct</label>
+                    <input type="number" step="0.005" min="0" max="1" placeholder="0.035" value={newRow.sol_pct as number || ''} onChange={e => setNewRow(v => ({ ...v, sol_pct: +e.target.value }))} style={{ ...inputSm, width: 75 }} />
+                    <p style={hintStyle}>0–1</p>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>fator_threshold</label>
+                    <input type="number" step="0.05" min="0" max="2" placeholder="1.00" value={newRow.fator_threshold as number || ''} onChange={e => setNewRow(v => ({ ...v, fator_threshold: +e.target.value }))} style={{ ...inputSm, width: 80 }} />
+                    <p style={hintStyle}>padrão: 1.0</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', paddingTop: 16 }}>
+                    <button onClick={() => openModal({}, newRow, 'biomas', 'insert')} style={btnSm('#FFE000', '#111')}>Enviar</button>
+                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: '12px 16px', borderTop: '0.5px solid #e5e5e5' }}>
+                  <button onClick={() => { setAddingRow(true); setNewRow({ fator_threshold: 1.0 }); cancelEdit() }} style={{ ...btnSm('#f7f7f5', '#111'), fontSize: 13 }}>+ Adicionar linha</button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
       </div>
 
       {/* Modal de confirmação */}
@@ -708,6 +894,8 @@ export default function TabelasPage() {
                 impact = `Esta alteração afeta o veredicto de trilhas em ${get('regiao')} durante ${MESES[mesNum] || get('mes')}`
               } else if (modal.tabela === 'meia_vida_secagem') {
                 impact = `Esta alteração afeta a taxa de secagem de todos os solos ${get('solo_type')} em exposição ${get('exposicao')}`
+              } else if (modal.tabela === 'biomas') {
+                impact = `Esta alteração afeta todos os cálculos de trilhas do bioma ${get('bioma')} com exposição ${get('exposicao')}`
               }
               return impact ? (
                 <div style={{ background: '#f0f9ff', borderLeft: '3px solid #3b82f6', padding: '8px 12px', borderRadius: 4, fontSize: 12, color: '#1e40af', marginBottom: 14 }}>

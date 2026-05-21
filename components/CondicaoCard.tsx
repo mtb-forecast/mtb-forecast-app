@@ -132,11 +132,12 @@ export default function CondicaoCard({ condicao }: Props) {
     condicao.aderencia_futura_status !== condicao.aderencia_status)
 
   // Alertas 24h
+  const isAlertaVeredicto = veredictoDisplay === 'DROP LIBERADO - Veja os alertas'
   const nivelVento   = condicao.alerta_vento_nivel ?? 0
   const temRajada    = condicao.gust_max_kmh != null && condicao.gust_max_kmh >= DISPLAY_THR.rajada.fechada
   const chuvasPrev   = condicao.previsao_24h?.filter(b => b.rain_mm > 1) ?? []
   const temChuva24h  = chuvasPrev.length > 0
-  const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta
+  const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta || isAlertaVeredicto
 
   const ventoTextos: Record<number, { titulo: string; msg: string; cor: string; border: string }> = {
     1: { titulo: 'Vento moderado a forte nas últimas 48h', cor: '#713f12', border: '#fde047',
@@ -298,6 +299,19 @@ export default function CondicaoCard({ condicao }: Props) {
                     <i className="ti ti-droplet" style={{ fontSize: 14, color: '#3B82F6' }} />
                     <span>
                       Chuva prevista: {chuvasPrev.map(b => `${b.rain_mm.toFixed(1)}mm (${b.label})`).join(', ')}
+                    </span>
+                  </div>
+                )}
+
+                {/* Fallback: motivo do veredicto quando nenhum alerta específico foi disparado */}
+                {isAlertaVeredicto && !hasAlerta && !vCfg && !temRajada && !temChuva24h && condicao.motivo_veredicto && (
+                  <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E', fontWeight: 600, marginBottom: 4 }}>
+                      <i className="ti ti-info-circle" style={{ fontSize: 13, color: '#F59E0B' }} />
+                      Fatores de atenção
+                    </div>
+                    <span style={{ fontSize: 11, color: '#B45309', paddingLeft: 19, display: 'block' }}>
+                      {condicao.motivo_veredicto}
                     </span>
                   </div>
                 )}
