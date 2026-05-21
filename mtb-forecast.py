@@ -624,6 +624,10 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
     times   = data.get("hourly", {}).get("time", [])
     precips = data.get("hourly", {}).get("precipitation", [])
 
+    # chuva_pct: fração da precipitação que efetivamente chega ao solo (interceptação de dossel)
+    mes        = datetime.now(BRT).month
+    chuva_pct  = _lookup_bioma(trail, mes).get("chuva_pct", 1.0)
+
     bruto          = 0.0
     efetivo        = 0.0
     ultima_chuva_h = None
@@ -631,7 +635,8 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
     for i, t in enumerate(times):
         if t > agora_str:
             continue
-        p           = float(precips[i] or 0.0) if i < len(precips) else 0.0
+        p_bruto     = float(precips[i] or 0.0) if i < len(precips) else 0.0
+        p           = p_bruto * chuva_pct          # interceptação de dossel aplicada
         dt_entry    = datetime.fromisoformat(t).replace(tzinfo=BRT)
         horas_atras = max(0, (agora - dt_entry).total_seconds() / 3600)
 
@@ -639,7 +644,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         peso     = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
         efetivo += p * peso
 
-        if p >= 0.5 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
+        if p_bruto >= 0.5 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
             ultima_chuva_h = round(horas_atras, 1)
 
     return {
@@ -670,39 +675,14 @@ def fetch_openmeteo(trail: dict) -> dict | None:
 # ---------------------------------------------------------------------------
 
 def fator_microclima(trail: dict) -> float:
-    bioma = trail.get("bioma", "Desconhecido")
-    for cfg in _carregar_microclima_config():
-        if cfg["bioma"] != bioma:
-            continue
-        alt_min = cfg.get("altitude_min")
-        expo    = cfg.get("exposicao")
-        if alt_min is not None and trail.get("altitude_m", 0) < alt_min:
-            continue
-        if expo is not None and trail.get("exposicao") != expo:
-            continue
-        return cfg["fator_threshold"]
-    return 1.0
+    return _lookup_bioma(trail).get("fator_threshold", 1.0)
 
 
 def _meia_vida(trail: dict) -> float:
     solo = trail.get("solo_type", "terra")
     expo = trail.get("exposicao", "fechada")
     tabela_mv = _carregar_meia_vida()
-    base = float(tabela_mv.get((solo, expo), 24))
-    # FIX #6 — microclima retém umidade estruturalmente além do que o solo_type sugere
-    bioma = trail.get("bioma", "Desconhecido")
-    for cfg in _carregar_microclima_config():
-        if cfg["bioma"] != bioma:
-            continue
-        alt_min  = cfg.get("altitude_min")
-        expo_cfg = cfg.get("exposicao")
-        if alt_min is not None and trail.get("altitude_m", 0) < alt_min:
-            continue
-        if expo_cfg is not None and expo != expo_cfg:
-            continue
-        base *= cfg["fator_secagem"]
-        break
-    return base
+    return float(tabela_mv.get((solo, expo), 24))
 
 def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
                              temp_c: float | None = None,
@@ -711,6 +691,12 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
                              humidity_pct: float | None = None) -> float:
     meia_vida = float(meia_vida_base)
     registros = _carregar_meia_vida_clima_mult()
+
+    # Coeficientes de dossel: filtram quanto do vento/sol externo chega ao solo
+    mes       = datetime.now(BRT).month
+    bioma_cfg = _lookup_bioma(trail, mes)
+    vento_pct = bioma_cfg.get("vento_pct", 1.0)
+    sol_pct   = bioma_cfg.get("sol_pct",   1.0)
 
     def _aplicar(valor: float, variavel: str, exposicao: str | None = None) -> None:
         nonlocal meia_vida
@@ -729,16 +715,20 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
         _aplicar(temp_c, "temperatura")
 
     if wind_ms is not None:
-        wind_kmh = wind_ms * 3.6
+        # vento_pct: apenas a fração que chega ao nível do solo (dossel filtra o restante)
+        wind_kmh = wind_ms * 3.6 * vento_pct
         _aplicar(wind_kmh, "vento")
-        # Combo calor+vento: redução adicional — condição multi-variável, tratada separadamente
+        # Combo calor+vento: usa o vento efetivo ao solo
         if temp_c is not None and temp_c >= 30 and wind_kmh >= 20:
             combo = next((r["multiplicador"] for r in registros if r["variavel"] == "combo"), None)
             if combo is not None:
                 meia_vida *= combo
 
     if cloud_pct is not None:
-        _aplicar(cloud_pct, "nebulosidade")
+        # sol_pct: quanto do sol disponível realmente chega ao solo
+        # cloud_efetivo: mesmo céu limpo, dossel fechado ≈ 98% de sombra
+        cloud_efetivo = 100.0 - (100.0 - cloud_pct) * sol_pct
+        _aplicar(cloud_efetivo, "nebulosidade")
 
     if humidity_pct is not None:
         _aplicar(humidity_pct, "umidade")
@@ -865,6 +855,7 @@ _CACHE_VEREDICTO_PESOS: list = []
 _CACHE_VEREDICTO_LIMIARES: list = []
 _CACHE_MEIA_VIDA_CLIMA_MULT: list = []
 _CACHE_MICROCLIMA_CONFIG: list = []
+_CACHE_BIOMAS: list = []
 _CACHE_SOLO_TYPE_CONFIG: list = []
 _CACHE_INCLINACAO_CONFIG: list = []
 _CACHE_SCORE_CONFIG: dict = {}
@@ -1221,6 +1212,67 @@ def _carregar_microclima_config() -> list:
             {"bioma": "Mata Atlântica", "altitude_min": 600, "exposicao": "fechada", "fator_threshold": 0.50, "fator_secagem": 1.20},
             {"bioma": "Mata Atlântica", "altitude_min": None, "exposicao": None,     "fator_threshold": 0.90, "fator_secagem": 1.10},
         ]
+
+
+def _carregar_biomas() -> list:
+    """Fonte única de verdade para coeficientes de dossel por bioma × exposição.
+    Substitui microclima_config para drying logic (chuva_pct, vento_pct, sol_pct, fator_threshold)."""
+    global _CACHE_BIOMAS
+    if _CACHE_BIOMAS:
+        return _CACHE_BIOMAS
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/biomas"
+            f"?select=bioma,exposicao,altitude_min,chuva_pct,vento_pct,sol_pct"
+            f",mes_sazonal_inicio,mes_sazonal_fim"
+            f",chuva_pct_sazonal,vento_pct_sazonal,sol_pct_sazonal"
+            f",fator_threshold"
+            f"&ativo=eq.true&order=altitude_min.desc.nullslast"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        _CACHE_BIOMAS = dados
+        print(f"  [Biomas] Tabela carregada: {len(dados)} registros")
+        return dados
+    except Exception as exc:
+        print(f"  [Biomas] Erro: {exc} — usando fallback conservador")
+        return [
+            {"bioma": "Mata Atlântica", "exposicao": "fechada", "altitude_min": 600,  "chuva_pct": 0.180, "vento_pct": 0.100, "sol_pct": 0.025, "fator_threshold": 0.50, "mes_sazonal_inicio": None, "mes_sazonal_fim": None, "chuva_pct_sazonal": None, "vento_pct_sazonal": None, "sol_pct_sazonal": None},
+            {"bioma": "Mata Atlântica", "exposicao": "fechada", "altitude_min": None, "chuva_pct": 0.225, "vento_pct": 0.125, "sol_pct": 0.035, "fator_threshold": 0.90, "mes_sazonal_inicio": None, "mes_sazonal_fim": None, "chuva_pct_sazonal": None, "vento_pct_sazonal": None, "sol_pct_sazonal": None},
+            {"bioma": "Mata Atlântica", "exposicao": "aberta",  "altitude_min": None, "chuva_pct": 0.965, "vento_pct": 0.600, "sol_pct": 0.775, "fator_threshold": 0.90, "mes_sazonal_inicio": None, "mes_sazonal_fim": None, "chuva_pct_sazonal": None, "vento_pct_sazonal": None, "sol_pct_sazonal": None},
+        ]
+
+
+def _lookup_bioma(trail: dict, mes: int = None) -> dict:
+    """Retorna coeficientes do bioma para a trilha, aplicando sazonalidade se aplicável.
+    Prioridade: altitude_min preenchida (mais específico) antes de NULL (geral).
+    Fallback: sem interceptação (coeficientes = 1.0)."""
+    bioma     = trail.get("bioma", "Desconhecido")
+    exposicao = trail.get("exposicao", "fechada")
+    altitude  = trail.get("altitude_m", 0) or 0
+
+    for row in _carregar_biomas():
+        if row["bioma"] != bioma or row["exposicao"] != exposicao:
+            continue
+        alt_min = row.get("altitude_min")
+        if alt_min is not None and altitude < alt_min:
+            continue
+        # Aplica sazonalidade se estiver no período de dossel aberto
+        ini = row.get("mes_sazonal_inicio")
+        fim = row.get("mes_sazonal_fim")
+        if mes and ini and fim and ini <= mes <= fim:
+            return {**row,
+                "chuva_pct": row["chuva_pct_sazonal"],
+                "vento_pct": row["vento_pct_sazonal"],
+                "sol_pct":   row["sol_pct_sazonal"],
+            }
+        return row
+
+    return {"chuva_pct": 1.0, "vento_pct": 1.0, "sol_pct": 1.0, "fator_threshold": 1.0}
 
 
 def _carregar_solo_type_config() -> list:
