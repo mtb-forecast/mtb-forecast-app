@@ -723,8 +723,65 @@ export default function TabelasPage() {
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>altitude_min</span><br /><span style={{ color: '#555' }}>Altitude mínima em metros para aplicar esta linha. NULL = vale para qualquer altitude</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>sazonalidade</span><br /><span style={{ color: '#555' }}>Meses em que o dossel abre (ex: Cerrado abr–set, Caatinga jun–set). Coeficientes sazonais sobrepõem os principais</span></div>
               </div>
-              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555' }}>
+              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
                 ⚡ Prioridade de lookup: altitude_min preenchida (mais específico) antes de NULL (geral). Sazonalidade prevalece nos meses definidos.
+              </div>
+
+              {/* Metodologia de calibração */}
+              <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '12px 14px' }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase' as const, letterSpacing: '1px', marginBottom: 10 }}>Metodologia de calibração (valores iniciais)</p>
+                <p style={{ fontSize: 11, color: '#555', marginBottom: 10 }}>
+                  Os valores foram derivados de dados Gemini por bioma. Cada coeficiente representa o <b>ponto médio (midpoint)</b> do range reportado, convertido para decimal:
+                </p>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: '#f7f7f5' }}>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Bioma / Exposição</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Coeficiente</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Range Gemini</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Cálculo</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'right' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Decimal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { bioma: 'Amazônia fechada',          coef: 'chuva_pct',  range: '10–25%', calc: '(10+25)/2 = 17.5%', val: '0.175' },
+                        { bioma: 'Amazônia fechada',          coef: 'vento_pct',  range: '5–15%',  calc: '(5+15)/2 = 10%',   val: '0.100' },
+                        { bioma: 'Amazônia fechada',          coef: 'sol_pct',    range: '1–3%',   calc: '(1+3)/2 = 2%',     val: '0.020' },
+                        { bioma: 'Mata Atlântica fechada',    coef: 'chuva_pct',  range: '15–30%', calc: '(15+30)/2 = 22.5%',val: '0.225' },
+                        { bioma: 'Mata Atlântica fechada',    coef: 'vento_pct',  range: '5–20%',  calc: '(5+20)/2 = 12.5%', val: '0.125' },
+                        { bioma: 'Mata Atlântica fechada',    coef: 'sol_pct',    range: '2–5%',   calc: '(2+5)/2 = 3.5%',   val: '0.035' },
+                        { bioma: 'Mata Atlântica ≥600m fech.',coef: 'chuva_pct',  range: '13–23%', calc: '(13+23)/2 = 18%',  val: '0.180' },
+                        { bioma: 'Mata Atlântica ≥600m fech.',coef: 'vento_pct',  range: '5–15%',  calc: '(5+15)/2 = 10%',   val: '0.100' },
+                        { bioma: 'Mata Atlântica ≥600m fech.',coef: 'sol_pct',    range: '1–4%',   calc: '(1+4)/2 = 2.5%',   val: '0.025' },
+                        { bioma: 'Cerrado fechado',           coef: 'chuva_pct',  range: '40–60%', calc: '(40+60)/2 = 50%',  val: '0.500' },
+                        { bioma: 'Cerrado fechado',           coef: 'vento_pct',  range: '20–35%', calc: '(20+35)/2 = 27.5%',val: '0.275' },
+                        { bioma: 'Cerrado fechado',           coef: 'sol_pct',    range: '10–25%', calc: '(10+25)/2 = 17.5%',val: '0.175' },
+                        { bioma: 'Caatinga fechada',          coef: 'chuva_pct',  range: '50–70%', calc: '(50+70)/2 = 60%',  val: '0.600' },
+                        { bioma: 'Caatinga fechada',          coef: 'vento_pct',  range: '25–40%', calc: '(25+40)/2 = 32.5%',val: '0.325' },
+                        { bioma: 'Caatinga fechada',          coef: 'sol_pct',    range: '15–30%', calc: '(15+30)/2 = 22.5%',val: '0.225' },
+                        { bioma: 'Pantanal fechado',          coef: 'chuva_pct',  range: '30–50%', calc: '(30+50)/2 = 40%',  val: '0.400' },
+                        { bioma: 'Pantanal fechado',          coef: 'vento_pct',  range: '10–25%', calc: '(10+25)/2 = 17.5%',val: '0.175' },
+                        { bioma: 'Pantanal fechado',          coef: 'sol_pct',    range: '5–15%',  calc: '(5+15)/2 = 10%',   val: '0.100' },
+                        { bioma: 'Pampa fechado',             coef: 'chuva_pct',  range: '35–55%', calc: '(35+55)/2 = 45%',  val: '0.450' },
+                        { bioma: 'Pampa fechado',             coef: 'vento_pct',  range: '15–30%', calc: '(15+30)/2 = 22.5%',val: '0.225' },
+                        { bioma: 'Pampa fechado',             coef: 'sol_pct',    range: '8–20%',  calc: '(8+20)/2 = 14%',   val: '0.140' },
+                      ].map((r, i) => (
+                        <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f7f7f5' }}>
+                          <td style={{ padding: '4px 10px', color: '#111' }}>{r.bioma}</td>
+                          <td style={{ padding: '4px 10px', fontFamily: 'monospace', color: '#555' }}>{r.coef}</td>
+                          <td style={{ padding: '4px 10px', color: '#888' }}>{r.range}</td>
+                          <td style={{ padding: '4px 10px', color: '#888' }}>{r.calc}</td>
+                          <td style={{ padding: '4px 10px', textAlign: 'right' as const, fontWeight: 600, color: '#111', fontFamily: 'monospace' }}>{r.val}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p style={{ fontSize: 10, color: '#888', marginTop: 10 }}>
+                  Trilhas abertas usam chuva_pct ≈ 0.96–0.99, vento_pct ≈ 0.57–0.95, sol_pct ≈ 0.77–0.97 (cobertura vegetal mínima). Para calibrar com dados reais de trilhas específicas, edite os valores diretamente — sem tocar no código.
+                </p>
               </div>
             </div>
 
