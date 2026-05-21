@@ -5,5 +5,13 @@
 
 ALTER TABLE biomas ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "biomas_select_public"
-  ON biomas FOR SELECT USING (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'biomas' AND policyname = 'biomas_select_public'
+  ) THEN
+    CREATE POLICY "biomas_select_public"
+      ON biomas FOR SELECT USING (true);
+  END IF;
+END$$;
