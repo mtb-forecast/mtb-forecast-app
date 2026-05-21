@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
 import { VEREDICTO_ACCENT, VEREDICTO_JANELA_BG, VEREDICTO_JANELA_COLOR, VEREDICTO_LABEL } from '@/lib/display'
 
 type CondicaoPreview = {
@@ -106,25 +105,12 @@ export default function LandingPage() {
   const [avaliacoes, setAvaliacoes] = useState<Observacao[]>([])
 
   useEffect(() => {
-    async function fetchData() {
-      const { data: trilhasData } = await supabase
-        .from('trilhas')
-        .select('id, name, regiao, trail_type, bioma, condicoes(veredicto, aderencia_status, acumulo_48h, wind_ms)')
-        .eq('aprovada', true)
-        .limit(4)
-
-      const { data: obsData } = await supabase
-        .from('observacoes_trilha')
-        .select('id, texto, veredicto_sistema, created_at, trilhas(name), profiles(apelido, nome)')
-        .not('trilha_id', 'is', null)
-        .not('texto', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(6)
-
-      if (trilhasData) setTrilhas(trilhasData as TrilhaPreview[])
-      if (obsData) setAvaliacoes(obsData as Observacao[])
-    }
-    fetchData()
+    fetch('/api/public/preview')
+      .then(r => r.json())
+      .then(({ trilhas, avaliacoes }) => {
+        if (trilhas) setTrilhas(trilhas)
+        if (avaliacoes) setAvaliacoes(avaliacoes)
+      })
   }, [])
 
   return (
