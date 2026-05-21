@@ -4,11 +4,14 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const sb = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    return NextResponse.json({ error: 'env missing', hasUrl: !!url, hasKey: !!key }, { status: 500 })
+  }
+
+  const sb = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 
   const trilhasRes = await sb
     .from('trilhas')
