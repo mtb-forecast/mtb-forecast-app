@@ -379,8 +379,8 @@ Produz um score numérico 0–100 que representa o impacto da chuva no solo.
 | `coef_rain` | 0.6 | `impacto = rain_mm × 0.6` (solo descansado + pico < threshold) |
 | `coef_acumulo` | 0.3 | `impacto = rain_mm + acumulo_ef × 0.3` (solo saturado + pico < threshold) |
 | `coef_base` | 10.0 | `score = impacto × 10.0` (escala para 0–100) |
-| `bikepark_acumulo_threshold` | 5.0 | Se `acumulo_ef < 5.0`: aplica `score_mult` de `trail_type_config` |
-| `bikepark_saturado_threshold` | 10.0 | Fallback quando `threshold_sazonal` indisponível |
+| `bikepark_acumulo_threshold` | 5.0 | Gatilho de saturação para o desconto de score. Se `acumulo_ef < 5.0mm`: drenagem ainda funciona → aplica `score_mult` (0.90) de `trail_type_config`. Se `acumulo_ef >= 5.0mm`: bikepark saturado → desconto suprimido, score cheio. |
+| `bikepark_saturado_threshold` | 10.0 | Fallback de emergência: quando `threshold_sazonal` está indisponível, usa 10.0mm como limiar de saturação do bikepark. Acima desse valor libera BAIXA ADERÊNCIA e adiciona pontos de risco no veredicto. Em operação normal, `threshold_sazonal` fornece o limiar real por mês/região. |
 
 ### Fórmula completa
 

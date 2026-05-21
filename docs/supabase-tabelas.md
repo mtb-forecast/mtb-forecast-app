@@ -53,9 +53,9 @@ Chave-valor central do sistema. Absorveu `score_config` na Fase 5, categorizada 
 | `coef_acumulo` | `0.3` | `scoring` | `impacto = rain + acumulo_ef × 0.3` (solo saturado, pico < 10) |
 | `coef_base` | `10.0` | `scoring` | `score = impacto × 10.0` — escala 0–100 |
 | `pico_threshold` | `10.0` | `scoring` | Limiar de ativação da lógica de pico (mm) |
-| `bikepark_acumulo_threshold` | `5.0` | `scoring` | Se `acumulo_ef < 5.0`: aplica `score_mult` de `trail_type_config` |
+| `bikepark_acumulo_threshold` | `5.0` | `scoring` | Gatilho de saturação para o desconto de score do bikepark. Se `acumulo_ef < 5.0mm`, a drenagem projetada ainda está funcionando e o `score_mult` de `trail_type_config` (0.90) é aplicado — reduzindo 10% do impacto calculado. Se `acumulo_ef >= 5.0mm`, o bikepark está saturado, a drenagem perdeu eficácia e o desconto não é aplicado (score cheio). Calibrável: valores menores = desconto só em bikeparks muito secos; valores maiores = desconto mais liberal. |
 | ~~`bikepark_score_mult`~~ | ~~`0.90`~~ | `scoring` | **Obsoleto** — migrado para `trail_type_config.score_mult` (ainda no banco, não é mais lido) |
-| `bikepark_saturado_threshold` | `10.0` | `scoring` | Fallback quando `threshold_sazonal` indisponível |
+| `bikepark_saturado_threshold` | `10.0` | `scoring` | Limiar de saturação de emergência para bikepark — usado como fallback quando a tabela `threshold_sazonal` está indisponível no Supabase. Quando `acumulo_ef > 10.0mm`, o bikepark é considerado saturado: libera BAIXA ADERÊNCIA (normalmente bloqueada para bikeparks) e adiciona pontos extras de risco no veredicto. Em operação normal este valor nunca é atingido pois `threshold_sazonal` fornece o limiar real ajustado por mês e região. |
 | `email_from` | endereço | `sistema` | Remetente dos alertas por e-mail |
 | `email_password` | senha/app-pw | `sistema` | Credencial do remetente |
 | `telegram_token` | token | `sistema` | Token do bot Telegram |
