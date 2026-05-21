@@ -10,10 +10,10 @@ export async function GET() {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const [{ data: trilhas }, { data: avaliacoes }] = await Promise.all([
+  const [trilhasRes, avaliacoesRes] = await Promise.all([
     sb
       .from('trilhas')
-      .select('id, name, regiao, trail_type, bioma, condicoes(veredicto, aderencia_status, acumulo_48h, wind_ms)')
+      .select('id, name, regiao, trail_type, bioma, condicoes(gerado_em, veredicto, aderencia_status, acumulo_48h, wind_ms)')
       .eq('aprovada', true)
       .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
       .limit(4),
@@ -26,5 +26,11 @@ export async function GET() {
       .limit(6),
   ])
 
-  return NextResponse.json({ trilhas: trilhas ?? [], avaliacoes: avaliacoes ?? [] })
+  if (trilhasRes.error) console.error('[preview] trilhas error:', trilhasRes.error)
+  if (avaliacoesRes.error) console.error('[preview] avaliacoes error:', avaliacoesRes.error)
+
+  return NextResponse.json({
+    trilhas: trilhasRes.data ?? [],
+    avaliacoes: avaliacoesRes.data ?? [],
+  })
 }

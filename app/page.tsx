@@ -108,9 +108,10 @@ export default function LandingPage() {
     fetch('/api/public/preview')
       .then(r => r.json())
       .then(({ trilhas, avaliacoes }) => {
-        if (trilhas) setTrilhas(trilhas)
-        if (avaliacoes) setAvaliacoes(avaliacoes)
+        if (Array.isArray(trilhas)) setTrilhas(trilhas)
+        if (Array.isArray(avaliacoes)) setAvaliacoes(avaliacoes)
       })
+      .catch(err => console.error('[landing] preview fetch error:', err))
   }, [])
 
   return (
