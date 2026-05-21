@@ -33,6 +33,12 @@ export const VEREDICTO_JANELA_COLOR: Record<string, string> = {
   'MELHOR ESPERAR':                  '#991B1B',
 }
 
+export const VEREDICTO_LABEL: Record<string, string> = {
+  'DROP LIBERADO':                   'DROP LIBERADO',
+  'DROP LIBERADO - Veja os alertas': 'ATENÇÃO',
+  'MELHOR ESPERAR':                  'MELHOR ESPERAR',
+}
+
 // ── Funções de cor ─────────────────────────────────────────────────────────────
 
 export function rainColor(mm: number | null | undefined): string {

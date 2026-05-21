@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { VEREDICTO_ACCENT, VEREDICTO_JANELA_BG, VEREDICTO_JANELA_COLOR, VEREDICTO_LABEL } from '@/lib/display'
 
 type CondicaoPreview = {
   veredicto: string
@@ -29,24 +30,18 @@ type Observacao = {
   profiles: { apelido: string | null; nome: string | null } | null
 }
 
-const VEREDICTO_CONFIG: Record<string, { bg: string; text: string; bar: string; label: string }> = {
-  'DROP LIBERADO':                    { bg: '#DCFCE7', text: '#15803D', bar: '#22C55E', label: 'DROP LIBERADO' },
-  'DROP LIBERADO - Veja os alertas':  { bg: '#FEF9C3', text: '#A16207', bar: '#F59E0B', label: 'ATENÇÃO' },
-  'MELHOR ESPERAR':                   { bg: '#FEE2E2', text: '#B91C1C', bar: '#EF4444', label: 'MELHOR ESPERAR' },
-}
-
-const VEREDICTO_COR: Record<string, string> = {
-  'DROP LIBERADO':                   '#15803D',
-  'DROP LIBERADO - Veja os alertas': '#A16207',
-  'MELHOR ESPERAR':                  '#B91C1C',
-}
+const VEREDICTO_FALLBACK = 'DROP LIBERADO - Veja os alertas'
 
 function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
   const cond = trilha.condicoes?.[0]
-  const v = VEREDICTO_CONFIG[cond?.veredicto ?? ''] ?? VEREDICTO_CONFIG['DROP LIBERADO - Veja os alertas']
+  const vKey = (cond?.veredicto && VEREDICTO_ACCENT[cond.veredicto]) ? cond.veredicto : VEREDICTO_FALLBACK
+  const bar   = VEREDICTO_ACCENT[vKey]
+  const bg    = VEREDICTO_JANELA_BG[vKey]
+  const text  = VEREDICTO_JANELA_COLOR[vKey]
+  const label = VEREDICTO_LABEL[vKey]
   return (
     <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', border: '0.5px solid #E5E7EB', background: '#fff' }}>
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, background: v.bar }} />
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, background: bar }} />
       <div style={{ padding: '14px 14px 14px 22px' }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>{trilha.name}</div>
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' as const, marginBottom: 10 }}>
@@ -55,9 +50,9 @@ function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' as const }}>
-          <span style={{ background: v.bg, color: v.text, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600 }}>{v.label}</span>
+          <span style={{ background: bg, color: text, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600 }}>{label}</span>
           {cond?.aderencia_status && (
-            <span style={{ background: v.bg, color: v.text, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600 }}>{cond.aderencia_status}</span>
+            <span style={{ background: bg, color: text, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600 }}>{cond.aderencia_status}</span>
           )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, filter: 'blur(4px)', userSelect: 'none' as const }}>
@@ -80,7 +75,7 @@ function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
 }
 
 function AvaliacaoCard({ obs }: { obs: Observacao }) {
-  const cor = VEREDICTO_COR[obs.veredicto_sistema ?? ''] ?? '#6B7280'
+  const cor = VEREDICTO_JANELA_COLOR[obs.veredicto_sistema ?? ''] ?? '#6B7280'
   const riderNome = obs.profiles?.apelido || obs.profiles?.nome || 'Rider'
   const trilhaNome = obs.trilhas?.name ?? ''
   const initials = riderNome.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
