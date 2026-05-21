@@ -26,8 +26,8 @@ type Observacao = {
   texto: string
   veredicto_sistema: string | null
   created_at: string
-  trilhas: { name: string } | null
-  profiles: { apelido: string | null; nome: string | null } | null
+  trilhas: { name: string }[] | null
+  profiles: { apelido: string | null; nome: string | null }[] | null
 }
 
 const VEREDICTO_FALLBACK = 'DROP LIBERADO - Veja os alertas'
@@ -76,8 +76,8 @@ function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
 
 function AvaliacaoCard({ obs }: { obs: Observacao }) {
   const cor = VEREDICTO_JANELA_COLOR[obs.veredicto_sistema ?? ''] ?? '#6B7280'
-  const riderNome = obs.profiles?.apelido || obs.profiles?.nome || 'Rider'
-  const trilhaNome = obs.trilhas?.name ?? ''
+  const riderNome = obs.profiles?.[0]?.apelido || obs.profiles?.[0]?.nome || 'Rider'
+  const trilhaNome = obs.trilhas?.[0]?.name ?? ''
   const initials = riderNome.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
   const dataFormatada = obs.created_at
     ? new Date(obs.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
