@@ -17,7 +17,7 @@
 | Open-Meteo Forecast | `api.open-meteo.com/v1/forecast` | Previsão futura (peso 30%) |
 | Open-Meteo Archive (ERA5) | `archive-api.open-meteo.com/v1/archive` | Precipitação histórica real + vento histórico |
 | NOAA CPC | `cpc.ncep.noaa.gov/data/indices/oni.ascii.txt` | Índice ONI para ENSO |
-| Supabase | REST API | **14 tabelas** — solo, meia_vida, threshold, config, microclima, aderência, score |
+| Supabase | REST API | **14 tabelas** — solo, meia_vida, threshold, config, biomas, aderência, score |
 
 ### Tabelas Supabase carregadas no startup
 
@@ -30,7 +30,7 @@
 | `aderencia_thresholds` | `_carregar_aderencia_thresholds()` | `_CACHE_ADERENCIA_THRESHOLDS` | Com fallback inline |
 | `veredicto_pesos` | `_carregar_veredicto_pesos()` | `_CACHE_VEREDICTO_PESOS` | Com fallback inline |
 | `meia_vida_clima_mult` | `_carregar_meia_vida_clima_mult()` | `_CACHE_MEIA_VIDA_CLIMA_MULT` | Com fallback inline |
-| `microclima_config` | `_carregar_microclima_config()` | `_CACHE_MICROCLIMA_CONFIG` | Com fallback inline |
+| `biomas` | `_carregar_biomas()` | `_CACHE_BIOMAS` | Com fallback inline |
 | `solo_type_config` | `_carregar_solo_type_config()` | `_CACHE_SOLO_TYPE_CONFIG` | Com fallback inline |
 | `inclinacao_config` | `_carregar_inclinacao_config()` | `_CACHE_INCLINACAO_CONFIG` | Com fallback inline |
 | `score_config` | `_carregar_score_config()` | `_CACHE_SCORE_CONFIG` | Com fallback inline |
@@ -108,35 +108,36 @@ Carregada do Supabase (`meia_vida_secagem`). **Sem fallback hardcoded** — se S
 
 ```
 meia_vida_base = meia_vida_secagem[(solo_type, exposicao)]
-    → multiplicador microclima (em _meia_vida(), tabela microclima_config.mult_meia_vida)
     → multiplicadores climáticos (em _ajustar_meia_vida_clima(), tabela meia_vida_clima_mult)
+       incluindo vento_pct e sol_pct da tabela biomas
     → multiplicador bikepark (em _ajustar_meia_vida_clima(), tabela meia_vida_clima_mult)
     → clamp final [meia_vida_min, meia_vida_max] (configuracoes_sistema)
 ```
 
-### Multiplicador Microclima (`_meia_vida()`)
-
-Carregado da tabela `microclima_config` (coluna `mult_meia_vida`). Avaliado por bioma, altitude mínima e exposição — primeiro match vence:
-
-| Bioma | altitude_min | exposicao | mult_meia_vida | Razão |
-|---|---|---|---|---|
-| Mata Atlântica | 600m | fechada | × 1.20 | Orografia + dossel fechado — secagem muito mais lenta |
-| Mata Atlântica | — | — | × 1.10 | Retenção estrutural da mata |
-
-```python
-for cfg in _carregar_microclima_config():
-    if cfg["bioma"] != bioma: continue
-    if alt_min is not None and altitude_m < alt_min: continue
-    if expo_cfg is not None and exposicao != expo_cfg: continue
-    base *= cfg["mult_meia_vida"]
-    break
-```
-
-Biomas não cadastrados retornam multiplicador 1.0 (neutro).
+> **Nota:** O multiplicador de microclima (`fator_secagem` da antiga `microclima_config`) foi removido do pipeline. O efeito do dossel sobre a secagem é agora modelado indiretamente pelos coeficientes `vento_pct` e `sol_pct` da tabela `biomas`, que reduzem a efetividade do vento e da radiação solar — os principais drivers de evaporação.
 
 ### Multiplicadores climáticos (`_ajustar_meia_vida_clima()`)
 
 Baseados em dados históricos das últimas 48h (médias de temp, vento, nuvens, umidade via OWM Timemachine). Carregados da tabela `meia_vida_clima_mult`. Todos os `ativo=true` são aplicados — primeiro match por variável vence.
+
+**Coeficientes de dossel (tabela `biomas`, função `_lookup_bioma`):**
+
+Antes de aplicar os multiplicadores climáticos, o agente lê `vento_pct` e `sol_pct` do bioma da trilha para ajustar as variáveis de clima ao nível do solo:
+
+```python
+bioma_cfg = _lookup_bioma(trail, mes)
+vento_pct = bioma_cfg.get("vento_pct", 1.0)
+sol_pct   = bioma_cfg.get("sol_pct",   1.0)
+
+# Vento efetivo ao nível do solo:
+wind_kmh = wind_ms * 3.6 * vento_pct
+
+# Nebulosidade efetiva (dossel bloqueia a radiação solar que chegaria no solo):
+cloud_efetivo = 100.0 - (100.0 - cloud_pct) * sol_pct
+# Exemplo: Amazônia fechada (sol_pct=0.02), 30% nuvens → cloud_efetivo = 98.6% (sempre sombreado)
+```
+
+`vento_pct` reduz o vento da estação para o vento que realmente atinge o solo sob o dossel. `sol_pct` comprime a variação de nebulosidade: dossel fechado (sol_pct → 0) → nebulosidade efetiva → 100% independente do céu.
 
 **Temperatura (variavel=`temperatura`):**
 
@@ -220,9 +221,26 @@ Mínimo 4h, máximo 72h — independente de qualquer combinação de multiplicad
 
 Open-Meteo Archive (ERA5) — precipitação hora a hora das últimas 48h reais.
 
+### Interceptação de dossel (`chuva_pct`)
+
+Antes de acumular, a precipitação bruta da estação meteorológica é multiplicada por `chuva_pct` do bioma da trilha, que representa a fração de chuva que atravessa o dossel e realmente atinge o solo:
+
+```python
+mes       = datetime.now(BRT).month
+chuva_pct = _lookup_bioma(trail, mes).get("chuva_pct", 1.0)
+
+p_bruto = float(precips[i] or 0.0)
+p       = p_bruto * chuva_pct   # interceptação de dossel
+
+# ultima_chuva_h usa p_bruto >= 0.5 (chuva na estação, não no solo)
+```
+
+Exemplo: Amazônia fechada (`chuva_pct=0.175`), estação registrou 20mm → apenas 3.5mm chega ao solo.  
+Trilha aberta (`chuva_pct=0.990`), 20mm → 19.8mm no solo.
+
 ### Fórmula
 
-Para cada hora `i` no histórico, com precipitação `p_i` ocorrida `horas_atras` horas atrás:
+Para cada hora `i` no histórico, com precipitação efetiva `p_i` (já com `chuva_pct` aplicado), ocorrida `horas_atras` horas atrás:
 
 ```python
 peso     = 0.5 ** (horas_atras / meia_vida)
@@ -232,17 +250,17 @@ efetivo += p_i * peso
 Em notação matemática:
 
 ```
-acumulo_ef = Σ p_i × 0.5^(t_i / τ)
+acumulo_ef = Σ (p_bruto_i × chuva_pct) × 0.5^(t_i / τ)
 ```
 
-Onde `τ = meia_vida_h` e `t_i` é a quantidade de horas atrás que a chuva `p_i` ocorreu.
+Onde `τ = meia_vida_h`, `t_i` é a quantidade de horas atrás que a chuva ocorreu, e `chuva_pct` vem da tabela `biomas`.
 
 ### `acumulo_48h` vs `acumulo_ef`
 
 | Campo | Fórmula | Representa |
 |---|---|---|
-| `acumulo_48h` (bruto) | `sum(p_i)` | Chuva total no período — sem levar em conta secagem |
-| `acumulo_ef` (efetivo) | `sum(p_i × peso_i)` | Umidade ainda retida no solo no momento do cálculo |
+| `acumulo_48h` (bruto) | `sum(p_bruto_i)` | Chuva total da estação no período — sem dossel, sem secagem |
+| `acumulo_ef` (efetivo) | `sum(p_bruto_i × chuva_pct × peso_i)` | Umidade ainda retida no solo, após interceptação do dossel e decaimento |
 
 Chuva de 48h atrás tem peso ≈ 0 (já secou). Chuva de 1h atrás tem peso ≈ 1 (ainda presente).
 
@@ -604,26 +622,25 @@ O ENSO **não aparece diretamente no card do rider** — influencia apenas os th
 
 ---
 
-## 10. Microclima Mata Atlântica
+## 10. Coeficientes de dossel e microclima (tabela `biomas`)
+
+### Fonte única de verdade
+
+A tabela `biomas` centraliza todos os dados físicos por bioma e exposição. A função `_lookup_bioma(trail, mes)` é o único ponto de acesso — substitui `_carregar_microclima_config()`, `fator_microclima()` e a parte de `fator_secagem` de `_meia_vida()`.
 
 ### `fator_microclima(trail)`
 
-Carregado de `microclima_config` (coluna `mult_threshold`). Avaliação por bioma → altitude → exposição (primeiro match vence):
+Simplificado: retorna `_lookup_bioma(trail).get("fator_threshold", 1.0)`.
 
-| Bioma | altitude_min | exposicao | mult_threshold | Razão |
+| Bioma | exposicao | altitude_min | fator_threshold | Razão |
 |---|---|---|---|---|
-| Mata Atlântica | 600m | fechada | 0.75 | Orografia + dossel = instabilidade muito maior |
-| Mata Atlântica | — | — | 0.90 | Mata Atlântica em geral |
+| Mata Atlântica | fechada | 600m | 0.50 | Orografia + dossel alto = muito mais úmido |
+| Mata Atlântica | fechada | — | 0.90 | Retenção estrutural da mata |
+| Demais biomas | aberta | — | 1.00 (ou próximo) | Sem efeito microclimático rígido |
 
 ```python
 def fator_microclima(trail: dict) -> float:
-    bioma = trail.get("bioma", "Desconhecido")
-    for cfg in _carregar_microclima_config():
-        if cfg["bioma"] != bioma: continue
-        if alt_min is not None and altitude_m < alt_min: continue
-        if expo is not None and exposicao != expo: continue
-        return cfg["mult_threshold"]
-    return 1.0   # bioma não cadastrado → neutro
+    return _lookup_bioma(trail).get("fator_threshold", 1.0)
 ```
 
 ### Efeito no threshold de solo descansado
@@ -634,30 +651,27 @@ thresh = base_sazonal * enso["mult"] * fator_microclima(trail)
 
 Threshold menor → solo considerado saturado com menos chuva acumulada → modelo mais conservador.
 
-Exemplo: SP em junho, ENSO neutro, terra/fechada/MA/altitude 800m:
-- `base = 8.0mm`, `enso["mult"] = 1.0`, `fator_microclima = 0.75`
-- `thresh = 8.0 × 1.0 × 0.75 = 6.0mm`
-
-### Efeito na meia-vida de secagem
-
-O mesmo `microclima_config` é usado em `_meia_vida()` com a coluna `mult_meia_vida` (valores distintos de `mult_threshold`):
-
-| Bioma | altitude_min | exposicao | mult_meia_vida |
-|---|---|---|---|
-| Mata Atlântica | 600m | fechada | × 1.20 |
-| Mata Atlântica | — | — | × 1.10 |
+Exemplo: SP em junho, ENSO neutro, terra/fechada/Mata Atlântica/altitude 700m:
+- `base = 8.0mm`, `enso["mult"] = 1.0`, `fator_microclima = 0.50`
+- `thresh = 8.0 × 1.0 × 0.50 = 4.0mm`
 
 ### Efeito nos thresholds de aderência
 
-O mesmo `mult_threshold` de `microclima_config` é reutilizado em `calcular_aderencia()` para normalizar o `efetivo_combinado` antes da comparação com `aderencia_thresholds`. Ver Seção 7 para fórmula e limiares efetivos por bioma.
+O `fator_threshold` de `biomas` é reutilizado em `calcular_aderencia()` para normalizar o `efetivo_combinado` antes da comparação com `aderencia_thresholds`. Ver Seção 7 para fórmula e limiares efetivos por bioma.
 
-**Resumo dos três efeitos de `microclima_config` sobre uma trilha:**
+### Efeito na meia-vida de secagem (indireto)
 
-| Efeito | Coluna usada | Onde | Resultado |
+O efeito do dossel sobre a secagem é modelado pelos coeficientes `vento_pct` e `sol_pct`, que reduzem a efetividade dos multiplicadores de vento e nebulosidade em `_ajustar_meia_vida_clima()` (ver Seção 3). Não há mais um multiplicador direto de meia-vida na tabela de biomas.
+
+**Resumo dos efeitos de `biomas` sobre o modelo:**
+
+| Efeito | Campo/função | Onde | Resultado |
 |---|---|---|---|
-| Threshold solo descansado menor | `mult_threshold` | `threshold_solo_descansado()` | Solo classificado como úmido com menos mm |
-| Thresholds de aderência mais rígidos | `mult_threshold` | `calcular_aderencia()` | GRIP → BOA em 3.75mm em vez de 5mm |
-| Meia-vida de secagem maior | `mult_meia_vida` | `_meia_vida()` | Umidade decai mais lentamente |
+| Interceptação de dossel | `chuva_pct` | `fetch_historico_chuva_om()` | Menos chuva chega ao solo em matas fechadas |
+| Threshold solo descansado menor | `fator_threshold` | `threshold_solo_descansado()` | Solo classificado como úmido com menos mm |
+| Thresholds de aderência mais rígidos | `fator_threshold` | `calcular_aderencia()` | GRIP → BOA em 1.5mm (MA alta fechada) |
+| Vento efetivo reduzido | `vento_pct` | `_ajustar_meia_vida_clima()` | Secagem mais lenta em matas densas |
+| Nebulosidade efetiva elevada | `sol_pct` | `_ajustar_meia_vida_clima()` | Sempre "encoberto" sob dossel fechado |
 
 ---
 
