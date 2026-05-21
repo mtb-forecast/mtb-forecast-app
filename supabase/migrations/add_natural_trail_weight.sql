@@ -11,6 +11,6 @@ VALUES (
   'natural_meia_vida_mult',
   '1.15',
   'modelo',
-  'Multiplicador de meia-vida para trilhas naturais. Natural não tem drenagem projetada — seca mais lento que bikepark. Padrão: 1.15'
+  'Multiplicador aplicado sobre a meia_vida_base para trilhas do tipo "natural". Trilhas naturais não possuem drenagem projetada nem solo compactado, retendo umidade por mais tempo que bikeparks. Ex: terra/fechada base=36h → 36×1.15=41.4h. Bikepark equivalente recebe ×0.60 → 21.6h. Calibrável: valores entre 1.05 (efeito suave) e 1.30 (muito conservador). Padrão: 1.15'
 )
 ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor;
