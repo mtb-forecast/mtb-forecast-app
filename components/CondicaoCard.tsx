@@ -25,6 +25,13 @@ function verdictBorderColor(v: string): string {
   return '#F59E0B'
 }
 
+function aderenciaBadge(a: string): { bg: string; color: string } {
+  if (a === 'GRIP PERFEITO') return { bg: '#DCFCE7', color: '#15803D' }
+  if (a === 'BOA ADERÊNCIA') return { bg: '#FFF7ED', color: '#C2410C' }
+  if (a === 'BAIXA ADERÊNCIA') return { bg: '#FEE2E2', color: '#B91C1C' }
+  return { bg: '#FEF9C3', color: '#A16207' }
+}
+
 function recalcularSolo(condicao: Condicao) {
   const agora    = new Date()
   const geradoEm = new Date(condicao.gerado_em)
@@ -204,23 +211,16 @@ export default function CondicaoCard({ condicao }: Props) {
               </span>
               {has12h && <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>12h</span>}
             </div>
-            {aderenciaStr === 'BOA ADERÊNCIA' ? (
-              <span style={{ background: '#FFF7ED', color: '#C2410C', fontSize: 11, fontWeight: 600, borderRadius: 6, padding: '3px 10px', border: '0.5px solid #FDBA74' }}>
-                Boa Aderência
-              </span>
-            ) : (
-              <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>{condicao.aderencia_status}</span>
-            )}
+            {aderenciaStr && (() => {
+              const ab = aderenciaBadge(aderenciaStr)
+              return (
+                <span style={{ background: ab.bg, color: ab.color, fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '4px 12px' }}>
+                  {condicao.aderencia_status}
+                </span>
+              )
+            })()}
           </div>
 
-          {condicao.texto_dinamico && (
-            <div style={{ background: '#F9FAFB', borderLeft: `3px solid ${borderColor}`, borderRadius: 8, padding: '10px 14px', fontSize: 13, fontWeight: 500, color: '#111111' }}>
-              <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 400, marginBottom: 4, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-                Análise do report · {horaReport}
-              </div>
-              {condicao.texto_dinamico}
-            </div>
-          )}
           {(() => {
             const st = condicao.aderencia_status?.trim()
             return condicao.frase_secagem &&
@@ -234,20 +234,8 @@ export default function CondicaoCard({ condicao }: Props) {
 
         <div style={DIV} />
 
-        {/* ── 2. Condição do Solo — Agora ──────────────────────────── */}
+        {/* ── 2. Solo ──────────────────────────────────────────────── */}
         <div>
-          <div style={{ ...SEC, marginBottom: 10 }}>Condição do Solo — Agora</div>
-
-          {/* Legenda */}
-          <div style={{ display: 'flex', gap: 14, fontSize: 10, color: '#9CA3AF', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E' }} />Calculado agora
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6' }} />Report das {horaReport}
-            </div>
-          </div>
-
           {/* 3 badges */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
@@ -274,6 +262,15 @@ export default function CondicaoCard({ condicao }: Props) {
               </span>
             </div>
           </div>
+
+          {condicao.texto_dinamico && (
+            <div style={{ background: '#F9FAFB', borderLeft: `3px solid ${borderColor}`, borderRadius: 8, padding: '10px 14px', fontSize: 13, fontWeight: 500, color: '#111111', marginBottom: 14 }}>
+              <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 400, marginBottom: 4, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+                Análise do report · {horaReport}
+              </div>
+              {condicao.texto_dinamico}
+            </div>
+          )}
 
           {/* Barra Grip Perfeito */}
           <div>
