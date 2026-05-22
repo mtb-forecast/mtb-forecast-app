@@ -3630,9 +3630,9 @@ def main() -> None:
 
     for regiao, trails in sorted(trails_por_regiao.items()):
 
-        if regiao not in emails_por_regiao:
-            print(f"[MTB V7.0] Região {regiao}: sem destinatários — pulando envio.")
-            continue
+        tem_destinatarios = regiao in emails_por_regiao
+        if not tem_destinatarios:
+            print(f"[MTB V7.0] Região {regiao}: sem destinatários de email — processando e gravando dados normalmente.")
 
         print(f"\n[MTB V7.0] Processando região {regiao} ({len(trails)} trilha(s))...")
         resultados, falhas = [], []
@@ -3675,6 +3675,9 @@ def main() -> None:
 
         if not resultados:
             print(f"  [AVISO] Nenhuma trilha processada para a região {regiao} — email não enviado.")
+            continue
+
+        if not tem_destinatarios:
             continue
 
         print(f"  [MTB V7.0] Gerando análise via Claude AI para região {regiao}...")
