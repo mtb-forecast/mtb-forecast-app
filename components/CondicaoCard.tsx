@@ -189,7 +189,10 @@ export default function CondicaoCard({ condicao }: Props) {
               {condicao.texto_dinamico}
             </div>
           )}
-          {condicao.frase_secagem && (
+          {condicao.frase_secagem &&
+            condicao.aderencia_status !== 'GRIP PERFEITO' &&
+            condicao.aderencia_status !== 'SECO' &&
+            condicao.aderencia_status !== 'BOA ADERÊNCIA' && (
             <p style={{ fontSize: 12, fontStyle: 'italic', color: '#555555', lineHeight: 1.75, margin: 0 }}>
               {condicao.frase_secagem}
             </p>
@@ -224,7 +227,9 @@ export default function CondicaoCard({ condicao }: Props) {
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
               <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
               <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
-                {trilhaSecaEmAgora === 0 ? 'Solo seco' : `seca em ~${trilhaSecaEmAgora}h`}
+                {trilhaSecaEmAgora === 0
+                  ? (temChuvaFutura ? 'Solo seco agora' : 'Solo seco')
+                  : `seca em ~${trilhaSecaEmAgora}h`}
               </span>
             </div>
 
