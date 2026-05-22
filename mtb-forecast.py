@@ -1750,28 +1750,6 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
 
     risco = max(0, risco)
 
-    def _tdyn(texto_v):
-        _o = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
-        sa = aderencia["status"]
-        sf = (aderencia_futura or {}).get("status", sa)
-        lf = (aderencia_futura or {}).get("label", "24h")
-        oa, of = _o.get(sa, 0), _o.get(sf, 0)
-        if texto_v == "MELHOR ESPERAR":
-            return "Solo encharcado — aguarde secar" if acumulo_ef > 8 else "Chuva intensa prevista — evite este período"
-        if sa in ("SECO", "GRIP PERFEITO") and sf == "BAIXA ADERÊNCIA":
-            return f"Bom agora, piora severa prevista — {lf}"
-        if sa in ("SECO", "GRIP PERFEITO") and sf == "BOA ADERÊNCIA":
-            return f"Bom agora, piora moderada prevista — {lf}"
-        if sa in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA") and of >= oa:
-            return "Solo úmido, sem melhora prevista nas 24h"
-        if sa in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA") and of < oa:
-            return "Solo úmido mas secando — melhora prevista"
-        if sa == "SECO" and sf == "SECO":
-            return "Condição ideal — sem chuva prevista"
-        if sa == "GRIP PERFEITO" and of <= 1:
-            return "Grip perfeito — condição estável"
-        return ""
-
     if risco <= lim_liberado:
         return {
             "texto": "DROP LIBERADO",
@@ -1780,7 +1758,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             "bg": "#f0fdf4",
             "risco": risco,
             "motivo": ", ".join(motivos) if motivos else "condição favorável",
-            "texto_dinamico": _tdyn("DROP LIBERADO"),
+            "texto_dinamico": "",
         }
     elif risco <= lim_alertas:
         return {
@@ -1790,7 +1768,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             "bg": "#fffbeb",
             "risco": risco,
             "motivo": ", ".join(motivos) if motivos else "atenção por combinação de fatores",
-            "texto_dinamico": _tdyn("DROP LIBERADO - Veja os alertas"),
+            "texto_dinamico": "",
         }
     return {
         "texto": "MELHOR ESPERAR",
@@ -1799,7 +1777,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         "bg": "#fef2f2",
         "risco": risco,
         "motivo": ", ".join(motivos) if motivos else "risco elevado",
-        "texto_dinamico": _tdyn("MELHOR ESPERAR"),
+        "texto_dinamico": "",
     }
 
 
@@ -2639,6 +2617,31 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     vered = veredicto(aderencia, rain, wind, pico_3h, inclinacao, trail, acumulo_ef, vento_hist,
                       aderencia_futura=aderencia_futura)
 
+    resumo_12h     = resumo_12h_oc()
+    fds_resumo     = {
+        "d1": resumo_dia_oc(datas["d1"], acumulo_ate(datas["d1"])),
+        "d2": resumo_dia_oc(datas["d2"], acumulo_ate(datas["d2"])),
+        "d3": resumo_dia_oc(datas["d3"], acumulo_ate(datas["d3"])),
+    }
+    horarios_chuva = calcular_horarios_chuva_oc()
+
+    narrativa, cor_n, bg_n = _gerar_narrativa_claude({
+        "acumulo_48h":      acumulo_48h,
+        "acumulo_ef":       acumulo_ef,
+        "ultima_chuva_h":   ultima_chuva,
+        "meia_vida_h":      meia_vida_h,
+        "thresh_desc":      thresh_desc,
+        "pico_3h":          pico_3h,
+        "aderencia":        aderencia,
+        "aderencia_futura": aderencia_futura,
+        "veredicto":        vered,
+        "veredicto_12h":    resumo_12h,
+        "fds":              fds_resumo,
+        "trail_name":       trail["name"],
+        "bioma":            trail.get("bioma", ""),
+    })
+    vered["texto_dinamico"] = narrativa
+
     return {
         "name":           trail["name"],
         "lat":            trail["lat"],
@@ -2668,29 +2671,15 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "aderencia":         aderencia,
         "aderencia_futura":  aderencia_futura,
         "veredicto":         vered,
-        "veredicto_12h":  resumo_12h_oc(),
+        "veredicto_12h":  resumo_12h,
         "previsao_24h":   calcular_blocos_24h_oc(),
         "vento_hist":     vento_hist,
         "janela":         calcular_janela_oc(),
-        "horarios_chuva": calcular_horarios_chuva_oc(),
-        "fds": {
-            "d1": resumo_dia_oc(datas["d1"], acumulo_ate(datas["d1"])),
-            "d2": resumo_dia_oc(datas["d2"], acumulo_ate(datas["d2"])),
-            "d3": resumo_dia_oc(datas["d3"], acumulo_ate(datas["d3"])),
-        },
-        **dict(zip(
-            ("resumo_secagem_frase", "resumo_secagem_cor", "resumo_secagem_bg"),
-            _gerar_frase_secagem_claude({
-                "acumulo_48h":    acumulo_48h,
-                "acumulo_ef":     acumulo_ef,
-                "ultima_chuva_h": ultima_chuva,
-                "meia_vida_h":    meia_vida_h,
-                "thresh_desc":    thresh_desc,
-                "aderencia":      aderencia,
-                "veredicto":      vered,
-                "veredicto_12h":  resumo_12h_oc(),
-            })
-        )),
+        "horarios_chuva": horarios_chuva,
+        "fds": fds_resumo,
+        "resumo_secagem_frase": narrativa,
+        "resumo_secagem_cor":   cor_n,
+        "resumo_secagem_bg":    bg_n,
     }
 
 
@@ -2898,7 +2887,7 @@ def _resumo_secagem_local(r: dict) -> str:
     return f"{parte_chuva}{parte_tempo}. {parte_secagem}. {conclusao}", cor, bg
 
 
-def _gerar_frase_secagem_claude(r: dict) -> tuple:
+def _gerar_narrativa_claude(r: dict) -> tuple:
     if not ANTHROPIC_KEY:
         return _resumo_secagem_local(r)
 
@@ -2907,46 +2896,68 @@ def _gerar_frase_secagem_claude(r: dict) -> tuple:
     ult_h      = r.get("ultima_chuva_h")
     meia_vida  = r.get("meia_vida_h", 24)
     thresh     = r.get("thresh_desc", 5.0)
+    pico_3h    = r.get("pico_3h", 0)
     descansado = efetivo < thresh
 
     ult_h_str = f"{round(ult_h)}h atrás" if ult_h is not None else "não identificada"
 
-    aderencia_status  = r.get("aderencia", {}).get("status", "")
-    veredicto_texto   = r.get("veredicto", {}).get("texto", "")
-    veredicto_12h     = r.get("veredicto_12h", {}).get("veredicto", {}).get("texto", "")
-    pico_3h           = r.get("pico_3h", 0)
+    aderencia_status = r.get("aderencia", {}).get("status", "")
+    ader_futura      = r.get("aderencia_futura") or {}
+    af_status        = ader_futura.get("status", aderencia_status)
+    af_label         = ader_futura.get("label", "24h")
+    veredicto_texto  = r.get("veredicto", {}).get("texto", "")
+    veredicto_12h    = r.get("veredicto_12h", {}).get("veredicto", {}).get("texto", "")
+    trail_name       = r.get("trail_name", "trilha")
+    bioma            = r.get("bioma", "")
+    fds              = r.get("fds", {})
+
+    def _fds_str(dia: dict) -> str:
+        if not dia:
+            return "sem dados"
+        vt = dia.get("veredicto", {}).get("texto", "?")
+        rn = dia.get("rain", 0)
+        return f"{vt} · {rn}mm"
 
     prompt = f"""Você é especialista em trilhas de mountain bike DH e Enduro no Brasil.
-Escreva UMA frase curta (máximo 2 frases) em português do Brasil explicando a condição do solo desta trilha para um rider.
+Escreva uma análise (3 a 5 frases) em português do Brasil contando a história completa das condições desta trilha: o que aconteceu nas últimas 48h, como está o solo agora e o que esperar nos próximos dias.
 
-REGRA CRÍTICA: sua frase DEVE ser 100% consistente com os dados abaixo — eles são a verdade absoluta.
+REGRA CRÍTICA: seja 100% consistente com os dados abaixo — eles são a verdade absoluta.
 NUNCA contradiga o veredicto. NUNCA sugira condição melhor do que o veredicto indica.
 NUNCA diga "solo secando rapidamente" se choveu recentemente ou há chuva prevista.
 
-Dados reais da trilha:
-- Chuva acumulada bruta (48h): {bruto}mm
-- Chuva efetiva no solo agora: {efetivo}mm
+Trilha: {trail_name}{f" · bioma {bioma}" if bioma else ""}
+
+PASSADO — últimas 48h:
+- Chuva bruta acumulada: {bruto}mm
+- Chuva efetiva retida no solo agora: {efetivo}mm
 - Última chuva: {ult_h_str}
-- Meia-vida de secagem: {meia_vida}h
-- Pico de chuva previsto (3h): {pico_3h}mm
-- Solo descansado: {"SIM" if descansado else "NÃO — solo já úmido"}
+- Meia-vida de secagem deste solo: {meia_vida}h
+- Solo descansado (abaixo do limiar de grip): {"SIM" if descansado else "NÃO — solo saturado"}
 
-Veredicto calculado pelo modelo (sua frase DEVE refletir isso):
-- Aderência: {aderencia_status}
-- Veredicto HOJE (12h): {veredicto_12h}
-- Veredicto 48h: {veredicto_texto}
+AGORA:
+- Aderência atual: {aderencia_status}
+- Veredicto 12h: {veredicto_12h or veredicto_texto}
+- Pico de chuva nas próximas 3h: {pico_3h}mm
 
-Regras adicionais:
-- Se última chuva < 3h: mencione que choveu recentemente
-- Se pico_3h > 5mm: mencione chuva intensa prevista
-- Se veredicto for MELHOR ESPERAR: frase deve ser claramente negativa
-- Se veredicto for DROP LIBERADO - Veja os alertas: frase deve mencionar cautela
-- Se veredicto for DROP LIBERADO: frase pode ser positiva
-- Sem markdown, sem bullet points, sem título, máximo 2 frases."""
+FUTURO:
+- Aderência esperada em {af_label}: {af_status}
+- Veredicto 24h: {veredicto_texto}
+- Dia 1: {_fds_str(fds.get("d1", {}))}
+- Dia 2: {_fds_str(fds.get("d2", {}))}
+- Dia 3: {_fds_str(fds.get("d3", {}))}
+
+Regras de estilo:
+- Comece descrevendo o histórico de chuva das últimas 48h (ou ausência de chuva se bruto < 1mm)
+- Descreva o estado atual do solo e da aderência
+- Termine com perspectiva objetiva para os próximos dias
+- Se veredicto for MELHOR ESPERAR: tom claramente negativo, mencione o risco para o rider
+- Se veredicto for DROP LIBERADO - Veja os alertas: mencione o fator de cautela
+- Se veredicto for DROP LIBERADO e solo descansado: tom positivo, transmita confiança
+- Sem markdown, sem bullet points, sem título"""
 
     payload = json.dumps({
         "model": "claude-sonnet-4-5",
-        "max_tokens": 150,
+        "max_tokens": 400,
         "messages": [{"role": "user", "content": prompt}]
     }).encode("utf-8")
 
@@ -2963,21 +2974,21 @@ Regras adicionais:
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
-                frase = data["content"][0]["text"].strip()
+                narrativa = data["content"][0]["text"].strip()
                 if descansado and pico_3h < 3:
                     cor, bg = "#16a34a", "#f0fdf4"
                 elif efetivo > thresh * 2 or pico_3h >= 10:
                     cor, bg = "#dc2626", "#fef2f2"
                 else:
                     cor, bg = "#d97706", "#fffbeb"
-                return frase, cor, bg
+                return narrativa, cor, bg
         except urllib.error.HTTPError as exc:
-            print(f"[Claude Frase] HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}")
+            print(f"[Claude Narrativa] HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}")
             if attempt == 2:
                 return _resumo_secagem_local(r)
             time.sleep(2 ** attempt)
         except Exception as exc:
-            print(f"[Claude Frase] Erro: {exc}")
+            print(f"[Claude Narrativa] Erro: {exc}")
             if attempt == 2:
                 return _resumo_secagem_local(r)
             time.sleep(2 ** attempt)
