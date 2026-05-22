@@ -1,35 +1,29 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { VEREDICTO_ACCENT, VEREDICTO_JANELA_BG, VEREDICTO_JANELA_COLOR, VEREDICTO_LABEL } from '@/lib/display'
 
-type CondicaoPreview = {
-  veredicto: string
-  aderencia_status: string
-  acumulo_48h: number
-  wind_ms: number
-}
-
-type TrilhaPreview = {
-  id: string
-  name: string
-  regiao: string
-  trail_type: string | null
-  bioma: string | null
-  condicoes: CondicaoPreview[]
-}
-
-type Observacao = {
-  id: string
-  texto: string
-  veredicto_sistema: string | null
-  created_at: string
-  trilhas: { name: string }[] | null
-  profiles: { apelido: string | null; nome: string | null }[] | null
-}
+type CondicaoPreview = { veredicto: string; aderencia_status: string }
+type TrilhaPreview = { id: string; name: string; regiao: string; trail_type: string | null; bioma: string | null; condicoes: CondicaoPreview[] }
+type Observacao = { id: string; rider: string; trilha: string; texto: string; veredicto: string | null; data: string }
 
 const VEREDICTO_FALLBACK = 'DROP LIBERADO - Veja os alertas'
+
+const TRILHAS_DEMO: TrilhaPreview[] = [
+  { id: '1', name: 'Trilha do Macaco', regiao: 'Ibiúna', trail_type: 'natural', bioma: 'Mata Atlântica', condicoes: [{ veredicto: 'DROP LIBERADO', aderencia_status: 'GRIP PERFEITO' }] },
+  { id: '2', name: 'Trilha da Serrinha', regiao: 'Atibaia', trail_type: 'natural', bioma: 'Mata Atlântica', condicoes: [{ veredicto: 'MELHOR ESPERAR', aderencia_status: 'BAIXA ADERÊNCIA' }] },
+  { id: '3', name: 'BikePark das Pedras', regiao: 'Campos do Jordão', trail_type: 'bikepark', bioma: 'Pinheiros', condicoes: [{ veredicto: 'DROP LIBERADO - Veja os alertas', aderencia_status: 'BOA ADERÊNCIA' }] },
+  { id: '4', name: 'Trilha da Mantiqueira', regiao: 'Gonçalves', trail_type: 'natural', bioma: 'Campo de Altitude', condicoes: [{ veredicto: 'DROP LIBERADO', aderencia_status: 'GRIP PERFEITO' }] },
+]
+
+const AVALIACOES_DEMO: Observacao[] = [
+  { id: '1', rider: 'Caio M.', trilha: 'Trilha do Macaco', texto: 'Solo perfeito hoje, modelo acertou na mosca. Cheguei cedo e a terra ainda estava compactada do frio da noite. Recomendo ir antes das 10h.', veredicto: 'DROP LIBERADO', data: '21/05' },
+  { id: '2', rider: 'Fê Duarte', trilha: 'Trilha da Serrinha', texto: 'Choveu muito na quinta, trilha estava encharcada mesmo o app dizendo esperar. Voltei no sábado e estava impecável. Vale a pena confiar.', veredicto: 'MELHOR ESPERAR', data: '19/05' },
+  { id: '3', rider: 'Rodrigo K.', trilha: 'BikePark das Pedras', texto: 'Bikepark com drenagem excelente. Mesmo com chuva leve na véspera estava ridável. O alerta de atenção foi preciso, só um trecho escorregou.', veredicto: 'DROP LIBERADO - Veja os alertas', data: '18/05' },
+  { id: '4', rider: 'Thais V.', trilha: 'Trilha da Mantiqueira', texto: 'Altitude alta ajuda a secar rápido. Chegamos 2 dias após uma chuva de 18mm e a trilha estava em condições. Modelo calibrado certeiro.', veredicto: 'DROP LIBERADO', data: '16/05' },
+  { id: '5', rider: 'Bruno SP', trilha: 'Trilha do Macaco', texto: 'Quarta-feira com previsão de garoa fina, o app manteve ESPERAR e foi a decisão certa. Solo com argila ficou perigoso. Respeitei e não me arrependi.', veredicto: 'MELHOR ESPERAR', data: '14/05' },
+  { id: '6', rider: 'André Mello', trilha: 'Trilha da Serrinha', texto: 'Usamos o app pela primeira vez no grupo. Todos impressionados com a precisão. Trail estava exatamente como descrito. Vira rotina pré-ride agora.', veredicto: 'DROP LIBERADO', data: '12/05' },
+]
 
 function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
   const cond = trilha.condicoes?.[0]
@@ -74,26 +68,24 @@ function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
 }
 
 function AvaliacaoCard({ obs }: { obs: Observacao }) {
-  const cor = VEREDICTO_JANELA_COLOR[obs.veredicto_sistema ?? ''] ?? '#6B7280'
-  const riderNome = obs.profiles?.[0]?.apelido || obs.profiles?.[0]?.nome || 'Rider'
-  const trilhaNome = obs.trilhas?.[0]?.name ?? ''
-  const initials = riderNome.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-  const dataFormatada = obs.created_at
-    ? new Date(obs.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-    : ''
+  const cor = VEREDICTO_JANELA_COLOR[obs.veredicto ?? ''] ?? '#6B7280'
+  const initials = obs.rider.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
   return (
     <div style={{ background: '#fff', borderRadius: 16, border: '0.5px solid #E5E7EB', padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#FFE000', flexShrink: 0 }}>{initials}</div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 13, color: '#111' }}>{riderNome}</div>
-            <div style={{ fontSize: 11, color: '#9CA3AF' }}>{trilhaNome}{trilhaNome && dataFormatada ? ' · ' : ''}{dataFormatada}</div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: '#111' }}>{obs.rider}</div>
+            <div style={{ fontSize: 11, color: '#9CA3AF' }}>{obs.trilha}{obs.trilha && obs.data ? ' · ' : ''}{obs.data}</div>
           </div>
         </div>
-        {obs.veredicto_sistema && (
-          <span style={{ fontSize: 10, fontWeight: 600, color: cor, background: cor + '18', borderRadius: 6, padding: '3px 8px' }}>{obs.veredicto_sistema}</span>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          {obs.veredicto && (
+            <span style={{ fontSize: 10, fontWeight: 600, color: cor, background: cor + '18', borderRadius: 6, padding: '3px 8px' }}>{obs.veredicto}</span>
+          )}
+          <span style={{ fontSize: 9, color: '#D1D5DB', fontStyle: 'italic' }}>demonstração</span>
+        </div>
       </div>
       <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5, margin: 0 }}>{obs.texto}</p>
     </div>
@@ -101,19 +93,6 @@ function AvaliacaoCard({ obs }: { obs: Observacao }) {
 }
 
 export default function LandingPage() {
-  const [trilhas, setTrilhas] = useState<TrilhaPreview[]>([])
-  const [avaliacoes, setAvaliacoes] = useState<Observacao[]>([])
-
-  useEffect(() => {
-    fetch('/api/public/preview')
-      .then(r => r.json())
-      .then(({ trilhas, avaliacoes }) => {
-        if (Array.isArray(trilhas)) setTrilhas(trilhas)
-        if (Array.isArray(avaliacoes)) setAvaliacoes(avaliacoes)
-      })
-      .catch(err => console.error('[landing] preview fetch error:', err))
-  }, [])
-
   return (
     <main style={{ fontFamily: "'Inter', sans-serif", background: '#F8F9FA', color: '#111', minHeight: '100vh' }}>
 
@@ -153,12 +132,7 @@ export default function LandingPage() {
           <Link href="/login" style={{ fontSize: 13, color: '#6B7280', textDecoration: 'none' }}>Ver todas →</Link>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
-          {trilhas.length > 0
-            ? trilhas.slice(0, 4).map(t => <TrilhaCardBlurred key={t.id} trilha={t} />)
-            : Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} style={{ borderRadius: 16, background: '#fff', border: '0.5px solid #E5E7EB', height: 220, opacity: 0.3 + i * 0.15 }} />
-              ))
-          }
+          {TRILHAS_DEMO.map(t => <TrilhaCardBlurred key={t.id} trilha={t} />)}
         </div>
         <div style={{ textAlign: 'center', marginTop: 24 }}>
           <Link href="/cadastro" style={{ background: '#FFE000', color: '#111', fontSize: 14, fontWeight: 600, padding: '13px 32px', borderRadius: 8, textDecoration: 'none', display: 'inline-block' }}>
@@ -207,12 +181,7 @@ export default function LandingPage() {
           <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 26, textTransform: 'uppercase' as const, color: '#111' }}>O que os riders estão falando</h2>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          {avaliacoes.length > 0
-            ? avaliacoes.map(obs => <AvaliacaoCard key={obs.id} obs={obs} />)
-            : Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} style={{ borderRadius: 16, background: '#fff', border: '0.5px solid #E5E7EB', height: 100, opacity: 0.3 + i * 0.15 }} />
-              ))
-          }
+          {AVALIACOES_DEMO.map(obs => <AvaliacaoCard key={obs.id} obs={obs} />)}
         </div>
       </section>
 
