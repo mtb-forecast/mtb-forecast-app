@@ -68,7 +68,8 @@
       "WebFetch(domain:wttr.in)",
       "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Include \"*.tsx\", \"*.ts\")",
       "Bash(Select-Object -First 20)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(git -C \"c:/ClaudeCode/mtb-forecast-app\" diff --stat HEAD)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

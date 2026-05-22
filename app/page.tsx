@@ -4,25 +4,15 @@ import Link from 'next/link'
 import { VEREDICTO_ACCENT, VEREDICTO_JANELA_BG, VEREDICTO_JANELA_COLOR, VEREDICTO_LABEL } from '@/lib/display'
 
 type CondicaoPreview = { veredicto: string; aderencia_status: string }
-type TrilhaPreview = { id: string; name: string; regiao: string; trail_type: string | null; bioma: string | null; condicoes: CondicaoPreview[] }
-type Observacao = { id: string; rider: string; trilha: string; texto: string; veredicto: string | null; data: string }
+type TrilhaPreview = { id: string; name: string; trail_type: string | null; bioma: string | null; condicoes: CondicaoPreview[] }
 
 const VEREDICTO_FALLBACK = 'DROP LIBERADO - Veja os alertas'
 
 const TRILHAS_DEMO: TrilhaPreview[] = [
-  { id: '1', name: 'Trilha do Macaco', regiao: 'Ibiúna', trail_type: 'natural', bioma: 'Mata Atlântica', condicoes: [{ veredicto: 'DROP LIBERADO', aderencia_status: 'GRIP PERFEITO' }] },
-  { id: '2', name: 'Trilha da Serrinha', regiao: 'Atibaia', trail_type: 'natural', bioma: 'Mata Atlântica', condicoes: [{ veredicto: 'MELHOR ESPERAR', aderencia_status: 'BAIXA ADERÊNCIA' }] },
-  { id: '3', name: 'BikePark das Pedras', regiao: 'Campos do Jordão', trail_type: 'bikepark', bioma: 'Pinheiros', condicoes: [{ veredicto: 'DROP LIBERADO - Veja os alertas', aderencia_status: 'BOA ADERÊNCIA' }] },
-  { id: '4', name: 'Trilha da Mantiqueira', regiao: 'Gonçalves', trail_type: 'natural', bioma: 'Campo de Altitude', condicoes: [{ veredicto: 'DROP LIBERADO', aderencia_status: 'GRIP PERFEITO' }] },
-]
-
-const AVALIACOES_DEMO: Observacao[] = [
-  { id: '1', rider: 'Caio M.', trilha: 'Trilha do Macaco', texto: 'Solo perfeito hoje, modelo acertou na mosca. Cheguei cedo e a terra ainda estava compactada do frio da noite. Recomendo ir antes das 10h.', veredicto: 'DROP LIBERADO', data: '21/05' },
-  { id: '2', rider: 'Fê Duarte', trilha: 'Trilha da Serrinha', texto: 'Choveu muito na quinta, trilha estava encharcada mesmo o app dizendo esperar. Voltei no sábado e estava impecável. Vale a pena confiar.', veredicto: 'MELHOR ESPERAR', data: '19/05' },
-  { id: '3', rider: 'Rodrigo K.', trilha: 'BikePark das Pedras', texto: 'Bikepark com drenagem excelente. Mesmo com chuva leve na véspera estava ridável. O alerta de atenção foi preciso, só um trecho escorregou.', veredicto: 'DROP LIBERADO - Veja os alertas', data: '18/05' },
-  { id: '4', rider: 'Thais V.', trilha: 'Trilha da Mantiqueira', texto: 'Altitude alta ajuda a secar rápido. Chegamos 2 dias após uma chuva de 18mm e a trilha estava em condições. Modelo calibrado certeiro.', veredicto: 'DROP LIBERADO', data: '16/05' },
-  { id: '5', rider: 'Bruno SP', trilha: 'Trilha do Macaco', texto: 'Quarta-feira com previsão de garoa fina, o app manteve ESPERAR e foi a decisão certa. Solo com argila ficou perigoso. Respeitei e não me arrependi.', veredicto: 'MELHOR ESPERAR', data: '14/05' },
-  { id: '6', rider: 'André Mello', trilha: 'Trilha da Serrinha', texto: 'Usamos o app pela primeira vez no grupo. Todos impressionados com a precisão. Trail estava exatamente como descrito. Vira rotina pré-ride agora.', veredicto: 'DROP LIBERADO', data: '12/05' },
+  { id: '1', name: 'Trilha do Mirante', trail_type: 'natural', bioma: 'Mata Atlântica', condicoes: [{ veredicto: 'DROP LIBERADO', aderencia_status: 'GRIP PERFEITO' }] },
+  { id: '2', name: 'Trilha da Serrinha', trail_type: 'natural', bioma: 'Mata Atlântica', condicoes: [{ veredicto: 'MELHOR ESPERAR', aderencia_status: 'BAIXA ADERÊNCIA' }] },
+  { id: '3', name: 'BikePark das Pedras', trail_type: 'bikepark', bioma: 'Pinheiros', condicoes: [{ veredicto: 'DROP LIBERADO - Veja os alertas', aderencia_status: 'BOA ADERÊNCIA' }] },
+  { id: '4', name: 'Trilha da Crista', trail_type: 'natural', bioma: 'Campo de Altitude', condicoes: [{ veredicto: 'DROP LIBERADO', aderencia_status: 'GRIP PERFEITO' }] },
 ]
 
 function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
@@ -38,7 +28,7 @@ function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
       <div style={{ padding: '14px 14px 14px 22px' }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>{trilha.name}</div>
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' as const, marginBottom: 10 }}>
-          {[trilha.trail_type, trilha.regiao, trilha.bioma].filter(Boolean).map(t => (
+          {[trilha.trail_type, trilha.bioma].filter(Boolean).map(t => (
             <span key={t} style={{ background: '#F3F4F6', borderRadius: 999, padding: '2px 9px', fontSize: 10, color: '#6B7280', fontWeight: 500 }}>{t}</span>
           ))}
         </div>
@@ -67,57 +57,32 @@ function TrilhaCardBlurred({ trilha }: { trilha: TrilhaPreview }) {
   )
 }
 
-function AvaliacaoCard({ obs }: { obs: Observacao }) {
-  const cor = VEREDICTO_JANELA_COLOR[obs.veredicto ?? ''] ?? '#6B7280'
-  const initials = obs.rider.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-  return (
-    <div style={{ background: '#fff', borderRadius: 16, border: '0.5px solid #E5E7EB', padding: '16px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#FFE000', flexShrink: 0 }}>{initials}</div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 13, color: '#111' }}>{obs.rider}</div>
-            <div style={{ fontSize: 11, color: '#9CA3AF' }}>{obs.trilha}{obs.trilha && obs.data ? ' · ' : ''}{obs.data}</div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          {obs.veredicto && (
-            <span style={{ fontSize: 10, fontWeight: 600, color: cor, background: cor + '18', borderRadius: 6, padding: '3px 8px' }}>{obs.veredicto}</span>
-          )}
-          <span style={{ fontSize: 9, color: '#D1D5DB', fontStyle: 'italic' }}>demonstração</span>
-        </div>
-      </div>
-      <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.5, margin: 0 }}>{obs.texto}</p>
-    </div>
-  )
-}
-
 export default function LandingPage() {
   return (
     <main style={{ fontFamily: "'Inter', sans-serif", background: '#F8F9FA', color: '#111', minHeight: '100vh' }}>
 
       {/* Hero */}
       <section style={{ background: '#1A1A1A', padding: '64px 28px 44px' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,224,0,0.12)', border: '1px solid rgba(255,224,0,0.3)', borderRadius: 999, padding: '4px 12px', fontSize: 11, fontWeight: 600, color: '#FFE000', letterSpacing: '0.06em', textTransform: 'uppercase' as const, marginBottom: 20 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFE000', display: 'inline-block' }} />
-          19 trilhas monitoradas · SP e MG
-        </div>
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 56, lineHeight: 0.95, textTransform: 'uppercase' as const, color: '#fff', marginBottom: 18 }}>
           Saiba antes<br />de <span style={{ color: '#FFE000' }}>pedalar.</span>
         </h1>
         <p style={{ fontSize: 15, color: '#9CA3AF', maxWidth: 420, lineHeight: 1.6, marginBottom: 32 }}>
-          Condições de solo em tempo real para trilhas DH e Enduro. Modelo meteorológico calibrado por riders de campo.
+          Condições de solo em tempo real para trilhas de MTB. Modelo meteorológico calibrado especificamente para DH e Enduro.
         </p>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' as const, marginBottom: 40 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' as const, marginBottom: 44 }}>
           <Link href="/cadastro" style={{ background: '#FFE000', color: '#111', fontSize: 14, fontWeight: 600, padding: '13px 26px', borderRadius: 8, textDecoration: 'none' }}>Criar conta grátis</Link>
           <Link href="/trilhas" style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
             Ver trilhas →
           </Link>
         </div>
         <div style={{ display: 'flex', gap: 36, flexWrap: 'wrap' as const }}>
-          {[{ val: '19+', label: 'Trilhas ativas' }, { val: 'SP & MG', label: 'Regiões cobertas' }, { val: '24h', label: 'Atualização diária' }].map(s => (
+          {[
+            { val: 'DROP', label: 'Veredicto diário' },
+            { val: '2×', label: 'Atualização por dia' },
+            { val: 'Strava', label: 'Integrado' },
+          ].map(s => (
             <div key={s.label}>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 30, color: '#fff' }}>{s.val}</div>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 28, color: '#fff' }}>{s.val}</div>
               <div style={{ fontSize: 11, color: '#6B7280', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginTop: 2 }}>{s.label}</div>
             </div>
           ))}
@@ -125,7 +90,7 @@ export default function LandingPage() {
         <div style={{ height: 3, background: '#FFE000', marginTop: 40, marginLeft: -28, marginRight: -28 }} />
       </section>
 
-      {/* Condições com blur */}
+      {/* Cards com blur */}
       <section style={{ padding: '48px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24 }}>
           <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 26, textTransform: 'uppercase' as const, color: '#111' }}>Condições agora</h2>
@@ -175,26 +140,16 @@ export default function LandingPage() {
         <div style={{ height: 3, background: '#FFE000', marginTop: 40, marginLeft: -28, marginRight: -28 }} />
       </section>
 
-      {/* Avaliações */}
-      <section style={{ padding: '48px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 24 }}>
-          <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 26, textTransform: 'uppercase' as const, color: '#111' }}>O que os riders estão falando</h2>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          {AVALIACOES_DEMO.map(obs => <AvaliacaoCard key={obs.id} obs={obs} />)}
-        </div>
-      </section>
-
       {/* Como funciona */}
       <section style={{ background: '#1A1A1A', padding: '48px 28px' }}>
         <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 26, textTransform: 'uppercase' as const, color: '#fff', marginBottom: 8 }}>Como funciona</h2>
         <div style={{ height: 3, background: '#FFE000', width: 40, marginBottom: 28 }} />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
           {[
-            { title: 'Dados meteorológicos reais', text: 'OpenWeather + Open-Meteo coletados diariamente às 07h para cada trilha.' },
-            { title: 'Modelo de solo calibrado', text: 'Decaimento exponencial por tipo de solo e exposição, afinado por riders em campo.' },
-            { title: 'Microclima por trilha', text: 'Mata Atlântica, altitude e exposição solar ajustam os limiares de cada trilha.' },
-            { title: 'Veredicto no seu e-mail', text: 'Email diário com DROP LIBERADO, ATENÇÃO ou MELHOR ESPERAR para suas trilhas.' },
+            { title: 'Dados meteorológicos reais', text: 'Coletamos dados de múltiplas fontes diariamente para cada trilha monitorada.' },
+            { title: 'Modelo de solo calibrado', text: 'Decaimento exponencial por tipo de solo e exposição, ajustado por bioma e altitude.' },
+            { title: 'Microclima por trilha', text: 'Mata Atlântica, altitude e exposição solar ajustam os limiares individualmente.' },
+            { title: 'Veredicto no seu e-mail', text: 'Receba DROP LIBERADO, ATENÇÃO ou MELHOR ESPERAR para as trilhas que você segue.' },
           ].map(c => (
             <div key={c.title} style={{ background: 'rgba(255,255,255,0.05)', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: 18 }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: '#fff', marginBottom: 6 }}>{c.title}</div>
@@ -219,7 +174,7 @@ export default function LandingPage() {
 
       <footer style={{ background: '#111', padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: 8 }}>
         <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 14, letterSpacing: '0.08em', color: '#fff' }}>MTB FORECASTER</span>
-        <span style={{ fontSize: 11, color: '#555' }}>Feito por riders, para riders · SP &amp; MG</span>
+        <span style={{ fontSize: 11, color: '#555' }}>Feito por riders, para riders</span>
       </footer>
 
     </main>
