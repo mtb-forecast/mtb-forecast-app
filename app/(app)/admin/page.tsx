@@ -91,27 +91,31 @@ export default function AdminPage() {
   }, [router])
 
   async function aprovar(p: TrilhaPendente) {
-    let localidadeId: string | null = null
+    let localidadeId: string | null = p.localidade_id ?? null
 
-    const geo = await geocodeLatLon(p.lat, p.lon)
-    if (geo) {
-      const { data: existing } = await supabase
-        .from('localidades')
-        .select('id')
-        .eq('estado', geo.estado)
-        .eq('cidade', geo.cidade)
-        .eq('localidade', geo.localidade ?? '')
-        .maybeSingle()
+    if (!localidadeId) {
+      const geo = await geocodeLatLon(p.lat, p.lon)
+      if (geo) {
+        let query = supabase.from('localidades').select('id')
+          .eq('estado', geo.estado)
+          .eq('cidade', geo.cidade)
+        if (geo.localidade) {
+          query = query.eq('localidade', geo.localidade)
+        } else {
+          query = query.is('localidade', null)
+        }
+        const { data: existing } = await query.maybeSingle()
 
-      if (existing) {
-        localidadeId = existing.id
-      } else {
-        const { data: inserted } = await supabase
-          .from('localidades')
-          .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
-          .select('id')
-          .single()
-        localidadeId = inserted?.id ?? null
+        if (existing) {
+          localidadeId = (existing as { id: string }).id
+        } else {
+          const { data: inserted } = await supabase
+            .from('localidades')
+            .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
+            .select('id')
+            .single()
+          localidadeId = inserted ? (inserted as { id: string }).id : null
+        }
       }
     }
 
