@@ -1409,7 +1409,12 @@ def _carregar_score_config() -> dict:
         })
         with urllib.request.urlopen(req, timeout=10) as r:
             dados = json.loads(r.read())
-        config = {row["chave"]: float(row["valor"]) for row in dados}
+        config = {}
+        for row in dados:
+            try:
+                config[row["chave"]] = float(row["valor"])
+            except (ValueError, TypeError):
+                pass  # ignora linhas com valor não-numérico (ex: notas de migração)
         _CACHE_SCORE_CONFIG = config
         print(f"  [Score] Config carregada do Supabase: {len(config)} chaves")
         return config
