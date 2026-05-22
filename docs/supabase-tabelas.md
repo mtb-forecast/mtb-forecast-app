@@ -1,7 +1,7 @@
 # MTB Forecast — Inventário Completo de Tabelas Supabase
 
 > Documento de referência gerado a partir de `mtb-forecast.py`, migrations SQL e código Next.js.
-> Cobre todas as 25 tabelas do sistema, seus campos, valores válidos e onde cada uma é consumida.
+> Cobre todas as 27 tabelas do sistema, seus campos, valores válidos e onde cada uma é consumida.
 
 ---
 
@@ -9,7 +9,7 @@
 
 | Grupo | Tabelas | Propósito |
 |---|---|---|
-| [Configuração do Modelo](#grupo-1--configuração-do-modelo) | 13 | Dados de negócio que alimentam o algoritmo Python |
+| [Configuração do Modelo](#grupo-1--configuração-do-modelo) | 15 | Dados de negócio que alimentam o algoritmo Python |
 | [Trilhas e Condições](#grupo-2--trilhas-e-condições) | 4 | Cadastro de trilhas e resultados de previsão |
 | [Strava](#grupo-3--strava) | 4 | Segmentos pessoais via integração Strava |
 | [Usuários](#grupo-4--usuários) | 2 | Perfis e preferências de usuários |
@@ -53,9 +53,9 @@ Chave-valor central do sistema. Absorveu `score_config` na Fase 5, categorizada 
 | `coef_acumulo` | `0.3` | `scoring` | `impacto = rain + acumulo_ef × 0.3` (solo saturado, pico < 10) |
 | `coef_base` | `10.0` | `scoring` | `score = impacto × 10.0` — escala 0–100 |
 | `pico_threshold` | `10.0` | `scoring` | Limiar de ativação da lógica de pico (mm) |
-| `bikepark_acumulo_threshold` | `5.0` | `scoring` | Se `acumulo_ef < 5.0`: aplica redução bikepark |
-| `bikepark_score_mult` | `0.90` | `scoring` | Redução de impacto para bikepark não saturado |
-| `bikepark_saturado_threshold` | `10.0` | `scoring` | Fallback quando `threshold_sazonal` indisponível |
+| `bikepark_acumulo_threshold` | `5.0` | `scoring` | Gatilho de saturação para o desconto de score do bikepark. Se `acumulo_ef < 5.0mm`, a drenagem projetada ainda está funcionando e o `score_mult` de `trail_type_config` (0.90) é aplicado — reduzindo 10% do impacto calculado. Se `acumulo_ef >= 5.0mm`, o bikepark está saturado, a drenagem perdeu eficácia e o desconto não é aplicado (score cheio). Calibrável: valores menores = desconto só em bikeparks muito secos; valores maiores = desconto mais liberal. |
+| ~~`bikepark_score_mult`~~ | ~~`0.90`~~ | `scoring` | **Obsoleto** — migrado para `trail_type_config.score_mult` (ainda no banco, não é mais lido) |
+| `bikepark_saturado_threshold` | `10.0` | `scoring` | Limiar de saturação de emergência para bikepark — usado como fallback quando a tabela `threshold_sazonal` está indisponível no Supabase. Quando `acumulo_ef > 10.0mm`, o bikepark é considerado saturado: libera BAIXA ADERÊNCIA (normalmente bloqueada para bikeparks) e adiciona pontos extras de risco no veredicto. Em operação normal este valor nunca é atingido pois `threshold_sazonal` fornece o limiar real ajustado por mês e região. |
 | `email_from` | endereço | `sistema` | Remetente dos alertas por e-mail |
 | `email_password` | senha/app-pw | `sistema` | Credencial do remetente |
 | `telegram_token` | token | `sistema` | Token do bot Telegram |
@@ -307,9 +307,9 @@ Multiplicadores climáticos que ajustam a meia-vida de secagem com base no clima
 | `multiplicador` | numeric | Fator multiplicado sobre a meia_vida atual |
 | `ativo` | boolean | Controle de ativação |
 
-**Nota:** o campo `condicao` (documentação textual) foi removido na Fase 5 — nunca era lido pelo código. A linha `temp <= 10` (ativo=false) também foi deletada.
+**Nota:** o campo `condicao` (documentação textual) foi removido na Fase 5 — nunca era lido pelo código. A linha `temp <= 10` (ativo=false) também foi deletada. As linhas `variavel=bikepark` foram desativadas (`ativo=false`) ao criar `trail_type_config` — os multiplicadores de bikepark agora vivem nessa nova tabela.
 
-**Registros ativos por variável (17 linhas):**
+**Registros ativos por variável (15 linhas):**
 
 | variavel | valor_min | valor_max | exposicao | mult |
 |---|---|---|---|---|
@@ -328,21 +328,81 @@ Multiplicadores climáticos que ajustam a meia-vida de secagem com base no clima
 | `umidade` | 95 | — | — | 1.15 |
 | `umidade` | 85 | 95 | — | 1.08 |
 | `umidade` | — | 45 | — | 0.93 |
-| `bikepark` | — | — | `fechada` | 0.60 |
-| `bikepark` | — | — | `aberta` | 0.35 |
+| ~~`bikepark`~~ | — | — | `fechada` | ~~0.60~~ | desativado — ver `trail_type_config` |
+| ~~`bikepark`~~ | — | — | `aberta` | ~~0.35~~ | desativado — ver `trail_type_config` |
 
 **Nota:** Vento em km/h (`wind_ms × 3.6`). `combo` é condição multi-variável tratada separadamente.
 
-**Fallback:** lista hardcoded com os 17 registros acima.
+**Fallback:** lista hardcoded com os 15 registros ativos.
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_meia_vida_clima_mult()` → `_ajustar_meia_vida_clima()`
 
 ---
 
+### `biomas`
+
+Fonte única de verdade para coeficientes físicos de dossel por bioma e exposição. Substituiu `microclima_config` como fonte lida pelo Python.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | serial PK | Auto-incremento |
+| `bioma` | text | Ex: `Mata Atlântica`, `Cerrado`, `Amazônia`, `Caatinga`, `Pantanal`, `Pampa` |
+| `exposicao` | text | `aberta` ou `fechada` |
+| `altitude_min` | int | NULL = qualquer altitude; preenchido quando há linha específica para altitude |
+| `chuva_pct` | float | Fração da chuva da estação que atinge o solo (0–1) — interceptação de dossel |
+| `vento_pct` | float | Fração do vento da estação que prevalece ao nível do solo (0–1) |
+| `sol_pct` | float | Fração da radiação solar que chega ao solo (0–1) — modula nebulosidade efetiva |
+| `mes_sazonal_inicio` | int | Mês de início da sazonalidade (1–12) — NULL se sem sazonalidade |
+| `mes_sazonal_fim` | int | Mês de fim da sazonalidade |
+| `chuva_pct_sazonal` | float | Valor de `chuva_pct` durante a estação seca |
+| `vento_pct_sazonal` | float | Valor de `vento_pct` durante a estação seca |
+| `sol_pct_sazonal` | float | Valor de `sol_pct` durante a estação seca |
+| `fator_threshold` | float DEFAULT 1.0 | Divisor do `efetivo_combinado` antes dos thresholds de aderência — < 1.0 = mais rígido |
+| `ativo` | boolean DEFAULT true | Controle de ativação |
+
+**13 registros (6 abertas + 7 fechadas):**
+
+| bioma | exposicao | altitude_min | chuva_pct | vento_pct | sol_pct | fator_threshold |
+|---|---|---|---|---|---|---|
+| Amazônia | aberta | — | 0.965 | 0.575 | 0.800 | 1.00 |
+| Mata Atlântica | aberta | — | 0.965 | 0.600 | 0.775 | 0.90 |
+| Cerrado | aberta | — | 0.990 | 0.850 | 0.925 | 1.00 |
+| Caatinga | aberta | — | 0.995 | 0.900 | 0.975 | 1.00 |
+| Pantanal | aberta | — | 0.990 | 0.800 | 0.900 | 1.00 |
+| Pampa | aberta | — | 0.990 | 0.950 | 0.940 | 1.00 |
+| Amazônia | fechada | — | 0.175 | 0.100 | 0.020 | 1.00 |
+| Mata Atlântica | fechada | — | 0.225 | 0.125 | 0.035 | 0.90 |
+| Mata Atlântica | fechada | 600m | 0.180 | 0.100 | 0.025 | 0.50 |
+| Cerrado | fechada | — | 0.500 | 0.275 | 0.175 | 1.00 |
+| Caatinga | fechada | — | 0.600 | 0.325 | 0.225 | 1.00 |
+| Pantanal | fechada | — | 0.400 | 0.175 | 0.100 | 1.00 |
+| Pampa | fechada | — | 0.450 | 0.225 | 0.140 | 1.00 |
+
+**Sazonalidade:** Cerrado fechado (abr–set): chuva=0.75, vento=0.55, sol=0.45. Caatinga fechada (jun–set): chuva=0.85, vento=0.65, sol=0.55.
+
+**Lookup Python `_lookup_bioma(trail, mes)`:**
+1. Filtra por bioma + exposicao
+2. Prioriza linha com `altitude_min` preenchido quando `trail.altitude_m >= altitude_min`
+3. Se mês atual está no intervalo sazonal, sobrescreve os três coeficientes pelos valores sazonais
+4. Fallback: `{chuva_pct: 1.0, vento_pct: 1.0, sol_pct: 1.0, fator_threshold: 1.0}` (neutro)
+
+**Fallback Python:** valores de Mata Atlântica fechada hardcoded se Supabase indisponível.
+
+**Usado em:**
+- `mtb-forecast.py` → `_carregar_biomas()` / `_lookup_bioma()` — lookup por trilha no pipeline
+- `mtb-forecast.py` → `fetch_historico_chuva_om()` — aplica `chuva_pct` sobre precipitação bruta
+- `mtb-forecast.py` → `_ajustar_meia_vida_clima()` — aplica `vento_pct` e `sol_pct`
+- `mtb-forecast.py` → `fator_microclima()` — retorna `fator_threshold` para ajuste de thresholds
+- `app/(app)/admin/tabelas/page.tsx` → aba "Biomas" com dupla aprovação
+
+---
+
 ### `microclima_config`
 
 Fatores de retenção de umidade por bioma, altitude e exposição. Afeta threshold e meia-vida.
+
+> ⚠️ **Esta tabela foi supersedida pela tabela `biomas`.** O Python não lê mais `microclima_config` — todas as funções que usavam esta tabela (`fator_microclima()`, `_meia_vida()`) foram migradas para `_lookup_bioma()`. A tabela é **mantida no banco por conservadorismo** mas não tem efeito no modelo.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
@@ -374,6 +434,55 @@ Fatores de retenção de umidade por bioma, altitude e exposição. Afeta thresh
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_microclima_config()` → `fator_microclima()` — retorna `fator_threshold`
 - `mtb-forecast.py` → `_carregar_microclima_config()` → `_meia_vida()` — multiplica base por `fator_secagem`
+
+---
+
+### `trail_type_config`
+
+Multiplicadores de meia-vida de secagem e de score de impacto por `trail_type` × `exposicao`. Centraliza valores que antes estavam espalhados em `meia_vida_clima_mult` (variavel=bikepark, agora desativadas) e `configuracoes_sistema` (natural_meia_vida_mult, removida).
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | serial PK | Auto-incremento |
+| `trail_type` | text | `natural` ou `bikepark` |
+| `exposicao` | text | `aberta`, `mista`, `fechada` — NULL = genérico para o trail_type |
+| `meia_vida_mult` | float | Multiplicador sobre a meia_vida após ajustes climáticos |
+| `score_mult` | float | Multiplicador sobre o impacto calculado no score |
+| `descricao` | text | Explicação e exemplos numéricos |
+| `ativo` | boolean DEFAULT true | Controle de ativação |
+
+**Valores atuais (6 linhas):**
+
+| trail_type | exposicao | meia_vida_mult | score_mult | Interpretação |
+|---|---|---|---|---|
+| `natural` | `aberta` | 1.08 | 1.00 | Sem drenagem, mas sol/vento diretos — leve penalização |
+| `natural` | `mista` | 1.15 | 1.00 | Cobertura parcial, retém mais umidade |
+| `natural` | `fechada` | 1.30 | 1.00 | Mata densa sem drenagem — secagem muito lenta (ex: trilha Macaco) |
+| `bikepark` | `aberta` | 0.35 | 0.90 | Terra compactada + sol/vento diretos — seca muito rápido |
+| `bikepark` | `mista` | 0.48 | 0.90 | Drenagem projetada com alguma sombra |
+| `bikepark` | `fechada` | 0.60 | 0.90 | Drenagem projetada + cobertura vegetal |
+
+**Os dois `score_mult` — origens distintas, propósitos distintos:**
+
+O campo `score_mult` existe em duas tabelas com significados diferentes:
+
+| Tabela | Representa | Condição de aplicação |
+|---|---|---|
+| `solo_type_config.score_mult` | Quanto o **material do solo** amplifica o impacto da chuva (pedra drena melhor que terra) | Apenas quando `clay_pct` ausente na trilha |
+| `trail_type_config.score_mult` | Desconto de **infraestrutura de drenagem** do bikepark (valetas projetadas reduzem impacto real) | Apenas bikepark + solo não saturado (`acumulo_ef < bk_acumulo_thr`) |
+
+São mantidas em tabelas separadas porque representam conceitos independentes: um admin que quer calibrar "pedra drena melhor" não deve mexer na mesma tabela que controla "bikepark tem infraestrutura". Os dois podem se acumular para bikepark/terra sem `clay_pct`: `impacto × 1.05 (terra) × 0.90 (bikepark) = × 0.945`.
+
+**Prioridade de lookup Python `_lookup_trail_type(trail)`:**
+1. Match exato: `trail_type + exposicao`
+2. Fallback: row com `exposicao = NULL` (genérico por trail_type)
+3. Padrão neutro: `{meia_vida_mult: 1.0, score_mult: 1.0}`
+
+**Fallback:** lista hardcoded com os 6 registros acima.
+
+**Usado em:**
+- `mtb-forecast.py` → `_carregar_trail_type_config()` / `_lookup_trail_type()` → `_ajustar_meia_vida_clima()` e `calcular_score_trilha()`
+- `app/(app)/admin/tabelas/page.tsx` → aba "Trail Type" com dupla aprovação
 
 ---
 
@@ -628,6 +737,7 @@ Resultado do processamento do agente Python por trilha. Uma linha por trilha (DE
 | `aderencia_futura_label` | text | Label do bloco de aderência futura |
 | `aderencia_futura_rain` | numeric | Chuva prevista no bloco de aderência futura |
 | `texto_dinamico` | text | Texto contextual dinâmico do veredicto |
+| `motivo_veredicto` | text | Fatores que elevaram o risco (ex: "Pico 3h elevado, BOA ADERÊNCIA") — exibido como "Fatores de atenção" quando não há alertas específicos no CondicaoCard |
 | `previsao_24h` | jsonb | Blocos de previsão hora a hora |
 | `fds_d1_veredicto` | text | Veredicto para sábado próximo |
 | `fds_d1_rain` | numeric | Chuva prevista no sábado |
@@ -864,7 +974,7 @@ Workflow de dupla aprovação para alterações nas tabelas de configuração do
 | `id` | uuid PK | Gerado via `gen_random_uuid()` |
 | `solicitante_id` | uuid FK | Admin que solicitou a alteração |
 | `aprovador_id` | uuid FK | Outro admin que deve aprovar |
-| `tabela` | text | Tabela alvo: `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem` |
+| `tabela` | text | Tabela alvo: `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `biomas`, `trail_type_config` |
 | `operacao` | text | `update` ou `insert` |
 | `dados_anteriores` | jsonb | Snapshot do registro antes da alteração |
 | `dados_novos` | jsonb | Dados que serão aplicados se aprovado |
@@ -877,7 +987,7 @@ Workflow de dupla aprovação para alterações nas tabelas de configuração do
 
 **Usado em:**
 - `app/(app)/admin/tabelas/page.tsx` → CRUD completo do workflow
-- Tabelas que requerem aprovação: `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`
+- Tabelas que requerem aprovação: `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `biomas`, `trail_type_config`
 
 ---
 
@@ -885,12 +995,12 @@ Workflow de dupla aprovação para alterações nas tabelas de configuração do
 
 | Arquivo | Tabelas acessadas |
 |---|---|
-| `mtb-forecast.py` | `configuracoes_sistema` (inclui scoring), `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `microclima_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais` |
+| `mtb-forecast.py` | `configuracoes_sistema` (inclui scoring), `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `biomas`, `trail_type_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais` |
 | `app/(app)/dashboard/page.tsx` | `profiles`, `favoritos`, `trilhas` + `condicoes`, `trilhas_pessoais`, `condicoes_strava`, `observacoes_trilha` |
 | `app/(app)/trilhas/[id]/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `profiles`, `trilhas_pessoais`, `condicoes_strava` |
 | `app/(app)/trilhas/page.tsx` | `trilhas`, `favoritos`, `profiles`, `localidades` |
 | `app/(app)/admin/page.tsx` | `profiles`, `trilhas_pendentes`, `trilhas`, `strava_segmentos_config`, `strava_config_sugestoes`, `localidades`, `admin_aprovacoes` |
-| `app/(app)/admin/tabelas/page.tsx` | `profiles`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `admin_aprovacoes` |
+| `app/(app)/admin/tabelas/page.tsx` | `profiles`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `biomas`, `trail_type_config`, `admin_aprovacoes` |
 | `app/(app)/perfil/page.tsx` | `profiles`, `trilhas_pendentes`, `favoritos`, `trilhas`, `trilhas_pessoais`, `strava_segmentos_config` |
 | `app/(app)/perfil/strava/page.tsx` | `trilhas_pessoais`, `strava_segmentos_config` |
 | `components/TrailObservations.tsx` | `observacoes_trilha`, `favoritos`, `profiles` |

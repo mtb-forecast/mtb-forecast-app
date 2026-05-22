@@ -5,7 +5,7 @@ Plataforma completa de monitoramento climático para trilhas de **Mountain Bike 
 Composta por dois sistemas integrados:
 
 - **Web App** — Next.js 14 App Router com autenticação (e-mail + Google OAuth), favoritos, avaliações de riders, integração Strava, cadastro manual de trilhas, notificações por Telegram, compartilhamento por WhatsApp e PWA
-- **Agente Python** — executa a cada 6 horas via GitHub Actions, coleta dados de 3 fontes meteorológicas, modela condição do solo com 13 tabelas de configuração no Supabase e grava resultados no banco
+- **Agente Python** — executa a cada 6 horas via GitHub Actions, coleta dados de 3 fontes meteorológicas, modela condição do solo com 14 tabelas de configuração no Supabase e grava resultados no banco
 
 ---
 
@@ -55,9 +55,9 @@ Composta por dois sistemas integrados:
 │  NOAA ONI (ENSO)            ─────────────────────────────►            │
 │  Anthropic Claude AI        ─────────────────────────────►            │
 │                                                                        │
-│  13 tabelas de config lidas do Supabase na inicialização:             │
+│  14 tabelas de config lidas do Supabase na inicialização:             │
 │  enso_config · aderencia_thresholds · veredicto_pesos                 │
-│  veredicto_limiares · meia_vida_clima_mult · microclima_config        │
+│  veredicto_limiares · meia_vida_clima_mult · biomas                   │
 │  configuracoes_sistema · solo_type_config · inclinacao_config         │
 │  aderencia_descricoes · threshold_sazonal · meia_vida_secagem         │
 │  tabela_solo                                                           │
@@ -73,12 +73,12 @@ Composta por dois sistemas integrados:
 │  observacoes_trilha · strava_segmentos_config                          │
 │  trilhas_pendentes · localidades · admin_aprovacoes                   │
 │                                                                        │
-│  TABELAS DE CONFIGURAÇÃO DO MODELO (13)                                │
+│  TABELAS DE CONFIGURAÇÃO DO MODELO (14)                                │
 │  enso_config · aderencia_thresholds · veredicto_risco_pesos           │
-│  meia_vida_clima_mult · microclima_config · configuracoes_sistema      │
+│  meia_vida_clima_mult · biomas · configuracoes_sistema                 │
 │  solo_type_config · inclinacao_config · score_config                  │
 │  aderencia_descricoes · threshold_sazonal · meia_vida_secagem         │
-│  tabela_solo                                                           │
+│  tabela_solo · microclima_config (mantida no BD, supersedida)         │
 └──────────────────────────────────────────────────────────────────────┘
                                      │
                                      ▼
@@ -342,13 +342,14 @@ Rota protegida: verifica `is_admin` no banco + redireciona para `/dashboard` se 
 
 Painel de edição das tabelas mestras do modelo. **Todas as alterações requerem aprovação do outro admin** (fluxo dual-admin via `admin_aprovacoes`).
 
-**3 tabs:**
+**4 tabs:**
 
 | Tab | Tabela Supabase | Campos editáveis |
 |---|---|---|
 | Solo | `tabela_solo` | clay_pct, sand_pct, texture_class |
 | Thresholds Sazonais | `threshold_sazonal` | threshold_descansado, threshold_saturado |
 | Meia-vida de Secagem | `meia_vida_secagem` | meia_vida_h |
+| Biomas | `biomas` | chuva_pct, vento_pct, sol_pct, fator_threshold, sazonalidade |
 
 **Fluxo de edição:**
 1. Admin edita o valor inline → modal de confirmação com diff antes/depois + motivo (mín. 20 chars)
@@ -546,7 +547,7 @@ TELEGRAM_BOT_TOKEN=seu_token_aqui
 
 O banco tem **25 tabelas** organizadas em 5 grupos.
 
-### Grupo 1 — Configuração do modelo (13 tabelas)
+### Grupo 1 — Configuração do modelo (14 tabelas)
 
 Todas com RLS habilitado, coluna `ativo`, carregadas em cache global na inicialização do agente.
 
@@ -557,7 +558,7 @@ Todas com RLS habilitado, coluna `ativo`, carregadas em cache global na iniciali
 | `veredicto_pesos` | Pesos de risco por condição (aderencia_baixa, pico_3h_alto, vento_alto, etc.) |
 | `veredicto_limiares` | Limiares de decisão: ≤1 → DROP LIBERADO, ≤3 → Veja alertas, >3 → MELHOR ESPERAR |
 | `meia_vida_clima_mult` | Multiplicadores de secagem por temperatura, vento, nebulosidade, umidade e bikepark |
-| `microclima_config` | Fatores de retenção de umidade por bioma, altitude e exposição |
+| `biomas` | Fonte única de verdade por bioma × exposição: coeficientes de dossel (chuva_pct, vento_pct, sol_pct), fator_threshold e sazonalidade |
 | `configuracoes_sistema` | Chave-valor: email, parâmetros do modelo, coeficientes de scoring e altitude_bonus |
 | `solo_type_config` | `fator_absorcao_base` e `score_mult` por tipo de solo |
 | `inclinacao_config` | Penalizadores de absorção por inclinação calculada (graus) ou desnível bruto (metros) |
@@ -565,6 +566,7 @@ Todas com RLS habilitado, coluna `ativo`, carregadas em cache global na iniciali
 | `threshold_sazonal` | Thresholds mensais de acúmulo efetivo por região (solo descansado e bikepark saturado) |
 | `meia_vida_secagem` | Taxa base de secagem por (solo_type, exposicao) em horas |
 | `tabela_solo` | Composição do solo: clay_pct, sand_pct, texture_class por (solo_type, bioma, regiao) |
+| `microclima_config` | Mantida no BD por conservadorismo — **Python não lê mais esta tabela** (supersedida por `biomas`) |
 
 ---
 
@@ -620,6 +622,7 @@ Estratégia de escrita: DELETE + INSERT por `trilha_id` (evita conflito sem UNIQ
 | `veredicto` | text | DROP LIBERADO / DROP LIBERADO - Veja os alertas / MELHOR ESPERAR |
 | `veredicto_12h` | text | Veredicto para as próximas 12h |
 | `texto_dinamico` | text | Frase contextual do veredicto |
+| `motivo_veredicto` | text | Fatores que levaram ao veredicto (ex: "Pico 3h elevado, BOA ADERÊNCIA") — exibido no card quando não há alertas específicos |
 | `previsao_24h` | jsonb | Array de 4 blocos de 6h: `{label, rain_mm, pop_max, wind_max, temp_med}` |
 | `rain_mm` | numeric | Chuva acumulada 24h (mm) — fusão OWM 70% + OM 30% |
 | `rain_12h` | numeric | Chuva acumulada 12h (mm) |
@@ -724,7 +727,7 @@ GitHub Actions (cron a cada 6h + workflow_dispatch manual)
         ▼
 2. Carregamento de tabelas de config (uma vez por execução)
    14 caches globais: enso_config, aderencia_thresholds, veredicto_pesos, veredicto_limiares,
-   meia_vida_clima_mult, microclima_config, configuracoes_sistema, solo_type_config,
+   meia_vida_clima_mult, biomas, configuracoes_sistema, solo_type_config,
    inclinacao_config, score_config, aderencia_descricoes, threshold_sazonal,
    meia_vida_secagem, tabela_solo
    Cada cache: if cache: return cache → fetch Supabase → fallback hardcoded
@@ -887,12 +890,16 @@ acumulo_ef = Σ precip_i × 0.5 ^ (horas_atras_i / meia_vida_h)
 | Bikepark fechado | — | × 0.60 |
 | Bikepark aberto | — | × 0.35 |
 
-**Microclima** (`microclima_config`):
+**Coeficientes de dossel e microclima** (tabela `biomas`):
 
-| Condição | fator_threshold | fator_secagem |
-|---|---|---|
-| Mata Atlântica + altitude ≥ 600m + fechada | 0.50 (thresholds 50% mais rígidos) | × 1.20 |
-| Mata Atlântica (demais) | 0.90 | × 1.10 |
+| Bioma | Exposição | chuva_pct | vento_pct | sol_pct | fator_threshold |
+|---|---|---|---|---|---|
+| Amazônia | fechada | 0.175 | 0.100 | 0.020 | 1.00 |
+| Mata Atlântica | fechada | 0.225 | 0.125 | 0.035 | 0.90 |
+| Mata Atlântica | fechada (≥ 600m) | 0.180 | 0.100 | 0.025 | 0.50 |
+| Cerrado | fechada | 0.500 | 0.275 | 0.175 | 1.00 |
+
+`chuva_pct`: fração da chuva que atravessa o dossel e chega ao solo. `vento_pct`: fração do vento medido na estação ao nível do solo. `sol_pct`: fração da radiação solar que chega ao solo (usada para calcular nebulosidade efetiva). `fator_threshold`: divisor do `efetivo_combinado` antes da comparação com os thresholds de aderência — valores < 1.0 tornam os limites mais rígidos.
 
 **Clamp final:** `max(4h, min(72h, meia_vida))`
 
@@ -945,7 +952,7 @@ Isso torna os thresholds efetivamente mais rígidos para trilhas em ambientes co
 | Mata Atlântica (demais) | 0.90 | > **2.7 mm** | > **6.3 mm** |
 | Outros / sem microclima | 1.00 | > 3.0 mm | > 7.0 mm |
 
-Os thresholds fixos na tabela `aderencia_thresholds` são 0 / 3 / 7 mm. O ajuste microclimático não altera a tabela — é aplicado no código dividindo o efetivo antes da comparação (`efetivo_threshold = efetivo_combinado / fator_threshold`). Valores calibráveis via `microclima_config.fator_threshold` no Supabase.
+Os thresholds fixos na tabela `aderencia_thresholds` são 0 / 3 / 7 mm. O ajuste microclimático não altera a tabela — é aplicado no código dividindo o efetivo antes da comparação (`efetivo_threshold = efetivo_combinado / fator_threshold`). Valores calibráveis via `biomas.fator_threshold` no Supabase (aba "Biomas" em `/admin/tabelas`).
 
 **Fator de recuperação:** `BAIXA ADERÊNCIA → BOA ADERÊNCIA` se `acumulo_ef < threshold × 2.5` **e** não saturado. Multiplicador 2.5 lido de `configuracoes_sistema.aderencia_recovery_mult`.
 

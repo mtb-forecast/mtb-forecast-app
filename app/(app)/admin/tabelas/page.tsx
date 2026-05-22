@@ -48,6 +48,16 @@ type TabelaBioma = {
   ativo: boolean
 }
 
+type TabelaTrailType = {
+  id: string
+  trail_type: string
+  exposicao: string | null
+  meia_vida_mult: number
+  score_mult: number
+  descricao: string | null
+  ativo: boolean
+}
+
 type Aprovacao = {
   id: string
   solicitante_id: string
@@ -77,12 +87,13 @@ export default function TabelasPage() {
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'solo' | 'threshold' | 'meiavida' | 'biomas'>('solo')
+  const [tab, setTab] = useState<'solo' | 'threshold' | 'meiavida' | 'biomas' | 'trailtype'>('solo')
 
   const [solo, setSolo] = useState<TabelaSolo[]>([])
   const [threshold, setThreshold] = useState<TabelaThreshold[]>([])
   const [meiaVida, setMeiaVida] = useState<TabelaMeiaVida[]>([])
   const [biomasData, setBiomasData] = useState<TabelaBioma[]>([])
+  const [trailTypeData, setTrailTypeData] = useState<TabelaTrailType[]>([])
   const [aprovacoes, setAprovacoes] = useState<Aprovacao[]>([])
   const [pendentesIds, setPendentesIds] = useState<Set<string>>(new Set())
 
@@ -124,6 +135,7 @@ export default function TabelasPage() {
         loadThreshold(),
         loadMeiaVida(),
         loadBiomasData(),
+        loadTrailTypeData(),
         loadAprovacoes(user.id),
       ])
       setLoading(false)
@@ -146,6 +158,10 @@ export default function TabelasPage() {
   async function loadBiomasData() {
     const { data } = await supabase.from('biomas').select('*').order('bioma').order('exposicao').order('altitude_min', { nullsFirst: true })
     setBiomasData(data || [])
+  }
+  async function loadTrailTypeData() {
+    const { data } = await supabase.from('trail_type_config').select('*').order('trail_type').order('exposicao', { nullsFirst: true })
+    setTrailTypeData(data || [])
   }
   async function loadAprovacoes(uid: string) {
     const { data } = await supabase
@@ -206,6 +222,7 @@ export default function TabelasPage() {
       dados_anteriores: modal.dadosAnteriores,
       dados_novos: modal.dadosNovos,
       status: 'pendente',
+      motivo: modal.motivo,
     })
 
     const editedId = modal.dadosAnteriores?.id as string | undefined
@@ -230,6 +247,7 @@ export default function TabelasPage() {
     if (apr.tabela === 'threshold_sazonal') loadThreshold()
     if (apr.tabela === 'meia_vida_secagem') loadMeiaVida()
     if (apr.tabela === 'biomas') loadBiomasData()
+    if (apr.tabela === 'trail_type_config') loadTrailTypeData()
     showToast('✓ Alteração aprovada e aplicada!')
   }
 
@@ -343,6 +361,7 @@ export default function TabelasPage() {
             { key: 'threshold', label: 'Thresholds Sazonais' },
             { key: 'meiavida', label: 'Meia-vida de Secagem' },
             { key: 'biomas', label: 'Biomas' },
+            { key: 'trailtype', label: 'Trail Type' },
           ] as const).map(t => (
             <button
               key={t.key}
@@ -619,7 +638,7 @@ export default function TabelasPage() {
                 <div style={{ ...legendFieldStyle, gridColumn: '1 / -1' }}><span style={legendKeyStyle}>meia_vida_h</span><br /><span style={{ color: '#555' }}>Tempo em horas para o solo perder metade da umidade acumulada. Ex: 36h significa que após 36h sem chuva, metade da água ainda está retida no solo</span></div>
               </div>
               <div style={{ background: '#f0fdf4', borderLeft: '3px solid #22c55e', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
-                🌡 A meia-vida é ajustada automaticamente pelo clima: temperatura alta acelera a secagem, alta umidade relativa retarda. Solo em Mata Atlântica recebe multiplicador adicional de 1.10–1.20x
+                🌡 A meia-vida é ajustada automaticamente pelo clima: temperatura alta acelera a secagem, alta umidade relativa retarda. O efeito do dossel (vento e sol filtrados) é aplicado via tabela Biomas.
               </div>
               <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '10px 14px' }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>Escala de referência</p>
@@ -722,8 +741,65 @@ export default function TabelasPage() {
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>altitude_min</span><br /><span style={{ color: '#555' }}>Altitude mínima em metros para aplicar esta linha. NULL = vale para qualquer altitude</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>sazonalidade</span><br /><span style={{ color: '#555' }}>Meses em que o dossel abre (ex: Cerrado abr–set, Caatinga jun–set). Coeficientes sazonais sobrepõem os principais</span></div>
               </div>
-              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555' }}>
+              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
                 ⚡ Prioridade de lookup: altitude_min preenchida (mais específico) antes de NULL (geral). Sazonalidade prevalece nos meses definidos.
+              </div>
+
+              {/* Metodologia de calibração */}
+              <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '12px 14px' }}>
+                <p style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase' as const, letterSpacing: '1px', marginBottom: 10 }}>Metodologia de calibração (valores iniciais)</p>
+                <p style={{ fontSize: 11, color: '#555', marginBottom: 10 }}>
+                  Os valores foram derivados de dados Gemini por bioma. Cada coeficiente representa o <b>ponto médio (midpoint)</b> do range reportado, convertido para decimal:
+                </p>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ background: '#f7f7f5' }}>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Bioma / Exposição</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Coeficiente</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Range Gemini</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Cálculo</th>
+                        <th style={{ padding: '5px 10px', textAlign: 'right' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Decimal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { bioma: 'Amazônia fechada',          coef: 'chuva_pct',  range: '10–25%', calc: '(10+25)/2 = 17.5%', val: '0.175' },
+                        { bioma: 'Amazônia fechada',          coef: 'vento_pct',  range: '5–15%',  calc: '(5+15)/2 = 10%',   val: '0.100' },
+                        { bioma: 'Amazônia fechada',          coef: 'sol_pct',    range: '1–3%',   calc: '(1+3)/2 = 2%',     val: '0.020' },
+                        { bioma: 'Mata Atlântica fechada',    coef: 'chuva_pct',  range: '15–30%', calc: '(15+30)/2 = 22.5%',val: '0.225' },
+                        { bioma: 'Mata Atlântica fechada',    coef: 'vento_pct',  range: '5–20%',  calc: '(5+20)/2 = 12.5%', val: '0.125' },
+                        { bioma: 'Mata Atlântica fechada',    coef: 'sol_pct',    range: '2–5%',   calc: '(2+5)/2 = 3.5%',   val: '0.035' },
+                        { bioma: 'Mata Atlântica ≥600m fech.',coef: 'chuva_pct',  range: '13–23%', calc: '(13+23)/2 = 18%',  val: '0.180' },
+                        { bioma: 'Mata Atlântica ≥600m fech.',coef: 'vento_pct',  range: '5–15%',  calc: '(5+15)/2 = 10%',   val: '0.100' },
+                        { bioma: 'Mata Atlântica ≥600m fech.',coef: 'sol_pct',    range: '1–4%',   calc: '(1+4)/2 = 2.5%',   val: '0.025' },
+                        { bioma: 'Cerrado fechado',           coef: 'chuva_pct',  range: '40–60%', calc: '(40+60)/2 = 50%',  val: '0.500' },
+                        { bioma: 'Cerrado fechado',           coef: 'vento_pct',  range: '20–35%', calc: '(20+35)/2 = 27.5%',val: '0.275' },
+                        { bioma: 'Cerrado fechado',           coef: 'sol_pct',    range: '10–25%', calc: '(10+25)/2 = 17.5%',val: '0.175' },
+                        { bioma: 'Caatinga fechada',          coef: 'chuva_pct',  range: '50–70%', calc: '(50+70)/2 = 60%',  val: '0.600' },
+                        { bioma: 'Caatinga fechada',          coef: 'vento_pct',  range: '25–40%', calc: '(25+40)/2 = 32.5%',val: '0.325' },
+                        { bioma: 'Caatinga fechada',          coef: 'sol_pct',    range: '15–30%', calc: '(15+30)/2 = 22.5%',val: '0.225' },
+                        { bioma: 'Pantanal fechado',          coef: 'chuva_pct',  range: '30–50%', calc: '(30+50)/2 = 40%',  val: '0.400' },
+                        { bioma: 'Pantanal fechado',          coef: 'vento_pct',  range: '10–25%', calc: '(10+25)/2 = 17.5%',val: '0.175' },
+                        { bioma: 'Pantanal fechado',          coef: 'sol_pct',    range: '5–15%',  calc: '(5+15)/2 = 10%',   val: '0.100' },
+                        { bioma: 'Pampa fechado',             coef: 'chuva_pct',  range: '35–55%', calc: '(35+55)/2 = 45%',  val: '0.450' },
+                        { bioma: 'Pampa fechado',             coef: 'vento_pct',  range: '15–30%', calc: '(15+30)/2 = 22.5%',val: '0.225' },
+                        { bioma: 'Pampa fechado',             coef: 'sol_pct',    range: '8–20%',  calc: '(8+20)/2 = 14%',   val: '0.140' },
+                      ].map((r, i) => (
+                        <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f7f7f5' }}>
+                          <td style={{ padding: '4px 10px', color: '#111' }}>{r.bioma}</td>
+                          <td style={{ padding: '4px 10px', fontFamily: 'monospace', color: '#555' }}>{r.coef}</td>
+                          <td style={{ padding: '4px 10px', color: '#888' }}>{r.range}</td>
+                          <td style={{ padding: '4px 10px', color: '#888' }}>{r.calc}</td>
+                          <td style={{ padding: '4px 10px', textAlign: 'right' as const, fontWeight: 600, color: '#111', fontFamily: 'monospace' }}>{r.val}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p style={{ fontSize: 10, color: '#888', marginTop: 10 }}>
+                  Trilhas abertas usam chuva_pct ≈ 0.96–0.99, vento_pct ≈ 0.57–0.95, sol_pct ≈ 0.77–0.97 (cobertura vegetal mínima). Para calibrar com dados reais de trilhas específicas, edite os valores diretamente — sem tocar no código.
+                </p>
               </div>
             </div>
 
@@ -866,6 +942,82 @@ export default function TabelasPage() {
                   <button onClick={() => { setAddingRow(true); setNewRow({ fator_threshold: 1.0 }); cancelEdit() }} style={{ ...btnSm('#f7f7f5', '#111'), fontSize: 13 }}>+ Adicionar linha</button>
                 </div>
               )}
+            </div>
+          </>
+        )}
+
+        {/* ── TAB: Trail Type ───────────────────────────────────────── */}
+        {tab === 'trailtype' && (
+          <>
+            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', marginBottom: 12 }}>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>trail_type</span><br /><span style={{ color: '#555' }}>Tipo da trilha: <code>natural</code> (sem drenagem projetada, retém mais umidade) ou <code>bikepark</code> (drenagem projetada, seca mais rápido)</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>exposicao</span><br /><span style={{ color: '#555' }}>Exposição ao sol/vento: <code>aberta</code> (campos, cristas), <code>mista</code> (cobertura parcial), <code>fechada</code> (mata densa). NULL = genérico para o trail_type</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>meia_vida_mult</span><br /><span style={{ color: '#555' }}>Multiplicador sobre a meia_vida_base calculada. Natural/fechada (1.22) seca 22% mais devagar; bikepark/aberta (0.35) seca 65% mais rápido que uma trilha natural/aberta equivalente</span></div>
+                <div style={legendFieldStyle}><span style={legendKeyStyle}>score_mult</span><br /><span style={{ color: '#555' }}>Multiplicador de score de impacto. Bikepark (0.90) aplica 10% de desconto quando o solo não está saturado — drenagem reduz o impacto real da chuva. Natural = 1.00 (sem desconto)</span></div>
+              </div>
+              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
+                ⚡ Prioridade de lookup: match exato (trail_type + exposicao) → row com exposicao NULL (genérico por trail_type) → padrão neutro (mult = 1.0)
+              </div>
+              <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '10px 14px', fontSize: 11, color: '#555' }}>
+                <b style={{ color: '#111' }}>Referência — Trilha Macaco (natural/fechada/Mata Atlântica):</b> meia_vida terra/fechada base = 36h × 1.22 = <b>43.9h</b>. Bikepark fechado equivalente: 36h × 0.60 = 21.6h. Esta tabela centraliza multiplicadores que antes estavam espalhados em <code>configuracoes_sistema</code> (natural_meia_vida_mult) e <code>meia_vida_clima_mult</code> (variavel=bikepark).
+              </div>
+            </div>
+
+            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle} title="natural ou bikepark">trail_type</th>
+                      <th style={thStyle} title="aberta / mista / fechada / NULL (genérico)">exposição</th>
+                      <th style={thStyle} title="Multiplicador sobre meia_vida_base">meia_vida_mult</th>
+                      <th style={thStyle} title="Multiplicador de score de impacto">score_mult</th>
+                      <th style={thStyle} title="Descrição e exemplos numéricos">descrição</th>
+                      <th style={thStyle}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trailTypeData.map(row => {
+                      const isEditing = editingId === row.id
+                      const isPendente = pendentesIds.has(row.id)
+                      return (
+                        <tr key={row.id} style={{ background: isPendente ? '#fefce8' : isEditing ? '#f7f7f5' : '#fff' }}>
+                          <td style={tdStyle}><code style={{ fontSize: 12 }}>{row.trail_type}</code></td>
+                          <td style={tdStyle}>{row.exposicao ?? <span style={{ color: '#aaa' }}>NULL</span>}</td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.01" min="0.1" max="3" value={editValues.meia_vida_mult as number} onChange={e => setEditValues(v => ({ ...v, meia_vida_mult: +e.target.value }))} style={{ ...inputSm, width: 75 }} />
+                              : <b>{(row.meia_vida_mult as number).toFixed(2)}</b>}
+                          </td>
+                          <td style={tdStyle}>
+                            {isEditing
+                              ? <input type="number" step="0.01" min="0.1" max="2" value={editValues.score_mult as number} onChange={e => setEditValues(v => ({ ...v, score_mult: +e.target.value }))} style={{ ...inputSm, width: 75 }} />
+                              : (row.score_mult as number).toFixed(2)}
+                          </td>
+                          <td style={{ ...tdStyle, fontSize: 11, color: '#555', maxWidth: 320 }}>
+                            {isEditing
+                              ? <input value={editValues.descricao as string ?? ''} onChange={e => setEditValues(v => ({ ...v, descricao: e.target.value }))} style={{ ...inputSm }} />
+                              : row.descricao}
+                          </td>
+                          <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                            {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
+                            {isEditing ? (
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'trail_type_config', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                              </div>
+                            ) : (
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}
