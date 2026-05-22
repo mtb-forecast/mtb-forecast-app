@@ -199,8 +199,11 @@ export default function CondicaoCard({ condicao }: Props) {
             <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>{condicao.aderencia_status}</span>
           </div>
 
-          {condicao.texto_dinamico && !has12h && (
-            <div style={{ background: '#F9FAFB', borderLeft: `3px solid ${borderColor}`, borderRadius: 8, padding: '10px 14px', marginBottom: condicao.frase_secagem ? 8 : 0, fontSize: 13, fontWeight: 500, color: '#111111' }}>
+          {condicao.texto_dinamico && (
+            <div style={{ background: '#F9FAFB', borderLeft: `3px solid ${borderColor}`, borderRadius: 8, padding: '10px 14px', fontSize: 13, fontWeight: 500, color: '#111111' }}>
+              <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 400, marginBottom: 4, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+                Análise do report · {horaReport}
+              </div>
               {condicao.texto_dinamico}
             </div>
           )}
