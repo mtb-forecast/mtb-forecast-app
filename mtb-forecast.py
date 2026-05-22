@@ -2756,7 +2756,7 @@ Sem títulos, sem listas, sem markdown. Máximo 120 palavras no total."""
     )
 
     payload = json.dumps({
-        "model": "claude-sonnet-4-5",
+        "model": "claude-haiku-4-5-20251001",
         "max_tokens": 300,
         "system": system,
         "messages": [{"role": "user", "content": user}]
@@ -2994,7 +2994,7 @@ Regras de estilo:
 - Sem markdown, sem bullet points, sem título"""
 
     payload = json.dumps({
-        "model": "claude-sonnet-4-5",
+        "model": "claude-haiku-4-5-20251001",
         "max_tokens": 400,
         "messages": [{"role": "user", "content": prompt}]
     }).encode("utf-8")
