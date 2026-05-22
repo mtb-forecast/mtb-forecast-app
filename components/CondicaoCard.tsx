@@ -96,7 +96,10 @@ export default function CondicaoCard({ condicao }: Props) {
           horasParaGrip, progresso, temChuvaFutura, trilhaSecaEmAgora } = solo
 
   const isGripOk = condicao.aderencia_status === 'GRIP PERFEITO' || condicao.aderencia_status === 'SECO'
-  const progressoExibido = isGripOk ? progresso : Math.min(progresso, 95)
+  // Solo seco agora (acumuloAgora abaixo do grip threshold) — independente de chuva futura
+  const isGripNow = trilhaSecaEmAgora === 0
+  const showAsGrip = isGripOk || isGripNow
+  const progressoExibido = showAsGrip ? 100 : Math.min(progresso, 95)
   const indicatorColor = progressoExibido >= 80 ? '#22C55E' : progressoExibido >= 50 ? '#F59E0B' : '#EF4444'
   const horaReport = new Date(condicao.gerado_em).toLocaleTimeString('pt-BR', {
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
@@ -108,8 +111,8 @@ export default function CondicaoCard({ condicao }: Props) {
     return `~${dias}d ${hrs}h restantes`
   }
 
-  const labelGrip = isGripOk
-    ? 'Grip Perfeito ✓'
+  const labelGrip = showAsGrip
+    ? (temChuvaFutura ? 'Grip ok · chuva prevista' : 'Grip Perfeito ✓')
     : horasParaGrip < 24 ? `~${Math.round(horasParaGrip)}h restantes` : formatHoras(horasParaGrip)
 
   // Próximos 3 dias
@@ -227,9 +230,7 @@ export default function CondicaoCard({ condicao }: Props) {
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
               <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
               <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
-                {trilhaSecaEmAgora === 0
-                  ? (temChuvaFutura ? 'Solo seco agora' : 'Solo seco')
-                  : `seca em ~${trilhaSecaEmAgora}h`}
+                {trilhaSecaEmAgora === 0 ? 'Solo seco' : `seca em ~${trilhaSecaEmAgora}h`}
               </span>
             </div>
 
@@ -248,7 +249,6 @@ export default function CondicaoCard({ condicao }: Props) {
               <span style={{ fontSize: 11, color: '#9CA3AF' }}>Caminho para Grip Perfeito</span>
               <span style={{ fontSize: 11, fontWeight: 500, color: indicatorColor }}>
                 {labelGrip}
-                {temChuvaFutura && !isGripOk && <span style={{ color: '#F59E0B' }}> (chuva prevista)</span>}
               </span>
             </div>
             <div style={{ height: 8, borderRadius: 999, position: 'relative', background: 'linear-gradient(to right, #EF4444 0%, #F59E0B 50%, #22C55E 100%)' }}>
