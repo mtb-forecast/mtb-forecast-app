@@ -95,11 +95,13 @@ export default function CondicaoCard({ condicao }: Props) {
   const { driftHoras, acumuloAgora, ultimaChuvaH,
           horasParaGrip, progresso, temChuvaFutura, trilhaSecaEmAgora } = solo
 
-  const isGripOk = condicao.aderencia_status === 'GRIP PERFEITO' || condicao.aderencia_status === 'SECO'
+  const aderenciaStr   = condicao.aderencia_status?.trim() ?? ''
+  const isGripOk       = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO'
+  // Python é autoritário: só mostra "Solo seco" se aderência confirmar condição boa
+  const aderenciaOk    = ['GRIP PERFEITO', 'SECO', 'BOA ADERÊNCIA'].includes(aderenciaStr)
 
   // Regra: chuva futura invalida o estado "seco" — barra e badge usam efetivo (pós-chuva).
-  // Sem chuva prevista, usa acumuloAgora (estado real agora).
-  const isGripNow  = trilhaSecaEmAgora === 0 && !temChuvaFutura
+  const isGripNow  = trilhaSecaEmAgora === 0 && !temChuvaFutura && aderenciaOk
   const showAsGrip = isGripOk || isGripNow
   const progressoExibido = showAsGrip ? 100 : Math.min(progresso, 95)
   const indicatorColor = progressoExibido >= 80 ? '#22C55E' : progressoExibido >= 50 ? '#F59E0B' : '#EF4444'
@@ -113,16 +115,17 @@ export default function CondicaoCard({ condicao }: Props) {
     return `~${dias}d ${hrs}h restantes`
   }
 
-  const labelGrip = showAsGrip
-    ? 'Grip Perfeito ✓'
-    : fmtH(horasParaGrip)
+  const labelGrip = showAsGrip ? 'Grip Perfeito ✓' : fmtH(horasParaGrip)
 
-  // Badge "Solo seco" / "seca em Xh": usa horasParaGrip (efetivo) quando há chuva futura
-  const badgeSolo = trilhaSecaEmAgora === 0 && !temChuvaFutura
-    ? 'Solo seco'
-    : trilhaSecaEmAgora === 0 && temChuvaFutura
-      ? horasParaGrip < 24 ? `seca em ~${Math.round(horasParaGrip)}h` : fmtH(horasParaGrip).replace('restantes', '').trim()
-      : `seca em ~${trilhaSecaEmAgora}h`
+  // Badge do estado do solo — Python define se é "seco"; drift define o tempo restante
+  const badgeSolo = (() => {
+    if (temChuvaFutura) {
+      const h = horasParaGrip
+      return h < 24 ? `seca em ~${Math.round(h)}h` : fmtH(h).replace(' restantes', '')
+    }
+    if (trilhaSecaEmAgora === 0 && aderenciaOk) return 'Solo seco'
+    return `seca em ~${trilhaSecaEmAgora}h`
+  })()
 
   // Próximos 3 dias
   const hoje = new Date()
@@ -196,19 +199,20 @@ export default function CondicaoCard({ condicao }: Props) {
             <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>{condicao.aderencia_status}</span>
           </div>
 
-          {condicao.texto_dinamico && (
+          {condicao.texto_dinamico && !has12h && (
             <div style={{ background: '#F9FAFB', borderLeft: `3px solid ${borderColor}`, borderRadius: 8, padding: '10px 14px', marginBottom: condicao.frase_secagem ? 8 : 0, fontSize: 13, fontWeight: 500, color: '#111111' }}>
               {condicao.texto_dinamico}
             </div>
           )}
-          {condicao.frase_secagem &&
-            condicao.aderencia_status !== 'GRIP PERFEITO' &&
-            condicao.aderencia_status !== 'SECO' &&
-            condicao.aderencia_status !== 'BOA ADERÊNCIA' && (
-            <p style={{ fontSize: 12, fontStyle: 'italic', color: '#555555', lineHeight: 1.75, margin: 0 }}>
-              {condicao.frase_secagem}
-            </p>
-          )}
+          {(() => {
+            const st = condicao.aderencia_status?.trim()
+            return condicao.frase_secagem &&
+              st !== 'GRIP PERFEITO' && st !== 'SECO' && st !== 'BOA ADERÊNCIA' && (
+              <p style={{ fontSize: 12, fontStyle: 'italic', color: '#555555', lineHeight: 1.75, margin: 0 }}>
+                {condicao.frase_secagem}
+              </p>
+            )
+          })()}
         </div>
 
         <div style={DIV} />
