@@ -93,14 +93,17 @@ export type Condicao = {
   fds_d1_rain?: number | null
   fds_d1_wind?: number | null
   fds_d1_temp?: number | null
+  fds_d1_pop?: number | null
   fds_d2_veredicto?: string | null
   fds_d2_rain?: number | null
   fds_d2_wind?: number | null
   fds_d2_temp?: number | null
+  fds_d2_pop?: number | null
   fds_d3_veredicto?: string | null
   fds_d3_rain?: number | null
   fds_d3_wind?: number | null
   fds_d3_temp?: number | null
+  fds_d3_pop?: number | null
 }
 
 export type Profile = {

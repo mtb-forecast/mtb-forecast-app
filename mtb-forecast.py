@@ -644,7 +644,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         peso     = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
         efetivo += p * peso
 
-        if p_bruto >= 0.5 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
+        if p_bruto >= 0.1 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
             ultima_chuva_h = round(horas_atras, 1)
 
     return {
@@ -1571,8 +1571,10 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     s = base["score"]
     saturado = _bikepark_saturado(trail, acumulo_ef, mes, enso)
 
-    # Thresholds carregados do Supabase (tabela aderencia_thresholds) — efetivo combinado com pico_3h
-    efetivo_combinado = acumulo_ef + pico_3h
+    # Thresholds carregados do Supabase (tabela aderencia_thresholds).
+    # aderencia_status reflete o estado ATUAL do solo (histórico), sem pico_3h forecast.
+    # pico_3h entra no veredicto como fator de risco, não na condição presente do solo.
+    efetivo_combinado = acumulo_ef
 
     # Ajuste microclimático: Mata Atlântica fechada de altitude retém umidade estruturalmente —
     # o mesmo acumulo_ef causa mais degradação do que em terreno aberto.
@@ -1615,7 +1617,7 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
     desc = _descricao_aderencia(status, trail, saturado=saturado)
 
-    # Threshold efetivo para GRIP PERFEITO em unidades de efetivo_combinado (acumulo_ef + pico_3h).
+    # Threshold efetivo para GRIP PERFEITO em unidades de acumulo_ef (estado histórico do solo).
     # Frontend usa este valor para a barra de progresso — elimina o 3.0 hardcoded.
     grip_ef_max = next(
         (t["ef_max"] for t in _carregar_aderencia_thresholds() if t.get("status") == "GRIP PERFEITO"),
@@ -2074,14 +2076,17 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
+            "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
+            "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
+            "fds_d3_pop":         fds.get("d3", {}).get("pop"),
             "dados_json":         json.dumps({
                 "bioma":      resultado.get("bioma"),
                 "trail_type": resultado.get("trail_type"),
@@ -2222,14 +2227,17 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
+            "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
+            "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
+            "fds_d3_pop":         fds.get("d3", {}).get("pop"),
             "dados_json":         json.dumps({
                 "bioma":      resultado.get("bioma"),
                 "trail_type": resultado.get("trail_type"),
@@ -2495,26 +2503,37 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     def resumo_dia_oc(alvo: date, acumulo_ate_val: float) -> dict:
         alvo_str = str(alvo)
 
-        # Tenta One Call 3.0 primeiro (fonte primária, até ~48h)
         dia_oc = [h for h in hourly_oc
+                  if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
+        dia_om = [h for h in hourly_om
                   if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
 
         if dia_oc:
-            # Fonte: One Call 3.0
-            precips = [_precip_hora(h) for h in dia_oc]
-            r    = round(sum(precips), 1)
-            p3   = round(max((sum(precips[i:i+3]) for i in range(max(1, len(precips) - 2))),
-                             default=0.0), 1)
-            pp   = round(max((h.get("pop", 0) or 0 for h in dia_oc), default=0) * 100)
-            tm   = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
-            w    = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
-            fonte_dia = "OC"
-        else:
-            # Fallback: Open-Meteo (cobre D+3 quando OC não alcança)
-            dia_om = [h for h in hourly_om
-                      if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
-            if not dia_om:
-                return {"disponivel": False}
+            # OWM One Call 3.0 (primário, até ~48h)
+            precips_oc = [_precip_hora(h) for h in dia_oc]
+            r_oc  = sum(precips_oc)
+            p3_oc = max((sum(precips_oc[i:i+3]) for i in range(max(1, len(precips_oc) - 2))), default=0.0)
+            pp_oc = max((h.get("pop", 0) or 0 for h in dia_oc), default=0) * 100
+            tm    = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
+            w     = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
+
+            if dia_om:
+                # Blend 70% OWM + 30% Open-Meteo — igual ao pico_3h atual
+                precips_om = [h["precip"] for h in dia_om]
+                r_om  = sum(precips_om)
+                p3_om = max((sum(precips_om[i:i+3]) for i in range(max(1, len(precips_om) - 2))), default=0.0)
+                pp_om = max((h["pop"] for h in dia_om), default=0.0) * 100
+                r    = round(0.7 * r_oc + 0.3 * r_om, 1)
+                p3   = round(0.7 * p3_oc + 0.3 * p3_om, 1)
+                pp   = round(0.7 * pp_oc + 0.3 * pp_om)
+                fonte_dia = "OC+OM"
+            else:
+                r  = round(r_oc, 1)
+                p3 = round(p3_oc, 1)
+                pp = round(pp_oc)
+                fonte_dia = "OC"
+        elif dia_om:
+            # Fallback Open-Meteo (D+3 quando OC não alcança)
             precips = [h["precip"] for h in dia_om]
             r    = round(sum(precips), 1)
             p3   = round(max((sum(precips[i:i+3]) for i in range(max(1, len(precips) - 2))),
@@ -2523,6 +2542,8 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             tm   = round(max((h["temp"] for h in dia_om if h["temp"] > 0), default=0))
             w    = round(max((h["wind"] for h in dia_om), default=0.0), 1)
             fonte_dia = "OM"
+        else:
+            return {"disponivel": False}
 
         inc  = calcular_inclinacao(trail)
         ader = calcular_aderencia(r, trail, acumulo_ate_val, p3, mes, enso)
@@ -2851,9 +2872,16 @@ def _resumo_secagem_local(r: dict) -> str:
     ult_h      = r.get("ultima_chuva_h")
     meia_vida  = r.get("meia_vida_h", 24)
     thresh     = r.get("thresh_desc", 5.0)
+    pico_3h    = r.get("pico_3h", 0)
     descansado = efetivo < thresh
 
     if bruto < 0.5:
+        if pico_3h >= 3:
+            return (
+                f"Solo seco no momento, mas há previsão de até {pico_3h:.1f}mm "
+                f"em janelas de 3h nas próximas horas — verifique as condições antes de sair.",
+                "#d97706", "#fffbeb"
+            )
         return "Não choveu nas últimas 48h. Solo seco e estável — condição ideal para pedalar.", "#16a34a", "#f0fdf4"
 
     reducao_pct = round((1 - efetivo / bruto) * 100) if bruto > 0 else 0
@@ -2924,6 +2952,7 @@ Escreva uma análise (3 a 5 frases) em português do Brasil contando a história
 REGRA CRÍTICA: seja 100% consistente com os dados abaixo — eles são a verdade absoluta.
 NUNCA contradiga o veredicto. NUNCA sugira condição melhor do que o veredicto indica.
 NUNCA diga "solo secando rapidamente" se choveu recentemente ou há chuva prevista.
+Se pico previsto (próximas 48h) >= 3mm: mencione que chuva está chegando e oriente o rider a monitorar.
 
 Trilha: {trail_name}{f" · bioma {bioma}" if bioma else ""}
 
@@ -2937,7 +2966,7 @@ PASSADO — últimas 48h:
 AGORA:
 - Aderência atual: {aderencia_status}
 - Veredicto 12h: {veredicto_12h or veredicto_texto}
-- Pico de chuva nas próximas 3h: {pico_3h}mm
+- Pico de chuva previsto (máx. janela 3h nas próximas 48h): {pico_3h}mm
 
 FUTURO:
 - Aderência esperada em {af_label}: {af_status}

@@ -152,9 +152,9 @@ export default function CondicaoCard({ condicao }: Props) {
   const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
   const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
   const fdsDias = [
-    { label: fmtDia(d1), v: condicao.fds_d1_veredicto, rain: condicao.fds_d1_rain, wind: condicao.fds_d1_wind },
-    { label: fmtDia(d2), v: condicao.fds_d2_veredicto, rain: condicao.fds_d2_rain, wind: condicao.fds_d2_wind },
-    { label: fmtDia(d3), v: condicao.fds_d3_veredicto, rain: condicao.fds_d3_rain, wind: condicao.fds_d3_wind },
+    { label: fmtDia(d1), v: condicao.fds_d1_veredicto, rain: condicao.fds_d1_rain, wind: condicao.fds_d1_wind, pop: condicao.fds_d1_pop },
+    { label: fmtDia(d2), v: condicao.fds_d2_veredicto, rain: condicao.fds_d2_rain, wind: condicao.fds_d2_wind, pop: condicao.fds_d2_pop },
+    { label: fmtDia(d3), v: condicao.fds_d3_veredicto, rain: condicao.fds_d3_rain, wind: condicao.fds_d3_wind, pop: condicao.fds_d3_pop },
   ]
   const hasFds    = fdsDias.some(d => d.v)
   const hasPrev24 = (condicao.previsao_24h?.length ?? 0) > 0
@@ -400,7 +400,7 @@ export default function CondicaoCard({ condicao }: Props) {
             <div>
               <div style={{ ...SEC, marginBottom: 10 }}>Próximos 3 dias</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                {fdsDias.map(({ label, v, rain, wind }) => {
+                {fdsDias.map(({ label, v, rain, wind, pop }) => {
                   const vcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
                   return (
                     <div key={label} style={{ background: vcfg ? vcfg.bg : '#F9FAFB', border: `0.5px solid ${vcfg ? vcfg.cor + '44' : '#E5E7EB'}`, borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
@@ -409,8 +409,8 @@ export default function CondicaoCard({ condicao }: Props) {
                       <div style={{ fontSize: 10, fontWeight: 600, color: vcfg?.cor ?? '#9CA3AF', marginBottom: 4 }}>{v ?? 'SEM DADOS'}</div>
                       <div style={{ fontSize: 10, color: '#9CA3AF' }}>
                         {rain != null && `🌧 ${rain.toFixed(1)}mm`}
-                        {rain != null && wind != null && ' · '}
-                        {wind != null && `💨 ${wind.toFixed(1)}m/s`}
+                        {pop != null && ` (${pop}%)`}
+                        {wind != null && ` · 💨 ${wind.toFixed(1)}m/s`}
                       </div>
                     </div>
                   )
