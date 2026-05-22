@@ -2722,7 +2722,7 @@ Escreva 3 parágrafos curtos e diretos em português do Brasil:
 1. Condição geral do solo na região considerando o histórico de chuva das últimas 48h, a previsão e o contexto ENSO (El Niño/La Niña quando relevante)
 2. Impacto prático para quem vai pedalar (DH e Enduro) — mencione se o solo está descansado ou já encharcado; quando a inclinação da trilha for alta (>20%), mencione o risco adicional de perda de tração em descidas
 3. Melhor estratégia de horário para os próximos 3 dias
-Sem títulos, sem listas, sem markdown. Máximo 120 palavras no total."""
+Sem títulos, sem listas, sem markdown. Máximo 400 caracteres no total."""
 
     def desc_inclinacao(r: dict) -> str:
         inc = r.get("inclinacao")
@@ -2757,7 +2757,7 @@ Sem títulos, sem listas, sem markdown. Máximo 120 palavras no total."""
 
     payload = json.dumps({
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 300,
+        "max_tokens": 150,
         "system": system,
         "messages": [{"role": "user", "content": user}]
     }).encode("utf-8")
@@ -2991,11 +2991,12 @@ Regras de estilo:
 - Se veredicto for MELHOR ESPERAR: tom claramente negativo, mencione o risco para o rider
 - Se veredicto for DROP LIBERADO - Veja os alertas: mencione o fator de cautela
 - Se veredicto for DROP LIBERADO e solo descansado: tom positivo, transmita confiança
-- Sem markdown, sem bullet points, sem título"""
+- Sem markdown, sem bullet points, sem título
+- Máximo 400 caracteres no total"""
 
     payload = json.dumps({
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 400,
+        "max_tokens": 150,
         "messages": [{"role": "user", "content": prompt}]
     }).encode("utf-8")
 
