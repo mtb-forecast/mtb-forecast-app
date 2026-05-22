@@ -96,21 +96,33 @@ export default function CondicaoCard({ condicao }: Props) {
           horasParaGrip, progresso, temChuvaFutura, trilhaSecaEmAgora } = solo
 
   const isGripOk = condicao.aderencia_status === 'GRIP PERFEITO' || condicao.aderencia_status === 'SECO'
-  const progressoExibido = isGripOk ? progresso : Math.min(progresso, 95)
+
+  // Regra: chuva futura invalida o estado "seco" — barra e badge usam efetivo (pós-chuva).
+  // Sem chuva prevista, usa acumuloAgora (estado real agora).
+  const isGripNow  = trilhaSecaEmAgora === 0 && !temChuvaFutura
+  const showAsGrip = isGripOk || isGripNow
+  const progressoExibido = showAsGrip ? 100 : Math.min(progresso, 95)
   const indicatorColor = progressoExibido >= 80 ? '#22C55E' : progressoExibido >= 50 ? '#F59E0B' : '#EF4444'
   const horaReport = new Date(condicao.gerado_em).toLocaleTimeString('pt-BR', {
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
   })
 
-  function formatHoras(h: number): string {
+  function fmtH(h: number): string {
     if (h < 24) return `~${Math.round(h)}h restantes`
     const dias = Math.floor(h / 24); const hrs = Math.round(h % 24)
     return `~${dias}d ${hrs}h restantes`
   }
 
-  const labelGrip = isGripOk
+  const labelGrip = showAsGrip
     ? 'Grip Perfeito ✓'
-    : horasParaGrip < 24 ? `~${Math.round(horasParaGrip)}h restantes` : formatHoras(horasParaGrip)
+    : fmtH(horasParaGrip)
+
+  // Badge "Solo seco" / "seca em Xh": usa horasParaGrip (efetivo) quando há chuva futura
+  const badgeSolo = trilhaSecaEmAgora === 0 && !temChuvaFutura
+    ? 'Solo seco'
+    : trilhaSecaEmAgora === 0 && temChuvaFutura
+      ? horasParaGrip < 24 ? `seca em ~${Math.round(horasParaGrip)}h` : fmtH(horasParaGrip).replace('restantes', '').trim()
+      : `seca em ~${trilhaSecaEmAgora}h`
 
   // Próximos 3 dias
   const hoje = new Date()
@@ -227,9 +239,7 @@ export default function CondicaoCard({ condicao }: Props) {
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
               <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
               <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
-                {trilhaSecaEmAgora === 0
-                  ? (temChuvaFutura ? 'Solo seco agora' : 'Solo seco')
-                  : `seca em ~${trilhaSecaEmAgora}h`}
+                {badgeSolo}
               </span>
             </div>
 
@@ -248,7 +258,6 @@ export default function CondicaoCard({ condicao }: Props) {
               <span style={{ fontSize: 11, color: '#9CA3AF' }}>Caminho para Grip Perfeito</span>
               <span style={{ fontSize: 11, fontWeight: 500, color: indicatorColor }}>
                 {labelGrip}
-                {temChuvaFutura && !isGripOk && <span style={{ color: '#F59E0B' }}> (chuva prevista)</span>}
               </span>
             </div>
             <div style={{ height: 8, borderRadius: 999, position: 'relative', background: 'linear-gradient(to right, #EF4444 0%, #F59E0B 50%, #22C55E 100%)' }}>
