@@ -644,7 +644,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         peso     = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
         efetivo += p * peso
 
-        if p_bruto >= 0.5 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
+        if p_bruto >= 0.1 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
             ultima_chuva_h = round(horas_atras, 1)
 
     return {
@@ -1571,8 +1571,10 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     s = base["score"]
     saturado = _bikepark_saturado(trail, acumulo_ef, mes, enso)
 
-    # Thresholds carregados do Supabase (tabela aderencia_thresholds) — efetivo combinado com pico_3h
-    efetivo_combinado = acumulo_ef + pico_3h
+    # Thresholds carregados do Supabase (tabela aderencia_thresholds).
+    # aderencia_status reflete o estado ATUAL do solo (histórico), sem pico_3h forecast.
+    # pico_3h entra no veredicto como fator de risco, não na condição presente do solo.
+    efetivo_combinado = acumulo_ef
 
     # Ajuste microclimático: Mata Atlântica fechada de altitude retém umidade estruturalmente —
     # o mesmo acumulo_ef causa mais degradação do que em terreno aberto.
@@ -1615,7 +1617,7 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
     desc = _descricao_aderencia(status, trail, saturado=saturado)
 
-    # Threshold efetivo para GRIP PERFEITO em unidades de efetivo_combinado (acumulo_ef + pico_3h).
+    # Threshold efetivo para GRIP PERFEITO em unidades de acumulo_ef (estado histórico do solo).
     # Frontend usa este valor para a barra de progresso — elimina o 3.0 hardcoded.
     grip_ef_max = next(
         (t["ef_max"] for t in _carregar_aderencia_thresholds() if t.get("status") == "GRIP PERFEITO"),
@@ -2851,9 +2853,16 @@ def _resumo_secagem_local(r: dict) -> str:
     ult_h      = r.get("ultima_chuva_h")
     meia_vida  = r.get("meia_vida_h", 24)
     thresh     = r.get("thresh_desc", 5.0)
+    pico_3h    = r.get("pico_3h", 0)
     descansado = efetivo < thresh
 
     if bruto < 0.5:
+        if pico_3h >= 3:
+            return (
+                f"Solo seco no momento, mas há previsão de até {pico_3h:.1f}mm "
+                f"em janelas de 3h nas próximas horas — verifique as condições antes de sair.",
+                "#d97706", "#fffbeb"
+            )
         return "Não choveu nas últimas 48h. Solo seco e estável — condição ideal para pedalar.", "#16a34a", "#f0fdf4"
 
     reducao_pct = round((1 - efetivo / bruto) * 100) if bruto > 0 else 0
@@ -2924,6 +2933,7 @@ Escreva uma análise (3 a 5 frases) em português do Brasil contando a história
 REGRA CRÍTICA: seja 100% consistente com os dados abaixo — eles são a verdade absoluta.
 NUNCA contradiga o veredicto. NUNCA sugira condição melhor do que o veredicto indica.
 NUNCA diga "solo secando rapidamente" se choveu recentemente ou há chuva prevista.
+Se pico previsto (próximas 48h) >= 3mm: mencione que chuva está chegando e oriente o rider a monitorar.
 
 Trilha: {trail_name}{f" · bioma {bioma}" if bioma else ""}
 
@@ -2937,7 +2947,7 @@ PASSADO — últimas 48h:
 AGORA:
 - Aderência atual: {aderencia_status}
 - Veredicto 12h: {veredicto_12h or veredicto_texto}
-- Pico de chuva nas próximas 3h: {pico_3h}mm
+- Pico de chuva previsto (máx. janela 3h nas próximas 48h): {pico_3h}mm
 
 FUTURO:
 - Aderência esperada em {af_label}: {af_status}
