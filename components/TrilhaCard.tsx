@@ -1,5 +1,20 @@
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
+
+function aderenciaBadge(a: string): { bg: string; color: string } {
+  if (a === 'GRIP PERFEITO') return { bg: '#DCFCE7', color: '#15803D' }
+  if (a === 'BOA ADERÊNCIA') return { bg: '#FFF7ED', color: '#C2410C' }
+  if (a === 'BAIXA ADERÊNCIA') return { bg: '#FEE2E2', color: '#B91C1C' }
+  return { bg: '#FEF9C3', color: '#A16207' }
+}
+
+function fmtUltimaChuva(h: number): string {
+  const hrs = Math.round(h)
+  if (h < 24) return `${hrs}h atrás`
+  const dias = Math.floor(h / 24)
+  const resto = Math.round(h % 24)
+  return `${hrs}h atrás · ${dias}d${resto > 0 ? ` ${resto}h` : ''}`
+}
 import { formatLocalidade } from '@/lib/geocoding'
 import { rainColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_BG } from '@/lib/display'
 
@@ -86,11 +101,14 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
                   <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>12h</span>
                 )}
               </div>
-              {c.aderencia_status && (
-                <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>
-                  {c.aderencia_status}
-                </span>
-              )}
+              {c.aderencia_status && (() => {
+                const ab = aderenciaBadge(c.aderencia_status.trim())
+                return (
+                  <span style={{ background: ab.bg, color: ab.color, borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px' }}>
+                    {c.aderencia_status}
+                  </span>
+                )
+              })()}
             </div>
 
             {/* Texto dinâmico */}
@@ -133,8 +151,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
               {c.ultima_chuva_h != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                   <i className="ti ti-history" style={{ fontSize: 12, color: '#9CA3AF' }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }}>{Math.round(c.ultima_chuva_h)}h atrás</span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>última chuva</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }}>últ. chuva {fmtUltimaChuva(c.ultima_chuva_h)}</span>
                 </div>
               )}
             </div>
