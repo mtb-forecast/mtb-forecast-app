@@ -50,6 +50,7 @@ function TrilhasContent() {
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
   const [plano, setPlano] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [limiteMsg, setLimiteMsg] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
@@ -64,7 +65,7 @@ function TrilhasContent() {
       const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =
         await Promise.all([
           supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-          supabase.from('profiles').select('plano').eq('id', user.id).single(),
+          supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
           supabase
             .from('trilhas')
             .select('*, condicoes(*), localidades(cidade, estado, localidade)')
@@ -76,6 +77,7 @@ function TrilhasContent() {
 
       if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
       setPlano(profile?.plano ?? null)
+      setIsAdmin(!!profile?.is_admin)
 
       if (trilhasData) {
         const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
@@ -152,7 +154,7 @@ function TrilhasContent() {
       setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
     } else {
       const isGratuito = !plano || plano === 'gratuito'
-      if (isGratuito && favoritos.size >= 5) {
+      if (isGratuito && !isAdmin && favoritos.size >= 5) {
         setLimiteMsg(true)
         setTimeout(() => setLimiteMsg(false), 6000)
         return

@@ -46,6 +46,7 @@ export default function TrilhaDetalhe() {
   const [userId, setUserId] = useState<string | null>(null)
 
   const [plano, setPlano] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [limiteMsg, setLimiteMsg] = useState(false)
 
   const [isTrilhaPessoal, setIsTrilhaPessoal] = useState(false)
@@ -66,9 +67,10 @@ export default function TrilhaDetalhe() {
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .maybeSingle(),
         supabase.from('favoritos').select('id').eq('user_id', user.id).eq('trilha_id', id).maybeSingle(),
-        supabase.from('profiles').select('plano').eq('id', user.id).single(),
+        supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
       ])
       setPlano(profile?.plano ?? null)
+      setIsAdmin(!!profile?.is_admin)
 
       if (td) {
         const t = td as TrilhaDetalhada
@@ -129,7 +131,7 @@ export default function TrilhaDetalhe() {
       setIsFavorito(false)
     } else {
       const isGratuito = !plano || plano === 'gratuito'
-      if (isGratuito) {
+      if (isGratuito && !isAdmin) {
         const { count } = await supabase
           .from('favoritos')
           .select('*', { count: 'exact', head: true })

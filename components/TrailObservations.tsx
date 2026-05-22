@@ -127,9 +127,9 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
 
   async function handleFavoritar() {
     if (!userId || favoritando) return
-    const { data: profile } = await supabase.from('profiles').select('plano').eq('id', userId).single()
+    const { data: profile } = await supabase.from('profiles').select('plano, is_admin').eq('id', userId).single()
     const isGratuito = !profile?.plano || profile.plano === 'gratuito'
-    if (isGratuito) {
+    if (isGratuito && !profile?.is_admin) {
       const { count } = await supabase
         .from('favoritos')
         .select('*', { count: 'exact', head: true })
