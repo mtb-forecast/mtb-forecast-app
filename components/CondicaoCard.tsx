@@ -89,7 +89,6 @@ export default function CondicaoCard({ condicao }: Props) {
   const badge       = verdictBadge(veredictoDisplay)
   const janela      = janelaStyle(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
-  const windKmh     = condicao.wind_ms * 3.6
 
   const solo = recalcularSolo(condicao)
   const { driftHoras, acumuloAgora, ultimaChuvaH,
@@ -97,11 +96,9 @@ export default function CondicaoCard({ condicao }: Props) {
 
   const aderenciaStr   = condicao.aderencia_status?.trim() ?? ''
   const isGripOk       = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO'
-  // Python é autoritário: só mostra "Solo seco" se aderência confirmar condição boa
-  const aderenciaOk    = ['GRIP PERFEITO', 'SECO', 'BOA ADERÊNCIA'].includes(aderenciaStr)
 
   // Regra: chuva futura invalida o estado "seco" — barra e badge usam efetivo (pós-chuva).
-  const isGripNow  = trilhaSecaEmAgora === 0 && !temChuvaFutura && aderenciaOk
+  const isGripNow  = trilhaSecaEmAgora === 0 && !temChuvaFutura && isGripOk
   const showAsGrip = isGripOk || isGripNow
   const progressoExibido = showAsGrip ? 100 : Math.min(progresso, 95)
   const indicatorColor = progressoExibido >= 80 ? '#22C55E' : progressoExibido >= 50 ? '#F59E0B' : '#EF4444'
@@ -115,7 +112,17 @@ export default function CondicaoCard({ condicao }: Props) {
     return `~${dias}d ${hrs}h restantes`
   }
 
-  const labelGrip = showAsGrip ? 'Grip Perfeito ✓' : fmtH(horasParaGrip)
+  function fmtUltimaChuva(h: number): string {
+    const hrs = Math.round(h)
+    if (h < 24) return `${hrs}h atrás`
+    const dias = Math.floor(h / 24)
+    const resto = Math.round(h % 24)
+    return `${hrs}h atrás · ${dias}d${resto > 0 ? ` ${resto}h` : ''}`
+  }
+
+  const labelGrip = showAsGrip ? 'Grip Perfeito ✓' :
+    horasParaGrip === 0 ? (aderenciaStr === 'BOA ADERÊNCIA' ? 'Boa Aderência ✓' : 'Grip Perfeito ✓') :
+    fmtH(horasParaGrip)
 
   // Badge do estado do solo — Python define se é "seco"; drift define o tempo restante
   const badgeSolo = (() => {
@@ -123,7 +130,8 @@ export default function CondicaoCard({ condicao }: Props) {
       const h = horasParaGrip
       return h < 24 ? `seca em ~${Math.round(h)}h` : fmtH(h).replace(' restantes', '')
     }
-    if (trilhaSecaEmAgora === 0 && aderenciaOk) return 'Solo seco'
+    if (trilhaSecaEmAgora === 0 && isGripOk) return 'Solo seco'
+    if (trilhaSecaEmAgora === 0 && aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
     return `seca em ~${trilhaSecaEmAgora}h`
   })()
 
@@ -196,7 +204,13 @@ export default function CondicaoCard({ condicao }: Props) {
               </span>
               {has12h && <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>12h</span>}
             </div>
-            <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>{condicao.aderencia_status}</span>
+            {aderenciaStr === 'BOA ADERÊNCIA' ? (
+              <span style={{ background: '#FFF7ED', color: '#C2410C', fontSize: 11, fontWeight: 600, borderRadius: 6, padding: '3px 10px', border: '0.5px solid #FDBA74' }}>
+                Boa Aderência
+              </span>
+            ) : (
+              <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 500 }}>{condicao.aderencia_status}</span>
+            )}
           </div>
 
           {condicao.texto_dinamico && (
@@ -250,13 +264,15 @@ export default function CondicaoCard({ condicao }: Props) {
               </span>
             </div>
 
-            {condicao.ultima_chuva_h != null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
-                <i className="ti ti-history" style={{ fontSize: 13, color: '#9CA3AF' }} />
-                <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>última chuva {ultimaChuvaH}h atrás</span>
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
+              <i className="ti ti-history" style={{ fontSize: 13, color: '#9CA3AF' }} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
+                {condicao.ultima_chuva_h != null
+                  ? `últ. chuva ${fmtUltimaChuva(ultimaChuvaH)}`
+                  : 'sem chuva registrada'}
+              </span>
+            </div>
           </div>
 
           {/* Barra Grip Perfeito */}
