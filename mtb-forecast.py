@@ -2076,14 +2076,17 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
+            "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
+            "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
+            "fds_d3_pop":         fds.get("d3", {}).get("pop"),
             "dados_json":         json.dumps({
                 "bioma":      resultado.get("bioma"),
                 "trail_type": resultado.get("trail_type"),
@@ -2224,14 +2227,17 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
+            "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
+            "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
+            "fds_d3_pop":         fds.get("d3", {}).get("pop"),
             "dados_json":         json.dumps({
                 "bioma":      resultado.get("bioma"),
                 "trail_type": resultado.get("trail_type"),
@@ -2497,26 +2503,37 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     def resumo_dia_oc(alvo: date, acumulo_ate_val: float) -> dict:
         alvo_str = str(alvo)
 
-        # Tenta One Call 3.0 primeiro (fonte primária, até ~48h)
         dia_oc = [h for h in hourly_oc
+                  if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
+        dia_om = [h for h in hourly_om
                   if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
 
         if dia_oc:
-            # Fonte: One Call 3.0
-            precips = [_precip_hora(h) for h in dia_oc]
-            r    = round(sum(precips), 1)
-            p3   = round(max((sum(precips[i:i+3]) for i in range(max(1, len(precips) - 2))),
-                             default=0.0), 1)
-            pp   = round(max((h.get("pop", 0) or 0 for h in dia_oc), default=0) * 100)
-            tm   = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
-            w    = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
-            fonte_dia = "OC"
-        else:
-            # Fallback: Open-Meteo (cobre D+3 quando OC não alcança)
-            dia_om = [h for h in hourly_om
-                      if datetime.fromtimestamp(h["dt"], tz=BRT).strftime("%Y-%m-%d") == alvo_str]
-            if not dia_om:
-                return {"disponivel": False}
+            # OWM One Call 3.0 (primário, até ~48h)
+            precips_oc = [_precip_hora(h) for h in dia_oc]
+            r_oc  = sum(precips_oc)
+            p3_oc = max((sum(precips_oc[i:i+3]) for i in range(max(1, len(precips_oc) - 2))), default=0.0)
+            pp_oc = max((h.get("pop", 0) or 0 for h in dia_oc), default=0) * 100
+            tm    = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
+            w     = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
+
+            if dia_om:
+                # Blend 70% OWM + 30% Open-Meteo — igual ao pico_3h atual
+                precips_om = [h["precip"] for h in dia_om]
+                r_om  = sum(precips_om)
+                p3_om = max((sum(precips_om[i:i+3]) for i in range(max(1, len(precips_om) - 2))), default=0.0)
+                pp_om = max((h["pop"] for h in dia_om), default=0.0) * 100
+                r    = round(0.7 * r_oc + 0.3 * r_om, 1)
+                p3   = round(0.7 * p3_oc + 0.3 * p3_om, 1)
+                pp   = round(0.7 * pp_oc + 0.3 * pp_om)
+                fonte_dia = "OC+OM"
+            else:
+                r  = round(r_oc, 1)
+                p3 = round(p3_oc, 1)
+                pp = round(pp_oc)
+                fonte_dia = "OC"
+        elif dia_om:
+            # Fallback Open-Meteo (D+3 quando OC não alcança)
             precips = [h["precip"] for h in dia_om]
             r    = round(sum(precips), 1)
             p3   = round(max((sum(precips[i:i+3]) for i in range(max(1, len(precips) - 2))),
@@ -2525,6 +2542,8 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             tm   = round(max((h["temp"] for h in dia_om if h["temp"] > 0), default=0))
             w    = round(max((h["wind"] for h in dia_om), default=0.0), 1)
             fonte_dia = "OM"
+        else:
+            return {"disponivel": False}
 
         inc  = calcular_inclinacao(trail)
         ader = calcular_aderencia(r, trail, acumulo_ate_val, p3, mes, enso)
