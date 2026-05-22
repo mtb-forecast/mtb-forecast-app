@@ -2551,11 +2551,15 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             return {"disponivel": False}
 
         inc  = calcular_inclinacao(trail)
-        ader = calcular_aderencia(r, trail, acumulo_ate_val, p3, mes, enso)
+        # Para dias futuros, o veredicto representa a condição APÓS a chuva do dia cair.
+        # Sem isso, D+1 com 17mm aparece como DROP LIBERADO porque o solo "começa seco"
+        # e a chuva do dia não entra em efetivo_combinado — só aparecia no D+2.
+        ef_pos_chuva = round(acumulo_ate_val + r, 1)
+        ader = calcular_aderencia(r, trail, ef_pos_chuva, p3, mes, enso)
         return {
             "disponivel": True, "rain": r, "pop": pp, "temp_max": tm, "wind": w,
             "fonte_dia": fonte_dia,
-            "veredicto": veredicto(ader, r, w, p3, inc, trail, acumulo_ate_val, vento_hist),
+            "veredicto": veredicto(ader, r, w, p3, inc, trail, ef_pos_chuva, vento_hist),
             "debug_model": {
                 "acumulo_bruto": acumulo_48h,
                 "acumulo_efetivo": acumulo_ef,
