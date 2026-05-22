@@ -23,6 +23,7 @@ export type TrilhaPendente = {
   link_referencia?: string | null
   observacoes?: string | null
   polyline?: string | null
+  localidade_id?: string | null
   user_id: string
   status: string
   motivo_rejeicao?: string | null
