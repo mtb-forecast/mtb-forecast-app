@@ -50,8 +50,17 @@ async function geocodeLatLon(lat: number, lon: number): Promise<GeoResult | null
     const data = await res.json() as { address?: Record<string, string> }
     const addr = data.address
     if (!addr) return null
-    const stateCode = addr['ISO3166-2-lvl4'] ?? addr.state_code ?? null
-    const estado = stateCode ? stateCode.replace('BR-', '').trim().toUpperCase() : (addr.state ?? '')
+    const iso = addr['ISO3166-2-lvl4'] ?? addr.state_code ?? null
+    const MAPA: Record<string, string> = {
+      'Acre':'AC','Alagoas':'AL','Amapá':'AP','Amazonas':'AM','Bahia':'BA','Ceará':'CE',
+      'Distrito Federal':'DF','Espírito Santo':'ES','Goiás':'GO','Maranhão':'MA',
+      'Mato Grosso':'MT','Mato Grosso do Sul':'MS','Minas Gerais':'MG','Pará':'PA',
+      'Paraíba':'PB','Paraná':'PR','Pernambuco':'PE','Piauí':'PI','Rio de Janeiro':'RJ',
+      'Rio Grande do Norte':'RN','Rio Grande do Sul':'RS','Rondônia':'RO','Roraima':'RR',
+      'Santa Catarina':'SC','São Paulo':'SP','Sergipe':'SE','Tocantins':'TO',
+    }
+    let estado = iso ? iso.replace('BR-', '').trim().toUpperCase() : ''
+    if (!estado || estado.length > 2) estado = MAPA[addr.state ?? ''] ?? ''
     if (!estado) return null
     return {
       pais: addr.country ?? 'Brasil',
