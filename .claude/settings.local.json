@@ -69,7 +69,12 @@
       "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Include \"*.tsx\", \"*.ts\")",
       "Bash(Select-Object -First 20)",
       "Bash(Select-Object FullName)",
-      "Bash(git -C \"c:/ClaudeCode/mtb-forecast-app\" diff --stat HEAD)"
+      "Bash(git -C \"c:/ClaudeCode/mtb-forecast-app\" diff --stat HEAD)",
+      "WebSearch",
+      "WebFetch(domain:www.wikiloc.com)",
+      "WebFetch(domain:brasil123.com.br)",
+      "WebFetch(domain:www.trailforks.com)",
+      "WebFetch(domain:www.accuweather.com)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
