@@ -8,46 +8,65 @@ export default function AuthCallbackPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // createClientComponentClient detectSessionInUrl=true faz o exchange automaticamente.
-    // Escutamos o evento resultante em vez de chamar exchangeCodeForSession manualmente.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Garante que o perfil existe
-        const { data: existing } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', session.user.id)
-          .maybeSingle()
+    // Diagnóstico — ver o que chega na URL
+    console.log('[Callback] href:', window.location.href)
+    console.log('[Callback] hash:', window.location.hash)
+    console.log('[Callback] search:', window.location.search)
 
-        if (!existing) {
-          await supabase.from('profiles').upsert({
-            id: session.user.id,
-            email: session.user.email ?? '',
-            plano: 'gratuito',
-            is_admin: false,
-          })
+    const hash = window.location.hash.substring(1)
+    const hashParams = new URLSearchParams(hash)
+    const accessToken = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+
+    console.log('[Callback] access_token no hash:', accessToken ? '✅ presente' : '❌ ausente')
+
+    // Se implicit flow funcionou, o token está no hash
+    if (accessToken) {
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken ?? '',
+      }).then(async ({ data, error }) => {
+        console.log('[Callback] setSession result:', data?.user?.email, 'error:', error?.message)
+        if (!error && data.user) {
+          const { data: existing } = await supabase
+            .from('profiles').select('id').eq('id', data.user.id).maybeSingle()
+          if (!existing) {
+            await supabase.from('profiles').upsert({
+              id: data.user.id,
+              email: data.user.email ?? '',
+              plano: 'gratuito',
+              is_admin: false,
+            })
+          }
+          router.replace('/dashboard')
+        } else {
+          router.replace('/login?error=auth_failed')
         }
+      })
+      return
+    }
 
-        router.replace('/dashboard')
-      }
-    })
-
-    // Caso o exchange já tenha ocorrido antes do listener ser registrado
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Fallback: tenta getSession (caso detectSessionInUrl já processou)
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('[Callback] getSession:', session?.user?.email ?? 'null', 'error:', error?.message)
       if (session?.user) {
         router.replace('/dashboard')
+      } else {
+        // Aguarda até 8s pelo onAuthStateChange
+        const unsub = supabase.auth.onAuthStateChange((event, session) => {
+          console.log('[Callback] authStateChange:', event, session?.user?.email)
+          if (event === 'SIGNED_IN' && session?.user) {
+            clearTimeout(timeout)
+            unsub.data.subscription.unsubscribe()
+            router.replace('/dashboard')
+          }
+        })
+        const timeout = setTimeout(() => {
+          unsub.data.subscription.unsubscribe()
+          router.replace('/login?error=auth_failed')
+        }, 8000)
       }
     })
-
-    // Timeout de segurança: se nada acontecer em 10s, volta ao login
-    const timeout = setTimeout(() => {
-      router.replace('/login?error=auth_failed')
-    }, 10000)
-
-    return () => {
-      subscription.unsubscribe()
-      clearTimeout(timeout)
-    }
   }, [router])
 
   return (
