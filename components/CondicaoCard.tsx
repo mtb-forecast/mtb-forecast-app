@@ -33,50 +33,71 @@ function aderenciaBadge(a: string): { bg: string; color: string } {
 }
 
 function recalcularSolo(condicao: Condicao) {
-  const agora    = new Date()
-  const geradoEm = new Date(condicao.gerado_em)
-  const driftHoras = (agora.getTime() - geradoEm.getTime()) / 3600000
-  const meiaVida   = condicao.meia_vida_h ?? 24
+  const agora       = new Date()
+  const geradoEm    = new Date(condicao.gerado_em)
+  const driftHoras  = (agora.getTime() - geradoEm.getTime()) / 3600000
+  const meiaVida    = condicao.meia_vida_h ?? 24
   const acumuloBase = condicao.acumulo_ef ?? 0
   const GRIP_THRESHOLD = condicao.grip_threshold_ef ?? 3.0
 
-  let acumuloAgora = acumuloBase * Math.pow(0.5, driftHoras / meiaVida)
+  const acumuloAgora = acumuloBase * Math.pow(0.5, driftHoras / meiaVida)
+  const trilhaSecaEmAgora = acumuloAgora > GRIP_THRESHOLD
+    ? Math.max(0, Math.round(meiaVida * Math.log2(acumuloAgora / GRIP_THRESHOLD) * 10) / 10)
+    : 0
 
-  let chuvaFutura = 0
-  if (condicao.previsao_24h) {
-    for (const bloco of condicao.previsao_24h) {
-      const horaInicio = parseInt(bloco.label.split('h')[0])
-      const horaBloco  = new Date(geradoEm)
-      horaBloco.setHours(horaInicio, 0, 0, 0)
-      if (horaBloco > agora && bloco.rain_mm > 0.5) {
-        const horasAteBloco  = (horaBloco.getTime() - agora.getTime()) / 3600000
-        const acumuloNaBloco = acumuloAgora * Math.pow(0.5, horasAteBloco / meiaVida)
-        chuvaFutura = Math.max(chuvaFutura, acumuloNaBloco + bloco.rain_mm)
-      }
+  // Option C: step through future blocks sequentially to find last rainy block peak
+  let lastRainEndH: number | null = null
+  let peakAtLastRainEnd = 0
+  let prevH   = 0
+  let prevAcc = acumuloAgora
+
+  for (const bloco of (condicao.previsao_24h ?? [])) {
+    const horaInicio = parseInt(bloco.label.split('h')[0])
+    const horaBloco  = new Date(geradoEm)
+    horaBloco.setHours(horaInicio, 0, 0, 0)
+    if (horaBloco <= agora) continue
+
+    const h        = (horaBloco.getTime() - agora.getTime()) / 3600000
+    const accStart = prevAcc * Math.pow(0.5, (h - prevH) / meiaVida)
+    const accAfter = accStart + bloco.rain_mm
+
+    if (bloco.rain_mm > 0.5) {
+      lastRainEndH      = h + 6
+      peakAtLastRainEnd = accAfter * Math.pow(0.5, 6 / meiaVida)
     }
+
+    prevH   = h
+    prevAcc = accAfter
   }
 
-  const acumuloFinal = Math.max(acumuloAgora, chuvaFutura)
-  const efetivo = acumuloFinal + (condicao.pico_3h ?? 0)
-  let horasParaGrip = 0
-  if (efetivo > GRIP_THRESHOLD) {
-    horasParaGrip = meiaVida * Math.log2(efetivo / GRIP_THRESHOLD)
-  }
-  const maxEfetivo = Math.max(efetivo, condicao.thresh_desc ?? efetivo, 10)
-  const progresso  = efetivo <= GRIP_THRESHOLD ? 100 :
-    Math.max(0, Math.min(100, ((maxEfetivo - efetivo) / (maxEfetivo - GRIP_THRESHOLD)) * 100))
+  const temChuvaFutura = lastRainEndH !== null && peakAtLastRainEnd > GRIP_THRESHOLD
+  const horasParaGrip  = temChuvaFutura
+    ? Math.round(meiaVida * Math.log2(peakAtLastRainEnd / GRIP_THRESHOLD) * 10) / 10
+    : trilhaSecaEmAgora
 
   return {
-    driftHoras:        Math.round(driftHoras * 10) / 10,
-    acumuloAgora:      Math.round(acumuloAgora * 10) / 10,
-    ultimaChuvaH:      Math.round(((condicao.ultima_chuva_h ?? 0) + driftHoras) * 10) / 10,
-    horasParaGrip:     Math.round(horasParaGrip * 10) / 10,
-    progresso,
-    temChuvaFutura:    chuvaFutura > acumuloAgora,
-    trilhaSecaEmAgora: acumuloAgora > GRIP_THRESHOLD
-      ? Math.max(0, Math.round(meiaVida * Math.log2(acumuloAgora / GRIP_THRESHOLD) * 10) / 10)
-      : 0,
+    driftHoras:       Math.round(driftHoras * 10) / 10,
+    acumuloAgora:     Math.round(acumuloAgora * 10) / 10,
+    ultimaChuvaH:     Math.round(((condicao.ultima_chuva_h ?? 0) + driftHoras) * 10) / 10,
+    horasParaGrip,
+    temChuvaFutura,
+    trilhaSecaEmAgora,
   }
+}
+
+function barZone(aderencia: string, veredicto: string): number {
+  if (aderencia === 'SECO' || aderencia === 'GRIP PERFEITO') return 100
+  if (aderencia === 'BOA ADERÊNCIA') return veredicto.includes('Veja os alertas') ? 50 : 75
+  if (aderencia === 'BAIXA ADERÊNCIA') return 25
+  return 0
+}
+
+function zoneColor(zone: number): string {
+  if (zone >= 100) return '#22C55E'
+  if (zone >= 75)  return '#84CC16'
+  if (zone >= 50)  return '#F59E0B'
+  if (zone >= 25)  return '#F97316'
+  return '#EF4444'
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -99,16 +120,14 @@ export default function CondicaoCard({ condicao }: Props) {
 
   const solo = recalcularSolo(condicao)
   const { driftHoras, acumuloAgora, ultimaChuvaH,
-          horasParaGrip, progresso, temChuvaFutura, trilhaSecaEmAgora } = solo
+          horasParaGrip, temChuvaFutura, trilhaSecaEmAgora } = solo
 
-  const aderenciaStr   = condicao.aderencia_status?.trim() ?? ''
-  const isGripOk       = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO'
+  const aderenciaStr = condicao.aderencia_status?.trim() ?? ''
+  const isGripOk     = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO'
 
-  // Regra: chuva futura invalida o estado "seco" — barra e badge usam efetivo (pós-chuva).
-  const isGripNow  = trilhaSecaEmAgora === 0 && !temChuvaFutura && isGripOk
-  const showAsGrip = isGripOk || isGripNow
-  const progressoExibido = showAsGrip ? 100 : Math.min(progresso, 95)
-  const indicatorColor = progressoExibido >= 80 ? '#22C55E' : progressoExibido >= 50 ? '#F59E0B' : '#EF4444'
+  const zone             = barZone(aderenciaStr, veredictoDisplay)
+  const progressoExibido = zone
+  const indicatorColor   = zoneColor(zone)
   const horaReport = new Date(condicao.gerado_em).toLocaleTimeString('pt-BR', {
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
   })
@@ -119,6 +138,12 @@ export default function CondicaoCard({ condicao }: Props) {
     return `~${dias}d ${hrs}h restantes`
   }
 
+  function fmtHAposChuva(h: number): string {
+    if (h < 24) return `~${Math.round(h)}h após chuva`
+    const dias = Math.floor(h / 24); const hrs = Math.round(h % 24)
+    return hrs > 0 ? `~${dias}d ${hrs}h após chuva` : `~${dias}d após chuva`
+  }
+
   function fmtUltimaChuva(h: number): string {
     const hrs = Math.round(h)
     if (h < 24) return `${hrs}h atrás`
@@ -127,19 +152,21 @@ export default function CondicaoCard({ condicao }: Props) {
     return `${hrs}h atrás · ${dias}d${resto > 0 ? ` ${resto}h` : ''}`
   }
 
-  const labelGrip = showAsGrip ? 'Grip Perfeito ✓' :
-    horasParaGrip === 0 ? (aderenciaStr === 'BOA ADERÊNCIA' ? 'Boa Aderência ✓' : 'Grip Perfeito ✓') :
-    fmtH(horasParaGrip)
+  const labelGrip = zone === 100 ? 'Grip Perfeito ✓'
+    : zone === 0  ? 'Sem aderência'
+    : zone === 25 ? (horasParaGrip > 0 ? fmtH(horasParaGrip) : 'Baixa aderência')
+    : temChuvaFutura && horasParaGrip > 0 ? fmtHAposChuva(horasParaGrip)
+    : horasParaGrip > 0 ? fmtH(horasParaGrip)
+    : zone === 75 ? 'Boa Aderência ✓'
+    : 'Monitorar chuva'
 
   // Badge do estado do solo — Python define se é "seco"; drift define o tempo restante
   const badgeSolo = (() => {
-    if (temChuvaFutura) {
-      const h = horasParaGrip
-      return h < 24 ? `seca em ~${Math.round(h)}h` : fmtH(h).replace(' restantes', '')
-    }
+    if (temChuvaFutura) return fmtHAposChuva(horasParaGrip)
     if (trilhaSecaEmAgora === 0 && isGripOk) return 'Solo seco'
     if (trilhaSecaEmAgora === 0 && aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
-    return `seca em ~${trilhaSecaEmAgora}h`
+    if (trilhaSecaEmAgora > 0) return `seca em ~${trilhaSecaEmAgora}h`
+    return 'Solo seco'
   })()
 
   // Próximos 3 dias
@@ -281,7 +308,7 @@ export default function CondicaoCard({ condicao }: Props) {
               </span>
             </div>
             <div style={{ height: 8, borderRadius: 999, position: 'relative', background: 'linear-gradient(to right, #EF4444 0%, #F59E0B 50%, #22C55E 100%)' }}>
-              <div style={{ position: 'absolute', left: `${progressoExibido}%`, top: -3, transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#FFFFFF', border: `2px solid ${indicatorColor}`, boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+              <div style={{ position: 'absolute', left: `${progressoExibido}%`, top: -3, transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#FFFFFF', border: `2px solid ${indicatorColor}`, boxShadow: '0 1px 4px rgba(0,0,0,0.2)', transition: 'left 0.6s ease' }} />
             </div>
           </div>
         </div>
