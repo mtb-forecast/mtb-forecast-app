@@ -100,7 +100,10 @@
       "Bash(curl -v \"https://www.mtbforecaster.com.br/dashboard\")",
       "Bash(curl -v \"https://mtbforecaster.com.br/\")",
       "WebFetch(domain:dns.google)",
-      "PowerShell(cd c:\\\\ClaudeCode\\\\mtb-forecast-app; git add app/auth/callback/route.ts app/\\(auth\\)/login/page.tsx; git status)"
+      "PowerShell(cd c:\\\\ClaudeCode\\\\mtb-forecast-app; git add app/auth/callback/route.ts app/\\(auth\\)/login/page.tsx; git status)",
+      "Bash(xargs grep -l \"strava\\\\|STRAVA\" -i)",
+      "Bash(dir \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\\\(app\\)\\\\perfil\")",
+      "Bash(xargs grep -l \"CREATE TABLE.*trilhas\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
