@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 function GoogleIcon() {
@@ -18,10 +18,17 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const err = searchParams.get('error')
+    if (err === 'auth_failed') setError('Autenticação com Google falhou. Tente novamente.')
+    if (err === 'no_code') setError('Código de autorização ausente. Tente novamente.')
+  }, [searchParams])
 
   async function handleGoogleLogin() {
     const { error } = await supabase.auth.signInWithOAuth({

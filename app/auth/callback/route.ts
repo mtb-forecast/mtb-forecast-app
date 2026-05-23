@@ -7,26 +7,31 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
 
-  if (code) {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { data } = await supabase.auth.exchangeCodeForSession(code)
+  if (!code) {
+    return NextResponse.redirect(new URL('/login?error=no_code', request.url))
+  }
 
-    if (data.user) {
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', data.user.id)
-        .single()
+  const supabase = createRouteHandlerClient({ cookies })
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
-      if (!existing) {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          email: data.user.email ?? '',
-          plano: 'gratuito',
-          is_admin: false,
-        })
-      }
-    }
+  if (error || !data.user) {
+    console.error('[auth/callback] exchangeCodeForSession failed:', error?.message)
+    return NextResponse.redirect(new URL('/login?error=auth_failed', request.url))
+  }
+
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', data.user.id)
+    .single()
+
+  if (!existing) {
+    await supabase.from('profiles').upsert({
+      id: data.user.id,
+      email: data.user.email ?? '',
+      plano: 'gratuito',
+      is_admin: false,
+    })
   }
 
   return NextResponse.redirect(new URL('/dashboard', request.url))
