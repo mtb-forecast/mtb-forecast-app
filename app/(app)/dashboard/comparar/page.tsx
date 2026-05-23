@@ -75,15 +75,19 @@ function ComparacaoContent() {
     async function load() {
       const { data } = await supabase
         .from('trilhas')
-        .select('*, condicoes(*), localidades(cidade, estado, localidade)')
+        .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)')
         .in('id', [idA, idB])
         .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+        .order('bloco', { foreignTable: 'previsao_blocos' })
 
       if (!data || data.length < 2) { router.replace('/dashboard'); return }
 
-      const mapped = data.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+      const mapped = data.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
         const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-        return { ...t, condicao: arr[0] ?? undefined }
+        const condicao = arr[0] ?? undefined
+        const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
+        if (condicao && blocos?.length) condicao.previsao_24h = blocos
+        return { ...t, condicao }
       })
 
       setTrilhaA(mapped.find(t => t.id === idA) ?? null)

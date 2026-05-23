@@ -1,3 +1,12 @@
+export type PrevisaoBloco = {
+  bloco: number
+  label: string
+  rain_mm: number
+  wind_max: number
+  pop_max: number
+  temp_med: number
+}
+
 export type Trilha = {
   id: string
   name: string
@@ -15,6 +24,7 @@ export type Trilha = {
   criada_por?: string
   polyline?: string | null
   localidades?: { cidade: string; estado: string; localidade: string | null } | null
+  previsao_blocos?: PrevisaoBloco[] | null
 }
 
 export type Condicao = {

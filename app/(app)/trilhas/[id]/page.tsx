@@ -62,9 +62,10 @@ export default function TrilhaDetalhe() {
       setUserId(user.id)
 
       const [{ data: td }, { data: fav }, { data: profile }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*), localidades(cidade, estado, localidade)`)
+        supabase.from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+          .order('bloco', { foreignTable: 'previsao_blocos' })
           .maybeSingle(),
         supabase.from('favoritos').select('id').eq('user_id', user.id).eq('trilha_id', id).maybeSingle(),
         supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
@@ -73,10 +74,13 @@ export default function TrilhaDetalhe() {
       setIsAdmin(!!profile?.is_admin)
 
       if (td) {
-        const t = td as TrilhaDetalhada
+        const t = td as TrilhaDetalhada & { previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }
         const conds = Array.isArray(t.condicoes) ? t.condicoes : []
+        const condicao = conds[0] ?? null
+        const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
+        if (condicao && blocos?.length) condicao.previsao_24h = blocos
         setTrilha(t)
-        setC(conds[0] ?? null)
+        setC(condicao)
         setIsFavorito(!!fav)
         setLoading(false)
         return

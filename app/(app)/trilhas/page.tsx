@@ -68,9 +68,10 @@ function TrilhasContent() {
           supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
           supabase
             .from('trilhas')
-            .select('*, condicoes(*), localidades(cidade, estado, localidade)')
+            .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)')
             .eq('aprovada', true)
             .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+            .order('bloco', { foreignTable: 'previsao_blocos' })
             .order('name'),
           supabase.from('localidades').select('estado').order('estado'),
         ])
@@ -80,9 +81,12 @@ function TrilhasContent() {
       setIsAdmin(!!profile?.is_admin)
 
       if (trilhasData) {
-        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
           const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-          return { ...t, condicao: arr[0] ?? undefined }
+          const condicao = arr[0] ?? undefined
+          const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
+          if (condicao && blocos?.length) condicao.previsao_24h = blocos
+          return { ...t, condicao }
         })
         setTrilhasAll(mapped)
       }

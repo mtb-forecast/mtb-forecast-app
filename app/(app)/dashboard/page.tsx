@@ -311,13 +311,17 @@ export default function DashboardPage() {
       if (favIds && favIds.length > 0) {
         const ids = favIds.map((f: { trilha_id: string }) => f.trilha_id)
         const { data: trilhas } = await supabase
-          .from('trilhas').select(`*, condicoes(*), localidades(cidade, estado, localidade)`)
+          .from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)`)
           .in('id', ids).eq('aprovada', true)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+          .order('bloco', { foreignTable: 'previsao_blocos' })
         if (trilhas) {
-          const mapped = trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+          const mapped = trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
             const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-            return { ...t, condicao: arr[0] ?? undefined }
+            const condicao = arr[0] ?? undefined
+            const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
+            if (condicao && blocos?.length) condicao.previsao_24h = blocos
+            return { ...t, condicao }
           })
           const trilhasOrdenadas = [...mapped].sort((a, b) => {
             const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
