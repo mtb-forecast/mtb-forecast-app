@@ -72,7 +72,10 @@ function ImportarStravaContent() {
   const stravaAuthUrl =
     `https://www.strava.com/oauth/authorize` +
     `?client_id=${process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID}` +
-    `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_STRAVA_REDIRECT_URI ?? '')}` +
+    `&redirect_uri=${encodeURIComponent(
+      (typeof window !== 'undefined' ? window.location.origin : '') +
+      '/admin/importar-strava/callback'
+    )}` +
     `&response_type=code&scope=read,activity:read_all`
 
   // Enriquece segments sem polyline buscando /segments/{id} sequencialmente
