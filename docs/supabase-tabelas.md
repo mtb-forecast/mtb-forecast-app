@@ -679,12 +679,14 @@ Resultado do geocoding reverso — garante consistência de cidade/estado entre 
 
 **RLS:** leitura pública + insert autenticado.
 
+**Comportamento de fallback na aprovação:** se o geocoding Nominatim falhar, `admin/page.tsx` cria uma entrada mínima com `estado = trilha.regiao` e `cidade = ''` para garantir que `localidade_id` nunca fique nulo. Trilhas com essa entrada mínima aparecem no filtro por estado (via `t.localidades?.estado || t.regiao`) mas sem cidade/localidade.
+
 **Usado em:**
 - `mtb-forecast.py` → `geocodeLatLon()` → salva `localidade_id` ao aprovar trilha
-- `app/(app)/trilhas/page.tsx` → filtro por estado
+- `app/(app)/trilhas/page.tsx` → filtro por estado com fallback `|| t.regiao`
 - `app/(app)/trilhas/[id]/page.tsx` → exibe cidade/estado no card
 - `app/(app)/dashboard/page.tsx` → cidade/estado das trilhas favoritas
-- `app/(app)/admin/page.tsx` → lookup/criação de localidade na aprovação
+- `app/(app)/admin/page.tsx` → lookup/criação de localidade na aprovação (com fallback mínimo se Nominatim falhar)
 - `app/(app)/admin/importar-strava/page.tsx` → geocoding ao importar segmento
 - `app/(app)/trilhas/cadastrar/page.tsx` → geocoding ao cadastrar
 - `scripts/migrate-localidades.ts` → script de migração retroativa

@@ -4,8 +4,8 @@ Plataforma completa de monitoramento climático para trilhas de **Mountain Bike 
 
 Composta por dois sistemas integrados:
 
-- **Web App** — Next.js 14 App Router com autenticação (e-mail + Google OAuth), favoritos, avaliações de riders, integração Strava, cadastro manual de trilhas, notificações por Telegram, compartilhamento por WhatsApp e PWA
-- **Agente Python** — executa a cada 6 horas via GitHub Actions, coleta dados de 3 fontes meteorológicas, modela condição do solo com 14 tabelas de configuração no Supabase e grava resultados no banco
+- **Web App** — Next.js 14 App Router com autenticação (e-mail + Google OAuth via `@supabase/ssr`), favoritos, avaliações de riders, integração Strava, cadastro manual de trilhas, notificações por Telegram, compartilhamento por WhatsApp e PWA
+- **Agente Python** — executa via GitHub Actions com schedule diferenciado por dia da semana (Seg–Qui: 7h · Sex/Sáb: 7h, 13h e 21h · Dom: 7h e 13h BRT), coleta dados de 3 fontes meteorológicas, modela condição do solo com 14 tabelas de configuração no Supabase e grava resultados no banco
 
 ---
 
@@ -47,7 +47,7 @@ Composta por dois sistemas integrados:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│              GitHub Actions (cron a cada 6h + dispatch manual)        │
+│    GitHub Actions (schedule por dia da semana + dispatch manual)       │
 │                                                                        │
 │  OpenWeather One Call 3.0 ──┐                                         │
 │  Open-Meteo Forecast         ├──► mtb-forecast.py ──────► Supabase    │
@@ -103,12 +103,14 @@ Composta por dois sistemas integrados:
 
 ### Middleware de autenticação
 
-`middleware.ts` protege todas as rotas autenticadas usando `createMiddlewareClient` do `@supabase/auth-helpers-nextjs`.
+`middleware.ts` protege todas as rotas autenticadas usando `createServerClient` do `@supabase/ssr` com leitura/escrita de cookies via `getAll`/`setAll`. Chama `supabase.auth.getUser()` (verificação JWT no servidor, não apenas leitura de cookie).
 
 **Rotas públicas** (sem autenticação):
 ```
-/login · /cadastro · /auth/callback · /t/
+/login · /cadastro · /auth/callback · /t/ · /api/telegram/ · /planos · /manifest.json · /sw.js · /icons/
 ```
+
+**Matcher:** exclui automaticamente `_next/static`, `_next/image`, `favicon.ico`, `manifest.json`, `sw.js` e `icons`.
 
 Qualquer outra rota redireciona para `/login` se não houver sessão ativa.
 
@@ -140,9 +142,9 @@ Formulário de login com suporte a **e-mail/senha** e **Google OAuth**.
 2. Erro inline; sucesso redireciona para `/dashboard`
 
 **Fluxo Google OAuth:**
-1. `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: '.../auth/callback' } })`
+1. `supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })`
 2. Supabase redireciona para Google → usuário autentica → retorna para `/auth/callback`
-3. `/auth/callback` troca o código por sessão e redireciona para `/dashboard`
+3. `/auth/callback` é uma página client-side: chama `getSession()` (o `detectSessionInUrl` do `@supabase/ssr` já processou o code automaticamente) e redireciona para `/dashboard`. Fallback: `onAuthStateChange` com timeout de 10s → `/login?error=auth_failed`
 
 ---
 
@@ -209,10 +211,11 @@ Estado selecionado persistido na URL: `/trilhas?estado=SP`.
 - Banner Strava com ícone e texto explicativo
 
 **Com estado selecionado:**
-1. `supabase.from('trilhas').select('*, condicoes(*)')` com `aprovada = true` e `regiao = [estado]`
-2. `supabase.from('favoritos').select('trilha_id')` — prepopula Set de favoritos
-3. Busca local por nome
-4. **Ranking** por veredicto 12h (`DROP LIBERADO` → `DROP LIBERADO - Veja os alertas` → `MELHOR ESPERAR` → sem dados) com desempate por `aderencia_score` ASC
+1. `supabase.from('trilhas').select('*, condicoes(*), localidades(cidade, estado, localidade)')` com `aprovada = true`
+2. Filtro client-side: `localidades.estado === estadoSelecionado` com fallback para `trilha.regiao` (para trilhas aprovadas sem geocoding)
+3. `supabase.from('favoritos').select('trilha_id')` — prepopula Set de favoritos
+4. Busca local por nome
+5. **Ranking** por veredicto 12h (`DROP LIBERADO` → `DROP LIBERADO - Veja os alertas` → `MELHOR ESPERAR` → sem dados) com desempate por `aderencia_score` ASC
 
 **Header:** botão "+ Cadastrar trilha" e seletor de estado.
 
@@ -329,7 +332,7 @@ Rota protegida: verifica `is_admin` no banco + redireciona para `/dashboard` se 
 
 **1. Trilhas pendentes (`AdminPanel`):**
 - Busca `trilhas_pendentes` onde `status = 'pendente'`
-- **Aprovar:** geocodifica lat/lon via Nominatim → salva `localidade_id` → insert em `trilhas` + update `status = 'aprovada'`
+- **Aprovar:** geocodifica lat/lon via Nominatim → salva `localidade_id`. **Fallback:** se geocoding falhar, cria localidade mínima usando o campo `regiao` da trilha para garantir que `localidade_id` nunca fique nulo → insert em `trilhas` com `aprovada = true` + update `status = 'aprovada'`
 - **Rejeitar:** modal com textarea de motivo → update `status = 'rejeitada', motivo_rejeicao`
 
 **2. Sugestões Strava:**
@@ -364,14 +367,17 @@ Painel de edição das tabelas mestras do modelo. **Todas as alterações requer
 ## Web App — API Routes
 
 ### `GET /api/strava/auth`
-Inicia o fluxo OAuth do Strava. Redireciona para `strava.com/oauth/authorize`.
+Inicia o fluxo OAuth do Strava. Monta o `redirect_uri` dinamicamente a partir dos headers `x-forwarded-host`/`host` da requisição (evita hardcoding de domínio) e redireciona para `strava.com/oauth/authorize`.
 
 ### `GET /api/strava/callback`
-Callback OAuth do Strava.
+Callback OAuth do Strava (usuário).
 1. Troca `code` por `access_token`
 2. Busca segmentos favoritos starred (`/api/v3/segments/starred?per_page=50`)
 3. Filtra (kom_rank != null OU distance > 500m), limita a 15
 4. Seta cookie `strava_token` (httpOnly, 1h) e redireciona para `/perfil/strava?segments=[JSON]`
+
+### `GET /admin/importar-strava/callback`
+Callback OAuth do Strava exclusivo do admin. Seta cookie `strava_admin_token` (httpOnly, 6h) e redireciona para `/admin/importar-strava`. O `redirect_uri` é montado com `window.location.origin` na página do admin.
 
 ### `GET /api/strava/segments`
 Busca metadados de um segmento Strava individual por `?id=[segment_id]`.
@@ -379,11 +385,9 @@ Busca metadados de um segmento Strava individual por `?id=[segment_id]`.
 ### `POST /api/strava/disconnect`
 Remove cookies `strava_access_token` e `strava_refresh_token`.
 
-### `GET /auth/callback`
-Callback Google OAuth. Troca `code` por sessão Supabase e redireciona para `/dashboard`.
-```typescript
-await supabase.auth.exchangeCodeForSession(code)
-```
+### `GET /auth/callback` (página client-side)
+Callback Google OAuth. **Não é uma Route Handler** — é uma página React (`app/auth/callback/page.tsx`).
+O `detectSessionInUrl` do `@supabase/ssr` processa o `?code=` automaticamente antes do `useEffect` ser chamado. A página chama `getSession()` e redireciona para `/dashboard`. Fallback: `onAuthStateChange` com timeout 10s → `/login?error=auth_failed`.
 
 ### `POST /api/openlandmap`
 Proxy interno para consultas de composição de solo (uso interno — sem chamadas externas reais; rota mantida por compatibilidade com versões anteriores).
@@ -462,7 +466,7 @@ O app é instalável como PWA em Android e iOS.
 }
 ```
 
-**`public/sw.js`:** Service Worker com cache-first strategy para `/`, `/dashboard`, `/trilhas`, `/manifest.json`, `/icons/icon.svg`. Cache name: `mtb-forecaster-v1`.
+**`public/sw.js`:** Service Worker com cache-first strategy para assets estáticos (`/manifest.json`, `/icons/*.png`). Cache name: `mtb-forecaster-v2`. Navigation requests (`mode: 'navigate'`), rotas de auth (`/auth/`), `/api/`, `/login` e `/dashboard` são passadas diretamente sem cache para não interferir no fluxo OAuth.
 
 **`app/layout.tsx`:** registra o SW e inclui meta tags Apple Web App.
 
@@ -714,10 +718,17 @@ Estratégia de escrita: DELETE + INSERT por `trilha_id` (evita conflito sem UNIQ
 
 ## Agente Python — Pipeline completo
 
-O agente `mtb-forecast.py` executa a cada 6 horas via GitHub Actions.
+O agente `mtb-forecast.py` executa via GitHub Actions com schedule diferenciado por dia da semana (horários BRT):
+
+| Dia | Execuções BRT |
+|---|---|
+| Seg – Qui | 07h |
+| Sex | 07h · 13h · 21h |
+| Sáb | 07h · 13h · 21h |
+| Dom | 07h · 13h |
 
 ```
-GitHub Actions (cron a cada 6h + workflow_dispatch manual)
+GitHub Actions (schedule por dia da semana + workflow_dispatch manual)
         │
         ▼
 1. _validar_env()
@@ -1057,8 +1068,10 @@ Arquivo: `.github/workflows/mtb-forecast-workflow.yml`
 ```yaml
 on:
   schedule:
-    - cron: "0 */6 * * *"   # a cada 6 horas (00h, 06h, 12h, 18h UTC)
-  workflow_dispatch:          # execução manual via UI do GitHub
+    - cron: "0 10 * * *"      # 07h BRT — todos os dias (Seg–Dom)
+    - cron: "0 16 * * 0,5,6"  # 13h BRT — Sex, Sáb, Dom
+    - cron: "0 0 * * 0,6"     # 21h BRT — Sex (0h UTC Sáb) e Sáb (0h UTC Dom)
+  workflow_dispatch:           # execução manual via UI do GitHub
 ```
 
 ### Steps do job
@@ -1278,7 +1291,7 @@ ZigZag - Campos do Jordao - SP;-22.768683;-45.614767;preto;fechada;1630;natural;
 ```json
 "next": "14.2.29",
 "react": "^18",
-"@supabase/auth-helpers-nextjs": "^0.10.0",
+"@supabase/ssr": "^0.5.2",
 "@supabase/supabase-js": "^2.49.4",
 "leaflet": "^1.9.4",
 "@types/leaflet": "^1.9.21",
@@ -1316,6 +1329,19 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 - 14 caches de configuração no Supabase — zero parâmetros hardcoded no Python
 - Fase 5: schema consolidado — `veredicto_risco_pesos` → `veredicto_pesos` + `veredicto_limiares`; `score_config` absorvida em `configuracoes_sistema`; colunas renomeadas para semântica clara; `tabela_solo` usa NULL em vez de `"TODOS"`
 - `aderencia_thresholds`, `enso_config`, `veredicto_pesos` — editáveis sem alterar código
+
+**Auth — migração `@supabase/ssr` completa:**
+- Todos os route handlers migrados de `@supabase/auth-helpers-nextjs` para `@supabase/ssr` (`createServerClient` + padrão `getAll`/`setAll`). A migração parcial (apenas middleware) criava incompatibilidade de formato de cookie e causava 401 em rotas autenticadas.
+- `getSession()` substituído por `getUser()` em todos os handlers (recomendação de segurança Supabase).
+- Rotas migradas: `api/admin/strava-routes`, `api/admin/strava-segment`, `api/admin/planos-stats`, `api/stripe/checkout`, `api/stripe/portal`, `api/promo/resgatar`.
+
+**Strava OAuth — redirect_uri dinâmico:**
+- `api/strava/auth/route.ts`: `redirect_uri` derivado de `x-forwarded-host` em vez de variável de ambiente hardcoded. Resolve redirecionamento para domínio errado após OAuth.
+- `admin/importar-strava/page.tsx`: `stravaAuthUrl` usa `window.location.origin + '/admin/importar-strava/callback'` em vez de env var apontando para callback de usuário.
+
+**Trilhas aprovadas invisíveis — corrigido:**
+- `admin/page.tsx` (`aprovar()`): se geocodificação Nominatim falhar, cria entrada mínima em `localidades` usando `regiao` da trilha como `estado`. Garante que `localidade_id` nunca fique nulo após aprovação.
+- `trilhas/page.tsx`: filtro usa `t.localidades?.estado || t.regiao` como fallback, tornando trilhas com `localidade_id = null` visíveis no filtro por estado.
 
 **Geocodificação de trilhas:**
 - `lib/geocoding.ts`: `geocodeLatLon()` via Nominatim/OpenStreetMap

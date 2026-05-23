@@ -1,7 +1,7 @@
 # MTB Forecast — Documentação Completa do Modelo
 
 > Gerado a partir de `mtb-forecast.py`. Reflete o estado atual do código (branch develop).
-> Atualizado após migração Supabase Fases 1–4: todos os dados de negócio removidos do Python
+> Atualizado após migração Supabase Fases 1–5: todos os dados de negócio removidos do Python
 > e armazenados em tabelas Supabase, carregadas via REST API com cache em memória.
 
 ---
