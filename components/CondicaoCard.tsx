@@ -125,7 +125,7 @@ export default function CondicaoCard({ condicao }: Props) {
   const aderenciaStr = condicao.aderencia_status?.trim() ?? ''
   const isGripOk     = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO'
 
-  const zone             = barZone(aderenciaStr, veredictoDisplay)
+  const zone             = barZone(aderenciaStr, condicao.veredicto)
   const progressoExibido = zone
   const indicatorColor   = zoneColor(zone)
   const horaReport = new Date(condicao.gerado_em).toLocaleTimeString('pt-BR', {
