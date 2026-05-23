@@ -95,8 +95,8 @@ export type Condicao = {
   texto_dinamico?: string | null
   motivo_veredicto?: string | null
 
-  // Previsão 24h em blocos de 6h
-  previsao_24h?: Array<{ label: string; rain_mm: number; pop_max: number; wind_max: number; temp_med: number }> | null
+  // Previsão 24h em blocos de 6h — populado via merge de previsao_blocos na query, não vem do banco
+  previsao_24h?: PrevisaoBloco[] | null
 
   // Fim de semana D+1/D+2/D+3
   fds_d1_veredicto?: string | null
