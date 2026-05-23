@@ -2131,6 +2131,56 @@ def gravar_supabase(trilha_name: str, resultado: dict):
         req_insert.get_method = lambda: "POST"
         with urllib.request.urlopen(req_insert, timeout=10) as r:
             print(f"  [Supabase] [OK] {trilha_name} gravado (status {r.status})")
+
+        # Grava previsao_blocos (4 linhas — uma por bloco de 6h)
+        blocos = resultado.get("previsao_24h") or []
+        if blocos:
+            url_del_blocos = f"{SUPABASE_URL}/rest/v1/previsao_blocos?trilha_id=eq.{trilha_id}"
+            req_del = urllib.request.Request(
+                url_del_blocos,
+                headers={
+                    "apikey":        SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type":  "application/json",
+                }
+            )
+            req_del.get_method = lambda: "DELETE"
+            try:
+                with urllib.request.urlopen(req_del, timeout=10) as r:
+                    pass
+            except Exception:
+                pass
+
+            gerado_em = datetime.now(BRT).isoformat()
+            payload_blocos = json.dumps([
+                {
+                    "trilha_id": trilha_id,
+                    "bloco":     i,
+                    "label":     b.get("label", f"bloco_{i}"),
+                    "rain_mm":   b.get("rain_mm", 0),
+                    "wind_max":  b.get("wind_max", 0),
+                    "pop_max":   b.get("pop_max", 0),
+                    "temp_med":  b.get("temp_med", 0),
+                    "gerado_em": gerado_em,
+                }
+                for i, b in enumerate(blocos[:4])
+            ]).encode("utf-8")
+
+            url_ins_blocos = f"{SUPABASE_URL}/rest/v1/previsao_blocos"
+            req_ins = urllib.request.Request(
+                url_ins_blocos,
+                data=payload_blocos,
+                headers={
+                    "apikey":        SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type":  "application/json",
+                    "Prefer":        "return=minimal",
+                }
+            )
+            req_ins.get_method = lambda: "POST"
+            with urllib.request.urlopen(req_ins, timeout=10) as r:
+                pass
+
         return trilha_id
 
     except Exception as exc:
