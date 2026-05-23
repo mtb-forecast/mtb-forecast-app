@@ -117,6 +117,26 @@ export default function AdminPage() {
           localidadeId = inserted ? (inserted as { id: string }).id : null
         }
       }
+
+      // Fallback: geocoding falhou mas temos o estado via campo regiao
+      if (!localidadeId && p.regiao) {
+        const { data: existing } = await supabase.from('localidades')
+          .select('id')
+          .eq('estado', p.regiao)
+          .eq('cidade', '')
+          .is('localidade', null)
+          .maybeSingle()
+        if (existing) {
+          localidadeId = (existing as { id: string }).id
+        } else {
+          const { data: inserted } = await supabase
+            .from('localidades')
+            .insert({ pais: 'Brasil', estado: p.regiao, cidade: '' })
+            .select('id')
+            .single()
+          localidadeId = inserted ? (inserted as { id: string }).id : null
+        }
+      }
     }
 
     const { error: insertError } = await supabase.from('trilhas').insert({

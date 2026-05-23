@@ -169,7 +169,8 @@ function TrilhasContent() {
   // Filtragem client-side
   const trilhasFiltradas = trilhasAll.filter(t => {
     if (!estadoSelecionado) return false
-    if (t.localidades?.estado !== estadoSelecionado) return false
+    const estadoTrilha = t.localidades?.estado || t.regiao || ''
+    if (estadoTrilha !== estadoSelecionado) return false
     if (cidadeSelecionada && t.localidades?.cidade !== cidadeSelecionada) return false
     if (localidadeSelecionada && t.localidades?.localidade !== localidadeSelecionada) return false
     return true
