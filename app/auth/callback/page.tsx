@@ -1,49 +1,54 @@
 'use client'
 
-import { useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-function CallbackHandler() {
+export default function AuthCallbackPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
 
   useEffect(() => {
-    async function handleCallback() {
-      const code = searchParams.get('code')
+    // createClientComponentClient detectSessionInUrl=true faz o exchange automaticamente.
+    // Escutamos o evento resultante em vez de chamar exchangeCodeForSession manualmente.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Garante que o perfil existe
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', session.user.id)
+          .maybeSingle()
 
-      if (!code) {
-        router.replace('/login?error=no_code')
-        return
+        if (!existing) {
+          await supabase.from('profiles').upsert({
+            id: session.user.id,
+            email: session.user.email ?? '',
+            plano: 'gratuito',
+            is_admin: false,
+          })
+        }
+
+        router.replace('/dashboard')
       }
+    })
 
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-
-      if (error || !data.user) {
-        router.replace('/login?error=auth_failed')
-        return
+    // Caso o exchange já tenha ocorrido antes do listener ser registrado
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        router.replace('/dashboard')
       }
+    })
 
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', data.user.id)
-        .maybeSingle()
+    // Timeout de segurança: se nada acontecer em 10s, volta ao login
+    const timeout = setTimeout(() => {
+      router.replace('/login?error=auth_failed')
+    }, 10000)
 
-      if (!existing) {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          email: data.user.email ?? '',
-          plano: 'gratuito',
-          is_admin: false,
-        })
-      }
-
-      router.replace('/dashboard')
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
     }
-
-    handleCallback()
-  }, [searchParams, router])
+  }, [router])
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8F9FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -57,17 +62,5 @@ function CallbackHandler() {
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
-  )
-}
-
-export default function AuthCallbackPage() {
-  return (
-    <Suspense fallback={
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#888', fontSize: 14 }}>Carregando...</p>
-      </div>
-    }>
-      <CallbackHandler />
-    </Suspense>
   )
 }
