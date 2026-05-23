@@ -24,6 +24,27 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotError, setForgotError] = useState<string | null>(null)
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setForgotLoading(true)
+    setForgotError(null)
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    })
+    setForgotLoading(false)
+    if (error) {
+      setForgotError('Não foi possível enviar o e-mail. Tente novamente.')
+    } else {
+      setForgotSent(true)
+    }
+  }
+
   useEffect(() => {
     const err = searchParams.get('error')
     if (err === 'auth_failed') setError('Autenticação com Google falhou. Tente novamente.')
@@ -121,7 +142,12 @@ function LoginForm() {
                 className="input-field"
               />
               <div style={{ textAlign: 'right', marginTop: 8 }}>
-                <span style={{ fontSize: 13, color: '#888', cursor: 'pointer' }}>Esqueci minha senha</span>
+                <span
+                  onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotSent(false); setForgotError(null) }}
+                  style={{ fontSize: 13, color: '#111', cursor: 'pointer', borderBottom: '1px solid #ccc' }}
+                >
+                  Esqueci minha senha
+                </span>
               </div>
             </div>
             <button
@@ -170,6 +196,75 @@ function LoginForm() {
           </div>
         </div>
       </div>
+
+      {/* Modal: Esqueci minha senha */}
+      {showForgot && (
+        <div
+          onClick={() => setShowForgot(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 8, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+          >
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 8 }}>Recuperar senha</h3>
+
+            {forgotSent ? (
+              <>
+                <p style={{ fontSize: 14, color: '#22c55e', lineHeight: 1.6, marginBottom: 24 }}>
+                  E-mail enviado! Verifique sua caixa de entrada e clique no link para redefinir sua senha.
+                </p>
+                <button
+                  onClick={() => setShowForgot(false)}
+                  style={{ width: '100%', background: '#111', color: '#FFE000', border: 'none', borderRadius: 4, padding: '10px 20px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: '#888', marginBottom: 20, lineHeight: 1.6 }}>
+                  Digite seu e-mail e enviaremos um link para redefinir sua senha.
+                </p>
+                {forgotError && (
+                  <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 4, padding: '8px 12px', fontSize: 13, marginBottom: 16 }}>
+                    {forgotError}
+                  </div>
+                )}
+                <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>E-mail</label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      required
+                      placeholder="seu@email.com"
+                      className="input-field"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgot(false)}
+                      style={{ flex: 1, background: '#fff', color: '#111', border: '1.5px solid #e5e5e5', borderRadius: 4, padding: '10px', fontSize: 14, cursor: 'pointer' }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={forgotLoading}
+                      style={{ flex: 2, background: '#FFE000', color: '#111', border: '1.5px solid #111', borderRadius: 4, padding: '10px', fontSize: 14, fontWeight: 500, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.7 : 1 }}
+                    >
+                      {forgotLoading ? 'Enviando...' : 'Enviar link'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

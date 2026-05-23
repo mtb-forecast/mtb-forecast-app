@@ -8,6 +8,17 @@ export default function AuthCallbackPage() {
   const router = useRouter()
 
   useEffect(() => {
+    // Recovery flow: fragment contains type=recovery
+    if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          subscription.unsubscribe()
+          router.replace('/auth/nova-senha')
+        }
+      })
+      return () => subscription.unsubscribe()
+    }
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const { data: existing } = await supabase
