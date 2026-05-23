@@ -2328,6 +2328,7 @@ def processar_segmentos_strava(datas: dict) -> None:
                 trail.update(dados_solo)
 
             dados = processar_trilha(trail, datas)
+            dados = _aplicar_override_chuva_futura(dados)
 
             strava_segment_id = seg.get("strava_segment_id")
             gravar_condicoes_strava(strava_segment_id, dados)
@@ -2711,6 +2712,46 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "resumo_secagem_cor":   cor_n,
         "resumo_secagem_bg":    bg_n,
     }
+
+
+def _aplicar_override_chuva_futura(resultado: dict) -> dict:
+    """
+    Override pós-modelo: se qualquer bloco das próximas 12h tiver rain_mm > 3mm,
+    impede que o veredicto saia como DROP LIBERADO limpo.
+    Não toca em BAIXA ADERÊNCIA nem em MELHOR ESPERAR.
+    Para remover: apagar esta função e a chamada no loop principal.
+    """
+    blocos = resultado.get("previsao_24h") or []
+    if not any(b.get("rain_mm", 0) > 3.0 for b in blocos[:2]):
+        return resultado
+
+    aderencia = resultado.get("aderencia", {})
+    vered     = resultado.get("veredicto", {})
+    status    = aderencia.get("status", "")
+
+    if status == "BAIXA ADERÊNCIA":
+        return resultado
+
+    if status in ("SECO", "GRIP PERFEITO"):
+        trail_mini = {
+            "solo_type": resultado.get("solo_type_raw", "terra"),
+            "trail_type": resultado.get("trail_type", "natural"),
+        }
+        aderencia["status"] = "BOA ADERÊNCIA"
+        aderencia["desc"]   = _descricao_aderencia("BOA ADERÊNCIA", trail_mini)
+
+    if vered.get("texto") == "DROP LIBERADO":
+        vered["texto"]  = "DROP LIBERADO - Veja os alertas"
+        vered["emoji"]  = "⚠️"
+        vered["cor"]    = "#d97706"
+        vered["bg"]     = "#fffbeb"
+
+    alerta = "chuva prevista nas próximas 12h — avalie as condições antes de pedalar"
+    motivo = vered.get("motivo") or ""
+    if alerta not in motivo:
+        vered["motivo"] = (motivo + ", " + alerta).lstrip(", ")
+
+    return resultado
 
 
 def gerar_analise_claude(resultados: list, hoje: str, datas: dict, regiao: str) -> str:
@@ -3641,6 +3682,7 @@ def main() -> None:
         for trail in trails:
             try:
                 dados = processar_trilha(trail, datas)
+                dados = _aplicar_override_chuva_futura(dados)
                 resultados.append(dados)
                 trilha_id = gravar_supabase(trail["name"], dados)
                 dados["trilha_id"] = trilha_id
