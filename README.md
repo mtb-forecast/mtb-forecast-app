@@ -801,13 +801,20 @@ GitHub Actions (schedule por dia da semana + workflow_dispatch manual)
    └── Análise Claude AI — texto de secagem contextualizado por região e ENSO
         │
         ▼
-7. gravar_supabase()
+7. _aplicar_override_chuva_futura()   ← pós-modelo, isolado, removível
+   SE previsao_24h[0].rain_mm > 3mm OU previsao_24h[1].rain_mm > 3mm:
+     SECO/GRIP PERFEITO → BOA ADERÊNCIA + DROP LIBERADO - Veja os alertas
+     DROP LIBERADO limpo → DROP LIBERADO - Veja os alertas
+     BAIXA ADERÊNCIA → intocado
+        │
+        ▼
+8. gravar_supabase()
    DELETE /rest/v1/condicoes?trilha_id=eq.{id}
    POST   /rest/v1/condicoes (nova linha completa — ~45 campos)
         │
         ▼
-8. processar_segmentos_strava()
-   Mesmo pipeline → gravar_condicoes_strava()
+9. processar_segmentos_strava()
+   Mesmo pipeline (com override) → gravar_condicoes_strava()
    DELETE + POST em condicoes_strava por strava_segment_id
         │
         ▼
@@ -1318,6 +1325,12 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 ## Notas de versão
 
 ### Estado atual (branch develop)
+
+**Override de veredicto por chuva prevista (`_aplicar_override_chuva_futura`):**
+- Função pós-modelo, isolada e removível sem impacto no algoritmo principal.
+- Se qualquer bloco de 6h das próximas 12h tiver `rain_mm > 3mm`: trilhas SECO/GRIP PERFEITO são forçadas para **BOA ADERÊNCIA + DROP LIBERADO - Veja os alertas**; veredicto DROP LIBERADO limpo sobe para "Veja os alertas". BAIXA ADERÊNCIA/MELHOR ESPERAR nunca são tocadas.
+- Aplicada em trilhas públicas e segmentos Strava, antes de `gravar_supabase()`.
+- Documenta o motivo: "chuva prevista nas próximas 12h — avalie as condições antes de pedalar".
 
 **Fixes e melhorias aplicados:**
 - **ONI parsing** (`fetch_oni_atual`): corrigido para ler `partes[3]` (ANOM) em vez de `partes[2]` (SST absoluto ~27°C). Bug causava classificação errada como "El Niño Forte" com ONI=27.28 em vez do correto ~0.11 (ENSO Neutro), tornando todos os thresholds 25% mais permissivos.

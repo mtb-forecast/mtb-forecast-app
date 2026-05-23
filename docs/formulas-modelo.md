@@ -624,6 +624,37 @@ melhora prevista       → risco -= 1
 | Base do aderência | acumulo_ef atual | acumulo_ef atual (mesma base) |
 | Uso | Card principal + veredicto | Badge "12h" no card |
 
+### Override pós-modelo: chuva prevista nas próximas 12h
+
+Função `_aplicar_override_chuva_futura(resultado)` — executada **depois** de `processar_trilha()`, antes de `gravar_supabase()`. Isolada e removível sem afetar o modelo.
+
+#### Gatilho
+
+Qualquer um dos dois primeiros blocos de 6h (`previsao_24h[0]` ou `previsao_24h[1]`) com `rain_mm > 3mm`.
+
+```python
+blocos = resultado["previsao_24h"]  # lista de 4 dicts {"label", "rain_mm", ...}
+chuva_proximas_12h = any(b["rain_mm"] > 3.0 for b in blocos[:2])
+```
+
+#### Regras de aplicação
+
+| Estado atual | Veredicto atual | Ação |
+|---|---|---|
+| BAIXA ADERÊNCIA | qualquer | **nenhuma** — não toca |
+| SECO ou GRIP PERFEITO | qualquer | → BOA ADERÊNCIA + DROP LIBERADO - Veja os alertas |
+| BOA ADERÊNCIA | DROP LIBERADO | → veredicto muda para DROP LIBERADO - Veja os alertas |
+| BOA ADERÊNCIA | DROP LIBERADO - Veja os alertas | nenhuma (já correto) |
+
+#### Campos modificados
+
+- `resultado["aderencia"]["status"]` → `"BOA ADERÊNCIA"`
+- `resultado["aderencia"]["desc"]` → descrição de BOA ADERÊNCIA via `_descricao_aderencia()`
+- `resultado["veredicto"]["texto"]` → `"DROP LIBERADO - Veja os alertas"`
+- `resultado["veredicto"]["motivo"]` → acrescenta `"chuva prevista nas próximas 12h — avalie as condições antes de pedalar"`
+
+`aderencia_score` não é modificado — mantido como referência de depuração.
+
 ---
 
 ## 9. ENSO (El Niño / La Niña)
