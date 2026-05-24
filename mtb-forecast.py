@@ -93,6 +93,7 @@ Remoção V6.5:
 import os
 import json
 import html as html_lib
+import ssl
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -107,6 +108,13 @@ from datetime import datetime, timezone, timedelta, date
 # ---------------------------------------------------------------------------
 import csv as _csv
 import pathlib as _pathlib
+
+# SSL context reutilizável para chamadas Open-Meteo — evita renegociação a cada request
+_SSL_CTX = ssl.create_default_context()
+
+def _om_urlopen(url: str, timeout: int = 60):
+    """urlopen com SSL context explícito e timeout generoso para api.open-meteo.com."""
+    return urllib.request.urlopen(url, timeout=timeout, context=_SSL_CTX)
 
 _CAMPOS_OBRIGATORIOS = ("name", "lat", "lon", "solo_type", "exposicao", "altitude_m", "trail_type", "regiao")
 _SOLO_VALIDOS        = {"terra", "misto", "preto", "pedra", "ferro", "misto_mg"}
@@ -611,7 +619,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
                 "&hourly=precipitation"
                 "&timezone=America%2FSao_Paulo"
             )
-            with urllib.request.urlopen(url, timeout=30) as r:
+            with _om_urlopen(url) as r:
                 data = json.loads(r.read())
             break
         except Exception as exc:
@@ -663,7 +671,7 @@ def fetch_openmeteo(trail: dict) -> dict | None:
     )
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(url, timeout=20) as r:
+            with _om_urlopen(url) as r:
                 return json.loads(r.read().decode("utf-8"))
         except (urllib.error.URLError, OSError):
             if attempt == 2:
@@ -767,7 +775,7 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
             "&hourly=windspeed_10m,windgusts_10m"
             "&timezone=America%2FSao_Paulo"
         )
-        with urllib.request.urlopen(url_om, timeout=20) as r:
+        with _om_urlopen(url_om) as r:
             data_om = json.loads(r.read().decode("utf-8"))
         times  = data_om.get("hourly", {}).get("time", [])
         speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
