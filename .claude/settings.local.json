@@ -104,7 +104,16 @@
       "Bash(xargs grep -l \"strava\\\\|STRAVA\" -i)",
       "Bash(dir \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\\\(app\\)\\\\perfil\")",
       "Bash(xargs grep -l \"CREATE TABLE.*trilhas\")",
-      "Bash(xargs grep -l \"password\\\\|reset\\\\|forgot\")"
+      "Bash(xargs grep -l \"password\\\\|reset\\\\|forgot\")",
+      "Bash(curl -v --max-time 15 \"https://archive-api.open-meteo.com/v1/archive?latitude=-19.9167&longitude=-43.9345&start_date=2026-05-22&end_date=2026-05-24&hourly=precipitation&timezone=America%2FSao_Paulo\")",
+      "Bash(ping -c 3 -W 5 5.9.98.184)",
+      "Bash(curl -s --max-time 8 \"https://api.open-meteo.com/v1/forecast?latitude=-19.9&longitude=-43.9&current=temperature_2m\")",
+      "Bash(curl -s --max-time 8 --head \"http://archive-api.open-meteo.com\")",
+      "Bash(echo \"---exit:$?\")",
+      "Bash(nslookup archive-api.open-meteo.com)",
+      "Bash(nslookup api.open-meteo.com)",
+      "Bash(curl -s --max-time 10 \"https://api.open-meteo.com/v1/forecast?latitude=-19.9167&longitude=-43.9345&hourly=precipitation&past_days=2&forecast_days=0&timezone=America%2FSao_Paulo\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); t=d['hourly']['time']; p=d['hourly']['precipitation']; [print\\(t[i], p[i]\\) for i in range\\(len\\(t\\)\\) if p[i] and p[i]>0]\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

@@ -605,9 +605,9 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
     for attempt in range(3):
         try:
             url = (
-                "https://archive-api.open-meteo.com/v1/archive"
+                "https://api.open-meteo.com/v1/forecast"
                 f"?latitude={trail['lat']}&longitude={trail['lon']}"
-                f"&start_date={inicio}&end_date={fim}"
+                "&past_days=2&forecast_days=0"
                 "&hourly=precipitation"
                 "&timezone=America%2FSao_Paulo"
             )
@@ -616,9 +616,9 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
             break
         except Exception as exc:
             if attempt == 2:
-                print(f"  [OM archive] Falha após 3 tentativas: {exc}")
+                print(f"  [OM hist] Falha após 3 tentativas: {exc}")
                 return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
-            print(f"  [OM archive] Tentativa {attempt+1} falhou: {exc} — retentando...")
+            print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando...")
             time.sleep(2 ** attempt)
 
     times   = data.get("hourly", {}).get("time", [])
@@ -761,9 +761,9 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     om_vento_max  = None
     try:
         url_om = (
-            "https://archive-api.open-meteo.com/v1/archive"
+            "https://api.open-meteo.com/v1/forecast"
             f"?latitude={trail['lat']}&longitude={trail['lon']}"
-            f"&start_date={inicio}&end_date={fim}"
+            "&past_days=2&forecast_days=0"
             "&hourly=windspeed_10m,windgusts_10m"
             "&timezone=America%2FSao_Paulo"
         )
