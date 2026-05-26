@@ -1979,6 +1979,7 @@ def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
                 rain = t.get("rain", 0)
                 wind = t.get("wind", 0)
                 gust = t.get("gust_max_kmh", 0)
+                fds  = t.get("fds", {})
 
                 strava_badge = " 🟠 _Strava_" if t.get("strava") else ""
                 linha = f"{emoji} *{t['name']}*{strava_badge}\n"
@@ -1987,6 +1988,16 @@ def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
                 if gust and gust >= 30:
                     linha += f" · ⚡ rajada {gust}km/h"
                 linha += f"\n   ⏱ {janela}\n"
+
+                for dk, label in [("d1", "D+1"), ("d2", "D+2"), ("d3", "D+3")]:
+                    dia = fds.get(dk, {})
+                    if dia.get("disponivel"):
+                        te = _emoji_tempo(dia.get("clouds_pct"), dia.get("rain", 0), dia.get("pop", 0))
+                        vt = dia.get("veredicto", {}).get("texto", "?")
+                        tmax = dia.get("temp_max", "—")
+                        tmin = dia.get("temp_min", "—")
+                        linha += f"   {label} {te} {tmax}°/{tmin}° · {vt}\n"
+
                 linhas.append(linha)
 
             linhas.append(f"🔗 [Ver detalhes](https://www.mtbforecaster.com.br/dashboard)")
@@ -2170,16 +2181,19 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
+            "fds_d1_temp_min":    fds.get("d1", {}).get("temp_min"),
             "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
+            "fds_d2_temp_min":    fds.get("d2", {}).get("temp_min"),
             "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
+            "fds_d3_temp_min":    fds.get("d3", {}).get("temp_min"),
             "fds_d3_pop":         fds.get("d3", {}).get("pop"),
             "dados_json":         json.dumps({
                 "bioma":      resultado.get("bioma"),
@@ -2370,16 +2384,19 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
+            "fds_d1_temp_min":    fds.get("d1", {}).get("temp_min"),
             "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
+            "fds_d2_temp_min":    fds.get("d2", {}).get("temp_min"),
             "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
+            "fds_d3_temp_min":    fds.get("d3", {}).get("temp_min"),
             "fds_d3_pop":         fds.get("d3", {}).get("pop"),
             "dados_json":         json.dumps({
                 "bioma":      resultado.get("bioma"),
@@ -2659,7 +2676,9 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             p3_oc = max((sum(precips_oc[i:i+3]) for i in range(max(1, len(precips_oc) - 2))), default=0.0)
             pp_oc = max((h.get("pop", 0) or 0 for h in dia_oc), default=0) * 100
             tm    = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
+            tm_min = round(min((h.get("temp", 999) or 999 for h in dia_oc), default=0))
             w     = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
+            clouds_pct = round(sum(h.get("clouds", 0) or 0 for h in dia_oc) / len(dia_oc)) if dia_oc else None
 
             if dia_om:
                 # Blend 70% OWM + 30% Open-Meteo — igual ao pico_3h atual
@@ -2683,8 +2702,11 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             p3   = round(max((sum(precips[i:i+3]) for i in range(max(1, len(precips) - 2))),
                              default=0.0), 1)
             pp   = round(max((h["pop"] for h in dia_om), default=0.0) * 100)
-            tm   = round(max((h["temp"] for h in dia_om if h["temp"] > 0), default=0))
+            temps_om = [h["temp"] for h in dia_om if h["temp"] > 0]
+            tm     = round(max(temps_om, default=0))
+            tm_min = round(min(temps_om, default=0))
             w    = round(max((h["wind"] for h in dia_om), default=0.0), 1)
+            clouds_pct = None  # OM forecast sem cloudcover
             fonte_dia = "OM"
         else:
             return {"disponivel": False}
@@ -2696,7 +2718,8 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         ef_pos_chuva = round(acumulo_ate_val + r, 1)
         ader = calcular_aderencia(r, trail, ef_pos_chuva, p3, mes, enso)
         return {
-            "disponivel": True, "rain": r, "pop": pp, "temp_max": tm, "wind": w,
+            "disponivel": True, "rain": r, "pop": pp, "temp_max": tm, "temp_min": tm_min,
+            "clouds_pct": clouds_pct, "wind": w,
             "fonte_dia": fonte_dia,
             "veredicto": veredicto(ader, r, w, p3, inc, trail, ef_pos_chuva, vento_hist),
             "debug_model": {
@@ -2981,15 +3004,34 @@ def _pill_solo(a):
 def _pill_verd(v):
     return _badge(f"{v['emoji']} {v['texto']}", v["cor"], v["bg"])
 
+def _emoji_tempo(clouds_pct, rain_mm, pop_pct) -> str:
+    if rain_mm >= 10 or (rain_mm >= 5 and pop_pct >= 70):
+        return "⛈"
+    if rain_mm >= 2 or pop_pct >= 60:
+        return "🌧"
+    if rain_mm >= 0.5 or pop_pct >= 35:
+        return "🌦"
+    if clouds_pct is None:
+        return "☀️" if pop_pct < 20 else "🌤"
+    if clouds_pct < 25:
+        return "☀️"
+    if clouds_pct < 60:
+        return "🌤"
+    return "☁️"
+
 def _dia_cell(d):
     if not d["disponivel"]:
         return '<td style="padding:8px 12px;text-align:center;color:#9ca3af;font-size:13px;">—</td>'
-    v = d["veredicto"]
+    v          = d["veredicto"]
+    tempo_emoji = _emoji_tempo(d.get("clouds_pct"), d["rain"], d["pop"])
+    temp_max   = d.get("temp_max", "—")
+    temp_min   = d.get("temp_min", "—")
     return (f'<td style="padding:8px 12px;text-align:center;border-left:1px solid #f1f5f9;">'
-            f'<div style="font-size:18px;margin-bottom:2px;">{v["emoji"]}</div>'
-            f'<div style="font-size:12px;font-weight:700;color:{v["cor"]};">{v["texto"]}</div>'
+            f'<div style="font-size:20px;margin-bottom:1px;">{tempo_emoji}</div>'
+            f'<div style="font-size:12px;color:#1e293b;font-weight:600;margin-bottom:2px;">{temp_max}° / {temp_min}°</div>'
+            f'<div style="font-size:11px;font-weight:700;color:{v["cor"]};">{v["emoji"]} {v["texto"]}</div>'
             f'<div style="font-size:11px;color:#64748b;margin-top:2px;">'
-            f'🌧 {d["rain"]}mm &nbsp;💨 {d["wind"]}m/s &nbsp;🌡 {d["temp_max"]}°C</div>'
+            f'🌧 {d["rain"]}mm &nbsp;💨 {d["wind"]}m/s</div>'
             f'</td>')
 
 def _info_inclinacao_html(r: dict) -> str:
