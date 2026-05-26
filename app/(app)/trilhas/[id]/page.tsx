@@ -296,7 +296,7 @@ export default function TrilhaDetalhe() {
           {/* c) Clima do dia */}
           {c?.temp_max != null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-              <span style={{ fontSize: 28 }}>{emojiTempo(c.rain, c.pop)}</span>
+              <span style={{ fontSize: 28 }}>{emojiTempo(c.rain_mm, c.pop_12h)}</span>
               <div>
                 <span style={{ fontSize: 16, fontWeight: 700, color: '#E5E7EB' }}>{c.temp_max}°</span>
                 {c.temp_min != null && (
