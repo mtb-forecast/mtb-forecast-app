@@ -62,6 +62,7 @@ export type Condicao = {
 
   // Temperatura
   temp_max?: number | null
+  temp_min?: number | null
 
   // Solo
   meia_vida_h: number
