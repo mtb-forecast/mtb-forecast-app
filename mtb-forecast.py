@@ -2003,6 +2003,88 @@ def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
             print(f"  [Telegram] Erro ao processar {usuario.get('nome','?')}: {exc}")
 
 
+def _carregar_ids_com_favorito() -> set | None:
+    """
+    Retorna conjunto de trilha_id (UUID) que possuem ao menos 1 favorito.
+    Retorna None em caso de erro na API — o chamador deve processar tudo como fallback.
+    """
+    if not SUPABASE_KEY:
+        return None
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/favoritos?select=trilha_id"
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            rows = json.loads(r.read())
+        ids = {row["trilha_id"] for row in rows}
+        print(f"  [Favoritos] {len(ids)} trilha(s) com ao menos 1 favorito")
+        return ids
+    except Exception as exc:
+        print(f"  [Favoritos] Erro ao carregar: {exc} — processando todas as trilhas")
+        return None
+
+
+def gravar_sem_favorito(trilha_name: str) -> bool:
+    """
+    Grava registro especial em condicoes sinalizando que a trilha precisa ser
+    favoritada para ter condições geradas. Falha silenciosa.
+    """
+    if not SUPABASE_KEY:
+        return False
+    try:
+        url_busca = (
+            f"{SUPABASE_URL}/rest/v1/trilhas"
+            f"?name=eq.{urllib.parse.quote(trilha_name)}"
+            f"&select=id&limit=1"
+        )
+        req = urllib.request.Request(url_busca, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            trilhas = json.loads(r.read())
+        if not trilhas:
+            return False
+        trilha_id = trilhas[0]["id"]
+
+        payload = json.dumps({
+            "trilha_id":        trilha_id,
+            "gerado_em":        datetime.now(BRT).isoformat(),
+            "aderencia_status": "SEM FAVORITO",
+            "veredicto":        "Favorite esta trilha para gerar as condições",
+            "veredicto_12h":    "Favorite esta trilha para gerar as condições",
+        }).encode("utf-8")
+
+        url_delete = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=eq.{trilha_id}"
+        req_del = urllib.request.Request(url_delete, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        req_del.get_method = lambda: "DELETE"
+        try:
+            with urllib.request.urlopen(req_del, timeout=10) as r:
+                pass
+        except Exception:
+            pass
+
+        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes"
+        req_ins = urllib.request.Request(url_insert, data=payload, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type":  "application/json",
+            "Prefer":        "return=minimal",
+        })
+        req_ins.get_method = lambda: "POST"
+        with urllib.request.urlopen(req_ins, timeout=10) as r:
+            pass
+        return True
+    except Exception as exc:
+        print(f"  [Supabase] [ERRO] gravar_sem_favorito '{trilha_name}': {exc}")
+        return False
+
+
 def gravar_supabase(trilha_name: str, resultado: dict):
     """
     Grava condições da trilha no Supabase após processar.
@@ -3710,8 +3792,15 @@ def main() -> None:
 
     emails_por_regiao = _carregar_emails_por_regiao()
 
+    ids_com_favorito = _carregar_ids_com_favorito()
+    # None = erro na carga → processa tudo como fallback seguro
+    def _tem_favorito(trail: dict) -> bool:
+        return ids_com_favorito is None or trail.get("supabase_id") in ids_com_favorito
+
     print("[MTB V8.0] Buscando dados de solo via tabela mestra...")
     for trail in TRAILS:
+        if not _tem_favorito(trail):
+            continue
         dados_solo = buscar_solo_openlandmap(
             trail["lat"], trail["lon"],
             solo_type=trail.get("solo_type", "misto"),
@@ -3736,6 +3825,10 @@ def main() -> None:
         resultados, falhas = [], []
 
         for trail in trails:
+            if not _tem_favorito(trail):
+                gravar_sem_favorito(trail["name"])
+                print(f"  [SEM FAVORITO] {trail['name']} — sem favoritos, condições não geradas")
+                continue
             try:
                 dados = processar_trilha(trail, datas)
                 dados = _aplicar_override_chuva_futura(dados)
