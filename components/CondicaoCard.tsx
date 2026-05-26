@@ -1,5 +1,5 @@
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
-import { rainColor, windColor, DISPLAY_THR } from '@/lib/display'
+import { rainColor, windColor, DISPLAY_THR, emojiTempo } from '@/lib/display'
 
 type Props = {
   condicao: Condicao

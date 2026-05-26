@@ -62,6 +62,16 @@ export function windColor(kmh: number | null | undefined): string {
   return '#EF4444'
 }
 
+export function emojiTempo(rain: number | null | undefined, pop: number | null | undefined): string {
+  const r = rain ?? 0
+  const p = pop  ?? 0
+  if (r >= 10 || (r >= 5 && p >= 70)) return '⛈'
+  if (r >= 2  || p >= 60)             return '🌧'
+  if (r >= 0.5 || p >= 35)            return '🌦'
+  if (p < 20)                         return '☀️'
+  return '🌤'
+}
+
 // Retorna true se a rajada histórica justifica exibir alerta (mesmo critério do Python).
 export function deveAlertarRajada(
   kmh: number | null | undefined,
