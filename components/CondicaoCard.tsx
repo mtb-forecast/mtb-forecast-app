@@ -178,10 +178,19 @@ export default function CondicaoCard({ condicao }: Props) {
   const d1 = new Date(hoje); d1.setDate(hoje.getDate() + 1)
   const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
   const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
+  const emojiTempo = (rain: number | null | undefined, pop: number | null | undefined): string => {
+    const r = rain ?? 0
+    const p = pop ?? 0
+    if (r >= 10 || (r >= 5 && p >= 70)) return '⛈'
+    if (r >= 2  || p >= 60)             return '🌧'
+    if (r >= 0.5 || p >= 35)            return '🌦'
+    if (p < 20)                         return '☀️'
+    return '🌤'
+  }
   const fdsDias = [
-    { label: fmtDia(d1), v: condicao.fds_d1_veredicto, rain: condicao.fds_d1_rain, wind: condicao.fds_d1_wind, pop: condicao.fds_d1_pop },
-    { label: fmtDia(d2), v: condicao.fds_d2_veredicto, rain: condicao.fds_d2_rain, wind: condicao.fds_d2_wind, pop: condicao.fds_d2_pop },
-    { label: fmtDia(d3), v: condicao.fds_d3_veredicto, rain: condicao.fds_d3_rain, wind: condicao.fds_d3_wind, pop: condicao.fds_d3_pop },
+    { label: fmtDia(d1), v: condicao.fds_d1_veredicto, rain: condicao.fds_d1_rain, wind: condicao.fds_d1_wind, pop: condicao.fds_d1_pop, tmax: condicao.fds_d1_temp, tmin: condicao.fds_d1_temp_min },
+    { label: fmtDia(d2), v: condicao.fds_d2_veredicto, rain: condicao.fds_d2_rain, wind: condicao.fds_d2_wind, pop: condicao.fds_d2_pop, tmax: condicao.fds_d2_temp, tmin: condicao.fds_d2_temp_min },
+    { label: fmtDia(d3), v: condicao.fds_d3_veredicto, rain: condicao.fds_d3_rain, wind: condicao.fds_d3_wind, pop: condicao.fds_d3_pop, tmax: condicao.fds_d3_temp, tmin: condicao.fds_d3_temp_min },
   ]
   const hasFds    = fdsDias.some(d => d.v)
   const hasPrev24 = (condicao.previsao_24h?.length ?? 0) > 0
@@ -427,13 +436,18 @@ export default function CondicaoCard({ condicao }: Props) {
             <div>
               <div style={{ ...SEC, marginBottom: 10 }}>Próximos 3 dias</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                {fdsDias.map(({ label, v, rain, wind, pop }) => {
+                {fdsDias.map(({ label, v, rain, wind, pop, tmax, tmin }) => {
                   const vcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
                   return (
                     <div key={label} style={{ background: vcfg ? vcfg.bg : '#F9FAFB', border: `0.5px solid ${vcfg ? vcfg.cor + '44' : '#E5E7EB'}`, borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
                       <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>{label}</div>
-                      <div style={{ fontSize: 18, marginBottom: 2 }}>{vcfg?.emoji ?? '—'}</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: vcfg?.cor ?? '#9CA3AF', marginBottom: 4 }}>{v ?? 'SEM DADOS'}</div>
+                      <div style={{ fontSize: 22, marginBottom: 2 }}>{emojiTempo(rain, pop)}</div>
+                      {(tmax != null || tmin != null) && (
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 3 }}>
+                          {tmax != null ? `${tmax}°` : '—'}<span style={{ color: '#9CA3AF', fontWeight: 400 }}> / {tmin != null ? `${tmin}°` : '—'}</span>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 10, fontWeight: 600, color: vcfg?.cor ?? '#9CA3AF', marginBottom: 4 }}>{vcfg?.emoji ?? ''} {v ?? 'SEM DADOS'}</div>
                       <div style={{ fontSize: 10, color: '#9CA3AF' }}>
                         {rain != null && `🌧 ${rain.toFixed(1)}mm`}
                         {pop != null && ` (${pop}%)`}
