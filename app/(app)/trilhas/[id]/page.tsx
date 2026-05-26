@@ -293,37 +293,19 @@ export default function TrilhaDetalhe() {
             </div>
           )}
 
-          {/* c) Previsão 3 dias — emoji de tempo + max/min */}
-          {c && (c.fds_d1_veredicto || c.fds_d2_veredicto || c.fds_d3_veredicto) && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-              {([
-                { rain: c.fds_d1_rain, pop: c.fds_d1_pop, tmax: c.fds_d1_temp, tmin: c.fds_d1_temp_min, v: c.fds_d1_veredicto },
-                { rain: c.fds_d2_rain, pop: c.fds_d2_pop, tmax: c.fds_d2_temp, tmin: c.fds_d2_temp_min, v: c.fds_d2_veredicto },
-                { rain: c.fds_d3_rain, pop: c.fds_d3_pop, tmax: c.fds_d3_temp, tmin: c.fds_d3_temp_min, v: c.fds_d3_veredicto },
-              ] as const).map((dia, i) => {
-                if (!dia.v) return null
-                const accentColor = dia.v === 'DROP LIBERADO' ? '#22C55E' : dia.v.includes('alertas') ? '#F59E0B' : '#EF4444'
-                return (
-                  <div key={i} style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: `1px solid ${accentColor}33`,
-                    borderRadius: 8, padding: '8px 12px',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                  }}>
-                    <span style={{ fontSize: 22 }}>{emojiTempo(dia.rain, dia.pop)}</span>
-                    <div>
-                      {(dia.tmax != null || dia.tmin != null) && (
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#E5E7EB', lineHeight: 1.2 }}>
-                          {dia.tmax ?? '—'}°<span style={{ color: '#6B7280', fontWeight: 400 }}> / {dia.tmin ?? '—'}°</span>
-                        </div>
-                      )}
-                      <div style={{ fontSize: 10, color: accentColor, fontWeight: 600 }}>D+{i + 1}</div>
-                    </div>
-                  </div>
-                )
-              })}
+          {/* c) Clima do dia */}
+          {c?.temp_max != null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+              <span style={{ fontSize: 28 }}>{emojiTempo(c.rain, c.pop)}</span>
+              <div>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#E5E7EB' }}>{c.temp_max}°</span>
+                {c.temp_min != null && (
+                  <span style={{ fontSize: 14, color: '#6B7280', fontWeight: 400 }}> / {c.temp_min}°</span>
+                )}
+              </div>
             </div>
           )}
+
 
 
 </div>

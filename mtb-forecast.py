@@ -491,6 +491,7 @@ def resumo_onecall(data: dict) -> dict | None:
             max((sum(precip_48[i:i+3]) for i in range(max(1, len(precip_48) - 2))), default=0.0), 1
         )
         tmax = round(max((h.get("temp", 0) for h in hourly), default=0))
+        tmin = round(min((h.get("temp", 999) for h in hourly if h.get("temp") is not None), default=tmax))
 
         return {
             "rain":     rain_mm,
@@ -498,6 +499,7 @@ def resumo_onecall(data: dict) -> dict | None:
             "pop":      pop_max,
             "pico_3h":  pico_3h,
             "tmax":     tmax,
+            "tmin":     tmin,
             "gust_max": gust_max,
         }
     except (KeyError, TypeError):
@@ -2150,6 +2152,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "pop_48h":            resultado.get("pop"),
             "pop_12h":            veredicto_12h.get("pop"),
             "temp_max":           resultado.get("temp_max"),
+            "temp_min":           resultado.get("temp_min"),
             "pico_3h":            resultado.get("pico_3h"),
             "acumulo_48h":        resultado.get("acumulo_48h"),
             "acumulo_ef":         resultado.get("acumulo_ef"),
@@ -2353,6 +2356,7 @@ def gravar_condicoes_strava(strava_segment_id: int, resultado: dict) -> bool:
             "pop_48h":            resultado.get("pop"),
             "pop_12h":            veredicto_12h.get("pop"),
             "temp_max":           resultado.get("temp_max"),
+            "temp_min":           resultado.get("temp_min"),
             "pico_3h":            resultado.get("pico_3h"),
             "acumulo_48h":        resultado.get("acumulo_48h"),
             "acumulo_ef":         resultado.get("acumulo_ef"),
@@ -2499,7 +2503,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     oc     = resumo_onecall(oc_raw)
 
     if oc is None:
-        oc = {"rain": 0.0, "wind": 0.0, "pop": 0, "pico_3h": 0.0, "tmax": 25}
+        oc = {"rain": 0.0, "wind": 0.0, "pop": 0, "pico_3h": 0.0, "tmax": 25, "tmin": None}
 
     om_raw = fetch_openmeteo(trail)
     om     = resumo_openmeteo(om_raw)
@@ -2522,6 +2526,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     gust_max_kmh = round(gust_max_ms * 3.6, 1)
 
     tmax = oc["tmax"]
+    tmin = oc.get("tmin")
 
     hist        = fetch_onecall_historico(trail)
     meia_vida_h = hist["meia_vida_h"]
@@ -2840,7 +2845,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "lon":            trail["lon"],
         "regiao":         trail["regiao"],
         "solo_type_raw":  trail["solo_type"],
-        "rain":           rain, "pop": pop, "temp_max": tmax, "wind": wind,
+        "rain":           rain, "pop": pop, "temp_max": tmax, "temp_min": tmin, "wind": wind,
         "pico_3h":        pico_3h,
         "acumulo_48h":    acumulo_48h,
         "acumulo_ef":     acumulo_ef,
