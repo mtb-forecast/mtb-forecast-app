@@ -2,9 +2,9 @@ name: Agent MTB Forecaster
 
 on:
   schedule:
-  - cron: "0 9 * * *"       # 06h BRT — todos os dias (Seg–Dom)
-  - cron: "0 15 * * 0,5,6"  # 12h BRT — Sex, Sáb, Dom
-  - cron: "0 23 * * 5,6"    # 20h BRT — Sex e Sáb
+  - cron: "0 9 * * *"      # 06h BRT — todos os dias (Seg–Dom)
+  - cron: "0 15 * * 5,6,0" # 12h BRT — Sex, Sáb, Dom
+  - cron: "0 23 * * 5,6"   # 20h BRT — Sex e Sáb
     
   workflow_dispatch:
 
