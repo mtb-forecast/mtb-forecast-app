@@ -6,14 +6,9 @@ import { supabase } from '@/lib/supabase'
 import type { Trilha, Condicao } from '@/lib/types'
 import 'leaflet/dist/leaflet.css'
 
-type TrilhaComCondicao = Trilha & { condicoes?: Condicao[] }
-
-const STALE_HOURS = 36
-
-function isStale(condicao: Condicao | undefined): boolean {
-  if (!condicao) return true
-  const diffHours = (Date.now() - new Date(condicao.gerado_em).getTime()) / 3_600_000
-  return diffHours > STALE_HOURS
+type TrilhaComCondicao = Trilha & {
+  condicoes?: Condicao[]
+  favoritos?: { id: string }[]
 }
 
 function getVeredictoColor(veredicto: string | undefined): string {
@@ -45,9 +40,10 @@ export default function MapaPage() {
 
       const { data: trilhasData, error } = await supabase
         .from('trilhas')
-        .select('*, condicoes(*)')
+        .select('*, condicoes(*), favoritos(id)')
         .eq('aprovada', true)
         .order('name', { ascending: true })
+        .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
 
       if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
 
@@ -110,8 +106,9 @@ export default function MapaPage() {
 
       trilhas.forEach((trilha) => {
         const condicao = trilha.condicoes?.[0]
-        const stale = isStale(condicao)
-        const veredicto = stale ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
+        const hasFavorito = (trilha.favoritos?.length ?? 0) > 0
+        const inactive = !hasFavorito || !condicao
+        const veredicto = inactive ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
         const cor = getVeredictoColor(veredicto)
         const label = getVeredictoLabel(veredicto)
 
@@ -123,7 +120,7 @@ export default function MapaPage() {
             transform:rotate(-45deg);
             border:2.5px solid #fff;
             box-shadow:0 2px 6px rgba(0,0,0,0.3);
-            opacity:${stale ? '0.55' : '1'};
+            opacity:${inactive ? '0.55' : '1'};
           "></div>`,
           className: '',
           iconSize: [28, 28],
@@ -131,7 +128,7 @@ export default function MapaPage() {
           popupAnchor: [0, -30],
         })
 
-        const popupContent = stale
+        const popupContent = inactive
           ? `
             <div style="font-family:Inter,sans-serif;padding:4px 0;">
               <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
