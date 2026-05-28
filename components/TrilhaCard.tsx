@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 
@@ -24,7 +25,7 @@ type Props = {
   onToggleFavorito?: () => void
 }
 
-export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
+function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
   const c = trilha.condicao
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg      = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
@@ -216,3 +217,5 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
     </div>
   )
 }
+
+export default memo(TrilhaCard)

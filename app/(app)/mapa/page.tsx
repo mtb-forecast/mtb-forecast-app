@@ -240,7 +240,7 @@ export default function MapaPage() {
           { cor: '#16a34a', label: 'DROP LIBERADO' },
           { cor: '#d97706', label: 'ATENÇÃO' },
           { cor: '#dc2626', label: 'MELHOR ESPERAR' },
-          { cor: '#999',    label: 'Sem atualização' },
+          { cor: '#999',    label: 'Favoritar Trilha' },
         ].map(({ cor, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
             <div style={{
