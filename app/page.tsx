@@ -17,6 +17,14 @@ const SLIDES = [
     url: 'https://images.unsplash.com/photo-1513593771513-7b58b6c4af38?w=1400&q=80&auto=format&fit=crop',
     label: 'Trail Run',
   },
+  {
+    url: 'https://images.unsplash.com/photo-1682347812583-7855d5debecd?w=1400&q=80&auto=format&fit=crop',
+    label: 'Trilha',
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1706033546034-23eaee295104?w=1400&q=80&auto=format&fit=crop',
+    label: 'Moto',
+  },
 ]
 
 const HOW_IT_WORKS = [
@@ -42,7 +50,7 @@ export default function LandingPage() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#111' }}>
 
       <style>{`
-        .lp-hero-slide { opacity: 0; transition: opacity 1.2s ease; }
+        .lp-hero-slide { opacity: 0; transition: opacity 0.6s ease; }
         .lp-hero-slide.active { opacity: 1; }
         .lp-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.3s; border: none; padding: 0; }
         .lp-dot.active { background: #FFE000; width: 20px; border-radius: 3px; }
@@ -274,7 +282,7 @@ export default function LandingPage() {
           dots.forEach(function(d) {
             d.addEventListener('click', function() { goTo(parseInt(d.dataset.i)); });
           });
-          setInterval(function() { goTo((current + 1) % slides.length); }, 4500);
+          setInterval(function() { goTo((current + 1) % slides.length); }, 3500);
         })();
       `}} />
 
