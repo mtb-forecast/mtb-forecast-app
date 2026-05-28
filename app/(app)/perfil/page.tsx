@@ -712,6 +712,36 @@ export default function PerfilPage() {
           )}
         </div>
 
+        {/* Admin */}
+        {profile?.is_admin && (
+          <div style={{ background: '#18181b', border: '0.5px solid #3f3f46', borderRadius: 8, padding: 24, marginBottom: 24 }}>
+            <SectionLabel>Administração</SectionLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {[
+                { href: '/admin', label: 'Painel admin', icon: 'ti-layout-dashboard' },
+                { href: '/admin/tabelas', label: 'Tabelas', icon: 'ti-table' },
+                { href: '/admin/importar-strava', label: 'Importar Strava', icon: 'ti-brand-strava' },
+              ].map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 4, textDecoration: 'none',
+                    color: '#e4e4e7',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#27272a')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <i className={`ti ${item.icon}`} style={{ fontSize: 16, color: '#FFE000' }} />
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: '#71717a' }}>→</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Logout */}
         <div style={{ textAlign: 'center' }}>
           <button
