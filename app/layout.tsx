@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+import BottomNav from '@/components/BottomNav'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'MTB Forecaster',
@@ -43,6 +46,7 @@ export default function RootLayout({
         <main>
           {children}
         </main>
+        <BottomNav />
         <script dangerouslySetInnerHTML={{
           __html: `
             if ('serviceWorker' in navigator) {
