@@ -58,28 +58,55 @@ export default function LandingPage() {
         .lp-nav-link:hover { color: #fff; }
         .lp-footer-link { font-size: 12px; color: #555; text-decoration: none; transition: color 0.15s; }
         .lp-footer-link:hover { color: #999; }
+
+        @media (max-width: 640px) {
+          .lp-nav { padding: 16px 20px !important; }
+          .lp-nav-como { display: none !important; }
+          .lp-nav-links { gap: 12px !important; }
+          .lp-hero-content {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+            padding-top: 72px !important;
+            max-width: 100% !important;
+          }
+          .lp-dots-wrap { left: 20px !important; }
+          .lp-slide-lbl { display: none !important; }
+          .lp-ticker {
+            padding: 10px 20px !important;
+            justify-content: flex-start !important;
+            gap: 4px 14px !important;
+          }
+          .lp-section-how { padding: 52px 20px !important; }
+          .lp-section-cta { padding: 60px 20px !important; }
+          .lp-footer-wrap {
+            padding: 24px 20px !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+          }
+        }
       `}</style>
 
       {/* ── HERO ── */}
       <div style={{ position: 'relative', height: '100vh', minHeight: 600, overflow: 'hidden' }}>
 
         {/* NAV */}
-        <nav style={{
+        <nav className="lp-nav" style={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '24px 48px',
         }}>
-          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '2px', color: '#fff' }}>
+          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '2px', color: '#fff', flexShrink: 0 }}>
             MTB FORECASTER
           </span>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-            <a href="#como-funciona" className="lp-nav-link">Como funciona</a>
+          <div className="lp-nav-links" style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+            <a href="#como-funciona" className="lp-nav-link lp-nav-como">Como funciona</a>
             <Link href="/login" className="lp-nav-link">Entrar</Link>
             <Link href="/cadastro" style={{
               background: '#FFE000', color: '#111',
               fontSize: 12, fontWeight: 700,
               padding: '9px 20px', borderRadius: 4,
-              textDecoration: 'none',
+              textDecoration: 'none', whiteSpace: 'nowrap',
             }}>
               Criar conta
             </Link>
@@ -105,10 +132,11 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.58)' }} />
 
         {/* CONTENT */}
-        <div style={{
+        <div className="lp-hero-content" style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          padding: '0 48px', paddingTop: 80, maxWidth: 680,
+          paddingLeft: 48, paddingRight: 48, paddingTop: 80, paddingBottom: 0,
+          maxWidth: 680,
         }}>
           <p style={{
             fontSize: 10, fontWeight: 700, letterSpacing: '3px',
@@ -117,14 +145,14 @@ export default function LandingPage() {
             MTB · EMTB · XC · MOTO · RUN
           </p>
           <h1 style={{
-            fontSize: 'clamp(40px, 6vw, 64px)', fontWeight: 800,
-            lineHeight: 1.0, color: '#fff', letterSpacing: '-1px', marginBottom: 18,
+            fontSize: 'clamp(36px, 6vw, 64px)', fontWeight: 800,
+            lineHeight: 1.05, color: '#fff', letterSpacing: '-1px', marginBottom: 16,
           }}>
             Saiba antes<br />de <span style={{ color: '#FFE000' }}>pedalar.</span>
           </h1>
           <p style={{
             fontSize: 15, color: 'rgba(255,255,255,0.7)',
-            lineHeight: 1.6, maxWidth: 400, marginBottom: 36,
+            lineHeight: 1.6, maxWidth: 400, marginBottom: 32,
           }}>
             Condições de solo em tempo real para trilhas e atividades outdoor. Modelos meteorológicos e dados de campo para um veredicto confiável.
           </p>
@@ -133,6 +161,7 @@ export default function LandingPage() {
               background: '#FFE000', color: '#111',
               fontSize: 14, fontWeight: 700,
               padding: '14px 32px', borderRadius: 4, textDecoration: 'none',
+              whiteSpace: 'nowrap',
             }}>
               Criar conta grátis
             </Link>
@@ -142,6 +171,7 @@ export default function LandingPage() {
               padding: '14px 32px', borderRadius: 4,
               border: '1px solid rgba(255,255,255,0.3)',
               textDecoration: 'none',
+              whiteSpace: 'nowrap',
             }}>
               Já tenho conta
             </Link>
@@ -149,7 +179,7 @@ export default function LandingPage() {
         </div>
 
         {/* DOTS */}
-        <div id="lp-dots" style={{
+        <div id="lp-dots" className="lp-dots-wrap" style={{
           position: 'absolute', bottom: 28, left: 48,
           display: 'flex', gap: 8, zIndex: 5,
         }}>
@@ -159,7 +189,7 @@ export default function LandingPage() {
         </div>
 
         {/* SLIDE LABEL */}
-        <p id="lp-slide-label" style={{
+        <p id="lp-slide-label" className="lp-slide-lbl" style={{
           position: 'absolute', bottom: 24, right: 48,
           fontSize: 10, letterSpacing: '2px',
           color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', zIndex: 5,
@@ -169,7 +199,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── TICKER ── */}
-      <div style={{
+      <div className="lp-ticker" style={{
         background: '#FFE000', padding: '11px 48px',
         display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
       }}>
@@ -179,7 +209,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── COMO FUNCIONA ── */}
-      <div id="como-funciona" style={{ background: '#fff', padding: '80px 48px' }}>
+      <div id="como-funciona" className="lp-section-how" style={{ background: '#fff', padding: '80px 48px' }}>
         <p style={{
           fontSize: 10, fontWeight: 700, letterSpacing: '3px',
           color: '#888', textTransform: 'uppercase',
@@ -217,7 +247,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── CTA FINAL ── */}
-      <div style={{
+      <div className="lp-section-cta" style={{
         background: '#111', padding: '100px 48px',
         textAlign: 'center', borderTop: '1px solid #1E1E1E',
       }}>
@@ -247,7 +277,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── FOOTER ── */}
-      <div style={{
+      <div className="lp-footer-wrap" style={{
         background: '#0A0A0A', padding: '32px 48px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderTop: '1px solid #1E1E1E', flexWrap: 'wrap', gap: 16,
