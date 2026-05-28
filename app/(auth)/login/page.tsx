@@ -71,8 +71,7 @@ function LoginForm() {
       setError('E-mail ou senha inválidos. Tente novamente.')
       setLoading(false)
     } else {
-      router.push('/dashboard')
-      router.refresh()
+      window.location.href = '/dashboard'
     }
   }
 
