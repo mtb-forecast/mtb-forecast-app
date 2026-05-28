@@ -8,15 +8,23 @@ import 'leaflet/dist/leaflet.css'
 
 type TrilhaComCondicao = Trilha & { condicoes?: Condicao[] }
 
+const STALE_HOURS = 36
+
+function isStale(condicao: Condicao | undefined): boolean {
+  if (!condicao) return true
+  const diffHours = (Date.now() - new Date(condicao.gerado_em).getTime()) / 3_600_000
+  return diffHours > STALE_HOURS
+}
+
 function getVeredictoColor(veredicto: string | undefined): string {
-  if (!veredicto) return '#888'
+  if (!veredicto) return '#999'
   if (veredicto.includes('DROP LIBERADO') && !veredicto.includes('alerta')) return '#16a34a'
   if (veredicto.includes('ATENÇÃO') || veredicto.includes('alerta')) return '#d97706'
   return '#dc2626'
 }
 
 function getVeredictoLabel(veredicto: string | undefined): string {
-  if (!veredicto) return 'Sem dados'
+  if (!veredicto) return 'Sem atualização'
   if (veredicto.includes('DROP LIBERADO') && !veredicto.includes('alerta')) return 'DROP LIBERADO'
   if (veredicto.includes('ATENÇÃO') || veredicto.includes('alerta')) return 'ATENÇÃO'
   return 'MELHOR ESPERAR'
@@ -102,7 +110,8 @@ export default function MapaPage() {
 
       trilhas.forEach((trilha) => {
         const condicao = trilha.condicoes?.[0]
-        const veredicto = condicao?.veredicto_12h || condicao?.veredicto
+        const stale = isStale(condicao)
+        const veredicto = stale ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
         const cor = getVeredictoColor(veredicto)
         const label = getVeredictoLabel(veredicto)
 
@@ -114,6 +123,7 @@ export default function MapaPage() {
             transform:rotate(-45deg);
             border:2.5px solid #fff;
             box-shadow:0 2px 6px rgba(0,0,0,0.3);
+            opacity:${stale ? '0.55' : '1'};
           "></div>`,
           className: '',
           iconSize: [28, 28],
@@ -121,30 +131,52 @@ export default function MapaPage() {
           popupAnchor: [0, -30],
         })
 
-        const popup = L.popup({ maxWidth: 220, minWidth: 180 }).setContent(`
-          <div style="font-family:Inter,sans-serif;padding:4px 0;">
-            <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
-              ${trilha.name}
-            </p>
-            <span style="
-              display:inline-block;
-              background:${cor}22;color:${cor};
-              font-size:10px;font-weight:700;
-              border-radius:4px;padding:2px 8px;
-              margin-bottom:8px;
-            ">${label}</span>
-            ${condicao ? `
-              <p style="margin:0 0 8px;font-size:11px;color:#666;">
-                ${condicao.acumulo_48h?.toFixed(1) ?? '—'}mm chuva 48h
-                · últ. ${condicao.ultima_chuva_h != null ? condicao.ultima_chuva_h + 'h atrás' : '—'}
+        const popupContent = stale
+          ? `
+            <div style="font-family:Inter,sans-serif;padding:4px 0;">
+              <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
+                ${trilha.name}
               </p>
-            ` : ''}
-            <a href="/trilhas/${trilha.id}" style="
-              font-size:11px;font-weight:600;color:#1A1A1A;
-              text-decoration:none;display:inline-flex;align-items:center;gap:4px;
-            ">Ver detalhes →</a>
-          </div>
-        `)
+              <span style="
+                display:inline-block;
+                background:#f3f4f6;color:#6b7280;
+                font-size:10px;font-weight:700;
+                border-radius:4px;padding:2px 8px;
+                margin-bottom:8px;
+              ">SEM ATUALIZAÇÃO</span>
+              <p style="margin:0 0 10px;font-size:11px;color:#6b7280;line-height:1.5;">
+                ⭐ Favoritar esta trilha para receber atualizações diárias.
+              </p>
+              <a href="/trilhas/${trilha.id}" style="
+                font-size:11px;font-weight:600;color:#1A1A1A;
+                text-decoration:none;display:inline-flex;align-items:center;gap:4px;
+              ">Ver trilha →</a>
+            </div>
+          `
+          : `
+            <div style="font-family:Inter,sans-serif;padding:4px 0;">
+              <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
+                ${trilha.name}
+              </p>
+              <span style="
+                display:inline-block;
+                background:${cor}22;color:${cor};
+                font-size:10px;font-weight:700;
+                border-radius:4px;padding:2px 8px;
+                margin-bottom:8px;
+              ">${label}</span>
+              <p style="margin:0 0 8px;font-size:11px;color:#666;">
+                ${condicao!.acumulo_48h?.toFixed(1) ?? '—'}mm chuva 48h
+                · últ. ${condicao!.ultima_chuva_h != null ? condicao!.ultima_chuva_h + 'h atrás' : '—'}
+              </p>
+              <a href="/trilhas/${trilha.id}" style="
+                font-size:11px;font-weight:600;color:#1A1A1A;
+                text-decoration:none;display:inline-flex;align-items:center;gap:4px;
+              ">Ver detalhes →</a>
+            </div>
+          `
+
+        const popup = L.popup({ maxWidth: 220, minWidth: 180 }).setContent(popupContent)
 
         L.marker([trilha.lat, trilha.lon], { icon: pinIcon })
           .addTo(map)
@@ -211,7 +243,7 @@ export default function MapaPage() {
           { cor: '#16a34a', label: 'DROP LIBERADO' },
           { cor: '#d97706', label: 'ATENÇÃO' },
           { cor: '#dc2626', label: 'MELHOR ESPERAR' },
-          { cor: '#888',    label: 'Sem dados' },
+          { cor: '#999',    label: 'Sem atualização' },
         ].map(({ cor, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
             <div style={{
