@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mtb-forecaster-v2'
+const CACHE_NAME = 'mtb-forecaster-v3'
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon-192.png',
@@ -25,19 +25,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
-  // Deixa pass-through: auth, API, e qualquer navegação (document)
-  if (
-    url.pathname.startsWith('/auth/') ||
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/login') ||
-    url.pathname.startsWith('/dashboard') ||
-    event.request.mode === 'navigate' ||
-    event.request.destination === 'document'
-  ) {
-    return
-  }
+  // Só cacheamos assets estáticos do mesmo origin
+  if (url.origin !== self.location.origin) return
 
-  // Cache-first apenas para assets estáticos
+  const isStaticAsset =
+    url.pathname.startsWith('/icons/') ||
+    url.pathname === '/manifest.json'
+
+  if (!isStaticAsset) return
+
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   )
