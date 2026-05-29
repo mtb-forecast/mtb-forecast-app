@@ -3,11 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import type { Trilha, Condicao } from '@/lib/types'
+import type { Condicao } from '@/lib/types'
 import 'leaflet/dist/leaflet.css'
 
-type TrilhaComCondicao = Trilha & {
-  condicoes?: Condicao[]
+type TrilhaMapData = {
+  id: string
+  name: string
+  lat: number
+  lon: number
+  condicoes?: Pick<Condicao, 'veredicto' | 'veredicto_12h' | 'acumulo_48h' | 'ultima_chuva_h'>[]
   favoritos?: { id: string }[]
 }
 
@@ -54,8 +58,8 @@ export default function MapaPage() {
 
       if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
 
-      const trilhas: TrilhaComCondicao[] = (trilhasData || []).filter(
-        (t: TrilhaComCondicao) => t.lat && t.lon
+      const trilhas: TrilhaMapData[] = (trilhasData || []).filter(
+        (t: TrilhaMapData) => t.lat && t.lon
       )
 
       setLoading(false)
@@ -67,7 +71,7 @@ export default function MapaPage() {
   }, [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function buildMap(trilhas: TrilhaComCondicao[], L: any) {
+  function buildMap(trilhas: TrilhaMapData[], L: any) {
     if (!mapRef.current || leafletRef.current) return
 
     const defaultCenter: [number, number] = [-23.5505, -46.6333]
