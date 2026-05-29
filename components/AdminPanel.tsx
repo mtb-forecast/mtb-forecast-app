@@ -94,7 +94,8 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
 
   function canAprovar(trilha: TrilhaPendente): boolean {
     const m = merged(trilha)
-    return !!(m.solo_type && m.exposicao && m.trail_type && m.regiao && m.altitude_m != null)
+    return !!(m.solo_type && m.exposicao && m.trail_type && m.regiao &&
+      m.altitude_m != null && isFinite(Number(m.altitude_m)))
   }
 
   async function handleAprovar(trilha: TrilhaPendente) {
@@ -228,7 +229,10 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                       type="number"
                       placeholder="Ex: 850"
                       value={m.altitude_m ?? ''}
-                      onChange={e => setField(trilha.id, 'altitude_m', e.target.value === '' ? null : +e.target.value)}
+                      onChange={e => {
+                        const num = parseFloat(e.target.value)
+                        setField(trilha.id, 'altitude_m', e.target.value === '' ? null : (isFinite(num) ? num : null))
+                      }}
                       style={inputSm}
                     />
                   </div>
