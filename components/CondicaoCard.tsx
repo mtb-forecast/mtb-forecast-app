@@ -34,8 +34,11 @@ function aderenciaBadge(a: string): { bg: string; color: string } {
 }
 
 function recalcularSolo(condicao: Condicao) {
-  const agora       = new Date()
-  const geradoEm    = new Date(condicao.gerado_em)
+  const agora    = new Date()
+  const geradoEm = new Date(condicao.gerado_em)
+  if (isNaN(geradoEm.getTime())) {
+    return { driftHoras: 0, acumuloAgora: 0, ultimaChuvaH: condicao.ultima_chuva_h ?? 0, horasParaGrip: 0, temChuvaFutura: false, trilhaSecaEmAgora: 0 }
+  }
   const driftHoras  = (agora.getTime() - geradoEm.getTime()) / 3600000
   const meiaVida    = condicao.meia_vida_h ?? 24
   const acumuloBase = condicao.acumulo_ef ?? 0
