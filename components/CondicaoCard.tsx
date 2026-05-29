@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { rainColor, windColor, DISPLAY_THR, emojiTempo } from '@/lib/display'
 
@@ -118,7 +119,7 @@ export default function CondicaoCard({ condicao }: Props) {
   const janela      = janelaStyle(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
 
-  const solo = recalcularSolo(condicao)
+  const solo = useMemo(() => recalcularSolo(condicao), [condicao])
   const { driftHoras, acumuloAgora, ultimaChuvaH,
           horasParaGrip, temChuvaFutura, trilhaSecaEmAgora } = solo
 
