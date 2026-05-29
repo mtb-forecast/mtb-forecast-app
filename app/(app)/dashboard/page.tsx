@@ -301,65 +301,62 @@ export default function DashboardPage() {
       if (!user) { router.replace('/login'); return }
       setUserEmail(user.email ?? null)
 
-      const { data: profileData } = await supabase
-        .from('profiles').select('*').eq('id', user.id).single()
+      const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+      const [{ data: profileData }, { data: favIds }, { data: trilhasStrava }, { data: avaliacoes48h }] =
+        await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).single(),
+          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+          supabase.from('trilhas_pessoais').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('observacoes_trilha').select('trilha_id, strava_segment_id, estrelas, created_at').gte('created_at', h48atras),
+        ])
+
       setProfile(profileData)
 
-      const { data: favIds } = await supabase
-        .from('favoritos').select('trilha_id').eq('user_id', user.id)
+      const [trilhasResult, trilhasComCondicao] = await Promise.all([
+        favIds && favIds.length > 0
+          ? supabase
+              .from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)`)
+              .in('id', favIds.map((f: { trilha_id: string }) => f.trilha_id)).eq('aprovada', true)
+              .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+              .order('bloco', { foreignTable: 'previsao_blocos' })
+          : Promise.resolve({ data: null }),
+        Promise.all(
+          (trilhasStrava || []).map(async (t: TrilhaPessoalComCondicao) => {
+            const { data: cond } = await supabase
+              .from('condicoes_strava')
+              .select(`aderencia_status, aderencia_score, veredicto, veredicto_12h,
+                rain_mm, wind_ms, pico_3h, acumulo_48h, acumulo_ef,
+                ultima_chuva_h, meia_vida_h, gust_max_kmh,
+                janela, frase_secagem, solo_descansado, gerado_em`)
+              .eq('strava_segment_id', t.strava_segment_id)
+              .order('gerado_em', { ascending: false })
+              .limit(1).maybeSingle()
+            return { ...t, condicao: cond || null }
+          })
+        ),
+      ])
 
-      if (favIds && favIds.length > 0) {
-        const ids = favIds.map((f: { trilha_id: string }) => f.trilha_id)
-        const { data: trilhas } = await supabase
-          .from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)`)
-          .in('id', ids).eq('aprovada', true)
-          .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-          .order('bloco', { foreignTable: 'previsao_blocos' })
-        if (trilhas) {
-          const mapped = trilhas.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
-            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-            const condicao = arr[0] ?? undefined
-            const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
-            if (condicao && blocos?.length) condicao.previsao_24h = blocos
-            return { ...t, condicao }
-          })
-          const trilhasOrdenadas = [...mapped].sort((a, b) => {
-            const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
-            const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
-            if (vA !== vB) return vA - vB
-            const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
-            const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
-            return aA - aB
-          })
-          setFavoritas(trilhasOrdenadas)
-        }
+      if (trilhasResult.data) {
+        const mapped = trilhasResult.data.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
+          const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+          const condicao = arr[0] ?? undefined
+          const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
+          if (condicao && blocos?.length) condicao.previsao_24h = blocos
+          return { ...t, condicao }
+        })
+        const trilhasOrdenadas = [...mapped].sort((a, b) => {
+          const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
+          const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
+          if (vA !== vB) return vA - vB
+          const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
+          const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
+          return aA - aB
+        })
+        setFavoritas(trilhasOrdenadas)
       }
 
-      const { data: trilhasStrava } = await supabase
-        .from('trilhas_pessoais').select('*').eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      const trilhasComCondicao = await Promise.all(
-        (trilhasStrava || []).map(async (t: TrilhaPessoalComCondicao) => {
-          const { data: cond } = await supabase
-            .from('condicoes_strava')
-            .select(`aderencia_status, aderencia_score, veredicto, veredicto_12h,
-              rain_mm, wind_ms, pico_3h, acumulo_48h, acumulo_ef,
-              ultima_chuva_h, meia_vida_h, gust_max_kmh,
-              janela, frase_secagem, solo_descansado, gerado_em`)
-            .eq('strava_segment_id', t.strava_segment_id)
-            .order('gerado_em', { ascending: false })
-            .limit(1).maybeSingle()
-          return { ...t, condicao: cond || null }
-        })
-      )
       setStravaTrails(trilhasComCondicao)
-
-      const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-      const { data: avaliacoes48h } = await supabase
-        .from('observacoes_trilha')
-        .select('trilha_id, strava_segment_id, estrelas, created_at')
-        .gte('created_at', h48atras)
 
       const porTrilha: Record<string, { count: number; media: number }> = {}
       const porSegmento: Record<number, { count: number; media: number }> = {}
