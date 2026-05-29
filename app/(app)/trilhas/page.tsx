@@ -1,7 +1,7 @@
 'use client'
 
 import { Barlow_Condensed } from 'next/font/google'
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -155,7 +155,7 @@ function TrilhasContent() {
     router.push(estado ? `/trilhas?estado=${estado}` : '/trilhas', { scroll: false })
   }
 
-  async function toggleFavorito(trilhaId: string) {
+  const toggleFavorito = useCallback(async (trilhaId: string) => {
     if (!userId) return
     if (favoritos.has(trilhaId)) {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
@@ -170,7 +170,7 @@ function TrilhasContent() {
       await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
       setFavoritos(prev => new Set([...prev, trilhaId]))
     }
-  }
+  }, [userId, favoritos, plano, isAdmin])
 
   if (!mounted) return null
 
@@ -458,7 +458,7 @@ function TrilhasContent() {
                   key={t.id}
                   trilha={t}
                   isFavorito={favoritos.has(t.id)}
-                  onToggleFavorito={() => toggleFavorito(t.id)}
+                  onToggleFavorito={toggleFavorito}
                 />
               ))}
             </div>
