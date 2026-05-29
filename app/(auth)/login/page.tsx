@@ -66,12 +66,17 @@ function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError('E-mail ou senha inválidos. Tente novamente.')
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setError('E-mail ou senha inválidos. Tente novamente.')
+        setLoading(false)
+      } else {
+        router.replace('/dashboard')
+      }
+    } catch {
+      setError('Erro inesperado. Tente novamente.')
       setLoading(false)
-    } else {
-      window.location.href = '/dashboard'
     }
   }
 
