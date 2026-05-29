@@ -58,47 +58,51 @@ function TrilhasContent() {
   // Carrega todas as trilhas + estados na montagem
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
-      setUserId(user.id)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.replace('/login'); return }
+        setUserId(user.id)
 
-      const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =
-        await Promise.all([
-          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-          supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
-          supabase
-            .from('trilhas')
-            .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)')
-            .eq('aprovada', true)
-            .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-            .order('bloco', { foreignTable: 'previsao_blocos' })
-            .order('name'),
-          supabase.from('localidades').select('estado').order('estado'),
-        ])
+        const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =
+          await Promise.all([
+            supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+            supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
+            supabase
+              .from('trilhas')
+              .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)')
+              .eq('aprovada', true)
+              .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+              .order('bloco', { foreignTable: 'previsao_blocos' })
+              .order('name'),
+            supabase.from('localidades').select('estado').order('estado'),
+          ])
 
-      if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
-      setPlano(profile?.plano ?? null)
-      setIsAdmin(!!profile?.is_admin)
+        if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
+        setPlano(profile?.plano ?? null)
+        setIsAdmin(!!profile?.is_admin)
 
-      if (trilhasData) {
-        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
-          const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-          const condicao = arr[0] ?? undefined
-          const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
-          if (condicao && blocos?.length) condicao.previsao_24h = blocos
-          return { ...t, condicao }
-        })
-        setTrilhasAll(mapped)
+        if (trilhasData) {
+          const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
+            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+            const condicao = arr[0] ?? undefined
+            const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
+            if (condicao && blocos?.length) condicao.previsao_24h = blocos
+            return { ...t, condicao }
+          })
+          setTrilhasAll(mapped)
+        }
+
+        if (estadosData) {
+          const distinct = [...new Set(
+            estadosData.map((r: { estado: string }) => r.estado).filter(Boolean)
+          )] as string[]
+          setEstados(distinct)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar trilhas:', err)
+      } finally {
+        setLoading(false)
       }
-
-      if (estadosData) {
-        const distinct = [...new Set(
-          estadosData.map((r: { estado: string }) => r.estado).filter(Boolean)
-        )] as string[]
-        setEstados(distinct)
-      }
-
-      setLoading(false)
     }
     init()
   }, [router])
