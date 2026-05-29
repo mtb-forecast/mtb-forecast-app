@@ -86,6 +86,8 @@ export default function SugestaoPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
+      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+      if (!profile?.is_admin) { router.replace('/perfil'); return }
 
       const { data: config } = await supabase
         .from('strava_segmentos_config')

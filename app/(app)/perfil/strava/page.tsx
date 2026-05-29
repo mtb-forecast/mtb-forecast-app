@@ -116,6 +116,8 @@ function StravaPageInner() {
     async function checkExisting() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
+      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
+      if (!profile?.is_admin) { router.replace('/perfil'); return }
       const { count } = await supabase
         .from('trilhas_pessoais').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
       setExistingCount(count ?? 0)
