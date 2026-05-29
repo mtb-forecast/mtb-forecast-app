@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { rainColor, windColor, DISPLAY_THR, emojiTempo } from '@/lib/display'
 
@@ -33,8 +34,11 @@ function aderenciaBadge(a: string): { bg: string; color: string } {
 }
 
 function recalcularSolo(condicao: Condicao) {
-  const agora       = new Date()
-  const geradoEm    = new Date(condicao.gerado_em)
+  const agora    = new Date()
+  const geradoEm = new Date(condicao.gerado_em)
+  if (isNaN(geradoEm.getTime())) {
+    return { driftHoras: 0, acumuloAgora: 0, ultimaChuvaH: condicao.ultima_chuva_h ?? 0, horasParaGrip: 0, temChuvaFutura: false, trilhaSecaEmAgora: 0 }
+  }
   const driftHoras  = (agora.getTime() - geradoEm.getTime()) / 3600000
   const meiaVida    = condicao.meia_vida_h ?? 24
   const acumuloBase = condicao.acumulo_ef ?? 0
@@ -118,7 +122,7 @@ export default function CondicaoCard({ condicao }: Props) {
   const janela      = janelaStyle(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
 
-  const solo = recalcularSolo(condicao)
+  const solo = useMemo(() => recalcularSolo(condicao), [condicao])
   const { driftHoras, acumuloAgora, ultimaChuvaH,
           horasParaGrip, temChuvaFutura, trilhaSecaEmAgora } = solo
 

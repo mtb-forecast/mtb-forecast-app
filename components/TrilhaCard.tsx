@@ -22,7 +22,7 @@ import { rainColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_B
 type Props = {
   trilha: TrilhaComCondicao
   isFavorito?: boolean
-  onToggleFavorito?: () => void
+  onToggleFavorito?: (id: string) => void
 }
 
 function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
@@ -67,7 +67,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
           </h3>
           {onToggleFavorito && (
             <button
-              onClick={e => { e.preventDefault(); onToggleFavorito() }}
+              onClick={e => { e.preventDefault(); onToggleFavorito(trilha.id) }}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: 17, flexShrink: 0, lineHeight: 1, padding: 0,

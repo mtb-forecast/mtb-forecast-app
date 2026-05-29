@@ -67,6 +67,7 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
     async function fetchGeo() {
       for (const t of trilhas) {
         if (cancelled || fetchedGeoRef.current.has(t.id)) continue
+        if (t.lat == null || t.lon == null) continue
         fetchedGeoRef.current.add(t.id)
         try {
           const geo = await geocodeLatLon(t.lat, t.lon)
