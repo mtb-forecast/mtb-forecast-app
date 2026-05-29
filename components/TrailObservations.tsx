@@ -121,7 +121,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
     setObservacoes((obs as unknown as Observacao[]) || [])
     setPodeComentar(isOwner || !!favorito)
     setLoading(false)
-  }, [trilhaId])
+  }, [trilhaId, stravaSegmentId, isOwner])
 
   useEffect(() => { load() }, [load])
 
