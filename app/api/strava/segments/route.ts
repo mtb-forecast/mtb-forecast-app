@@ -1,4 +1,8 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 type StarredSegment = {
   id: number
@@ -16,8 +20,28 @@ type StarredSegment = {
 }
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get('strava_token')?.value
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
+        },
+      },
+    }
+  )
 
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
+  const { data: profile } = await supabase
+    .from('profiles').select('is_admin').eq('id', user.id).single()
+  if (!profile?.is_admin) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+
+  const token = request.cookies.get('strava_token')?.value
   if (!token) {
     return NextResponse.json({ error: 'Token Strava não encontrado. Reconecte o Strava.' }, { status: 401 })
   }
@@ -34,7 +58,6 @@ export async function GET(request: NextRequest) {
 
   const segments = rawSegments.map((s) => {
     const polyline = s.map?.summary_polyline || s.map?.polyline || null
-    console.log('Segment:', s.name, 'summary_polyline length:', s.map?.summary_polyline?.length ?? 0)
     return {
       id: s.id,
       name: s.name,

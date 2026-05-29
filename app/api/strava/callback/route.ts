@@ -1,6 +1,31 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch {}
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.redirect(new URL('/login', request.url))
+
+  const { data: profile } = await supabase
+    .from('profiles').select('is_admin').eq('id', user.id).single()
+  if (!profile?.is_admin) return NextResponse.redirect(new URL('/perfil', request.url))
+
   const code = request.nextUrl.searchParams.get('code')
   const error = request.nextUrl.searchParams.get('error')
 
@@ -8,7 +33,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/perfil?strava_error=1', request.url))
   }
 
-  // Troca code por access_token
   const tokenRes = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -27,14 +51,12 @@ export async function GET(request: NextRequest) {
   const tokenData = await tokenRes.json()
   const accessToken: string = tokenData.access_token
 
-  // Busca segmentos favoritos
   const segRes = await fetch('https://www.strava.com/api/v3/segments/starred?per_page=50', {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
 
   const rawSegments = segRes.ok ? await segRes.json() : []
 
-  // Filtra segmentos relevantes e reduz payload para a URL
   const segments = (Array.isArray(rawSegments) ? rawSegments : [])
     .filter((s: { kom_rank?: number | null; distance?: number }) =>
       s.kom_rank != null || (s.distance ?? 0) > 500
