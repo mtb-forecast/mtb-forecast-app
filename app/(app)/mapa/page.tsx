@@ -38,12 +38,19 @@ export default function MapaPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      const { data: trilhasData, error } = await supabase
-        .from('trilhas')
-        .select('*, condicoes(*), favoritos(id)')
-        .eq('aprovada', true)
-        .order('name', { ascending: true })
-        .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+      const [{ data: trilhasData, error }, L] = await Promise.all([
+        supabase
+          .from('trilhas')
+          .select(`
+            id, name, lat, lon,
+            condicoes(veredicto, veredicto_12h, acumulo_48h, ultima_chuva_h, gerado_em),
+            favoritos(id)
+          `)
+          .eq('aprovada', true)
+          .order('name', { ascending: true })
+          .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
+        import('leaflet'),
+      ])
 
       if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
 
@@ -52,133 +59,130 @@ export default function MapaPage() {
       )
 
       setLoading(false)
-      buildMap(trilhas)
+      buildMap(trilhas, L)
     }
 
     init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function buildMap(trilhas: TrilhaComCondicao[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function buildMap(trilhas: TrilhaComCondicao[], L: any) {
     if (!mapRef.current || leafletRef.current) return
 
-    import('leaflet').then((L) => {
-      if (!mapRef.current || leafletRef.current) return
+    const defaultCenter: [number, number] = [-23.5505, -46.6333]
+    const defaultZoom = 9
 
-      const defaultCenter: [number, number] = [-23.5505, -46.6333]
-      const defaultZoom = 9
+    const map = L.map(mapRef.current, {
+      center: defaultCenter,
+      zoom: defaultZoom,
+      zoomControl: true,
+    })
+    leafletRef.current = map
 
-      const map = L.map(mapRef.current, {
-        center: defaultCenter,
-        zoom: defaultZoom,
-        zoomControl: true,
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map)
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords
+          map.setView([latitude, longitude], 10)
+
+          const userIcon = L.divIcon({
+            html: `<div style="
+              width:14px;height:14px;background:#3b82f6;
+              border-radius:50%;border:3px solid #fff;
+              box-shadow:0 0 0 4px rgba(59,130,246,0.25);
+            "></div>`,
+            className: '',
+            iconSize: [14, 14],
+            iconAnchor: [7, 7],
+          })
+          L.marker([latitude, longitude], { icon: userIcon })
+            .addTo(map)
+            .bindPopup('<strong>Você está aqui</strong>')
+        },
+        () => {}
+      )
+    }
+
+    trilhas.forEach((trilha) => {
+      const condicao = trilha.condicoes?.[0]
+      const hasFavorito = (trilha.favoritos?.length ?? 0) > 0
+      const inactive = !hasFavorito || !condicao
+      const veredicto = inactive ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
+      const cor = getVeredictoColor(veredicto)
+      const label = getVeredictoLabel(veredicto)
+
+      const pinIcon = L.divIcon({
+        html: `<div style="
+          width:28px;height:28px;
+          background:${cor};
+          border-radius:50% 50% 50% 0;
+          transform:rotate(-45deg);
+          border:2.5px solid #fff;
+          box-shadow:0 2px 6px rgba(0,0,0,0.3);
+          opacity:${inactive ? '0.55' : '1'};
+        "></div>`,
+        className: '',
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -30],
       })
-      leafletRef.current = map
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map)
+      const popupContent = inactive
+        ? `
+          <div style="font-family:Inter,sans-serif;padding:4px 0;">
+            <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
+              ${trilha.name}
+            </p>
+            <span style="
+              display:inline-block;
+              background:#f3f4f6;color:#6b7280;
+              font-size:10px;font-weight:700;
+              border-radius:4px;padding:2px 8px;
+              margin-bottom:8px;
+            ">SEM ATUALIZAÇÃO</span>
+            <p style="margin:0 0 10px;font-size:11px;color:#6b7280;line-height:1.5;">
+              ⭐ Favoritar esta trilha para receber atualizações diárias.
+            </p>
+            <a href="/trilhas/${trilha.id}" style="
+              font-size:11px;font-weight:600;color:#1A1A1A;
+              text-decoration:none;display:inline-flex;align-items:center;gap:4px;
+            ">Ver trilha →</a>
+          </div>
+        `
+        : `
+          <div style="font-family:Inter,sans-serif;padding:4px 0;">
+            <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
+              ${trilha.name}
+            </p>
+            <span style="
+              display:inline-block;
+              background:${cor}22;color:${cor};
+              font-size:10px;font-weight:700;
+              border-radius:4px;padding:2px 8px;
+              margin-bottom:8px;
+            ">${label}</span>
+            <p style="margin:0 0 8px;font-size:11px;color:#666;">
+              ${condicao!.acumulo_48h?.toFixed(1) ?? '—'}mm chuva 48h
+              · últ. ${condicao!.ultima_chuva_h != null ? condicao!.ultima_chuva_h + 'h atrás' : '—'}
+            </p>
+            <a href="/trilhas/${trilha.id}" style="
+              font-size:11px;font-weight:600;color:#1A1A1A;
+              text-decoration:none;display:inline-flex;align-items:center;gap:4px;
+            ">Ver detalhes →</a>
+          </div>
+        `
 
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const { latitude, longitude } = pos.coords
-            map.setView([latitude, longitude], 10)
+      const popup = L.popup({ maxWidth: 220, minWidth: 180 }).setContent(popupContent)
 
-            const userIcon = L.divIcon({
-              html: `<div style="
-                width:14px;height:14px;background:#3b82f6;
-                border-radius:50%;border:3px solid #fff;
-                box-shadow:0 0 0 4px rgba(59,130,246,0.25);
-              "></div>`,
-              className: '',
-              iconSize: [14, 14],
-              iconAnchor: [7, 7],
-            })
-            L.marker([latitude, longitude], { icon: userIcon })
-              .addTo(map)
-              .bindPopup('<strong>Você está aqui</strong>')
-          },
-          () => {}
-        )
-      }
-
-      trilhas.forEach((trilha) => {
-        const condicao = trilha.condicoes?.[0]
-        const hasFavorito = (trilha.favoritos?.length ?? 0) > 0
-        const inactive = !hasFavorito || !condicao
-        const veredicto = inactive ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
-        const cor = getVeredictoColor(veredicto)
-        const label = getVeredictoLabel(veredicto)
-
-        const pinIcon = L.divIcon({
-          html: `<div style="
-            width:28px;height:28px;
-            background:${cor};
-            border-radius:50% 50% 50% 0;
-            transform:rotate(-45deg);
-            border:2.5px solid #fff;
-            box-shadow:0 2px 6px rgba(0,0,0,0.3);
-            opacity:${inactive ? '0.55' : '1'};
-          "></div>`,
-          className: '',
-          iconSize: [28, 28],
-          iconAnchor: [14, 28],
-          popupAnchor: [0, -30],
-        })
-
-        const popupContent = inactive
-          ? `
-            <div style="font-family:Inter,sans-serif;padding:4px 0;">
-              <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
-                ${trilha.name}
-              </p>
-              <span style="
-                display:inline-block;
-                background:#f3f4f6;color:#6b7280;
-                font-size:10px;font-weight:700;
-                border-radius:4px;padding:2px 8px;
-                margin-bottom:8px;
-              ">SEM ATUALIZAÇÃO</span>
-              <p style="margin:0 0 10px;font-size:11px;color:#6b7280;line-height:1.5;">
-                ⭐ Favoritar esta trilha para receber atualizações diárias.
-              </p>
-              <a href="/trilhas/${trilha.id}" style="
-                font-size:11px;font-weight:600;color:#1A1A1A;
-                text-decoration:none;display:inline-flex;align-items:center;gap:4px;
-              ">Ver trilha →</a>
-            </div>
-          `
-          : `
-            <div style="font-family:Inter,sans-serif;padding:4px 0;">
-              <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
-                ${trilha.name}
-              </p>
-              <span style="
-                display:inline-block;
-                background:${cor}22;color:${cor};
-                font-size:10px;font-weight:700;
-                border-radius:4px;padding:2px 8px;
-                margin-bottom:8px;
-              ">${label}</span>
-              <p style="margin:0 0 8px;font-size:11px;color:#666;">
-                ${condicao!.acumulo_48h?.toFixed(1) ?? '—'}mm chuva 48h
-                · últ. ${condicao!.ultima_chuva_h != null ? condicao!.ultima_chuva_h + 'h atrás' : '—'}
-              </p>
-              <a href="/trilhas/${trilha.id}" style="
-                font-size:11px;font-weight:600;color:#1A1A1A;
-                text-decoration:none;display:inline-flex;align-items:center;gap:4px;
-              ">Ver detalhes →</a>
-            </div>
-          `
-
-        const popup = L.popup({ maxWidth: 220, minWidth: 180 }).setContent(popupContent)
-
-        L.marker([trilha.lat, trilha.lon], { icon: pinIcon })
-          .addTo(map)
-          .bindPopup(popup)
-      })
+      L.marker([trilha.lat, trilha.lon], { icon: pinIcon })
+        .addTo(map)
+        .bindPopup(popup)
     })
   }
 
