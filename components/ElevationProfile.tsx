@@ -1,3 +1,5 @@
+import Image from 'next/image'
+
 type Props = {
   elevationProfileUrl: string | null
   desnivel_m?: number | null
@@ -20,12 +22,15 @@ export default function ElevationProfile({ elevationProfileUrl, desnivel_m, exte
   return (
     <div style={{ borderRadius: 8, overflow: 'hidden', background: '#f8fafc', border: '1px solid rgba(0,0,0,0.08)' }}>
       {elevationProfileUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={elevationProfileUrl}
-          alt="Perfil de elevação"
-          style={{ width: '100%', height: 90, objectFit: 'cover', display: 'block', opacity: 0.9 }}
-        />
+        <div style={{ position: 'relative', width: '100%', height: 90 }}>
+          <Image
+            src={elevationProfileUrl}
+            alt="Perfil de elevação"
+            fill
+            sizes="(max-width: 768px) 100vw, 600px"
+            style={{ objectFit: 'cover', opacity: 0.9 }}
+          />
+        </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'space-around', padding: '8px 16px' }}>
         <Stat label="Desnível" value={desnivel_m != null ? `${Math.round(desnivel_m)}m` : '—'} />
