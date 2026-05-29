@@ -211,8 +211,7 @@ function TrilhasContent() {
         .trilhas-input:focus  { border-color: #FFE000 !important; box-shadow: 0 0 0 2px rgba(255,224,0,0.2) !important; }
         @media (max-width: 640px) {
           .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
-          .trilhas-strava-banner { flex-direction: column !important; gap: 16px !important; }
-          .trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
+.trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
           .trilhas-header-actions a { justify-content: center !important; }
           .trilhas-filtros { flex-direction: column !important; }
           .trilhas-filtros select, .trilhas-filtros input { width: 100% !important; }
@@ -243,21 +242,6 @@ function TrilhasContent() {
           </div>
 
           <div className="trilhas-header-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a
-              href="/api/strava/auth"
-              style={{
-                background: '#FC4C02', color: '#FFFFFF',
-                borderRadius: 8, padding: '10px 20px',
-                fontSize: 13, fontWeight: 500,
-                display: 'flex', alignItems: 'center', gap: 8,
-                textDecoration: 'none', whiteSpace: 'nowrap',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-              </svg>
-              Conectar com Strava
-            </a>
             <Link
               href="/trilhas/cadastrar"
               style={{
@@ -378,7 +362,6 @@ function TrilhasContent() {
               {[
                 { icon: 'ti-map-2',        color: '#FFE000', title: 'Selecione seu estado',   text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
                 { icon: 'ti-star',         color: '#FFE000', title: 'Favorite suas trilhas',  text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
-                { icon: 'ti-brand-strava', color: '#FC4C02', title: 'Importe do Strava',      text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
                 { icon: 'ti-message-star', color: '#FFE000', title: 'Avalie as trilhas',      text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
               ].map(({ icon, color, title, text }) => (
                 <div
@@ -392,32 +375,6 @@ function TrilhasContent() {
               ))}
             </div>
 
-            <div
-              className="trilhas-strava-banner"
-              style={{
-                background: 'rgba(252,76,2,0.08)', border: '1px solid #FC4C02',
-                borderRadius: 8, padding: '20px 24px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <i className="ti ti-brand-strava" style={{ fontSize: 24, color: '#FC4C02', marginTop: 2, flexShrink: 0 }} />
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: '#111', margin: '0 0 4px' }}>Monitore suas trilhas do Strava</p>
-                  <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Importe segmentos favoritos e receba condições diárias</p>
-                </div>
-              </div>
-              <a
-                href="/perfil/strava"
-                style={{
-                  background: '#FC4C02', color: '#FFFFFF', borderRadius: 8,
-                  padding: '8px 16px', fontSize: 13, fontWeight: 500,
-                  textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-                }}
-              >
-                Conectar com Strava
-              </a>
-            </div>
           </>
         )}
 
