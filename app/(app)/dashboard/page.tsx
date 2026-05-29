@@ -291,7 +291,7 @@ export default function DashboardPage() {
   const [favoritas, setFavoritas] = useState<TrilhaComCondicao[]>([])
   const [stravaTrails, setStravaTrails] = useState<TrilhaPessoalComCondicao[]>([])
   const [avaliacoesPorTrilha, setAvaliacoesPorTrilha] = useState<Record<string, { count: number; media: number }>>({})
-  const [avaliacoesPorSegmento, setAvaliacoesPorSegmento] = useState<Record<number, { count: number; media: number }>>({})
+  const [avaliacoesPorSegmento, setAvaliacoesPorSegmento] = useState<Record<string, { count: number; media: number }>>({})
   const [loading, setLoading] = useState(true)
   const [selecionadas, setSelecionadas] = useState<string[]>([])
 
@@ -359,7 +359,7 @@ export default function DashboardPage() {
       setStravaTrails(trilhasComCondicao)
 
       const porTrilha: Record<string, { count: number; media: number }> = {}
-      const porSegmento: Record<number, { count: number; media: number }> = {}
+      const porSegmento: Record<string, { count: number; media: number }> = {}
       for (const av of avaliacoes48h || []) {
         if (av.trilha_id) {
           if (!porTrilha[av.trilha_id]) porTrilha[av.trilha_id] = { count: 0, media: 0 }
@@ -367,9 +367,10 @@ export default function DashboardPage() {
           porTrilha[av.trilha_id].media += av.estrelas
         }
         if (av.strava_segment_id) {
-          if (!porSegmento[av.strava_segment_id]) porSegmento[av.strava_segment_id] = { count: 0, media: 0 }
-          porSegmento[av.strava_segment_id].count++
-          porSegmento[av.strava_segment_id].media += av.estrelas
+          const segKey = String(av.strava_segment_id)
+          if (!porSegmento[segKey]) porSegmento[segKey] = { count: 0, media: 0 }
+          porSegmento[segKey].count++
+          porSegmento[segKey].media += av.estrelas
         }
       }
       Object.values(porTrilha).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
@@ -581,7 +582,7 @@ export default function DashboardPage() {
                 <StravaCardItem
                   key={t.id}
                   t={t}
-                  avaliacao={avaliacoesPorSegmento[t.strava_segment_id]}
+                  avaliacao={avaliacoesPorSegmento[String(t.strava_segment_id)]}
                 />
               ))}
             </div>
