@@ -80,9 +80,10 @@ export default function DashboardPage() {
         : { data: null }
 
       if (trilhasData) {
-        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mapped = (trilhasData as any[]).map((t) => {
           const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-          return { ...t, condicao: arr[0] ?? undefined }
+          return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
         })
         const trilhasOrdenadas = [...mapped].sort((a, b) => {
           const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99

@@ -90,9 +90,10 @@ function TrilhasContent() {
         setIsAdmin(!!profile?.is_admin)
 
         if (trilhasData) {
-          const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mapped = (trilhasData as any[]).map((t) => {
             const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-            return { ...t, condicao: arr[0] ?? undefined }
+            return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
           })
           setTrilhasAll(mapped)
         }
