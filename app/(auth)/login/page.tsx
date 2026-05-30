@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 function GoogleIcon() {
@@ -17,12 +17,12 @@ function GoogleIcon() {
 }
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [showForgot, setShowForgot] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
@@ -44,6 +44,19 @@ function LoginForm() {
       setForgotSent(true)
     }
   }
+
+  // Navigate only after onAuthStateChange confirms the session is stored in cookies.
+  // This avoids the race condition where middleware redirects back to /login
+  // because window.location.href fired before cookie persistence completed.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current)
+        window.location.href = '/dashboard'
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   useEffect(() => {
     const err = searchParams.get('error')
@@ -67,23 +80,22 @@ function LoginForm() {
     setLoading(true)
     setError(null)
 
-    // Safety net: if navigation hangs for 10s, unlock the button
-    const safetyTimer = setTimeout(() => {
+    // 30s timeout covers slow connections; navigation itself is handled by onAuthStateChange
+    safetyTimerRef.current = setTimeout(() => {
       setLoading(false)
-      setError('A navegação demorou muito. Tente novamente ou recarregue a página.')
-    }, 10000)
+      setError('A conexão demorou muito. Verifique sua internet e tente novamente.')
+    }, 30000)
 
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      clearTimeout(safetyTimer)
       if (error) {
+        if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current)
         setError('E-mail ou senha inválidos. Tente novamente.')
         setLoading(false)
-      } else {
-        window.location.href = '/dashboard'
       }
+      // On success: onAuthStateChange fires SIGNED_IN → navigates to /dashboard
     } catch {
-      clearTimeout(safetyTimer)
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current)
       setError('Erro inesperado. Tente novamente.')
       setLoading(false)
     }
