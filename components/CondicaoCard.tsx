@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { rainColor, windColor, DISPLAY_THR, emojiTempo } from '@/lib/display'
 
@@ -115,7 +115,7 @@ const DIV: React.CSSProperties = { borderTop: '0.5px solid #E5E7EB' }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function CondicaoCard({ condicao }: Props) {
+function CondicaoCard({ condicao }: Props) {
   const veredictoDisplay = condicao.veredicto_12h?.trim() || condicao.veredicto
   const has12h      = !!condicao.veredicto_12h?.trim()
   const badge       = verdictBadge(veredictoDisplay)
@@ -478,3 +478,5 @@ export default function CondicaoCard({ condicao }: Props) {
     </div>
   )
 }
+
+export default memo(CondicaoCard)
