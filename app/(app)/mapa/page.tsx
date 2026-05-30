@@ -12,7 +12,6 @@ type TrilhaMapData = {
   lat: number
   lon: number
   condicoes?: Pick<Condicao, 'veredicto' | 'veredicto_12h' | 'acumulo_48h' | 'ultima_chuva_h'>[]
-  favoritos?: { id: string }[]
 }
 
 function getVeredictoColor(veredicto: string | undefined): string {
@@ -42,28 +41,29 @@ export default function MapaPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      const [{ data: trilhasData, error }, L] = await Promise.all([
+      const [{ data: trilhasData, error }, { data: favData }, L] = await Promise.all([
         supabase
           .from('trilhas')
           .select(`
             id, name, lat, lon,
-            condicoes(veredicto, veredicto_12h, acumulo_48h, ultima_chuva_h, gerado_em),
-            favoritos(id)
+            condicoes(veredicto, veredicto_12h, acumulo_48h, ultima_chuva_h)
           `)
           .eq('aprovada', true)
+          .not('lat', 'is', null)
+          .not('lon', 'is', null)
           .order('name', { ascending: true })
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
+        supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
         import('leaflet'),
       ])
 
       if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
 
-      const trilhas: TrilhaMapData[] = (trilhasData || []).filter(
-        (t: TrilhaMapData) => t.lat && t.lon
-      )
+      const favoritedIds = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
+      const trilhas: TrilhaMapData[] = trilhasData || []
 
       setLoading(false)
-      buildMap(trilhas, L)
+      buildMap(trilhas, L, favoritedIds)
     }
 
     init()
@@ -71,7 +71,7 @@ export default function MapaPage() {
   }, [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function buildMap(trilhas: TrilhaMapData[], L: any) {
+  function buildMap(trilhas: TrilhaMapData[], L: any, favoritedIds: Set<string>) {
     if (!mapRef.current || leafletRef.current) return
 
     const defaultCenter: [number, number] = [-23.5505, -46.6333]
@@ -115,7 +115,7 @@ export default function MapaPage() {
 
     trilhas.forEach((trilha) => {
       const condicao = trilha.condicoes?.[0]
-      const hasFavorito = (trilha.favoritos?.length ?? 0) > 0
+      const hasFavorito = favoritedIds.has(trilha.id)
       const inactive = !hasFavorito || !condicao
       const veredicto = inactive ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
       const cor = getVeredictoColor(veredicto)
