@@ -216,7 +216,24 @@ export default function DashboardPage() {
       )}
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Blurred trail background */}
+        <div style={{
+          position: 'absolute', inset: '-20px',
+          backgroundImage: 'url(/bg-trail.jpg)',
+          backgroundSize: 'cover', backgroundPosition: 'center 40%',
+          filter: 'blur(14px)',
+          opacity: 0.13,
+          zIndex: 0,
+          pointerEvents: 'none',
+        }} />
+        {/* Light overlay to keep cards readable */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(248,249,250,0.82)',
+          zIndex: 1, pointerEvents: 'none',
+        }} />
+      <div style={{ position: 'relative', zIndex: 2, padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -251,7 +268,8 @@ export default function DashboardPage() {
           )}
         </section>
 
-      </div>
+      </div>{/* /zIndex content */}
+      </div>{/* /relative overflow */}
       <PWAInstallPrompt />
     </div>
   )
