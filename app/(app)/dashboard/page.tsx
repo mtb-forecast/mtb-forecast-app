@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
       const [{ data: profileData }, { data: favIds }, { data: avaliacoes48h }] =
         await Promise.all([
-          supabase.from('profiles').select('nome, apelido, telefone, regiao').eq('id', user.id).single(),
+          supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao').eq('id', user.id).single(),
           supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
           supabase.from('observacoes_trilha').select('trilha_id, estrelas, created_at').gte('created_at', h48atras),
         ])
