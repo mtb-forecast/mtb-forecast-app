@@ -1,7 +1,7 @@
 'use client'
 
 import { Barlow_Condensed } from 'next/font/google'
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -174,22 +174,28 @@ function TrilhasContent() {
 
   if (!mounted) return null
 
-  // Filtragem client-side
-  const trilhasFiltradas = trilhasAll.filter(t => {
+  // Filtragem client-side — memoizado para evitar recálculo a cada render
+  const trilhasFiltradas = useMemo(() => trilhasAll.filter(t => {
     if (!estadoSelecionado) return false
     const estadoTrilha = t.localidades?.estado || t.regiao || ''
     if (estadoTrilha !== estadoSelecionado) return false
     if (cidadeSelecionada && t.localidades?.cidade !== cidadeSelecionada) return false
     if (localidadeSelecionada && t.localidades?.localidade !== localidadeSelecionada) return false
     return true
-  })
+  }), [trilhasAll, estadoSelecionado, cidadeSelecionada, localidadeSelecionada])
 
-  const ranked = rankTrilhas(trilhasFiltradas)
-  const filtered = search
-    ? ranked.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-    : ranked
+  const ranked = useMemo(() => rankTrilhas(trilhasFiltradas), [trilhasFiltradas])
 
-  const filtroLabel = [localidadeSelecionada, cidadeSelecionada, estadoSelecionado].filter(Boolean).join(', ')
+  const filtered = useMemo(() =>
+    search
+      ? ranked.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+      : ranked
+  , [ranked, search])
+
+  const filtroLabel = useMemo(
+    () => [localidadeSelecionada, cidadeSelecionada, estadoSelecionado].filter(Boolean).join(', '),
+    [localidadeSelecionada, cidadeSelecionada, estadoSelecionado]
+  )
 
   const fieldBase: React.CSSProperties = {
     boxSizing: 'border-box',
