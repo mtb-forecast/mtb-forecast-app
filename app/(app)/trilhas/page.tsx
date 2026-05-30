@@ -69,10 +69,18 @@ function TrilhasContent() {
             supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
             supabase
               .from('trilhas')
-              .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)')
+              .select(`
+                id, name, bioma, trail_type, regiao,
+                localidades(cidade, estado, localidade),
+                condicoes(
+                  veredicto, veredicto_12h,
+                  aderencia_status, aderencia_futura_status, aderencia_futura_label,
+                  pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+                  texto_dinamico, frase_secagem, janela, gerado_em
+                )
+              `)
               .eq('aprovada', true)
               .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-              .order('bloco', { foreignTable: 'previsao_blocos' })
               .order('name'),
             supabase.from('localidades').select('estado').order('estado'),
           ])
@@ -82,12 +90,9 @@ function TrilhasContent() {
         setIsAdmin(!!profile?.is_admin)
 
         if (trilhasData) {
-          const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
+          const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
             const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-            const condicao = arr[0] ?? undefined
-            const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
-            if (condicao && blocos?.length) condicao.previsao_24h = blocos
-            return { ...t, condicao }
+            return { ...t, condicao: arr[0] ?? undefined }
           })
           setTrilhasAll(mapped)
         }
