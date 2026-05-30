@@ -16,22 +16,6 @@ type TrilhaPendenteSimples = {
   created_at: string
 }
 
-type TrilhaPessoal = {
-  id: string
-  name: string
-  regiao: string
-  strava_url: string
-  strava_segment_id: number
-}
-
-function StravaIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
-      <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-    </svg>
-  )
-}
-
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 16 }}>
@@ -54,11 +38,9 @@ export default function PerfilPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaPendenteSimples[]>([])
   const [trilhasFavoritas, setTrilhasFavoritas] = useState<Trilha[]>([])
-  const [trilhasPessoais, setTrilhasPessoais] = useState<TrilhaPessoal[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [portalLoading, setPortalLoading] = useState(false)
 
   const [nome, setNome] = useState('')
@@ -70,7 +52,6 @@ export default function PerfilPage() {
 
   const [receberEmail, setReceberEmail] = useState(false)
   const [emailFavoritas, setEmailFavoritas] = useState(true)
-  const [emailStrava, setEmailStrava] = useState(true)
   const [emailSaveStatus, setEmailSaveStatus] = useState<'idle' | 'success'>('idle')
 
   useEffect(() => {
@@ -91,23 +72,17 @@ export default function PerfilPage() {
         setTelegram(profileData.telegram_username || '')
         setReceberEmail(profileData.receber_email ?? false)
         setEmailFavoritas(profileData.email_trilhas_favoritas ?? true)
-        setEmailStrava(profileData.email_trilhas_strava ?? true)
       }
 
-      const [{ data: minhas }, { data: favIds }, { data: pessoais }] = await Promise.all([
+      const [{ data: minhas }, { data: favIds }] = await Promise.all([
         supabase.from('trilhas_pendentes')
           .select('id, name, regiao, status, motivo_rejeicao, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-        supabase.from('trilhas_pessoais')
-          .select('id, name, regiao, strava_url, strava_segment_id')
-          .eq('user_id', user.id)
-          .order('name'),
       ])
 
       if (minhas) setMinhasTrilhas(minhas)
-      if (pessoais) setTrilhasPessoais(pessoais)
 
       if (favIds && favIds.length > 0) {
         const ids = favIds.map((f: { trilha_id: string }) => f.trilha_id)
@@ -145,68 +120,13 @@ export default function PerfilPage() {
     }
   }
 
-  async function handleEmailToggle(field: 'receber_email' | 'email_trilhas_favoritas' | 'email_trilhas_strava', value: boolean) {
+  async function handleEmailToggle(field: 'receber_email' | 'email_trilhas_favoritas', value: boolean) {
     if (!profile) return
     if (field === 'receber_email') setReceberEmail(value)
     else if (field === 'email_trilhas_favoritas') setEmailFavoritas(value)
-    else if (field === 'email_trilhas_strava') setEmailStrava(value)
     await supabase.from('profiles').update({ [field]: value }).eq('id', profile.id)
     setEmailSaveStatus('success')
     setTimeout(() => setEmailSaveStatus('idle'), 2000)
-  }
-
-  const handleDesconectarStrava = async () => {
-    const confirmar = window.confirm(
-      'Desconectar o Strava irá remover todas as suas trilhas pessoais importadas e suas condições. Deseja continuar?'
-    )
-    if (!confirmar) return
-
-    setLoading(true)
-    try {
-      await supabase
-        .from('trilhas_pessoais')
-        .delete()
-        .eq('user_id', profile!.id)
-
-      const { data: trilhasUser } = await supabase
-        .from('strava_segmentos_config')
-        .select('strava_segment_id')
-        .eq('owner_user_id', profile!.id)
-
-      if (trilhasUser) {
-        for (const t of trilhasUser) {
-          const { count } = await supabase
-            .from('trilhas_pessoais')
-            .select('id', { count: 'exact' })
-            .eq('strava_segment_id', t.strava_segment_id)
-
-          if (!count || count === 0) {
-            await supabase
-              .from('strava_segmentos_config')
-              .delete()
-              .eq('strava_segment_id', t.strava_segment_id)
-              .eq('owner_user_id', profile!.id)
-          }
-        }
-      }
-
-      await fetch('/api/strava/disconnect', { method: 'POST' })
-
-      setTrilhasPessoais([])
-      alert('Strava desconectado com sucesso.')
-    } catch (err) {
-      console.error('Erro ao desconectar Strava:', err)
-      alert('Erro ao desconectar. Tente novamente.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleDeletePessoal(id: string) {
-    setDeletingId(id)
-    await supabase.from('trilhas_pessoais').delete().eq('id', id)
-    setTrilhasPessoais(prev => prev.filter(t => t.id !== id))
-    setDeletingId(null)
   }
 
   async function handlePortal() {
@@ -234,9 +154,6 @@ export default function PerfilPage() {
     )
   }
 
-  const slotsUsados = trilhasPessoais.length
-  const slotsLimite = 3
-  const stravaLleno = slotsUsados >= slotsLimite
   const planoId = (profile?.plano || 'gratuito') as keyof typeof PLANOS
 
   return (
@@ -411,7 +328,6 @@ export default function PerfilPage() {
             )}
           </div>
 
-          {/* Toggle principal */}
           {[
             {
               field: 'receber_email' as const,
@@ -426,14 +342,6 @@ export default function PerfilPage() {
               label: 'Incluir minhas trilhas favoritas',
               desc: 'Condições das trilhas que você marcou como favoritas',
               checked: emailFavoritas,
-              disabled: !receberEmail,
-              last: false,
-            },
-            {
-              field: 'email_trilhas_strava' as const,
-              label: 'Incluir minhas trilhas do Strava',
-              desc: 'Condições dos segmentos importados do Strava',
-              checked: emailStrava,
               disabled: !receberEmail,
               last: true,
             },
@@ -478,7 +386,7 @@ export default function PerfilPage() {
           <div style={{ background: '#f7f7f5', borderRadius: 6, padding: 12, marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 16, color: '#888', flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 12, color: '#888', lineHeight: 1.5, margin: 0 }}>
-              O email é enviado diariamente às 07:00 BRT apenas se você tiver trilhas favoritas ou do Strava cadastradas. Você pode cancelar a qualquer momento.
+              O email é enviado diariamente às 07:00 BRT apenas se você tiver trilhas favoritas cadastradas. Você pode cancelar a qualquer momento.
             </p>
           </div>
         </div>
@@ -542,100 +450,6 @@ export default function PerfilPage() {
             </div>
           )
         })()}
-
-        {/* Trilhas do Strava */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <SectionLabel>Trilhas do Strava</SectionLabel>
-            <span style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>{slotsUsados} de {slotsLimite}</span>
-          </div>
-          <p style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>
-            Importe segmentos favoritos do Strava para receber previsões personalizadas.
-          </p>
-
-          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {stravaLleno ? (
-              <button
-                disabled
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: '#FC4C02', color: '#fff',
-                  borderRadius: 4, padding: '10px 20px',
-                  fontSize: 13, fontWeight: 500, opacity: 0.5, cursor: 'not-allowed',
-                  border: 'none',
-                }}
-              >
-                <StravaIcon />
-                Conectar com Strava (limite atingido)
-              </button>
-            ) : (
-              <a
-                href="/api/strava/auth"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: '#FC4C02', color: '#fff',
-                  borderRadius: 4, padding: '10px 20px',
-                  fontSize: 13, fontWeight: 500, textDecoration: 'none',
-                }}
-              >
-                <StravaIcon />
-                Conectar com Strava
-              </a>
-            )}
-            {trilhasPessoais.length > 0 && (
-              <button
-                onClick={handleDesconectarStrava}
-                disabled={loading}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: 'transparent', color: '#ef4444',
-                  border: '1px solid #ef4444', borderRadius: 4,
-                  padding: '8px 16px', fontSize: 13,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.6 : 1,
-                }}
-              >
-                <i className="ti ti-brand-strava" style={{ fontSize: 16 }} />
-                Desconectar Strava
-              </button>
-            )}
-          </div>
-
-          {trilhasPessoais.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#888' }}>Nenhuma trilha do Strava conectada ainda.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {trilhasPessoais.map(t => (
-                <div
-                  key={t.id}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: 'rgba(252,76,2,0.05)', border: '0.5px solid rgba(252,76,2,0.2)',
-                    borderLeft: '3px solid #FC4C02', borderRadius: 4, padding: '10px 14px',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: '#111', marginBottom: 2 }}>{t.name}</p>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 12, color: '#888' }}>{t.regiao}</span>
-                      <a href={t.strava_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#FC4C02' }}>Ver no Strava ↗</a>
-                      <Link href={`/perfil/strava/sugestao/${t.strava_segment_id}`} style={{ fontSize: 12, color: '#888', textDecoration: 'underline' }}>
-                        Sugerir alteração
-                      </Link>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDeletePessoal(t.id)}
-                    disabled={deletingId === t.id}
-                    style={{ fontSize: 12, color: '#bbb', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 12, flexShrink: 0 }}
-                  >
-                    {deletingId === t.id ? '...' : 'Excluir'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Trilhas favoritas */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
@@ -711,6 +525,36 @@ export default function PerfilPage() {
             </div>
           )}
         </div>
+
+        {/* Admin */}
+        {profile?.is_admin && (
+          <div style={{ background: '#18181b', border: '0.5px solid #3f3f46', borderRadius: 8, padding: 24, marginBottom: 24 }}>
+            <SectionLabel>Administração</SectionLabel>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {[
+                { href: '/admin', label: 'Painel admin', icon: 'ti-layout-dashboard' },
+                { href: '/admin/tabelas', label: 'Tabelas', icon: 'ti-table' },
+                { href: '/admin/importar-strava', label: 'Importar Strava', icon: 'ti-brand-strava' },
+              ].map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 4, textDecoration: 'none',
+                    color: '#e4e4e7',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#27272a')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <i className={`ti ${item.icon}`} style={{ fontSize: 16, color: '#FFE000' }} />
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: '#71717a' }}>→</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Logout */}
         <div style={{ textAlign: 'center' }}>

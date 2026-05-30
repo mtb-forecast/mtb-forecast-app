@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 
@@ -21,10 +22,10 @@ import { rainColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_B
 type Props = {
   trilha: TrilhaComCondicao
   isFavorito?: boolean
-  onToggleFavorito?: () => void
+  onToggleFavorito?: (id: string) => void
 }
 
-export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
+function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
   const c = trilha.condicao
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg      = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
@@ -66,7 +67,7 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
           </h3>
           {onToggleFavorito && (
             <button
-              onClick={e => { e.preventDefault(); onToggleFavorito() }}
+              onClick={e => { e.preventDefault(); onToggleFavorito(trilha.id) }}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: 17, flexShrink: 0, lineHeight: 1, padding: 0,
@@ -216,3 +217,5 @@ export default function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Pro
     </div>
   )
 }
+
+export default memo(TrilhaCard)

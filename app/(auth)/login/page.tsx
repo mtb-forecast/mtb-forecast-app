@@ -66,13 +66,26 @@ function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError('E-mail ou senha inválidos. Tente novamente.')
+
+    // Safety net: if navigation hangs for 10s, unlock the button
+    const safetyTimer = setTimeout(() => {
       setLoading(false)
-    } else {
-      router.push('/dashboard')
-      router.refresh()
+      setError('A navegação demorou muito. Tente novamente ou recarregue a página.')
+    }, 10000)
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      clearTimeout(safetyTimer)
+      if (error) {
+        setError('E-mail ou senha inválidos. Tente novamente.')
+        setLoading(false)
+      } else {
+        window.location.href = '/dashboard'
+      }
+    } catch {
+      clearTimeout(safetyTimer)
+      setError('Erro inesperado. Tente novamente.')
+      setLoading(false)
     }
   }
 

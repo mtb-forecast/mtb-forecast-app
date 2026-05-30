@@ -1,7 +1,7 @@
 'use client'
 
 import { Barlow_Condensed } from 'next/font/google'
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -58,47 +58,56 @@ function TrilhasContent() {
   // Carrega todas as trilhas + estados na montagem
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
-      setUserId(user.id)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { router.replace('/login'); return }
+        setUserId(user.id)
 
-      const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =
-        await Promise.all([
-          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-          supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
-          supabase
-            .from('trilhas')
-            .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)')
-            .eq('aprovada', true)
-            .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-            .order('bloco', { foreignTable: 'previsao_blocos' })
-            .order('name'),
-          supabase.from('localidades').select('estado').order('estado'),
-        ])
+        const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =
+          await Promise.all([
+            supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+            supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
+            supabase
+              .from('trilhas')
+              .select(`
+                id, name, bioma, trail_type, regiao,
+                localidades(cidade, estado, localidade),
+                condicoes(
+                  veredicto, veredicto_12h,
+                  aderencia_status, aderencia_futura_status, aderencia_futura_label,
+                  pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+                  texto_dinamico, frase_secagem, janela, gerado_em
+                )
+              `)
+              .eq('aprovada', true)
+              .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+              .order('name'),
+            supabase.from('localidades').select('estado').order('estado'),
+          ])
 
-      if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
-      setPlano(profile?.plano ?? null)
-      setIsAdmin(!!profile?.is_admin)
+        if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
+        setPlano(profile?.plano ?? null)
+        setIsAdmin(!!profile?.is_admin)
 
-      if (trilhasData) {
-        const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
-          const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-          const condicao = arr[0] ?? undefined
-          const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
-          if (condicao && blocos?.length) condicao.previsao_24h = blocos
-          return { ...t, condicao }
-        })
-        setTrilhasAll(mapped)
+        if (trilhasData) {
+          const mapped = trilhasData.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][] }) => {
+            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+            return { ...t, condicao: arr[0] ?? undefined }
+          })
+          setTrilhasAll(mapped)
+        }
+
+        if (estadosData) {
+          const distinct = [...new Set(
+            estadosData.map((r: { estado: string }) => r.estado).filter(Boolean)
+          )] as string[]
+          setEstados(distinct)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar trilhas:', err)
+      } finally {
+        setLoading(false)
       }
-
-      if (estadosData) {
-        const distinct = [...new Set(
-          estadosData.map((r: { estado: string }) => r.estado).filter(Boolean)
-        )] as string[]
-        setEstados(distinct)
-      }
-
-      setLoading(false)
     }
     init()
   }, [router])
@@ -151,7 +160,7 @@ function TrilhasContent() {
     router.push(estado ? `/trilhas?estado=${estado}` : '/trilhas', { scroll: false })
   }
 
-  async function toggleFavorito(trilhaId: string) {
+  const toggleFavorito = useCallback(async (trilhaId: string) => {
     if (!userId) return
     if (favoritos.has(trilhaId)) {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
@@ -166,26 +175,32 @@ function TrilhasContent() {
       await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
       setFavoritos(prev => new Set([...prev, trilhaId]))
     }
-  }
+  }, [userId, favoritos, plano, isAdmin])
 
   if (!mounted) return null
 
-  // Filtragem client-side
-  const trilhasFiltradas = trilhasAll.filter(t => {
+  // Filtragem client-side — memoizado para evitar recálculo a cada render
+  const trilhasFiltradas = useMemo(() => trilhasAll.filter(t => {
     if (!estadoSelecionado) return false
     const estadoTrilha = t.localidades?.estado || t.regiao || ''
     if (estadoTrilha !== estadoSelecionado) return false
     if (cidadeSelecionada && t.localidades?.cidade !== cidadeSelecionada) return false
     if (localidadeSelecionada && t.localidades?.localidade !== localidadeSelecionada) return false
     return true
-  })
+  }), [trilhasAll, estadoSelecionado, cidadeSelecionada, localidadeSelecionada])
 
-  const ranked = rankTrilhas(trilhasFiltradas)
-  const filtered = search
-    ? ranked.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-    : ranked
+  const ranked = useMemo(() => rankTrilhas(trilhasFiltradas), [trilhasFiltradas])
 
-  const filtroLabel = [localidadeSelecionada, cidadeSelecionada, estadoSelecionado].filter(Boolean).join(', ')
+  const filtered = useMemo(() =>
+    search
+      ? ranked.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+      : ranked
+  , [ranked, search])
+
+  const filtroLabel = useMemo(
+    () => [localidadeSelecionada, cidadeSelecionada, estadoSelecionado].filter(Boolean).join(', '),
+    [localidadeSelecionada, cidadeSelecionada, estadoSelecionado]
+  )
 
   const fieldBase: React.CSSProperties = {
     boxSizing: 'border-box',
@@ -207,8 +222,7 @@ function TrilhasContent() {
         .trilhas-input:focus  { border-color: #FFE000 !important; box-shadow: 0 0 0 2px rgba(255,224,0,0.2) !important; }
         @media (max-width: 640px) {
           .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
-          .trilhas-strava-banner { flex-direction: column !important; gap: 16px !important; }
-          .trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
+.trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
           .trilhas-header-actions a { justify-content: center !important; }
           .trilhas-filtros { flex-direction: column !important; }
           .trilhas-filtros select, .trilhas-filtros input { width: 100% !important; }
@@ -239,21 +253,6 @@ function TrilhasContent() {
           </div>
 
           <div className="trilhas-header-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a
-              href="/api/strava/auth"
-              style={{
-                background: '#FC4C02', color: '#FFFFFF',
-                borderRadius: 8, padding: '10px 20px',
-                fontSize: 13, fontWeight: 500,
-                display: 'flex', alignItems: 'center', gap: 8,
-                textDecoration: 'none', whiteSpace: 'nowrap',
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-              </svg>
-              Conectar com Strava
-            </a>
             <Link
               href="/trilhas/cadastrar"
               style={{
@@ -374,7 +373,6 @@ function TrilhasContent() {
               {[
                 { icon: 'ti-map-2',        color: '#FFE000', title: 'Selecione seu estado',   text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
                 { icon: 'ti-star',         color: '#FFE000', title: 'Favorite suas trilhas',  text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
-                { icon: 'ti-brand-strava', color: '#FC4C02', title: 'Importe do Strava',      text: 'Conecte sua conta Strava e importe seus segmentos favoritos para monitoramento diário.' },
                 { icon: 'ti-message-star', color: '#FFE000', title: 'Avalie as trilhas',      text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
               ].map(({ icon, color, title, text }) => (
                 <div
@@ -388,32 +386,6 @@ function TrilhasContent() {
               ))}
             </div>
 
-            <div
-              className="trilhas-strava-banner"
-              style={{
-                background: 'rgba(252,76,2,0.08)', border: '1px solid #FC4C02',
-                borderRadius: 8, padding: '20px 24px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                <i className="ti ti-brand-strava" style={{ fontSize: 24, color: '#FC4C02', marginTop: 2, flexShrink: 0 }} />
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 500, color: '#111', margin: '0 0 4px' }}>Monitore suas trilhas do Strava</p>
-                  <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Importe segmentos favoritos e receba condições diárias</p>
-                </div>
-              </div>
-              <a
-                href="/perfil/strava"
-                style={{
-                  background: '#FC4C02', color: '#FFFFFF', borderRadius: 8,
-                  padding: '8px 16px', fontSize: 13, fontWeight: 500,
-                  textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-                }}
-              >
-                Conectar com Strava
-              </a>
-            </div>
           </>
         )}
 
@@ -454,7 +426,7 @@ function TrilhasContent() {
                   key={t.id}
                   trilha={t}
                   isFavorito={favoritos.has(t.id)}
-                  onToggleFavorito={() => toggleFavorito(t.id)}
+                  onToggleFavorito={toggleFavorito}
                 />
               ))}
             </div>

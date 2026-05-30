@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+import BottomNav from '@/components/BottomNav'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'MTB Forecaster',
@@ -33,6 +36,7 @@ export default function RootLayout({
         />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#111111" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="MTB Forecaster" />
@@ -43,6 +47,7 @@ export default function RootLayout({
         <main>
           {children}
         </main>
+        <BottomNav />
         <script dangerouslySetInnerHTML={{
           __html: `
             if ('serviceWorker' in navigator) {
