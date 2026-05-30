@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
@@ -36,6 +36,14 @@ export default function DashboardPage() {
   const [avaliacoesPorTrilha, setAvaliacoesPorTrilha] = useState<Record<string, { count: number; media: number }>>({})
   const [loading, setLoading] = useState(true)
   const [selecionadas, setSelecionadas] = useState<string[]>([])
+
+  const handleSelectTrilha = useCallback((trilhaId: string) => {
+    setSelecionadas(prev =>
+      prev.includes(trilhaId)
+        ? prev.filter(id => id !== trilhaId)
+        : prev.length < 2 ? [...prev, trilhaId] : prev
+    )
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -226,9 +234,7 @@ export default function DashboardPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <button
-                        onClick={() => setSelecionadas(prev =>
-                          prev.includes(t.id) ? prev.filter(id => id !== t.id) : prev.length < 2 ? [...prev, t.id] : prev
-                        )}
+                        onClick={() => handleSelectTrilha(t.id)}
                         disabled={!canSelect}
                         style={{
                           background: isSel ? '#1A1A1A' : '#F3F4F6',
