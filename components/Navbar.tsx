@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 
 const HIDDEN_ON = ['/', '/login', '/cadastro']
 
@@ -13,12 +13,10 @@ export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   useEffect(() => {
-    async function fetchSession() {
-      const { data: { user } } = await supabase.auth.getUser()
-      setIsLoggedIn(!!user)
-    }
-    fetchSession()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => fetchSession())
+    getClientUser().then(user => setIsLoggedIn(!!user))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session?.user)
+    })
     return () => subscription.unsubscribe()
   }, [])
 
