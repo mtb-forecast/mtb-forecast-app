@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import {
   Trilha, Condicao,
   VEREDICTO_CONFIG,
@@ -57,7 +57,7 @@ export default function TrilhaDetalhe() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
       setUserId(user.id)
 

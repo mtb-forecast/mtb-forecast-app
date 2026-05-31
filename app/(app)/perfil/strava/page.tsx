@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ function StravaPageInner() {
       catch { setError('Erro ao carregar segmentos. Tente reconectar o Strava.') }
     }
     async function checkExisting() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
       const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
       if (!profile?.is_admin) { router.replace('/perfil'); return }
@@ -192,7 +192,7 @@ function StravaPageInner() {
     setError(null)
     if (!allValid) { setError('Preencha todos os campos obrigatórios.'); return }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getClientUser()
     if (!user) { window.location.href = '/login'; return }
 
     if (existingCount + selected.size > 3) {

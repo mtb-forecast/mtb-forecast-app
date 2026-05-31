@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PLANOS } from '@/lib/stripe-config'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 
 const PLANO_ORDER = ['gratuito', 'plano_a', 'plano_b', 'plano_c'] as const
 
@@ -31,7 +31,7 @@ export default function PlanosPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getClientUser()
       if (!user) { setProfileLoaded(true); return }
       const { data } = await supabase
         .from('profiles')

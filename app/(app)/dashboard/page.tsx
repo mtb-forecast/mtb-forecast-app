@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, Profile } from '@/lib/types'
 import Image from 'next/image'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
@@ -35,7 +35,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
       setUserEmail(user.email ?? null)
 
