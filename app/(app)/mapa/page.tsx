@@ -38,32 +38,37 @@ export default function MapaPage() {
 
   useEffect(() => {
     async function init() {
-      const user = await getClientUser()
-      if (!user) { window.location.href = '/login'; return }
+      try {
+        const user = await getClientUser()
+        if (!user) { window.location.href = '/login'; return }
 
-      const [{ data: trilhasData, error }, { data: favData }, L] = await Promise.all([
-        supabase
-          .from('trilhas')
-          .select(`
-            id, name, lat, lon,
-            condicoes(veredicto, veredicto_12h, acumulo_48h, ultima_chuva_h)
-          `)
-          .eq('aprovada', true)
-          .not('lat', 'is', null)
-          .not('lon', 'is', null)
-          .order('name', { ascending: true })
-          .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
-        supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-        import('leaflet'),
-      ])
+        const [{ data: trilhasData, error }, { data: favData }, L] = await Promise.all([
+          supabase
+            .from('trilhas')
+            .select(`
+              id, name, lat, lon,
+              condicoes(veredicto, veredicto_12h, acumulo_48h, ultima_chuva_h)
+            `)
+            .eq('aprovada', true)
+            .not('lat', 'is', null)
+            .not('lon', 'is', null)
+            .order('name', { ascending: true })
+            .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
+          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+          import('leaflet'),
+        ])
 
-      if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
+        if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
 
-      const favoritedIds = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
-      const trilhas: TrilhaMapData[] = trilhasData || []
+        const favoritedIds = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
+        const trilhas: TrilhaMapData[] = trilhasData || []
 
-      setLoading(false)
-      buildMap(trilhas, L, favoritedIds)
+        setLoading(false)
+        buildMap(trilhas, L, favoritedIds)
+      } catch {
+        setErro('Erro ao carregar o mapa. Tente recarregar a página.')
+        setLoading(false)
+      }
     }
 
     init()
@@ -92,6 +97,7 @@ export default function MapaPage() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          if (!leafletRef.current) return
           const { latitude, longitude } = pos.coords
           map.setView([latitude, longitude], 10)
 
