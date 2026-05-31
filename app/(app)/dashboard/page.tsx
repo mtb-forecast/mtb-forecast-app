@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, Profile } from '@/lib/types'
-import Image from 'next/image'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
@@ -218,22 +217,26 @@ export default function DashboardPage() {
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Blurred trail background — Next.js Image serve versão otimizada (~50 KB) */}
-        <Image
+        {/* Blurred trail background */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/bg-trail.jpg"
           alt=""
-          fill
-          quality={30}
+          aria-hidden="true"
           style={{
+            position: 'absolute',
+            top: -20, left: -20, right: -20, bottom: -20,
+            width: 'calc(100% + 40px)', height: 'calc(100% + 40px)',
             objectFit: 'cover', objectPosition: 'center 40%',
-            filter: 'blur(14px)', transform: 'scale(1.05)',
-            opacity: 0.13, zIndex: 0,
+            filter: 'blur(12px)',
+            opacity: 0.22,
+            zIndex: 0, pointerEvents: 'none',
           }}
         />
         {/* Overlay para manter os cards legíveis */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'rgba(248,249,250,0.82)',
+          background: 'rgba(248,249,250,0.80)',
           zIndex: 1, pointerEvents: 'none',
         }} />
       <div style={{ position: 'relative', zIndex: 2, padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
