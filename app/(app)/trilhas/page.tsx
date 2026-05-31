@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Barlow_Condensed } from 'next/font/google'
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
@@ -60,7 +60,7 @@ function TrilhasContent() {
     async function init() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { router.replace('/login'); return }
+        if (!user) { window.location.href = '/login'; return }
         setUserId(user.id)
 
         const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =

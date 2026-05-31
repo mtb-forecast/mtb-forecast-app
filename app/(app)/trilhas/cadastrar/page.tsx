@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -136,7 +136,7 @@ export default function CadastrarTrilhaPage() {
 
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/login'); return }
+    if (!user) { window.location.href = '/login'; return }
 
     // Obter localidade_id se geocoding disponível
     let localidadeId: string | null = null

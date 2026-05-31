@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -57,7 +57,7 @@ export default function PerfilPage() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      if (!user) { window.location.href = '/login'; return }
 
       const { data: profileData } = await supabase
         .from('profiles').select('*').eq('id', user.id).single()
@@ -142,7 +142,7 @@ export default function PerfilPage() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    router.replace('/login')
+    window.location.href = '/login'
   }
 
   if (loading) {

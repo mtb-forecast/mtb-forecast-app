@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -115,7 +115,7 @@ function StravaPageInner() {
     }
     async function checkExisting() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      if (!user) { window.location.href = '/login'; return }
       const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
       if (!profile?.is_admin) { router.replace('/perfil'); return }
       const { count } = await supabase
@@ -193,7 +193,7 @@ function StravaPageInner() {
     if (!allValid) { setError('Preencha todos os campos obrigatórios.'); return }
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/login'); return }
+    if (!user) { window.location.href = '/login'; return }
 
     if (existingCount + selected.size > 3) {
       setError('Você já atingiu o limite de 3 trilhas pessoais.')

@@ -131,7 +131,8 @@
       "Bash(git -C \"c:/ClaudeCode/mtb-forecast-app\" add next.config.mjs components/TrilhaCard.tsx)",
       "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Include \"*map*\" -File)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Directory -ErrorAction SilentlyContinue)"
+      "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Directory -ErrorAction SilentlyContinue)",
+      "Bash(powershell -Command ' *)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
