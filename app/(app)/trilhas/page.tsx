@@ -178,8 +178,6 @@ function TrilhasContent() {
     }
   }, [userId, favoritos, plano, isAdmin])
 
-  if (!mounted) return null
-
   // Filtragem client-side — memoizado para evitar recálculo a cada render
   const trilhasFiltradas = useMemo(() => trilhasAll.filter(t => {
     if (!estadoSelecionado) return false
@@ -202,6 +200,8 @@ function TrilhasContent() {
     () => [localidadeSelecionada, cidadeSelecionada, estadoSelecionado].filter(Boolean).join(', '),
     [localidadeSelecionada, cidadeSelecionada, estadoSelecionado]
   )
+
+  if (!mounted) return null
 
   const fieldBase: React.CSSProperties = {
     boxSizing: 'border-box',
