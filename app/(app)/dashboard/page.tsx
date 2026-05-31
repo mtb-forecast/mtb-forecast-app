@@ -34,79 +34,83 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const user = await getClientUser()
-      if (!user) { window.location.href = '/login'; return }
-      setUserEmail(user.email ?? null)
+      try {
+        const user = await getClientUser()
+        if (!user) { window.location.href = '/login'; return }
+        setUserEmail(user.email ?? null)
 
-      // Step 1 — profile + favorites in parallel
-      const [{ data: profileData }, { data: favIds }] = await Promise.all([
-        supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao').eq('id', user.id).single(),
-        supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-      ])
+        // Step 1 — profile + favorites in parallel
+        const [{ data: profileData }, { data: favIds }] = await Promise.all([
+          supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao').eq('id', user.id).single(),
+          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+        ])
 
-      setProfile(profileData)
+        setProfile(profileData)
 
-      if (!favIds || favIds.length === 0) {
-        setLoading(false)
-        return
-      }
-
-      const favTrilhaIds = favIds.map((f: { trilha_id: string }) => f.trilha_id)
-      const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-
-      // Step 2 — trails + evaluations in parallel, both filtered by favorite IDs
-      const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
-        supabase
-          .from('trilhas')
-          .select(`
-            id, name, bioma, trail_type, regiao,
-            localidades(cidade, estado, localidade),
-            condicoes(
-              veredicto, veredicto_12h,
-              aderencia_status, aderencia_futura_status, aderencia_futura_label,
-              pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
-              texto_dinamico, frase_secagem, janela, gerado_em
-            )
-          `)
-          .in('id', favTrilhaIds)
-          .eq('aprovada', true)
-          .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
-        supabase
-          .from('observacoes_trilha')
-          .select('trilha_id, estrelas')
-          .gte('created_at', h48atras)
-          .in('trilha_id', favTrilhaIds),
-      ])
-
-      if (trilhasData) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mapped = (trilhasData as any[]).map((t) => {
-          const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-          return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
-        })
-        const sorted = [...mapped].sort((a, b) => {
-          const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
-          const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
-          if (vA !== vB) return vA - vB
-          const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
-          const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
-          return aA - aB
-        })
-        setFavoritas(sorted)
-      }
-
-      const porTrilha: Record<string, { count: number; media: number }> = {}
-      for (const av of avaliacoes48h || []) {
-        if (av.trilha_id) {
-          if (!porTrilha[av.trilha_id]) porTrilha[av.trilha_id] = { count: 0, media: 0 }
-          porTrilha[av.trilha_id].count++
-          porTrilha[av.trilha_id].media += av.estrelas
+        if (!favIds || favIds.length === 0) {
+          setLoading(false)
+          return
         }
-      }
-      Object.values(porTrilha).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
-      setAvaliacoesPorTrilha(porTrilha)
 
-      setLoading(false)
+        const favTrilhaIds = favIds.map((f: { trilha_id: string }) => f.trilha_id)
+        const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+        // Step 2 — trails + evaluations in parallel, both filtered by favorite IDs
+        const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
+          supabase
+            .from('trilhas')
+            .select(`
+              id, name, bioma, trail_type, regiao,
+              localidades(cidade, estado, localidade),
+              condicoes(
+                veredicto, veredicto_12h,
+                aderencia_status, aderencia_futura_status, aderencia_futura_label,
+                pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+                texto_dinamico, frase_secagem, janela, gerado_em
+              )
+            `)
+            .in('id', favTrilhaIds)
+            .eq('aprovada', true)
+            .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
+          supabase
+            .from('observacoes_trilha')
+            .select('trilha_id, estrelas')
+            .gte('created_at', h48atras)
+            .in('trilha_id', favTrilhaIds),
+        ])
+
+        if (trilhasData) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mapped = (trilhasData as any[]).map((t) => {
+            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+            return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
+          })
+          const sorted = [...mapped].sort((a, b) => {
+            const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
+            const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
+            if (vA !== vB) return vA - vB
+            const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
+            const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
+            return aA - aB
+          })
+          setFavoritas(sorted)
+        }
+
+        const porTrilha: Record<string, { count: number; media: number }> = {}
+        for (const av of avaliacoes48h || []) {
+          if (av.trilha_id) {
+            if (!porTrilha[av.trilha_id]) porTrilha[av.trilha_id] = { count: 0, media: 0 }
+            porTrilha[av.trilha_id].count++
+            porTrilha[av.trilha_id].media += av.estrelas
+          }
+        }
+        Object.values(porTrilha).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
+        setAvaliacoesPorTrilha(porTrilha)
+      } catch (err) {
+        console.error('Erro ao carregar dashboard:', err)
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [router])
