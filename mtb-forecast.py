@@ -1969,6 +1969,8 @@ def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
             if not trilhas_usuario:
                 continue
 
+            _datas = proximos_dias()
+
             linhas = [f"🚵 *MTB Forecaster — {hoje}*\n"]
             linhas.append(f"Olá, *{nome}*! Suas trilhas hoje:\n")
 
@@ -1991,7 +1993,7 @@ def _enviar_notificacoes_telegram(resultados_global: list, hoje: str) -> None:
                     linha += f" · ⚡ rajada {gust}km/h"
                 linha += f"\n   ⏱ {janela}\n"
 
-                for dk, label in [("d1", "D+1"), ("d2", "D+2"), ("d3", "D+3")]:
+                for dk, label in [("d1", _datas["d1_label"]), ("d2", _datas["d2_label"]), ("d3", _datas["d3_label"])]:
                     dia = fds.get(dk, {})
                     if dia.get("disponivel"):
                         te = _emoji_tempo(dia.get("clouds_pct"), dia.get("rain", 0), dia.get("pop", 0))

@@ -1,17 +1,15 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, Profile } from '@/lib/types'
-import TrilhaCard from '@/components/TrilhaCard'
+import DashboardTrailCard from '@/components/DashboardTrailCard'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
-
-// ── ranking ──────────────────────────────────────────────────────────────────
 
 const RANKING_VEREDICTO: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -26,8 +24,6 @@ const RANKING_ADERENCIA: Record<string, number> = {
   'BAIXA ADERÊNCIA': 3,
 }
 
-// ── page ─────────────────────────────────────────────────────────────────────
-
 export default function DashboardPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -35,49 +31,52 @@ export default function DashboardPage() {
   const [favoritas, setFavoritas] = useState<TrilhaComCondicao[]>([])
   const [avaliacoesPorTrilha, setAvaliacoesPorTrilha] = useState<Record<string, { count: number; media: number }>>({})
   const [loading, setLoading] = useState(true)
-  const [selecionadas, setSelecionadas] = useState<string[]>([])
-
-  const handleSelectTrilha = useCallback((trilhaId: string) => {
-    setSelecionadas(prev =>
-      prev.includes(trilhaId)
-        ? prev.filter(id => id !== trilhaId)
-        : prev.length < 2 ? [...prev, trilhaId] : prev
-    )
-  }, [])
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      const user = await getClientUser()
+      if (!user) { window.location.href = '/login'; return }
       setUserEmail(user.email ?? null)
 
-      const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-
-      const [{ data: profileData }, { data: favIds }, { data: avaliacoes48h }] =
-        await Promise.all([
-          supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao').eq('id', user.id).single(),
-          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-          supabase.from('observacoes_trilha').select('trilha_id, estrelas, created_at').gte('created_at', h48atras),
-        ])
+      // Step 1 — profile + favorites in parallel
+      const [{ data: profileData }, { data: favIds }] = await Promise.all([
+        supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao').eq('id', user.id).single(),
+        supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+      ])
 
       setProfile(profileData)
 
-      const { data: trilhasData } = favIds && favIds.length > 0
-        ? await supabase
-            .from('trilhas')
-            .select(`
-              id, name, bioma, trail_type, regiao,
-              localidades(cidade, estado, localidade),
-              condicoes(
-                veredicto, veredicto_12h,
-                aderencia_status, aderencia_futura_status, aderencia_futura_label,
-                pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
-                texto_dinamico, frase_secagem, janela, gerado_em
-              )
-            `)
-            .in('id', favIds.map((f: { trilha_id: string }) => f.trilha_id)).eq('aprovada', true)
-            .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-        : { data: null }
+      if (!favIds || favIds.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      const favTrilhaIds = favIds.map((f: { trilha_id: string }) => f.trilha_id)
+      const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+      // Step 2 — trails + evaluations in parallel, both filtered by favorite IDs
+      const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
+        supabase
+          .from('trilhas')
+          .select(`
+            id, name, bioma, trail_type, regiao,
+            localidades(cidade, estado, localidade),
+            condicoes(
+              veredicto, veredicto_12h,
+              aderencia_status, aderencia_futura_status, aderencia_futura_label,
+              pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+              texto_dinamico, frase_secagem, janela, gerado_em
+            )
+          `)
+          .in('id', favTrilhaIds)
+          .eq('aprovada', true)
+          .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
+        supabase
+          .from('observacoes_trilha')
+          .select('trilha_id, estrelas')
+          .gte('created_at', h48atras)
+          .in('trilha_id', favTrilhaIds),
+      ])
 
       if (trilhasData) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,7 +84,7 @@ export default function DashboardPage() {
           const arr = Array.isArray(t.condicoes) ? t.condicoes : []
           return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
         })
-        const trilhasOrdenadas = [...mapped].sort((a, b) => {
+        const sorted = [...mapped].sort((a, b) => {
           const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
           const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
           if (vA !== vB) return vA - vB
@@ -93,7 +92,7 @@ export default function DashboardPage() {
           const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
           return aA - aB
         })
-        setFavoritas(trilhasOrdenadas)
+        setFavoritas(sorted)
       }
 
       const porTrilha: Record<string, { count: number; media: number }> = {}
@@ -111,6 +110,18 @@ export default function DashboardPage() {
     }
     load()
   }, [router])
+
+  const summary = useMemo(() => {
+    if (favoritas.length === 0) return null
+    let liberadas = 0, comAlerta = 0, aguardando = 0
+    for (const t of favoritas) {
+      const v = t.condicao?.veredicto_12h?.trim() || t.condicao?.veredicto?.trim() || ''
+      if (v === 'DROP LIBERADO') liberadas++
+      else if (v === 'DROP LIBERADO - Veja os alertas' || v === 'MELHOR ESPERAR') comAlerta++
+      else aguardando++
+    }
+    return { liberadas, comAlerta, aguardando }
+  }, [favoritas])
 
   if (loading) {
     return (
@@ -152,9 +163,32 @@ export default function DashboardPage() {
               <span style={{ color: '#FFFFFF' }}>Dashboard.</span>
             )}
           </h1>
-          <p style={{ color: '#9CA3AF', fontSize: 14, marginTop: 8 }}>
-            Confira as condições de hoje nas suas trilhas
-          </p>
+
+          {/* Summary strip */}
+          {summary ? (
+            <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
+              {summary.liberadas > 0 && (
+                <span style={{ fontSize: 13, color: '#4ADE80', fontWeight: 500 }}>
+                  ✅ {summary.liberadas} liberada{summary.liberadas !== 1 ? 's' : ''}
+                </span>
+              )}
+              {summary.comAlerta > 0 && (
+                <span style={{ fontSize: 13, color: '#FCD34D', fontWeight: 500 }}>
+                  ⚠️ {summary.comAlerta} com alerta
+                </span>
+              )}
+              {summary.aguardando > 0 && (
+                <span style={{ fontSize: 13, color: '#9CA3AF', fontWeight: 500 }}>
+                  ⏳ {summary.aguardando} sem dados
+                </span>
+              )}
+            </div>
+          ) : (
+            <p style={{ color: '#9CA3AF', fontSize: 14, marginTop: 8 }}>
+              Confira as condições de hoje nas suas trilhas
+            </p>
+          )}
+
           <div style={{ background: '#FFE000', height: 3, marginTop: 20 }} />
         </div>
       </div>
@@ -184,29 +218,14 @@ export default function DashboardPage() {
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
-        {/* Seção: Trilhas favoritas */}
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <h2 style={{ fontSize: 15, fontWeight: 500, color: '#111111' }}>Minhas trilhas favoritas</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {selecionadas.length === 2 && (
-                <Link
-                  href={`/dashboard/comparar?a=${selecionadas[0]}&b=${selecionadas[1]}`}
-                  style={{
-                    background: '#FFE000', color: '#111', border: '1.5px solid #111',
-                    borderRadius: 4, padding: '6px 14px', fontSize: 13, fontWeight: 600,
-                    textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5,
-                  }}
-                >
-                  <i className="ti ti-arrows-diff" style={{ fontSize: 14 }} />
-                  Comparar trilhas
-                </Link>
-              )}
-              <Link href="/trilhas" style={{ fontSize: 13, color: '#6B7280', fontWeight: 400, textDecoration: 'none' }}>
-                Ver todas →
-              </Link>
-            </div>
+            <Link href="/trilhas" style={{ fontSize: 13, color: '#6B7280', fontWeight: 400, textDecoration: 'none' }}>
+              Ver todas →
+            </Link>
           </div>
+
           {favoritas.length === 0 ? (
             <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 40, textAlign: 'center' }}>
               <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>Você ainda não tem trilhas favoritas.</p>
@@ -220,55 +239,14 @@ export default function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {favoritas.map(t => {
-                const isSel = selecionadas.includes(t.id)
-                const canSelect = isSel || selecionadas.length < 2
-                return (
-                  <div key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{
-                      borderRadius: 16,
-                      outline: isSel ? '2.5px solid #FFE000' : '2.5px solid transparent',
-                      transition: 'outline 0.15s',
-                    }}>
-                      <TrilhaCard trilha={t} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => handleSelectTrilha(t.id)}
-                        disabled={!canSelect}
-                        style={{
-                          background: isSel ? '#1A1A1A' : '#F3F4F6',
-                          color: isSel ? '#FFE000' : '#6B7280',
-                          border: isSel ? '1.5px solid #1A1A1A' : '1.5px solid #E5E7EB',
-                          borderRadius: 6, fontSize: 12, fontWeight: 600,
-                          padding: '4px 12px', cursor: canSelect ? 'pointer' : 'not-allowed',
-                          opacity: canSelect ? 1 : 0.5,
-                          display: 'flex', alignItems: 'center', gap: 5,
-                          transition: 'all 0.15s',
-                        }}
-                      >
-                        <i className={`ti ${isSel ? 'ti-check' : 'ti-plus'}`} style={{ fontSize: 12 }} />
-                        {isSel ? 'Selecionada' : 'Comparar'}
-                      </button>
-                      {avaliacoesPorTrilha[t.id] && (
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: 5,
-                          fontSize: 11, fontWeight: 500, color: '#92400E',
-                          background: '#FFFBEB', borderRadius: 6,
-                          padding: '3px 9px',
-                        }}>
-                          <i className="ti ti-star-filled" style={{ fontSize: 12, color: '#F59E0B' }} />
-                          {avaliacoesPorTrilha[t.id].media}
-                          <span style={{ color: '#888', fontWeight: 400 }}>
-                            ({avaliacoesPorTrilha[t.id].count} avaliação{avaliacoesPorTrilha[t.id].count > 1 ? 'ões' : ''} recente{avaliacoesPorTrilha[t.id].count > 1 ? 's' : ''})
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {favoritas.map(t => (
+                <DashboardTrailCard
+                  key={t.id}
+                  trilha={t}
+                  avaliacao={avaliacoesPorTrilha[t.id]}
+                />
+              ))}
             </div>
           )}
         </section>

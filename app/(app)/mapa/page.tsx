@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import type { Condicao } from '@/lib/types'
 import 'leaflet/dist/leaflet.css'
 
@@ -38,8 +38,8 @@ export default function MapaPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      const user = await getClientUser()
+      if (!user) { window.location.href = '/login'; return }
 
       const [{ data: trilhasData, error }, { data: favData }, L] = await Promise.all([
         supabase

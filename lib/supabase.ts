@@ -9,3 +9,10 @@ export const supabase = createBrowserClient(
     },
   }
 )
+
+// Lê a sessão do cache local (sem chamada de rede).
+// O middleware já validou o token server-side — client-side não precisa de getUser().
+export async function getClientUser() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.user ?? null
+}

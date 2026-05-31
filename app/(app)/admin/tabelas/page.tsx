@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getExposicoes, getBiomas } from '@/lib/domain'
 
@@ -118,8 +118,8 @@ export default function TabelasPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      const user = await getClientUser()
+      if (!user) { window.location.href = '/login'; return }
 
       const { data: profile } = await supabase
         .from('profiles').select('is_admin').eq('id', user.id).single()

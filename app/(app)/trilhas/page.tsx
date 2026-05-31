@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import { Barlow_Condensed } from 'next/font/google'
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
 
@@ -59,8 +59,8 @@ function TrilhasContent() {
   useEffect(() => {
     async function init() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { router.replace('/login'); return }
+        const user = await getClientUser()
+        if (!user) { window.location.href = '/login'; return }
         setUserId(user.id)
 
         const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =

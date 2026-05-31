@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import { geocodeLatLon } from '@/lib/geocoding'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
@@ -105,8 +105,8 @@ function ImportarStravaContent() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      const user = await getClientUser()
+      if (!user) { window.location.href = '/login'; return }
       setUserId(user.id)
 
       const { data: profile } = await supabase
@@ -127,7 +127,7 @@ function ImportarStravaContent() {
           setLoading(false)
           return
         }
-        router.replace('/login')
+        window.location.href = '/login'
         return
       }
 

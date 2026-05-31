@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import AdminPanel, { TrilhaPendente } from '@/components/AdminPanel'
 import { geocodeLatLon } from '@/lib/geocoding'
 
@@ -39,8 +39,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      const user = await getClientUser()
+      if (!user) { window.location.href = '/login'; return }
 
       const { data: profile } = await supabase
         .from('profiles')

@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
@@ -135,8 +135,8 @@ export default function CadastrarTrilhaPage() {
     if (!trailType) { setErro('Tipo de trilha é obrigatório.'); return }
 
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/login'); return }
+    const user = await getClientUser()
+    if (!user) { window.location.href = '/login'; return }
 
     // Obter localidade_id se geocoding disponível
     let localidadeId: string | null = null

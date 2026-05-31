@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getClientUser } from '@/lib/supabase'
 
 const SOLO_TYPES = [
   { value: 'terra',    label: 'Terra (argila)' },
@@ -84,8 +84,8 @@ export default function SugestaoPage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
+      const user = await getClientUser()
+      if (!user) { window.location.href = '/login'; return }
       const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).single()
       if (!profile?.is_admin) { router.replace('/perfil'); return }
 
@@ -112,8 +112,8 @@ export default function SugestaoPage() {
     setError(null)
     if (!motivo.trim()) { setError('O motivo é obrigatório.'); return }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/login'); return }
+    const user = await getClientUser()
+    if (!user) { window.location.href = '/login'; return }
 
     setSaving(true)
     const { error: dbErr } = await supabase.from('strava_config_sugestoes').insert({
