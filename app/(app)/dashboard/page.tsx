@@ -216,30 +216,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Blurred trail background */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/bg-trail.jpg"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: -20, left: -20, right: -20, bottom: -20,
-            width: 'calc(100% + 40px)', height: 'calc(100% + 40px)',
-            objectFit: 'cover', objectPosition: 'center 40%',
-            filter: 'blur(12px)',
-            opacity: 0.22,
-            zIndex: 0, pointerEvents: 'none',
-          }}
-        />
-        {/* Overlay para manter os cards legíveis */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'rgba(248,249,250,0.80)',
-          zIndex: 1, pointerEvents: 'none',
-        }} />
-      <div style={{ position: 'relative', zIndex: 2, padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -274,8 +251,7 @@ export default function DashboardPage() {
           )}
         </section>
 
-      </div>{/* /zIndex content */}
-      </div>{/* /relative overflow */}
+      </div>
       <PWAInstallPrompt />
     </div>
   )
