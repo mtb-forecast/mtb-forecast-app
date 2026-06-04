@@ -1,0 +1,27 @@
+# Generated from requirements.txt — pin exact versions to enable pip cache in CI
+# Regenerate: pip install -r requirements.txt && pip freeze > requirements-lock.txt (keep only relevant packages)
+annotated-types==0.7.0
+anyio==4.13.0
+certifi==2026.5.20
+colorama==0.4.6
+deprecation==2.1.0
+h11==0.16.0
+h2==4.3.0
+hpack==4.1.0
+httpcore==1.0.9
+httpx==0.28.1
+hyperframe==6.1.0
+idna==3.17
+iniconfig==2.3.0
+packaging==26.2
+pluggy==1.6.0
+postgrest==2.31.0
+pydantic==2.13.4
+pytest==9.0.3
+realtime==2.31.0
+storage3==2.31.0
+supabase-auth==2.31.0
+supabase-functions==2.31.0
+supabase==2.31.0
+typing_extensions==4.15.0
+websockets==15.0.1
