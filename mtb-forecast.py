@@ -2500,6 +2500,106 @@ def processar_segmentos_strava(datas: dict) -> None:
             print(f"  [ERRO] {seg.get('name', 'desconhecido')}: {exc}")
 
 
+def _buscar_ultima_condicao_supabase(trail: dict) -> dict | None:
+    """
+    Busca o registro mais recente de condicoes para a trilha usando supabase_id.
+    Usado pela otimização zero-rain para evitar chamadas históricas externas.
+    """
+    if not SUPABASE_KEY:
+        return None
+    trilha_id = trail.get("supabase_id")
+    if not trilha_id:
+        return None
+    try:
+        campos = (
+            "acumulo_ef,acumulo_48h,meia_vida_h,ultima_chuva_h,gerado_em,"
+            "alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh"
+        )
+        url = (
+            f"{SUPABASE_URL}/rest/v1/condicoes"
+            f"?trilha_id=eq.{trilha_id}"
+            f"&select={campos}"
+            f"&limit=1"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            rows = json.loads(r.read())
+        return rows[0] if rows else None
+    except Exception as exc:
+        print(f"  [zero-rain] Falha ao buscar condição anterior: {exc}")
+        return None
+
+
+def _zero_rain_shortcircuit(trail: dict, thresh_desc: float) -> tuple:
+    """
+    Substitui fetch_onecall_historico + fetch_historico_chuva_om + fetch_vento_historico
+    quando o forecast 48h = 0.0mm. Economiza 3 chamadas OW timemachine + 2 OM archive.
+
+    Caso A: acumulo_ef já abaixo do threshold → solo seco, mantém valores armazenados.
+    Caso B: solo ainda secando → aplica decaimento exponencial sobre acumulo_ef gravado.
+
+    Retorna (hist, acumulo_48h, acumulo_ef, ultima_chuva_h, vento_hist).
+    """
+    ultimo = _buscar_ultima_condicao_supabase(trail)
+
+    if not ultimo:
+        mv = _meia_vida(trail)
+        hist = {
+            "meia_vida_h": mv, "temp_media_c": None, "vento_medio_ms": None,
+            "nublado_pct": None, "umidade_pct": None, "vento_max_kmh_ow": None,
+        }
+        vento_hist = {
+            "vento_max_kmh": 0.0, "rajada_max_kmh": None, "nivel_vento": 0,
+            "alerta_arvores": False, "fonte": "zero-rain (sem histórico)",
+        }
+        print(f"  [zero-rain] {trail['name']} — sem registro anterior, usando defaults")
+        return hist, 0.0, 0.0, None, vento_hist
+
+    acumulo_ef_stored = float(ultimo.get("acumulo_ef") or 0.0)
+    meia_vida_stored  = float(ultimo.get("meia_vida_h") or 24.0)
+    gerado_em_str     = ultimo.get("gerado_em")
+
+    horas_desde = 0.0
+    if gerado_em_str:
+        try:
+            gerado_em_dt = datetime.fromisoformat(gerado_em_str)
+            if gerado_em_dt.tzinfo is None:
+                gerado_em_dt = gerado_em_dt.replace(tzinfo=BRT)
+            horas_desde = max(0.0, (datetime.now(BRT) - gerado_em_dt).total_seconds() / 3600)
+        except Exception:
+            pass
+
+    new_ef = round(
+        acumulo_ef_stored * (0.5 ** (horas_desde / meia_vida_stored)), 2
+    ) if meia_vida_stored > 0 else 0.0
+
+    ultima_chuva_stored = ultimo.get("ultima_chuva_h")
+    ultima_chuva = round(ultima_chuva_stored + horas_desde, 1) if ultima_chuva_stored is not None else None
+
+    caso = "A (solo seco)" if new_ef < thresh_desc else f"B (secando: ef={new_ef:.1f}mm / thresh={thresh_desc:.1f}mm)"
+    print(f"  [zero-rain] {trail['name']} — Caso {caso} | Δ{horas_desde:.1f}h | ef {acumulo_ef_stored:.1f}→{new_ef:.1f}mm")
+
+    hist = {
+        "meia_vida_h":      meia_vida_stored,
+        "temp_media_c":     None,
+        "vento_medio_ms":   None,
+        "nublado_pct":      None,
+        "umidade_pct":      None,
+        "vento_max_kmh_ow": None,
+    }
+    vento_hist = {
+        "vento_max_kmh":  float(ultimo.get("alerta_vento_kmh") or 0.0),
+        "rajada_max_kmh": ultimo.get("alerta_rajada_kmh"),
+        "nivel_vento":    int(ultimo.get("alerta_vento_nivel") or 0),
+        "alerta_arvores": int(ultimo.get("alerta_vento_nivel") or 0) >= 1,
+        "fonte":          "cache (zero-rain skip)",
+    }
+    return hist, float(ultimo.get("acumulo_48h") or 0.0), new_ef, ultima_chuva, vento_hist
+
+
 def processar_trilha(trail: dict, datas: dict) -> dict:
     oc_raw = fetch_onecall(trail)
     oc     = resumo_onecall(oc_raw)
@@ -2530,22 +2630,29 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     tmax = oc["tmax"]
     tmin = oc.get("tmin")
 
-    hist        = fetch_onecall_historico(trail)
-    meia_vida_h = hist["meia_vida_h"]
-
-    hist_om      = fetch_historico_chuva_om(trail, meia_vida_h)
-    acumulo_48h  = hist_om["bruto"]
-    acumulo_ef   = hist_om["efetivo"]
-    ultima_chuva = hist_om["ultima_chuva_h"]
-
-    # Passa vento sustentado já extraído do timemachine — elimina chamada OW redundante
-    vento_hist = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
     inclinacao = calcular_inclinacao(trail)
 
     mes  = datetime.now(BRT).month
     oni  = fetch_oni_atual()
     enso = classificar_enso(oni)
     thresh_desc = threshold_solo_descansado(mes, enso, trail)
+
+    # ── OTIMIZAÇÃO ZERO-CHUVA ─────────────────────────────────────────────
+    # forecast 48h = 0mm → pula 3 chamadas OW timemachine + 2 OM archive.
+    # Usa último acumulo_ef gravado + decaimento exponencial (meia_vida armazenada).
+    if rain == 0.0:
+        hist, acumulo_48h, acumulo_ef, ultima_chuva, vento_hist = \
+            _zero_rain_shortcircuit(trail, thresh_desc)
+    else:
+        hist         = fetch_onecall_historico(trail)
+        hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
+        acumulo_48h  = hist_om["bruto"]
+        acumulo_ef   = hist_om["efetivo"]
+        ultima_chuva = hist_om["ultima_chuva_h"]
+        # Passa vento sustentado já extraído do timemachine — elimina chamada OW redundante
+        vento_hist   = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
+
+    meia_vida_h = hist["meia_vida_h"]
 
     aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso)
     trail["gust_max_kmh"] = gust_max_kmh
