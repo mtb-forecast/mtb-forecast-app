@@ -11,11 +11,38 @@ export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [userInitial, setUserInitial] = useState<string>('')
 
   useEffect(() => {
-    getClientUser().then(user => setIsLoggedIn(!!user))
+    async function loadUser() {
+      const user = await getClientUser()
+      if (!user) { setIsLoggedIn(false); return }
+      setIsLoggedIn(true)
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('avatar_url, apelido, nome, email')
+        .eq('id', user.id)
+        .single()
+
+      if (data) {
+        setAvatarUrl(data.avatar_url || null)
+        const label = data.apelido || data.nome || data.email || '?'
+        setUserInitial(label[0].toUpperCase())
+      }
+    }
+
+    loadUser()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session?.user)
+      if (!session?.user) {
+        setIsLoggedIn(false)
+        setAvatarUrl(null)
+        setUserInitial('')
+      } else {
+        loadUser()
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -80,9 +107,25 @@ export default function Navbar() {
           </Link>
 
           {isLoggedIn && (
-            <button className="nb-btn" onClick={handleLogout}>
-              Sair
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <Link href="/perfil" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: '50%',
+                  background: '#2a2a2a', border: '1.5px solid #444',
+                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: 13, color: '#aaa', fontWeight: 600 }}>{userInitial}</span>
+                  )}
+                </div>
+              </Link>
+              <button className="nb-btn" onClick={handleLogout}>
+                Sair
+              </button>
+            </div>
           )}
 
           {!isLoggedIn && (

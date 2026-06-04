@@ -132,6 +132,7 @@ export type Profile = {
   is_admin: boolean
   plano?: string
   stripe_customer_id?: string
+  avatar_url?: string | null
 }
 
 export type TrilhaComCondicao = Trilha & {

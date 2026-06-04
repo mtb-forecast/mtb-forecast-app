@@ -54,6 +54,10 @@ export default function PerfilPage() {
   const [emailFavoritas, setEmailFavoritas] = useState(true)
   const [emailSaveStatus, setEmailSaveStatus] = useState<'idle' | 'success'>('idle')
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+
   useEffect(() => {
     async function load() {
       const user = await getClientUser()
@@ -72,6 +76,7 @@ export default function PerfilPage() {
         setTelegram(profileData.telegram_username || '')
         setReceberEmail(profileData.receber_email ?? false)
         setEmailFavoritas(profileData.email_trilhas_favoritas ?? true)
+        setAvatarUrl(profileData.avatar_url || null)
       }
 
       const [{ data: minhas }, { data: favIds }] = await Promise.all([
@@ -140,6 +145,29 @@ export default function PerfilPage() {
     }
   }
 
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarError(null)
+    setAvatarUploading(true)
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) {
+        setAvatarError(data.error || 'Erro ao enviar foto.')
+      } else {
+        setAvatarUrl(data.avatar_url)
+      }
+    } catch {
+      setAvatarError('Erro de conexão. Tente novamente.')
+    } finally {
+      setAvatarUploading(false)
+      e.target.value = ''
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/login'
@@ -161,11 +189,57 @@ export default function PerfilPage() {
 
       {/* ── Page header preto ─────────────────────────────────────────── */}
       <div style={{ background: '#111', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Perfil</h1>
-          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
-            {profile?.apelido || profile?.nome || profile?.email || 'Minha conta'}
-          </p>
+        <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20 }}>
+          {/* Avatar */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: '50%',
+              background: '#2a2a2a', border: '2px solid #333',
+              overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Foto de perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <span style={{ fontSize: 28, color: '#555', fontWeight: 700 }}>
+                  {(profile?.apelido || profile?.nome || profile?.email || '?')[0].toUpperCase()}
+                </span>
+              )}
+              {avatarUploading && (
+                <div style={{
+                  position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)',
+                  borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <div style={{ width: 20, height: 20, border: '2px solid #555', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                </div>
+              )}
+            </div>
+            <label style={{
+              position: 'absolute', bottom: -2, right: -2,
+              width: 24, height: 24, borderRadius: '50%',
+              background: '#FFE000', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, lineHeight: 1,
+            }} title="Alterar foto">
+              ✎
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={handleAvatarUpload}
+                disabled={avatarUploading}
+              />
+            </label>
+          </div>
+
+          <div>
+            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Perfil</h1>
+            <p style={{ color: '#888', fontSize: 14, marginTop: 4 }}>
+              {profile?.apelido || profile?.nome || profile?.email || 'Minha conta'}
+            </p>
+            {avatarError && (
+              <p style={{ color: '#f87171', fontSize: 12, marginTop: 4 }}>{avatarError}</p>
+            )}
+          </div>
         </div>
       </div>
       <div style={{ background: '#FFE000', height: 3 }} />

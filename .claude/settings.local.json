@@ -132,7 +132,13 @@
       "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Include \"*map*\" -File)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Directory -ErrorAction SilentlyContinue)",
-      "Bash(powershell -Command ' *)"
+      "Bash(powershell -Command ' *)",
+      "PowerShell(git add \"app/\\(app\\)/trilhas/page.tsx\")",
+      "PowerShell(git merge develop)",
+      "PowerShell(git add \"components/Navbar.tsx\" \"app/\\(app\\)/dashboard/page.tsx\")",
+      "Bash(pip install *)",
+      "Bash(pip freeze *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Sintaxe OK'\\)\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
