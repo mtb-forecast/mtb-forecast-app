@@ -140,13 +140,18 @@
       "Bash(pip freeze *)",
       "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Sintaxe OK'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Python OK'\\)\")",
-      "Bash(Get-ChildItem -Recurse -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\\\(app\\)\\\\mapa\\\\\" | Select-Object FullName | head -50)"
+      "Bash(Get-ChildItem -Recurse -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\\\(app\\)\\\\mapa\\\\\" | Select-Object FullName | head -50)",
+      "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(xargs grep -l \"storage\\\\|bucket\")",
+      "Bash(mkdir -p \"c:/ClaudeCode/mtb-forecast-app/app/\\(app\\)/pump-track/[id]\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
       "C:\\ClaudeCode\\agent-mtb-forecast",
       "C:\\ClaudeCode\\mtb-forecast-app\\app\\t",
-      "c:\\ClaudeCode\\mtb-forecast-app\\supabase"
+      "c:\\ClaudeCode\\mtb-forecast-app\\supabase",
+      "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\pump-track"
     ]
   }
 }
