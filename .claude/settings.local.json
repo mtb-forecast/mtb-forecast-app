@@ -139,7 +139,8 @@
       "Bash(pip install *)",
       "Bash(pip freeze *)",
       "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Sintaxe OK'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Python OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Python OK'\\)\")",
+      "Bash(Get-ChildItem -Recurse -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\app\\\\\\(app\\)\\\\mapa\\\\\" | Select-Object FullName | head -50)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

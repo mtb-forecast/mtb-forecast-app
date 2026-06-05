@@ -9,17 +9,6 @@ import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
 import PumpTrackCard from '@/components/PumpTrackCard'
 
-// Mapa UF → nome completo do estado (para filtrar pump tracks pelo estadoSelecionado)
-const UF_PARA_ESTADO: Record<string, string> = {
-  AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas',
-  BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal',
-  ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão',
-  MT: 'Mato Grosso', MS: 'Mato Grosso do Sul', MG: 'Minas Gerais',
-  PA: 'Pará', PB: 'Paraíba', PR: 'Paraná', PE: 'Pernambuco',
-  PI: 'Piauí', RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte',
-  RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima',
-  SC: 'Santa Catarina', SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
-}
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
@@ -236,8 +225,7 @@ function TrilhasContent() {
   const pumptracks = useMemo(() => {
     if (!estadoSelecionado) return []
     return pumptracksAll.filter(pt => {
-      const estadoPt = pt.uf ? UF_PARA_ESTADO[pt.uf] : null
-      if (estadoPt !== estadoSelecionado) return false
+      if (pt.uf !== estadoSelecionado) return false
       if (search && !pt.nome.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
