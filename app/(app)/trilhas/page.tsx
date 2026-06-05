@@ -119,10 +119,11 @@ function TrilhasContent() {
           setPumptracksAll(mapped)
         }
 
-        if (estadosData) {
-          const distinct = [...new Set(
-            estadosData.map((r: { estado: string }) => r.estado).filter(Boolean)
-          )] as string[]
+        if (estadosData || ptData) {
+          const trailStates = (estadosData || []).map((r: { estado: string }) => r.estado).filter(Boolean)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ptStates = ptData ? (ptData as any[]).map((pt) => pt.uf).filter(Boolean) : []
+          const distinct = [...new Set([...trailStates, ...ptStates])].sort() as string[]
           setEstados(distinct)
         }
       } catch (err) {
@@ -134,25 +135,21 @@ function TrilhasContent() {
     init()
   }, [router])
 
-  // Carrega cidades quando estado muda
+  // Carrega cidades quando estado muda — inclui cidades de pump tracks
   useEffect(() => {
     setCidadeSelecionada('')
     setLocalidadeSelecionada('')
     setLocalidadesOpts([])
     if (!estadoSelecionado) { setCidades([]); return }
-    supabase
-      .from('localidades')
-      .select('cidade')
-      .eq('estado', estadoSelecionado)
-      .order('cidade')
-      .then(({ data }) => {
-        if (data) {
-          const distinct = [...new Set(
-            data.map((r: { cidade: string }) => r.cidade).filter(Boolean)
-          )] as string[]
-          setCidades(distinct)
-        }
-      })
+    Promise.all([
+      supabase.from('localidades').select('cidade').eq('estado', estadoSelecionado).order('cidade'),
+      supabase.from('trilhas_pumptrack').select('cidade').eq('uf', estadoSelecionado),
+    ]).then(([{ data: locData }, { data: ptData }]) => {
+      const locCidades = locData ? locData.map((r: { cidade: string }) => r.cidade).filter(Boolean) : []
+      const ptCidades = ptData ? ptData.map((r: { cidade: string | null }) => r.cidade).filter(Boolean) : []
+      const distinct = [...new Set([...locCidades, ...ptCidades as string[]])].sort() as string[]
+      setCidades(distinct)
+    })
   }, [estadoSelecionado])
 
   // Carrega localidades quando cidade muda
@@ -226,10 +223,11 @@ function TrilhasContent() {
     if (!estadoSelecionado) return []
     return pumptracksAll.filter(pt => {
       if (pt.uf !== estadoSelecionado) return false
+      if (cidadeSelecionada && pt.cidade !== cidadeSelecionada) return false
       if (search && !pt.nome.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
-  }, [pumptracksAll, estadoSelecionado, search])
+  }, [pumptracksAll, estadoSelecionado, cidadeSelecionada, search])
 
   if (!mounted) return null
 
@@ -415,6 +413,40 @@ function TrilhasContent() {
                   <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: 0 }}>{text}</p>
                 </div>
               ))}
+
+              {/* Card Pump Track — destaque roxo */}
+              <div style={{
+                background: '#FFFFFF', borderRadius: 12,
+                border: '0.5px solid #DDD6FE', padding: 20,
+                position: 'relative', overflow: 'hidden',
+              }}>
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                  background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
+                }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <i className="ti ti-route" style={{ fontSize: 24, color: '#7C3AED' }} />
+                  <span style={{
+                    background: '#EDE9FE', color: '#7C3AED',
+                    fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
+                    letterSpacing: '0.06em', textTransform: 'uppercase',
+                  }}>Novo</span>
+                </div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#111111', margin: '0 0 6px' }}>
+                  Pump Tracks no mapa
+                </p>
+                <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 12px' }}>
+                  {pumptracksAll.length} pump tracks cadastrados com previsão do tempo e navegação via Waze. Selecione seu estado para ver os locais próximos.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {['Asfalto', 'Terra', 'Homologado', 'Waze'].map(tag => (
+                    <span key={tag} style={{
+                      fontSize: 11, color: '#7C3AED', background: '#EDE9FE',
+                      borderRadius: 999, padding: '2px 8px',
+                    }}>{tag}</span>
+                  ))}
+                </div>
+              </div>
             </div>
 
           </>
