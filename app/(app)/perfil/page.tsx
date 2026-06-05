@@ -78,21 +78,22 @@ function Spinner({ size = 14 }: { size?: number }) {
 
 function NavItem({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} className="perfil-nav-item" style={{
       display: 'flex', alignItems: 'center', gap: 10,
       width: '100%', textAlign: 'left',
       padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
       background: active ? 'rgba(255,224,0,0.12)' : 'transparent',
-      color: active ? '#111' : '#9ca3af',
+      color: active ? '#fff' : '#9ca3af',
       fontSize: 14, fontWeight: active ? 600 : 500,
       transition: 'background 0.12s, color 0.12s',
+      whiteSpace: 'nowrap',
     }}
       onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
       onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
     >
       <i className={`ti ${icon}`} style={{ fontSize: 16, flexShrink: 0, color: active ? '#FFE000' : '#6b7280' }} />
-      {label}
-      {active && <i className="ti ti-chevron-right" style={{ fontSize: 12, marginLeft: 'auto', color: '#FFE000', opacity: 0.7 }} />}
+      <span className="perfil-nav-label">{label}</span>
+      <i className={`ti ti-chevron-right perfil-nav-chevron`} style={{ fontSize: 12, marginLeft: 'auto', color: '#FFE000', opacity: active ? 0.7 : 0, transition: 'opacity 0.12s' }} />
     </button>
   )
 }
@@ -239,7 +240,7 @@ export default function PerfilPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      <div className="perfil-nome-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
         <div>
           <FieldLabel>Nome completo</FieldLabel>
           <input className="input-field" type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" />
@@ -309,7 +310,7 @@ export default function PerfilPage() {
       <SectionTitle>Notificações</SectionTitle>
 
       <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="perfil-notif-row" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: receberEmail ? '#fefce8' : '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s' }}>
             <i className="ti ti-mail" style={{ fontSize: 18, color: receberEmail ? '#b45309' : '#9ca3af' }} />
           </div>
@@ -350,7 +351,7 @@ export default function PerfilPage() {
       <SectionTitle>Assinatura</SectionTitle>
 
       <div style={{ background: isPago ? 'linear-gradient(135deg, #111 0%, #1a1a1a 100%)' : '#fff', border: isPago ? 'none' : '1px solid #f0f0f0', borderRadius: 14, padding: 24, marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div className="perfil-assinatura-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <span style={{ fontSize: 22, fontWeight: 800, color: isPago ? '#FFE000' : '#111', letterSpacing: '-0.03em' }}>{plano.nome}</span>
@@ -457,21 +458,86 @@ export default function PerfilPage() {
   const tabContent: Record<Tab, React.ReactNode> = { conta: tabConta, notificacoes: tabNotif, assinatura: tabAssinatura, trilhas: tabTrilhas }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f7f7f5', overflowX: 'hidden' }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
+
+        /* ── Tablet: 769–1024px ─────────────────────────────── */
+        @media (max-width: 1024px) {
+          .perfil-sidebar { width: 200px !important; padding: 32px 16px 24px !important; }
+          .perfil-content { padding: 36px 28px !important; }
+        }
+
+        /* ── Mobile + Tablet pequeno: ≤768px ───────────────── */
         @media (max-width: 768px) {
+          /* Layout vira coluna */
           .perfil-layout { flex-direction: column !important; }
-          .perfil-sidebar { width: 100% !important; min-height: auto !important; padding: 28px 20px 16px !important; }
+
+          /* Sidebar vira barra horizontal no topo */
+          .perfil-sidebar {
+            width: 100% !important;
+            min-height: auto !important;
+            padding: 20px 16px 0 !important;
+          }
           .perfil-sidebar-inner { position: static !important; }
-          .perfil-nav { display: flex !important; flex-direction: row !important; gap: 4px !important; overflow-x: auto; padding-bottom: 2px; flex-wrap: wrap; }
-          .perfil-content { padding: 24px 20px 48px !important; }
-          .perfil-avatar-section { flex-direction: row !important; text-align: left !important; align-items: center !important; gap: 16px !important; margin-bottom: 20px !important; }
-          .perfil-avatar-section .perfil-name { text-align: left !important; }
+
+          /* Avatar section: row compacto */
+          .perfil-avatar-section {
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 14px !important;
+            margin-bottom: 16px !important;
+            text-align: left !important;
+          }
+          .perfil-name { text-align: left !important; width: 0 !important; flex: 1 !important; min-width: 0 !important; }
+          .perfil-name > div:first-child { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+          .perfil-email-text { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+
+          /* Nav: scroll horizontal */
+          .perfil-nav {
+            flex-direction: row !important;
+            gap: 4px !important;
+            overflow-x: auto !important;
+            padding: 0 0 12px !important;
+            scrollbar-width: none !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          .perfil-nav::-webkit-scrollbar { display: none; }
+
+          /* Nav items: compactos */
+          .perfil-nav-item {
+            width: auto !important;
+            flex-shrink: 0 !important;
+            padding: 7px 14px !important;
+            font-size: 13px !important;
+            border-radius: 20px !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+          }
+          .perfil-nav-chevron { display: none !important; }
+
+          /* Content area */
+          .perfil-content { padding: 24px 16px 56px !important; }
+
+          /* Form: grid 1 coluna */
+          .perfil-nome-grid { grid-template-columns: 1fr !important; }
+
+          /* Notif row: padding menor */
+          .perfil-notif-row { padding: 16px !important; gap: 12px !important; }
+
+          /* Assinatura header: coluna */
+          .perfil-assinatura-header { flex-direction: column !important; gap: 8px !important; }
+        }
+
+        /* ── Mobile pequeno: ≤480px ─────────────────────────── */
+        @media (max-width: 480px) {
+          .perfil-sidebar { padding: 16px 14px 0 !important; }
+          .perfil-content { padding: 20px 14px 56px !important; }
+          .perfil-nav-item { padding: 6px 12px !important; font-size: 12px !important; }
+          .perfil-nav-label { display: inline !important; }
         }
       `}</style>
 
-      <div className="perfil-layout" style={{ display: 'flex', maxWidth: 960, margin: '0 auto', minHeight: '100vh' }}>
+      <div className="perfil-layout" style={{ display: 'flex', maxWidth: 960, margin: '0 auto', minHeight: '100vh', width: '100%' }}>
 
         {/* ── Sidebar ── */}
         <aside className="perfil-sidebar" style={{ width: 240, background: '#111', padding: '40px 20px 32px', flexShrink: 0, minHeight: '100vh' }}>
@@ -508,11 +574,11 @@ export default function PerfilPage() {
                 </label>
               </div>
 
-              <div className="perfil-name" style={{ width: '100%' }}>
+              <div className="perfil-name" style={{ width: '100%', minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {displayName}
                 </div>
-                <div style={{ fontSize: 12, color: '#52525b', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="perfil-email-text" style={{ fontSize: 12, color: '#52525b', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {profile?.email}
                 </div>
                 <span style={{
@@ -579,7 +645,7 @@ export default function PerfilPage() {
         </aside>
 
         {/* ── Content ── */}
-        <main className="perfil-content" style={{ flex: 1, padding: '48px 40px', minWidth: 0 }}>
+        <main className="perfil-content" style={{ flex: 1, padding: '48px 40px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
           {tabContent[tab]}
         </main>
 
