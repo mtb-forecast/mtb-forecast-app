@@ -197,9 +197,22 @@ function CadastroContent() {
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 36, lineHeight: 1.1, marginBottom: 16 }}>
             Junte-se<br />aos riders.
           </h1>
-          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.7, maxWidth: 320 }}>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.7, maxWidth: 320, marginBottom: 24 }}>
             Crie sua conta grátis e nunca mais vá pedalar numa trilha encharcada por falta de informação.
           </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { icon: '🏔', text: 'Trilhas MTB com modelo de solo' },
+              { icon: '🟣', text: 'Pump tracks com previsão do tempo' },
+              { icon: '🗺', text: 'Navegação via Waze integrada' },
+              { icon: '⚡', text: 'Veredicto DROP LIBERADO / ESPERAR' },
+            ].map(f => (
+              <div key={f.text} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 14 }}>{f.icon}</span>
+                <span style={{ fontSize: 12, color: '#666' }}>{f.text}</span>
+              </div>
+            ))}
+          </div>
         </div>
         <p style={{ color: '#444', fontSize: 12 }}>MTB Forecaster © 2025</p>
       </div>

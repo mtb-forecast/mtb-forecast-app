@@ -255,6 +255,41 @@ export default function DashboardPage() {
           )}
         </section>
 
+        {/* ── Banner Pump Tracks ────────────────────────────────────── */}
+        <Link
+          href="/trilhas"
+          style={{ textDecoration: 'none', display: 'block', marginTop: 20 }}
+        >
+          <div style={{
+            background: 'linear-gradient(135deg, #2D1B69 0%, #1E1040 100%)',
+            border: '1px solid #3D2A8A',
+            borderRadius: 12, padding: '16px 20px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%',
+                background: '#7C3AED',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 18, flexShrink: 0,
+              }}>
+                🟣
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: '0 0 3px' }}>
+                  Pump Tracks no Brasil
+                </p>
+                <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>
+                  Locais homologados com previsão do tempo e navegação via Waze
+                </p>
+              </div>
+            </div>
+            <span style={{ fontSize: 12, color: '#A78BFA', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+              Ver locais →
+            </span>
+          </div>
+        </Link>
+
       </div>
       <PWAInstallPrompt />
     </div>

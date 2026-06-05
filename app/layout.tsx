@@ -7,11 +7,11 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'MTB Forecaster',
-  description: 'Condições de trilhas DH e Enduro em tempo real',
-  keywords: ['mountain bike', 'trilhas', 'previsão', 'condições', 'MTB'],
+  description: 'Condições de trilhas e pump tracks em tempo real. Previsão do tempo, modelo de solo e veredicto para pedalar com segurança.',
+  keywords: ['mountain bike', 'trilhas', 'pump track', 'previsão', 'condições', 'MTB', 'solo', 'chuva', 'enduro', 'DH'],
   openGraph: {
     title: 'MTB Forecaster',
-    description: 'Condições de trilhas DH e Enduro em tempo real',
+    description: 'Trilhas e pump tracks monitorados em tempo real no Brasil.',
     type: 'website',
   },
 }
