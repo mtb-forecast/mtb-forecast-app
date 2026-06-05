@@ -51,7 +51,6 @@ export default function PerfilPage() {
   const [telegram, setTelegram] = useState('')
 
   const [receberEmail, setReceberEmail] = useState(false)
-  const [emailFavoritas, setEmailFavoritas] = useState(true)
   const [emailSaveStatus, setEmailSaveStatus] = useState<'idle' | 'success'>('idle')
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -75,7 +74,6 @@ export default function PerfilPage() {
         setRegiao(profileData.regiao || '')
         setTelegram(profileData.telegram_username || '')
         setReceberEmail(profileData.receber_email ?? false)
-        setEmailFavoritas(profileData.email_trilhas_favoritas ?? true)
         setAvatarUrl(profileData.avatar_url || null)
       }
 
@@ -125,11 +123,13 @@ export default function PerfilPage() {
     }
   }
 
-  async function handleEmailToggle(field: 'receber_email' | 'email_trilhas_favoritas', value: boolean) {
+  async function handleEmailToggle(value: boolean) {
     if (!profile) return
-    if (field === 'receber_email') setReceberEmail(value)
-    else if (field === 'email_trilhas_favoritas') setEmailFavoritas(value)
-    await supabase.from('profiles').update({ [field]: value }).eq('id', profile.id)
+    setReceberEmail(value)
+    await supabase.from('profiles').update({
+      receber_email: value,
+      email_trilhas_favoritas: value ? true : undefined,
+    }).eq('id', profile.id)
     setEmailSaveStatus('success')
     setTimeout(() => setEmailSaveStatus('idle'), 2000)
   }
@@ -402,65 +402,36 @@ export default function PerfilPage() {
             )}
           </div>
 
-          {[
-            {
-              field: 'receber_email' as const,
-              label: 'Receber email diário com condições das trilhas',
-              desc: 'Enviado todos os dias às 07:00 BRT com as condições das suas trilhas',
-              checked: receberEmail,
-              disabled: false,
-              last: false,
-            },
-            {
-              field: 'email_trilhas_favoritas' as const,
-              label: 'Incluir minhas trilhas favoritas',
-              desc: 'Condições das trilhas que você marcou como favoritas',
-              checked: emailFavoritas,
-              disabled: !receberEmail,
-              last: true,
-            },
-          ].map(({ field, label, desc, checked, disabled, last }) => (
-            <div
-              key={field}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingRight: 16 }}>
+              <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>Receber report diário por email</span>
+              <span style={{ fontSize: 12, color: '#888' }}>Condições das suas trilhas favoritas, previsão e informações do dia — enviado às 07:00 BRT</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleEmailToggle(!receberEmail)}
               style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '12px 0',
-                borderBottom: last ? 'none' : '0.5px solid #f0f0f0',
-                opacity: disabled ? 0.5 : 1,
+                width: 44, height: 24, borderRadius: 12,
+                background: receberEmail ? '#111' : '#e5e5e5',
+                border: 'none', cursor: 'pointer',
+                position: 'relative', flexShrink: 0,
+                transition: 'background 0.2s',
               }}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingRight: 16 }}>
-                <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{label}</span>
-                <span style={{ fontSize: 12, color: '#888' }}>{desc}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => !disabled && handleEmailToggle(field, !checked)}
-                style={{
-                  width: 44, height: 24, borderRadius: 12,
-                  background: checked && !disabled ? '#111' : checked ? '#555' : '#e5e5e5',
-                  border: 'none',
-                  cursor: disabled ? 'not-allowed' : 'pointer',
-                  position: 'relative', flexShrink: 0,
-                  transition: 'background 0.2s',
-                }}
-              >
-                <span style={{
-                  position: 'absolute', top: 2,
-                  left: checked ? 22 : 2,
-                  width: 20, height: 20,
-                  background: '#fff', borderRadius: '50%',
-                  transition: 'left 0.2s',
-                }} />
-              </button>
-            </div>
-          ))}
+              <span style={{
+                position: 'absolute', top: 2,
+                left: receberEmail ? 22 : 2,
+                width: 20, height: 20,
+                background: '#fff', borderRadius: '50%',
+                transition: 'left 0.2s',
+              }} />
+            </button>
+          </div>
 
-          {/* Nota informativa */}
           <div style={{ background: '#f7f7f5', borderRadius: 6, padding: 12, marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 16, color: '#888', flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 12, color: '#888', lineHeight: 1.5, margin: 0 }}>
-              O email é enviado diariamente às 07:00 BRT apenas se você tiver trilhas favoritas cadastradas. Você pode cancelar a qualquer momento.
+              O report é enviado diariamente às 07:00 BRT com as condições das suas trilhas favoritas e previsão do tempo. Você pode cancelar a qualquer momento.
             </p>
           </div>
         </div>
@@ -553,51 +524,26 @@ export default function PerfilPage() {
           )}
         </div>
 
-        {/* Trilhas cadastradas */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <SectionLabel>Trilhas que cadastrei</SectionLabel>
+        {/* Menu de atalhos */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '8px 0', marginBottom: 24 }}>
+          <Link
+            href="/perfil/minhas-trilhas"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '12px 20px', textDecoration: 'none', color: '#111',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f5')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <i className="ti ti-map-pin" style={{ fontSize: 18, color: '#555', flexShrink: 0 }} />
+            <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>Trilhas que cadastrei</span>
             {minhasTrilhas.length > 0 && (
-              <span style={{ fontSize: 12, background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 6px', color: '#888' }}>
+              <span style={{ fontSize: 12, background: '#f3f4f6', borderRadius: 10, padding: '2px 8px', color: '#555', fontWeight: 500 }}>
                 {minhasTrilhas.length}
               </span>
             )}
-          </div>
-          {minhasTrilhas.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <p style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>Você ainda não cadastrou trilhas.</p>
-              <Link href="/trilhas/cadastrar" style={{ fontSize: 13, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
-                Cadastrar trilha →
-              </Link>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {minhasTrilhas.map(t => {
-                const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
-                  pendente:  { bg: '#fef9c3', color: '#854d0e', label: 'Pendente' },
-                  aprovada:  { bg: '#dcfce7', color: '#166534', label: 'Aprovada' },
-                  rejeitada: { bg: '#fee2e2', color: '#991b1b', label: 'Rejeitada' },
-                }
-                const cfg = statusConfig[t.status] ?? statusConfig.pendente
-                return (
-                  <div key={t.id} style={{ borderRadius: 4, padding: '10px 12px', background: '#f7f7f5' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>{t.name}</span>
-                      <span style={{ fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 6px', background: cfg.bg, color: cfg.color, flexShrink: 0, marginLeft: 12 }}>
-                        {cfg.label}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: 12, color: '#888', marginTop: 3 }}>{t.regiao} · {new Date(t.created_at).toLocaleDateString('pt-BR')}</p>
-                    {t.status === 'rejeitada' && t.motivo_rejeicao && (
-                      <p style={{ fontSize: 12, color: '#991b1b', marginTop: 6, background: '#fee2e2', borderRadius: 3, padding: '6px 10px' }}>
-                        Motivo: {t.motivo_rejeicao}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+            <span style={{ fontSize: 14, color: '#bbb' }}>→</span>
+          </Link>
         </div>
 
         {/* Admin */}
