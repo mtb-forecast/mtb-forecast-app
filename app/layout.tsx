@@ -9,6 +9,15 @@ export const metadata: Metadata = {
   title: 'MTB Forecaster',
   description: 'Condições de trilhas e pump tracks em tempo real. Previsão do tempo, modelo de solo e veredicto para pedalar com segurança.',
   keywords: ['mountain bike', 'trilhas', 'pump track', 'previsão', 'condições', 'MTB', 'solo', 'chuva', 'enduro', 'DH'],
+  icons: {
+    icon: [
+      { url: '/icons/icon.svg', type: 'image/svg+xml' },
+      { url: '/icons/icon-192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icons/icon-512.png', type: 'image/png', sizes: '512x512' },
+    ],
+    apple: '/icons/icon-apple.png',
+    shortcut: '/icons/icon-192.png',
+  },
   openGraph: {
     title: 'MTB Forecaster',
     description: 'Trilhas e pump tracks monitorados em tempo real no Brasil.',

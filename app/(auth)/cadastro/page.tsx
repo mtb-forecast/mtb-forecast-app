@@ -136,6 +136,8 @@ function CadastroContent() {
           nome: form.nome,
           apelido: form.apelido,
           regiao: form.regiao,
+          telefone: form.telefone,
+          telefone_whatsapp: form.telefone_whatsapp,
           telegram_username: form.telegram || null,
         },
       },

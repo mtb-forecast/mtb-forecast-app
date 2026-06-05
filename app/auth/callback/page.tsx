@@ -22,16 +22,36 @@ export default function AuthCallbackPage() {
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
         if (session?.user) {
+          const meta = session.user.user_metadata ?? {}
           const { data: existing } = await supabase
-            .from('profiles').select('id').eq('id', session.user.id).maybeSingle()
+            .from('profiles').select('id, nome').eq('id', session.user.id).maybeSingle()
+
           if (!existing) {
+            // Perfil ainda não existe — cria com todos os dados do cadastro
             await supabase.from('profiles').upsert({
               id: session.user.id,
               email: session.user.email ?? '',
+              nome: meta.nome || null,
+              apelido: meta.apelido || null,
+              regiao: meta.regiao || null,
+              telefone: meta.telefone || null,
+              telefone_whatsapp: meta.telefone_whatsapp ?? true,
+              telegram_username: meta.telegram_username || null,
               plano: 'gratuito',
               is_admin: false,
             })
+          } else if (!existing.nome && meta.nome) {
+            // Perfil criado sem dados (RLS bloqueou o upsert antes da confirmação)
+            await supabase.from('profiles').update({
+              nome: meta.nome,
+              apelido: meta.apelido || null,
+              regiao: meta.regiao || null,
+              telefone: meta.telefone || null,
+              telefone_whatsapp: meta.telefone_whatsapp ?? true,
+              telegram_username: meta.telegram_username || null,
+            }).eq('id', session.user.id)
           }
+
           router.replace('/dashboard')
           return
         }
