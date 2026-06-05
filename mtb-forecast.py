@@ -4040,6 +4040,10 @@ def main() -> None:
 
         print(f"  [MTB] Envio de email desativado — dados gravados no Supabase.")
 
+    # Processa pump tracks — apenas previsão do tempo, sem cálculo de solo
+    print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
+    _processar_pumptracks()
+
     # Processa segmentos Strava únicos (independente do fluxo principal)
     print("\n[MTB V7.6] Iniciando processamento de segmentos Strava únicos...")
     processar_segmentos_strava(datas)
@@ -4049,6 +4053,122 @@ def main() -> None:
     _enviar_notificacoes_telegram(resultados_global, hoje)
 
     print("\n[MTB V7.0] Concluído.")
+
+def _carregar_pumptracks_supabase() -> list:
+    """Busca todos os pump tracks cadastrados no Supabase."""
+    if not SUPABASE_KEY:
+        return []
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/trilhas_pumptrack"
+            f"?select=id,nome,latitude,longitude"
+            f"&order=nome.asc"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read())
+    except Exception as exc:
+        print(f"  [Pump Tracks] Erro ao carregar: {exc}")
+        return []
+
+
+def _gravar_condicao_pumptrack(pt_id: str, dados: dict) -> bool:
+    """
+    Grava (upsert) a previsão do pumptrack em condicoes_pumptrack.
+    Usa DELETE + INSERT para respeitar o índice único por pumptrack_id.
+    """
+    if not SUPABASE_KEY:
+        return False
+    try:
+        payload = json.dumps({
+            "pumptrack_id": pt_id,
+            "gerado_em":    datetime.now(BRT).isoformat(),
+            "rain_mm":      dados.get("rain"),
+            "pico_3h":      dados.get("pico_3h"),
+            "wind_kmh":     round(dados.get("wind", 0) * 3.6, 1),
+            "temp_max":     dados.get("temp_max"),
+            "temp_min":     dados.get("temp_min"),
+            "pop_48h":      dados.get("pop"),
+        }).encode("utf-8")
+
+        url_del = f"{SUPABASE_URL}/rest/v1/condicoes_pumptrack?pumptrack_id=eq.{pt_id}"
+        req_del = urllib.request.Request(url_del, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type":  "application/json",
+        })
+        req_del.get_method = lambda: "DELETE"
+        try:
+            with urllib.request.urlopen(req_del, timeout=10):
+                pass
+        except Exception:
+            pass
+
+        url_ins = f"{SUPABASE_URL}/rest/v1/condicoes_pumptrack"
+        req_ins = urllib.request.Request(url_ins, data=payload, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type":  "application/json",
+            "Prefer":        "return=minimal",
+        })
+        req_ins.get_method = lambda: "POST"
+        with urllib.request.urlopen(req_ins, timeout=10):
+            pass
+        return True
+    except Exception as exc:
+        print(f"  [Pump Tracks] Erro ao gravar {pt_id}: {exc}")
+        return False
+
+
+def _processar_pumptracks():
+    """
+    Busca previsão do tempo para cada pump track (sem histórico, sem cálculo de solo)
+    e grava em condicoes_pumptrack.
+    """
+    pumptracks = _carregar_pumptracks_supabase()
+    if not pumptracks:
+        print("  [Pump Tracks] Nenhum pump track encontrado.")
+        return
+
+    print(f"  [Pump Tracks] {len(pumptracks)} pump track(s) a processar...")
+    for pt in pumptracks:
+        try:
+            trail_proxy = {"lat": float(pt["latitude"]), "lon": float(pt["longitude"]),
+                           "name": pt["nome"]}
+            oc_raw = fetch_onecall(trail_proxy)
+            oc     = resumo_onecall(oc_raw)
+            if oc is None:
+                oc = {"rain": 0.0, "wind": 0.0, "pop": 0, "pico_3h": 0.0, "tmax": 25, "tmin": None}
+
+            om_raw = fetch_openmeteo(trail_proxy)
+            om     = resumo_openmeteo(om_raw)
+
+            if om:
+                rain    = round(oc["rain"]    * 0.7 + om["rain"]    * 0.3, 1)
+                wind    = round(oc["wind"]    * 0.7 + om["wind"]    * 0.3, 1)
+                pop     = round(oc["pop"]     * 0.7 + om["pop"]     * 0.3)
+                pico_3h = round(oc["pico_3h"] * 0.7 + om["pico_3h"] * 0.3, 1)
+            else:
+                rain    = oc["rain"]
+                wind    = oc["wind"]
+                pop     = oc["pop"]
+                pico_3h = oc["pico_3h"]
+
+            dados = {
+                "rain": rain, "wind": wind, "pop": pop,
+                "pico_3h": pico_3h,
+                "temp_max": oc.get("tmax"),
+                "temp_min": oc.get("tmin"),
+            }
+            ok = _gravar_condicao_pumptrack(pt["id"], dados)
+            if ok:
+                print(f"  [Pump Tracks] [OK] {pt['nome']} — rain={rain}mm | pico={pico_3h}mm | vento={round(wind*3.6,0)}km/h")
+        except Exception as exc:
+            print(f"  [Pump Tracks] [ERRO] {pt['nome']}: {exc}")
+
 
 if __name__ == "__main__":
     main()
