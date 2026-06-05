@@ -142,7 +142,7 @@ export default function LandingPage() {
             fontSize: 10, fontWeight: 700, letterSpacing: '3px',
             color: '#FFE000', textTransform: 'uppercase', marginBottom: 16,
           }}>
-            MTB · EMTB · XC · MOTO · RUN
+            MTB · EMTB · XC · PUMP TRACK · MOTO · RUN
           </p>
           <h1 style={{
             fontSize: 'clamp(36px, 6vw, 64px)', fontWeight: 800,
@@ -154,7 +154,7 @@ export default function LandingPage() {
             fontSize: 15, color: 'rgba(255,255,255,0.7)',
             lineHeight: 1.6, maxWidth: 400, marginBottom: 32,
           }}>
-            Condições de solo em tempo real para trilhas e atividades outdoor. Modelos meteorológicos e dados de campo para um veredicto confiável.
+            Trilhas MTB e pump tracks monitorados em tempo real. Modelos meteorológicos e dados de campo para você pedalar com segurança.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Link href="/cadastro" style={{
@@ -203,7 +203,7 @@ export default function LandingPage() {
         background: '#FFE000', padding: '11px 48px',
         display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
       }}>
-        {['Trilhas monitoradas diariamente', 'Chuva acumulada 48h', 'Modelo de secagem do solo', 'Atualização em tempo real', 'Brasil'].map(t => (
+        {['Trilhas monitoradas diariamente', 'Pump Tracks mapeados', 'Chuva acumulada 48h', 'Modelo de secagem do solo', 'Navegação via Waze', 'Brasil'].map(t => (
           <span key={t} style={{ fontSize: 11, fontWeight: 700, color: '#111', letterSpacing: '0.5px' }}>{t}</span>
         ))}
       </div>
@@ -246,6 +246,56 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* ── PUMP TRACKS ── */}
+      <div style={{ background: '#0D0D0D', padding: '80px 48px', borderTop: '1px solid #1E1E1E' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 48, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 280px' }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: '#2D1B69', borderRadius: 999,
+                padding: '4px 12px', marginBottom: 20,
+              }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#A78BFA' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#A78BFA', letterSpacing: '2px', textTransform: 'uppercase' }}>Novo</span>
+              </div>
+              <h2 style={{ fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 800, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.5px', marginBottom: 16 }}>
+                Pump Tracks<br />no mapa.
+              </h2>
+              <p style={{ fontSize: 14, color: '#777', lineHeight: 1.7, marginBottom: 28, maxWidth: 320 }}>
+                Locais homologados e mapeados em todo o Brasil. Cada pump track exibe a previsão do tempo e abre o Waze direto para você chegar.
+              </p>
+              <Link href="/cadastro" style={{
+                display: 'inline-block',
+                background: '#7C3AED', color: '#fff',
+                fontSize: 13, fontWeight: 700,
+                padding: '12px 28px', borderRadius: 4,
+                textDecoration: 'none',
+              }}>
+                Explorar pump tracks →
+              </Link>
+            </div>
+            <div style={{ flex: '1 1 320px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                { icon: '🌧', title: 'Previsão do tempo', desc: 'Chuva 48h, pico de intensidade e vento para cada local.' },
+                { icon: '🗺', title: 'Navegação via Waze', desc: 'Um toque e o Waze já traça a rota até o pump track.' },
+                { icon: '✓',  title: 'Locais homologados', desc: 'Velosolutions, Blue Pump Tracks, Sesc e outros.' },
+                { icon: '📍', title: '6 estados', desc: 'SP, RJ, MG, ES, SC e CE com mais chegando em breve.' },
+              ].map(f => (
+                <div key={f.title} style={{
+                  background: '#181818', border: '1px solid #222',
+                  borderRadius: 10, padding: '16px 18px',
+                }}>
+                  <span style={{ fontSize: 20, display: 'block', marginBottom: 8 }}>{f.icon}</span>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: '0 0 4px' }}>{f.title}</p>
+                  <p style={{ fontSize: 11, color: '#555', lineHeight: 1.5, margin: 0 }}>{f.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── CTA FINAL ── */}
       <div className="lp-section-cta" style={{
         background: '#111', padding: '100px 48px',
@@ -264,7 +314,7 @@ export default function LandingPage() {
           Pronto para pedalar<br />com segurança?
         </h2>
         <p style={{ fontSize: 15, color: '#777', marginBottom: 36 }}>
-          Crie sua conta e acompanhe as condições das suas trilhas favoritas.
+          Crie sua conta e acompanhe trilhas MTB e pump tracks perto de você.
         </p>
         <Link href="/cadastro" style={{
           background: '#FFE000', color: '#111',
