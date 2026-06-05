@@ -378,7 +378,7 @@ function TrilhasContent() {
               <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }} />
               <input
                 type="text"
-                placeholder="Buscar trilha..."
+                placeholder="Buscar trilha ou pump track..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="trilhas-input"
@@ -461,29 +461,30 @@ function TrilhasContent() {
 
         {/* Lista de trilhas */}
         {!loading && estadoSelecionado && (
-          filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '48px 0' }}>
-              <p style={{ fontSize: 15, color: '#6B7280', margin: '0 0 20px' }}>
-                {search
-                  ? `Nenhuma trilha encontrada para "${search}".`
-                  : `Nenhuma trilha cadastrada em ${filtroLabel} ainda.`}
-              </p>
-              {!search && (
-                <Link
-                  href="/trilhas/cadastrar"
-                  style={{
-                    display: 'inline-block',
-                    background: '#FFE000', color: '#111111',
-                    borderRadius: 8, padding: '12px 24px',
-                    fontSize: 14, fontWeight: 600, textDecoration: 'none',
-                  }}
-                >
-                  Cadastrar a primeira trilha →
-                </Link>
-              )}
-            </div>
-          ) : (
-            <>
+          <>
+            {/* Trilhas MTB — ou estado vazio se não houver nenhuma NEM pump track */}
+            {filtered.length === 0 && pumptracks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                <p style={{ fontSize: 15, color: '#6B7280', margin: '0 0 20px' }}>
+                  {search
+                    ? `Nenhum resultado para "${search}".`
+                    : `Nenhuma trilha cadastrada em ${filtroLabel} ainda.`}
+                </p>
+                {!search && (
+                  <Link
+                    href="/trilhas/cadastrar"
+                    style={{
+                      display: 'inline-block',
+                      background: '#FFE000', color: '#111111',
+                      borderRadius: 8, padding: '12px 24px',
+                      fontSize: 14, fontWeight: 600, textDecoration: 'none',
+                    }}
+                  >
+                    Cadastrar a primeira trilha →
+                  </Link>
+                )}
+              </div>
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filtered.map(t => (
                   <TrilhaCard
@@ -494,36 +495,36 @@ function TrilhasContent() {
                   />
                 ))}
               </div>
+            )}
 
-              {/* ── Seção Pump Tracks ───────────────────────────────── */}
-              {pumptracks.length > 0 && (
-                <div style={{ marginTop: 40 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                    <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{
-                        background: '#EDE9FE', color: '#7C3AED',
-                        borderRadius: 999, padding: '3px 12px',
-                        fontSize: 12, fontWeight: 700, letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                      }}>
-                        Pump Tracks
-                      </span>
-                      <span style={{ fontSize: 12, color: '#9CA3AF' }}>
-                        {pumptracks.length} local{pumptracks.length !== 1 ? 'is' : ''}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+            {/* ── Seção Pump Tracks — sempre renderizada quando há resultados ── */}
+            {pumptracks.length > 0 && (
+              <div style={{ marginTop: filtered.length > 0 ? 40 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      background: '#EDE9FE', color: '#7C3AED',
+                      borderRadius: 999, padding: '3px 12px',
+                      fontSize: 12, fontWeight: 700, letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                    }}>
+                      Pump Tracks
+                    </span>
+                    <span style={{ fontSize: 12, color: '#9CA3AF' }}>
+                      {pumptracks.length} local{pumptracks.length !== 1 ? 'is' : ''}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {pumptracks.map(pt => (
-                      <PumpTrackCard key={pt.id} pt={pt} />
-                    ))}
-                  </div>
+                  <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
                 </div>
-              )}
-            </>
-          )
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {pumptracks.map(pt => (
+                    <PumpTrackCard key={pt.id} pt={pt} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
