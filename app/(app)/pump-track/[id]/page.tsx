@@ -168,40 +168,59 @@ export default function PumpTrackDetailPage() {
 
         {/* ── Card previsão ── */}
         <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E5E7EB', padding: 20 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 14 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 16 }}>
             Previsão do tempo
           </p>
           {c ? (
             <>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-                {c.rain_mm != null && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '6px 14px' }}>
-                    <i className="ti ti-droplet" style={{ fontSize: 14, color: rainColor(c.rain_mm) }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: rainColor(c.rain_mm) }}>{c.rain_mm.toFixed(1)}mm</span>
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>chuva 48h</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+
+                {/* Chuva 24h */}
+                <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${rainColor(c.rain_mm ?? 0)}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <i className="ti ti-droplet" style={{ fontSize: 14, color: rainColor(c.rain_mm ?? 0) }} />
+                    <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Chuva 24h
+                    </span>
                   </div>
-                )}
-                {c.pico_3h != null && c.pico_3h > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '6px 14px' }}>
-                    <i className="ti ti-droplet-half" style={{ fontSize: 14, color: rainColor(c.pico_3h) }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: rainColor(c.pico_3h) }}>{c.pico_3h.toFixed(1)}mm</span>
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>pico 3h</span>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: rainColor(c.rain_mm ?? 0), margin: 0, lineHeight: 1 }}>
+                    {c.rain_mm != null ? `${c.rain_mm.toFixed(1)}` : '—'}
+                    <span style={{ fontSize: 12, fontWeight: 500, marginLeft: 3 }}>mm</span>
+                  </p>
+                </div>
+
+                {/* Vento 24h */}
+                <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${windColor(c.wind_kmh ?? 0)}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <i className="ti ti-wind" style={{ fontSize: 14, color: windColor(c.wind_kmh ?? 0) }} />
+                    <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Vento 24h
+                    </span>
                   </div>
-                )}
-                {c.wind_kmh != null && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '6px 14px' }}>
-                    <i className="ti ti-wind" style={{ fontSize: 14, color: windColor(c.wind_kmh) }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: windColor(c.wind_kmh) }}>{c.wind_kmh.toFixed(0)} km/h</span>
-                    <span style={{ fontSize: 11, color: '#9CA3AF' }}>vento</span>
-                  </div>
-                )}
-                {c.temp_max != null && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '6px 14px' }}>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: windColor(c.wind_kmh ?? 0), margin: 0, lineHeight: 1 }}>
+                    {c.wind_kmh != null ? `${c.wind_kmh.toFixed(0)}` : '—'}
+                    <span style={{ fontSize: 12, fontWeight: 500, marginLeft: 3 }}>km/h</span>
+                  </p>
+                </div>
+
+                {/* Temperatura */}
+                <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '14px 16px', borderLeft: '3px solid #F59E0B' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     <i className="ti ti-temperature" style={{ fontSize: 14, color: '#F59E0B' }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{Math.round(c.temp_max)}°C</span>
-                    {c.temp_min != null && <span style={{ fontSize: 11, color: '#9CA3AF' }}>/ {Math.round(c.temp_min)}°C</span>}
+                    <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Temperatura
+                    </span>
                   </div>
-                )}
+                  <p style={{ fontSize: 22, fontWeight: 800, color: '#374151', margin: 0, lineHeight: 1 }}>
+                    {c.temp_max != null ? `${Math.round(c.temp_max)}°` : '—'}
+                    {c.temp_min != null && (
+                      <span style={{ fontSize: 14, fontWeight: 500, color: '#9CA3AF', marginLeft: 4 }}>
+                        / {Math.round(c.temp_min)}°
+                      </span>
+                    )}
+                  </p>
+                </div>
+
               </div>
               <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>
                 Atualizado às {new Date(c.gerado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}

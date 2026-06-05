@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import { PumpTrack } from '@/lib/types'
-import { rainColor, windColor, DISPLAY_THR } from '@/lib/display'
+import { rainColor, windColor } from '@/lib/display'
 
 type Props = {
   pt: PumpTrack
@@ -19,7 +19,7 @@ function PumpTrackCard({ pt }: Props) {
   const c = pt.condicao
   const wazeUrl = `https://waze.com/ul?ll=${pt.latitude},${pt.longitude}&navigate=yes`
   const isHomologado = pt.status_validacao?.includes('Homologado')
-  const showPico = c?.pico_3h != null && c.pico_3h >= DISPLAY_THR.picoMin
+
   const hasInstagram = pt.instagram && pt.instagram !== 'N/I'
   const instagramHandle = hasInstagram ? pt.instagram!.replace('@', '') : null
 
@@ -92,27 +92,21 @@ function PumpTrackCard({ pt }: Props) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                 <i className="ti ti-droplet" style={{ fontSize: 12, color: rainColor(c.rain_mm) }} />
                 <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.rain_mm) }}>{c.rain_mm.toFixed(1)}mm</span>
-                <span style={{ fontSize: 10, color: '#9CA3AF' }}>48h</span>
-              </div>
-            )}
-            {showPico && c.pico_3h != null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                <i className="ti ti-droplet-half" style={{ fontSize: 12, color: rainColor(c.pico_3h) }} />
-                <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.pico_3h) }}>{c.pico_3h.toFixed(1)}mm</span>
-                <span style={{ fontSize: 10, color: '#9CA3AF' }}>pico 3h</span>
+                <span style={{ fontSize: 10, color: '#9CA3AF' }}>chuva 24h</span>
               </div>
             )}
             {c.wind_kmh != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                 <i className="ti ti-wind" style={{ fontSize: 12, color: windColor(c.wind_kmh) }} />
                 <span style={{ fontSize: 11, fontWeight: 500, color: windColor(c.wind_kmh) }}>{c.wind_kmh.toFixed(0)} km/h</span>
-                <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento</span>
+                <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento 24h</span>
               </div>
             )}
             {c.temp_max != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                 <i className="ti ti-temperature" style={{ fontSize: 12, color: '#F59E0B' }} />
                 <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }}>{Math.round(c.temp_max)}°C</span>
+                {c.temp_min != null && <span style={{ fontSize: 10, color: '#9CA3AF' }}>/ {Math.round(c.temp_min)}°</span>}
               </div>
             )}
           </div>
