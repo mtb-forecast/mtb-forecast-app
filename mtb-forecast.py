@@ -2533,31 +2533,18 @@ def _buscar_ultima_condicao_supabase(trail: dict) -> dict | None:
         return None
 
 
-def _zero_rain_shortcircuit(trail: dict, thresh_desc: float) -> tuple:
+def _zero_rain_shortcircuit(trail: dict, thresh_desc: float, ultimo: dict) -> tuple:
     """
     Substitui fetch_onecall_historico + fetch_historico_chuva_om + fetch_vento_historico
-    quando o forecast 48h = 0.0mm. Economiza 3 chamadas OW timemachine + 2 OM archive.
+    quando o forecast 48h = 0.0mm E já existe um registro anterior no Supabase.
+    Economiza 3 chamadas OW timemachine + 2 OM archive por trilha.
 
     Caso A: acumulo_ef já abaixo do threshold → solo seco, mantém valores armazenados.
     Caso B: solo ainda secando → aplica decaimento exponencial sobre acumulo_ef gravado.
 
+    Recebe `ultimo` já buscado por _buscar_ultima_condicao_supabase (sem chamada duplicada).
     Retorna (hist, acumulo_48h, acumulo_ef, ultima_chuva_h, vento_hist).
     """
-    ultimo = _buscar_ultima_condicao_supabase(trail)
-
-    if not ultimo:
-        mv = _meia_vida(trail)
-        hist = {
-            "meia_vida_h": mv, "temp_media_c": None, "vento_medio_ms": None,
-            "nublado_pct": None, "umidade_pct": None, "vento_max_kmh_ow": None,
-        }
-        vento_hist = {
-            "vento_max_kmh": 0.0, "rajada_max_kmh": None, "nivel_vento": 0,
-            "alerta_arvores": False, "fonte": "zero-rain (sem histórico)",
-        }
-        print(f"  [zero-rain] {trail['name']} — sem registro anterior, usando defaults")
-        return hist, 0.0, 0.0, None, vento_hist
-
     acumulo_ef_stored = float(ultimo.get("acumulo_ef") or 0.0)
     meia_vida_stored  = float(ultimo.get("meia_vida_h") or 24.0)
     gerado_em_str     = ultimo.get("gerado_em")
@@ -2638,12 +2625,17 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     thresh_desc = threshold_solo_descansado(mes, enso, trail)
 
     # ── OTIMIZAÇÃO ZERO-CHUVA ─────────────────────────────────────────────
-    # forecast 48h = 0mm → pula 3 chamadas OW timemachine + 2 OM archive.
-    # Usa último acumulo_ef gravado + decaimento exponencial (meia_vida armazenada).
-    if rain == 0.0:
+    # forecast 48h = 0mm → tenta pular 3 chamadas OW timemachine + 2 OM archive.
+    # Pré-condição obrigatória: trilha já tem condição gravada no Supabase.
+    # Trilhas sem histórico rodam o pipeline completo para estabelecer baseline.
+    _ultimo = _buscar_ultima_condicao_supabase(trail) if rain == 0.0 else None
+
+    if rain == 0.0 and _ultimo is not None:
         hist, acumulo_48h, acumulo_ef, ultima_chuva, vento_hist = \
-            _zero_rain_shortcircuit(trail, thresh_desc)
+            _zero_rain_shortcircuit(trail, thresh_desc, _ultimo)
     else:
+        if rain == 0.0:
+            print(f"  [zero-rain] {trail['name']} — sem histórico, pipeline completo (baseline)")
         hist         = fetch_onecall_historico(trail)
         hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
         acumulo_48h  = hist_om["bruto"]
