@@ -154,6 +154,7 @@ export default function AdminPage() {
       polyline:     p.polyline ?? null,
       aprovada:     true,
       localidade_id: localidadeId,
+      created_by:   p.user_id ?? null,
     })
 
     if (insertError) {
