@@ -457,84 +457,144 @@ export default function PerfilPage() {
 
   const tabContent: Record<Tab, React.ReactNode> = { conta: tabConta, notificacoes: tabNotif, assinatura: tabAssinatura, trilhas: tabTrilhas }
 
+  // Bloco reutilizável: links admin (usado no sidebar desktop e no footer mobile)
+  const adminLinks = profile?.is_admin ? (
+    <div style={{ marginBottom: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.5px', color: '#52525b', textTransform: 'uppercase', marginBottom: 8, padding: '0 12px' }}>Admin</div>
+      {[
+        { href: '/admin', icon: 'ti-layout-dashboard', label: 'Painel' },
+        { href: '/admin/tabelas', icon: 'ti-table', label: 'Tabelas' },
+        { href: '/admin/importar-strava', icon: 'ti-brand-strava', label: 'Strava' },
+      ].map(item => (
+        <Link key={item.href} href={item.href} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 12px', borderRadius: 8, color: '#9ca3af',
+          fontSize: 13, fontWeight: 500, textDecoration: 'none',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+        >
+          <i className={`ti ${item.icon}`} style={{ fontSize: 15, color: '#FFE000', flexShrink: 0 }} />
+          {item.label}
+        </Link>
+      ))}
+    </div>
+  ) : null
+
+  const logoutBtn = (
+    <button onClick={handleLogout} style={{
+      display: 'flex', alignItems: 'center', gap: 9,
+      width: '100%', background: 'transparent', border: 'none',
+      padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+      color: '#6b7280', fontSize: 14, fontWeight: 500,
+    }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#f87171' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+    >
+      <i className="ti ti-logout" style={{ fontSize: 16, flexShrink: 0 }} />
+      Sair da conta
+    </button>
+  )
+
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5', overflowX: 'hidden' }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
 
-        /* ── Tablet: 769–1024px ─────────────────────────────── */
+        /* ── Tablet: 769–1024px ─────────────────────────── */
         @media (max-width: 1024px) {
-          .perfil-sidebar { width: 200px !important; padding: 32px 16px 24px !important; }
-          .perfil-content { padding: 36px 28px !important; }
+          .perfil-sidebar { width: 200px !important; padding: 28px 14px 20px !important; }
+          .perfil-content { padding: 32px 24px 48px !important; }
         }
 
-        /* ── Mobile + Tablet pequeno: ≤768px ───────────────── */
+        /* ── Mobile: ≤768px ─────────────────────────────── */
         @media (max-width: 768px) {
-          /* Layout vira coluna */
           .perfil-layout { flex-direction: column !important; }
 
-          /* Sidebar vira barra horizontal no topo */
+          /* Sidebar: só header + nav, sem altura mínima */
           .perfil-sidebar {
             width: 100% !important;
-            min-height: auto !important;
-            padding: 20px 16px 0 !important;
+            min-height: 0 !important;
+            padding: 16px 16px 0 !important;
           }
           .perfil-sidebar-inner { position: static !important; }
+
+          /* Admin e logout somem do sidebar no mobile */
+          .perfil-sidebar-extras { display: none !important; }
 
           /* Avatar section: row compacto */
           .perfil-avatar-section {
             flex-direction: row !important;
             align-items: center !important;
-            gap: 14px !important;
-            margin-bottom: 16px !important;
+            gap: 12px !important;
+            margin-bottom: 14px !important;
             text-align: left !important;
           }
-          .perfil-name { text-align: left !important; width: 0 !important; flex: 1 !important; min-width: 0 !important; }
-          .perfil-name > div:first-child { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+          /* Avatar menor no mobile */
+          .perfil-avatar-circle { width: 52px !important; height: 52px !important; }
+          .perfil-avatar-circle span { font-size: 20px !important; }
+          .perfil-avatar-circle img { width: 52px !important; height: 52px !important; }
+          .perfil-avatar-edit-btn { width: 20px !important; height: 20px !important; font-size: 10px !important; }
+
+          /* Textos de identidade */
+          .perfil-name { width: 0 !important; flex: 1 !important; min-width: 0 !important; text-align: left !important; }
+          .perfil-name-text { font-size: 15px !important; }
           .perfil-email-text { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
 
-          /* Nav: scroll horizontal */
+          /* Nav: scroll horizontal tipo chips */
           .perfil-nav {
             flex-direction: row !important;
-            gap: 4px !important;
+            gap: 6px !important;
             overflow-x: auto !important;
-            padding: 0 0 12px !important;
+            padding: 0 0 14px !important;
             scrollbar-width: none !important;
             -webkit-overflow-scrolling: touch !important;
+            margin-bottom: 0 !important;
           }
           .perfil-nav::-webkit-scrollbar { display: none; }
-
-          /* Nav items: compactos */
           .perfil-nav-item {
             width: auto !important;
             flex-shrink: 0 !important;
-            padding: 7px 14px !important;
+            padding: 8px 14px !important;
             font-size: 13px !important;
             border-radius: 20px !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
           }
           .perfil-nav-chevron { display: none !important; }
 
-          /* Content area */
-          .perfil-content { padding: 24px 16px 56px !important; }
+          /* Content */
+          .perfil-content { padding: 22px 16px 32px !important; }
 
-          /* Form: grid 1 coluna */
+          /* Footer mobile: admin + logout aparecem aqui */
+          .perfil-mobile-footer {
+            display: block !important;
+            margin-top: 32px;
+            background: #111;
+            border-radius: 14px;
+            padding: 4px 4px 4px;
+            overflow: hidden;
+          }
+
+          /* Form grid 1 coluna */
           .perfil-nome-grid { grid-template-columns: 1fr !important; }
 
-          /* Notif row: padding menor */
-          .perfil-notif-row { padding: 16px !important; gap: 12px !important; }
+          /* Notif row */
+          .perfil-notif-row { padding: 14px 16px !important; gap: 12px !important; }
 
-          /* Assinatura header: coluna */
+          /* Assinatura header empilha */
           .perfil-assinatura-header { flex-direction: column !important; gap: 8px !important; }
         }
 
-        /* ── Mobile pequeno: ≤480px ─────────────────────────── */
-        @media (max-width: 480px) {
-          .perfil-sidebar { padding: 16px 14px 0 !important; }
-          .perfil-content { padding: 20px 14px 56px !important; }
-          .perfil-nav-item { padding: 6px 12px !important; font-size: 12px !important; }
-          .perfil-nav-label { display: inline !important; }
+        /* ── Mobile pequeno: ≤420px ─────────────────────── */
+        @media (max-width: 420px) {
+          .perfil-sidebar { padding: 14px 14px 0 !important; }
+          .perfil-content { padding: 18px 14px 32px !important; }
+          .perfil-nav-item { padding: 7px 11px !important; font-size: 12px !important; }
+          .perfil-mobile-footer { border-radius: 10px !important; }
         }
+
+        /* Esconder footer mobile no desktop */
+        .perfil-mobile-footer { display: none; }
       `}</style>
 
       <div className="perfil-layout" style={{ display: 'flex', maxWidth: 960, margin: '0 auto', minHeight: '100vh', width: '100%' }}>
@@ -544,25 +604,23 @@ export default function PerfilPage() {
           <div className="perfil-sidebar-inner" style={{ position: 'sticky', top: 32 }}>
 
             {/* Identity */}
-            <div className="perfil-avatar-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 32 }}>
+            <div className="perfil-avatar-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 28 }}>
               <div style={{ position: 'relative', marginBottom: 14, flexShrink: 0 }}>
-                <div style={{
+                <div className="perfil-avatar-circle" style={{
                   width: 76, height: 76, borderRadius: '50%',
                   background: '#1a1a1a', border: '2px solid #2a2a2a',
                   overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <span style={{ fontSize: 28, fontWeight: 800, color: '#FFE000', lineHeight: 1 }}>{initials}</span>
-                  )}
+                  {avatarUrl
+                    ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ fontSize: 28, fontWeight: 800, color: '#FFE000', lineHeight: 1 }}>{initials}</span>}
                   {avatarUploading && (
                     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Spinner size={18} />
                     </div>
                   )}
                 </div>
-                <label style={{
+                <label className="perfil-avatar-edit-btn" style={{
                   position: 'absolute', bottom: 0, right: 0,
                   width: 24, height: 24, borderRadius: '50%',
                   background: '#FFE000', border: '2px solid #111',
@@ -575,7 +633,7 @@ export default function PerfilPage() {
               </div>
 
               <div className="perfil-name" style={{ width: '100%', minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="perfil-name-text" style={{ fontWeight: 700, fontSize: 15, color: '#fff', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {displayName}
                 </div>
                 <div className="perfil-email-text" style={{ fontSize: 12, color: '#52525b', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -591,7 +649,6 @@ export default function PerfilPage() {
                   {isPago ? plano.nome : 'Gratuito'}
                 </span>
               </div>
-
               {avatarError && <p style={{ fontSize: 11, color: '#f87171', marginTop: 8, lineHeight: 1.4, textAlign: 'left', width: '100%' }}>{avatarError}</p>}
             </div>
 
@@ -603,43 +660,11 @@ export default function PerfilPage() {
               <NavItem icon="ti-mountain" label="Minhas trilhas" active={tab === 'trilhas'} onClick={() => setTab('trilhas')} />
             </nav>
 
-            {/* Admin links */}
-            {profile?.is_admin && (
-              <div style={{ marginBottom: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.5px', color: '#52525b', textTransform: 'uppercase', marginBottom: 8, padding: '0 12px' }}>Admin</div>
-                {[
-                  { href: '/admin', icon: 'ti-layout-dashboard', label: 'Painel' },
-                  { href: '/admin/tabelas', icon: 'ti-table', label: 'Tabelas' },
-                  { href: '/admin/importar-strava', icon: 'ti-brand-strava', label: 'Strava' },
-                ].map(item => (
-                  <Link key={item.href} href={item.href} style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '7px 12px', borderRadius: 8, color: '#9ca3af',
-                    fontSize: 13, fontWeight: 500, textDecoration: 'none', transition: 'color 0.12s',
-                  }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
-                  >
-                    <i className={`ti ${item.icon}`} style={{ fontSize: 15, color: '#FFE000', flexShrink: 0 }} />
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* Logout */}
-            <button onClick={handleLogout} style={{
-              display: 'flex', alignItems: 'center', gap: 9,
-              width: '100%', background: 'transparent', border: 'none',
-              padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-              color: '#6b7280', fontSize: 14, fontWeight: 500,
-            }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#f87171' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
-            >
-              <i className="ti ti-logout" style={{ fontSize: 16, flexShrink: 0 }} />
-              Sair da conta
-            </button>
+            {/* Admin + Logout — visíveis só no desktop (sidebar) */}
+            <div className="perfil-sidebar-extras">
+              {adminLinks}
+              {logoutBtn}
+            </div>
 
           </div>
         </aside>
@@ -647,6 +672,12 @@ export default function PerfilPage() {
         {/* ── Content ── */}
         <main className="perfil-content" style={{ flex: 1, padding: '48px 40px', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
           {tabContent[tab]}
+
+          {/* Admin + Logout — visíveis só no mobile (rodapé do conteúdo) */}
+          <div className="perfil-mobile-footer" style={{ display: 'none' }}>
+            {adminLinks}
+            {logoutBtn}
+          </div>
         </main>
 
       </div>
