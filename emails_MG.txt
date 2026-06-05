@@ -1,8 +1,0 @@
-# Destinatários para trilhas da região MG
-# Um ou mais endereços por linha, separados por vírgula.
-# Linhas em branco e comentários (#) são ignorados.
-# exemplo@email.com,
-Leal.guilhermeo@gmail.com,
-sadouglasdh@gmail.com,
-Rafael.m.vianna@hotmail.com,
-marcosfreitasjornalista@hotmail.com,
