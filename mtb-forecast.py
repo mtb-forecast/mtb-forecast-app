@@ -97,17 +97,8 @@ import ssl
 import urllib.request
 import urllib.error
 import urllib.parse
-import smtplib
 import time
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from datetime import datetime, timezone, timedelta, date
-
-# ---------------------------------------------------------------------------
-# Leitura de trilhas via CSV
-# ---------------------------------------------------------------------------
-import csv as _csv
-import pathlib as _pathlib
 
 # SSL context reutilizável para chamadas Open-Meteo — evita renegociação a cada request
 _SSL_CTX = ssl.create_default_context()
@@ -116,184 +107,15 @@ def _om_urlopen(url: str, timeout: int = 60):
     """urlopen com SSL context explícito e timeout generoso para api.open-meteo.com."""
     return urllib.request.urlopen(url, timeout=timeout, context=_SSL_CTX)
 
-_CAMPOS_OBRIGATORIOS = ("name", "lat", "lon", "solo_type", "exposicao", "altitude_m", "trail_type", "regiao")
-_SOLO_VALIDOS        = {"terra", "misto", "preto", "pedra", "ferro", "misto_mg"}
-_EXPOSICAO_VALIDOS   = {"aberta", "fechada", "mista"}
-_TRAIL_VALIDOS       = {"natural", "bikepark"}
-
-def _carregar_trilhas(csv_path: str = "trilhas.csv") -> list:
-    caminho = _pathlib.Path(__file__).parent / csv_path
-    if not caminho.exists():
-        raise FileNotFoundError(
-            "Arquivo de trilhas nao encontrado: " + str(caminho) + "\n"
-            "Crie o arquivo trilhas.csv na mesma pasta do script.\n"
-            "Consulte o README para o formato correto."
-        )
-
-    for enc in ("utf-8-sig", "utf-8", "latin-1"):
-        try:
-            with open(caminho, newline="", encoding=enc) as f:
-                f.read(4096)
-            encoding_ok = enc
-            break
-        except UnicodeDecodeError:
-            continue
-    else:
-        encoding_ok = "latin-1"
-    print(f"[trilhas.csv] Encoding detectado: {encoding_ok}")
-
-    trilhas, erros = [], []
-    with open(caminho, newline="", encoding=encoding_ok) as f:
-        amostra = f.read(4096)
-        f.seek(0)
-        separador = ";" if amostra.count(";") > amostra.count(",") else ","
-        reader = _csv.DictReader(f, delimiter=separador)
-        faltando_header = [c for c in _CAMPOS_OBRIGATORIOS if c not in (reader.fieldnames or [])]
-        if faltando_header:
-            raise ValueError(
-                "trilhas.csv esta faltando colunas obrigatorias: "
-                + ", ".join(faltando_header)
-                + "\nColunas encontradas: "
-                + ", ".join(reader.fieldnames or [])
-            )
-        for linha, row in enumerate(reader, start=2):
-            nome = row.get("name", "").strip() or f"linha {linha}"
-            try:
-                for campo in _CAMPOS_OBRIGATORIOS:
-                    if not row.get(campo, "").strip():
-                        raise ValueError(f"campo '{campo}' vazio ou ausente")
-
-                def _coord(v: str) -> float:
-                    v = v.strip()
-                    if v.count(".") > 1:
-                        sinal = "-" if v.startswith("-") else ""
-                        partes = v.lstrip("-").split(".")
-                        v = f"{sinal}{partes[0]}.{''.join(partes[1:])}"
-                    return float(v)
-
-                lat = _coord(row["lat"])
-                lon = _coord(row["lon"])
-                if not (-90 <= lat <= 90):
-                    raise ValueError(f"lat invalida: {lat}")
-                if not (-180 <= lon <= 180):
-                    raise ValueError(f"lon invalida: {lon}")
-
-                altitude_m = int(row["altitude_m"])
-
-                solo_type  = row["solo_type"].strip().lower()
-                exposicao  = row["exposicao"].strip().lower()
-                trail_type = row["trail_type"].strip().lower()
-                regiao     = row["regiao"].strip().upper()
-
-                if solo_type not in _SOLO_VALIDOS:
-                    raise ValueError(f"solo_type '{solo_type}' invalido — use: {', '.join(sorted(_SOLO_VALIDOS))}")
-                if exposicao not in _EXPOSICAO_VALIDOS:
-                    raise ValueError(f"exposicao '{exposicao}' invalida — use: {', '.join(sorted(_EXPOSICAO_VALIDOS))}")
-                if trail_type not in _TRAIL_VALIDOS:
-                    raise ValueError(f"trail_type '{trail_type}' invalido — use: {', '.join(sorted(_TRAIL_VALIDOS))}")
-                if not regiao:
-                    raise ValueError("campo 'regiao' vazio — ex: SP, MG, RJ")
-
-                def _opcional_float(campo, row=row):
-                    v = row.get(campo, "").strip()
-                    if not v:
-                        return None
-                    try:
-                        return float(v)
-                    except ValueError:
-                        raise ValueError(f"campo '{campo}' nao e um numero valido: '{v}'")
-
-                desnivel_m  = _opcional_float("desnivel_m")
-                extensao_km = _opcional_float("extensao_km")
-                bioma       = row.get("bioma", "").strip() or "Desconhecido"
-
-                trilhas.append({
-                    "name":        row["name"].strip(),
-                    "lat":         lat,
-                    "lon":         lon,
-                    "solo_type":   solo_type,
-                    "exposicao":   exposicao,
-                    "altitude_m":  altitude_m,
-                    "trail_type":  trail_type,
-                    "regiao":      regiao,
-                    "desnivel_m":  desnivel_m,
-                    "extensao_km": extensao_km,
-                    "bioma":       bioma,
-                })
-
-            except (ValueError, KeyError) as exc:
-                msg = f"[trilhas.csv] Linha {linha} ('{nome}') ignorada: {exc}"
-                erros.append(msg)
-                print(msg)
-
-    if not trilhas:
-        raise RuntimeError(
-            "Nenhuma trilha valida encontrada em trilhas.csv. "
-            "Verifique o arquivo e corrija os erros acima."
-        )
-
-    regioes = sorted(set(t["regiao"] for t in trilhas))
-    if erros:
-        print(f"[trilhas.csv] {len(erros)} linha(s) ignorada(s), {len(trilhas)} trilha(s) carregada(s). Regiões: {', '.join(regioes)}")
-    else:
-        print(f"[trilhas.csv] {len(trilhas)} trilha(s) carregada(s). Regiões: {', '.join(regioes)}")
-
-    return trilhas
-
 TRAILS = []
 
 OPENWEATHER_KEY = os.getenv("OPENWEATHER_API_KEY")
 ANTHROPIC_KEY   = os.getenv("ANTHROPIC_API_KEY")
-EMAIL_FROM      = os.getenv("EMAIL_FROM")
-EMAIL_PASSWORD  = os.getenv("EMAIL_PASSWORD")
-EMAIL_TO        = os.getenv("EMAIL_TO")
-EMAIL_BCC       = os.getenv("EMAIL_BCC", "")
 DEBUG_MODEL     = os.getenv("DEBUG_MODEL", "false").lower() == "true"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-
-# ---------------------------------------------------------------------------
-# Destinatários por região — buscados do Supabase (profiles.receber_email)
-# ---------------------------------------------------------------------------
-
-def _carregar_emails_por_regiao() -> dict:
-    # profiles.regiao = preferência de notificação do usuário (ex: "SP")
-    # Diferente de trilhas.regiao = localização da trilha (ex: "SP", "MG")
-    if not SUPABASE_KEY or not SUPABASE_URL:
-        print("  [Email] SUPABASE_KEY ou SUPABASE_URL ausente — pulando carga de emails")
-        return {}
-    try:
-        req = urllib.request.Request(
-            f"{SUPABASE_URL}/rest/v1/profiles"
-            f"?select=email,regiao,plano,receber_email"
-            f"&receber_email=eq.true",
-            headers={
-                "apikey":        SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=10) as r:
-            rows = json.loads(r.read())
-    except Exception as exc:
-        print(f"  [Email] Erro ao carregar destinatários do Supabase: {exc}")
-        return {}
-    resultado = {}
-    for row in rows:
-        regiao = row.get("regiao") or "outros"
-        email  = row.get("email")
-        if not email:
-            continue
-        if regiao not in resultado:
-            resultado[regiao] = []
-        resultado[regiao].append(email)
-    total = sum(len(v) for v in resultado.values())
-    print(f"[Supabase] {total} destinatário(s) com receber_email=True em {len(resultado)} região(ões).")
-    return resultado
-
-def _bcc_global() -> list:
-    return [e.strip() for e in EMAIL_BCC.split(",") if e.strip()]
 
 def _validar_env() -> None:
     obrigatorias = {
@@ -3779,73 +3601,42 @@ def gerar_html(resultados: list, analise: str, hoje: str, datas: dict, regiao: s
 </body>
 </html>"""
 
-def send_email(html_body: str, destinatarios: list, regiao: str) -> None:
-    email_from     = _get_config("email_from", "EMAIL_FROM")
-    email_password = _get_config("email_password", "EMAIL_PASSWORD")
-
-    if not email_from or not email_password:
-        print(f"  [Email] Credenciais não encontradas — email não enviado")
-        return
-
-    hoje = datetime.now(BRT).strftime("%d/%m/%Y")
-    bcc  = _bcc_global()
-    msg  = MIMEMultipart("alternative")
-    msg["Subject"] = f"Monitoramento de Trilhas MTB — {regiao} — {hoje}"
-    msg["From"]    = email_from
-    msg["To"]      = ", ".join(destinatarios)
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-        smtp.login(email_from, email_password)
-        smtp.sendmail(email_from, destinatarios + bcc, msg.as_string())
-    print(f"  ✉️  Email enviado para {len(destinatarios)} destinatário(s) da região {regiao}"
-          + (f" + {len(bcc)} BCC global" if bcc else ""))
-
 def _carregar_trilhas_supabase() -> list:
-    """
-    Carrega trilhas aprovadas do Supabase em vez do trilhas.csv.
-    Fallback para CSV se Supabase falhar.
-    """
+    """Carrega trilhas aprovadas do Supabase. Levanta RuntimeError se falhar."""
     if not SUPABASE_KEY:
-        print("  [Trilhas] SUPABASE_KEY ausente — usando trilhas.csv")
-        return []
-    try:
-        # regiao lido diretamente de trilhas.regiao (campo legado, estado em sigla ex: "SP").
-        # TODO: migrar para JOIN com localidades via trilhas.localidade_id:
-        #   ?select=...&localidades(estado,cidade,localidade)
-        #   Para trilhas novas: regiao = localidades.estado (fallback: trilhas.regiao)
-        url = (
-            f"{SUPABASE_URL}/rest/v1/trilhas"
-            f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
-            f"&aprovada=eq.true"
-            f"&order=name.asc"
-        )
-        req = urllib.request.Request(url, headers={
-            "apikey":        SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
+        raise RuntimeError("[Trilhas] SUPABASE_KEY ausente — impossível carregar trilhas.")
+    url = (
+        f"{SUPABASE_URL}/rest/v1/trilhas"
+        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
+        f"&aprovada=eq.true"
+        f"&order=name.asc"
+    )
+    req = urllib.request.Request(url, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    })
+    with urllib.request.urlopen(req, timeout=15) as r:
+        dados = json.loads(r.read())
+    if not dados:
+        raise RuntimeError("[Trilhas] Nenhuma trilha aprovada encontrada no Supabase.")
+    trilhas = []
+    for row in dados:
+        trilhas.append({
+            "supabase_id": row["id"],
+            "name":        row["name"],
+            "lat":         float(row["lat"]),
+            "lon":         float(row["lon"]),
+            "solo_type":   row["solo_type"],
+            "exposicao":   row["exposicao"],
+            "altitude_m":  int(row["altitude_m"] or 900),
+            "trail_type":  row["trail_type"],
+            "regiao":      row["regiao"],
+            "desnivel_m":  row.get("desnivel_m"),
+            "extensao_km": row.get("extensao_km"),
+            "bioma":       row.get("bioma") or "Desconhecido",
         })
-        with urllib.request.urlopen(req, timeout=15) as r:
-            dados = json.loads(r.read())
-        trilhas = []
-        for row in dados:
-            trilhas.append({
-                "supabase_id": row["id"],
-                "name":        row["name"],
-                "lat":         float(row["lat"]),
-                "lon":         float(row["lon"]),
-                "solo_type":   row["solo_type"],
-                "exposicao":   row["exposicao"],
-                "altitude_m":  int(row["altitude_m"] or 900),
-                "trail_type":  row["trail_type"],
-                "regiao":      row["regiao"],
-                "desnivel_m":  row.get("desnivel_m"),
-                "extensao_km": row.get("extensao_km"),
-                "bioma":       row.get("bioma") or "Desconhecido",
-            })
-        print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
-        return trilhas
-    except Exception as exc:
-        print(f"  [Trilhas] Erro ao carregar do Supabase: {exc} — usando trilhas.csv")
-        return []
+    print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
+    return trilhas
 
 
 def _buscar_usuarios_email() -> list:
@@ -3972,11 +3763,7 @@ def _enviar_emails_usuarios(resultados_global: list, hoje: str, datas: dict) -> 
 
 def main() -> None:
     global TRAILS
-    trilhas_sb = _carregar_trilhas_supabase()
-    if trilhas_sb:
-        TRAILS = trilhas_sb
-    else:
-        TRAILS = _carregar_trilhas()
+    TRAILS = _carregar_trilhas_supabase()
 
     _validar_env()
     print("[MTB V8.0] Carregando configurações do Supabase...")
@@ -4006,8 +3793,6 @@ def main() -> None:
     for trail in TRAILS:
         trails_por_regiao.setdefault(trail["regiao"], []).append(trail)
 
-    emails_por_regiao = _carregar_emails_por_regiao()
-
     ids_com_favorito = _carregar_ids_com_favorito()
     # None = erro na carga → processa tudo como fallback seguro
     def _tem_favorito(trail: dict) -> bool:
@@ -4032,10 +3817,6 @@ def main() -> None:
             print(f"  [Solo] {trail['name']}: API indisponível — usando fallback '{trail['solo_type']}'")
 
     for regiao, trails in sorted(trails_por_regiao.items()):
-
-        tem_destinatarios = regiao in emails_por_regiao
-        if not tem_destinatarios:
-            print(f"[MTB V7.0] Região {regiao}: sem destinatários de email — processando e gravando dados normalmente.")
 
         print(f"\n[MTB V7.0] Processando região {regiao} ({len(trails)} trilha(s))...")
         resultados, falhas = [], []
@@ -4080,23 +3861,6 @@ def main() -> None:
                     )
                 except Exception:
                     pass
-
-        if not resultados:
-            print(f"  [AVISO] Nenhuma trilha processada para a região {regiao} — email não enviado.")
-            continue
-
-        if not tem_destinatarios:
-            continue
-
-        print(f"  [MTB V7.0] Gerando análise via Claude AI para região {regiao}...")
-        analise = gerar_analise_claude(resultados, hoje, datas, regiao)
-
-        print(f"  [MTB V7.0] Montando HTML para região {regiao}...")
-        html_body = gerar_html(resultados, analise, hoje, datas, regiao)
-
-        if falhas:
-            aviso     = "<br>".join(f"⚠️ {html_lib.escape(f)}" for f in falhas)
-            html_body = html_body.replace("</body>", f'<p style="text-align:center;font-size:11px;color:#ef4444;">{aviso}</p></body>')
 
     # Processa pump tracks — apenas previsão do tempo, sem cálculo de solo
     print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
