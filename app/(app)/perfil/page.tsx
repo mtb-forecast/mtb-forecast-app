@@ -1,30 +1,17 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
 import { PLANOS } from '@/lib/stripe-config'
 
-type TrilhaPendenteSimples = {
-  id: string
-  name: string
-  regiao: string
-  status: string
-  motivo_rejeicao?: string | null
-  created_at: string
-}
+type Tab = 'conta' | 'notificacoes' | 'assinatura' | 'trilhas'
+type TrilhaPendente = { id: string; name: string; regiao: string; status: string; motivo_rejeicao?: string | null; created_at: string }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 16 }}>
-      {children}
-    </p>
-  )
-}
+// ── Helpers ────────────────────────────────────────────────────────────────
 
-function formatPhone(raw: string): string {
+function formatPhone(raw: string) {
   const d = raw.replace(/\D/g, '').slice(0, 13)
   if (!d) return ''
   if (d.length <= 2) return '+' + d
@@ -33,105 +20,164 @@ function formatPhone(raw: string): string {
   return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`
 }
 
+// ── Micro-components ───────────────────────────────────────────────────────
+
+function Toggle({ checked, onChange, disabled = false }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button type="button" onClick={() => !disabled && onChange(!checked)}
+      style={{
+        width: 42, height: 24, borderRadius: 12,
+        background: checked ? '#FFE000' : '#e5e7eb',
+        border: checked ? '1.5px solid #d4b800' : '1.5px solid #d1d5db',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        position: 'relative', flexShrink: 0, transition: 'background 0.18s, border-color 0.18s',
+        outline: 'none',
+      }}>
+      <span style={{
+        position: 'absolute', top: 2, left: checked ? 19 : 2,
+        width: 18, height: 18,
+        background: checked ? '#111' : '#9ca3af', borderRadius: '50%',
+        transition: 'left 0.18s, background 0.18s',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+      }} />
+    </button>
+  )
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6, letterSpacing: '0.02em' }}>{children}</label>
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111', margin: '0 0 20px', letterSpacing: '-0.01em' }}>{children}</h2>
+}
+
+function Divider() {
+  return <div style={{ height: 1, background: '#f3f4f6', margin: '20px 0' }} />
+}
+
+function InlineAlert({ type, children }: { type: 'success' | 'error' | 'info'; children: React.ReactNode }) {
+  const cfg = {
+    success: { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d', icon: 'ti-circle-check' },
+    error:   { bg: '#fef2f2', border: '#fecaca', color: '#dc2626', icon: 'ti-alert-circle' },
+    info:    { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', icon: 'ti-info-circle' },
+  }[type]
+  return (
+    <div style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8, color: cfg.color }}>
+      <i className={`ti ${cfg.icon}`} style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }} />
+      <span style={{ lineHeight: 1.5 }}>{children}</span>
+    </div>
+  )
+}
+
+function Spinner({ size = 14 }: { size?: number }) {
+  return <span style={{ display: 'inline-block', width: size, height: size, border: `2px solid rgba(0,0,0,0.12)`, borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.65s linear infinite', flexShrink: 0 }} />
+}
+
+// ── Nav item ────────────────────────────────────────────────────────────────
+
+function NavItem({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      width: '100%', textAlign: 'left',
+      padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+      background: active ? 'rgba(255,224,0,0.12)' : 'transparent',
+      color: active ? '#111' : '#9ca3af',
+      fontSize: 14, fontWeight: active ? 600 : 500,
+      transition: 'background 0.12s, color 0.12s',
+    }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+    >
+      <i className={`ti ${icon}`} style={{ fontSize: 16, flexShrink: 0, color: active ? '#FFE000' : '#6b7280' }} />
+      {label}
+      {active && <i className="ti ti-chevron-right" style={{ fontSize: 12, marginLeft: 'auto', color: '#FFE000', opacity: 0.7 }} />}
+    </button>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────
+
 export default function PerfilPage() {
-  const router = useRouter()
+  const [tab, setTab] = useState<Tab>('conta')
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaPendenteSimples[]>([])
+  const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaPendente[]>([])
   const [trilhasFavoritas, setTrilhasFavoritas] = useState<Trilha[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const [portalLoading, setPortalLoading] = useState(false)
 
+  // Conta form state
   const [nome, setNome] = useState('')
   const [apelido, setApelido] = useState('')
   const [telefone, setTelefone] = useState('')
   const [telefoneWhatsapp, setTelefoneWhatsapp] = useState(true)
   const [regiao, setRegiao] = useState('')
   const [telegram, setTelegram] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
+  // Notificações
   const [receberEmail, setReceberEmail] = useState(false)
-  const [emailSaveStatus, setEmailSaveStatus] = useState<'idle' | 'success'>('idle')
+  const [emailSaving, setEmailSaving] = useState(false)
+  const [emailSaved, setEmailSaved] = useState(false)
 
+  // Avatar
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState<string | null>(null)
+
+  // Assinatura
+  const [portalLoading, setPortalLoading] = useState(false)
 
   useEffect(() => {
     async function load() {
       const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
 
-      const { data: profileData } = await supabase
-        .from('profiles').select('*').eq('id', user.id).single()
-
-      if (profileData) {
-        setProfile(profileData)
-        setNome(profileData.nome || '')
-        setApelido(profileData.apelido || '')
-        setTelefone(profileData.telefone || '')
-        setTelefoneWhatsapp(profileData.telefone_whatsapp ?? true)
-        setRegiao(profileData.regiao || '')
-        setTelegram(profileData.telegram_username || '')
-        setReceberEmail(profileData.receber_email ?? false)
-        setAvatarUrl(profileData.avatar_url || null)
+      const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      if (p) {
+        setProfile(p)
+        setNome(p.nome || '')
+        setApelido(p.apelido || '')
+        setTelefone(p.telefone || '')
+        setTelefoneWhatsapp(p.telefone_whatsapp ?? true)
+        setRegiao(p.regiao || '')
+        setTelegram(p.telegram_username || '')
+        setReceberEmail(p.receber_email ?? false)
+        setAvatarUrl(p.avatar_url || null)
       }
 
       const [{ data: minhas }, { data: favIds }] = await Promise.all([
-        supabase.from('trilhas_pendentes')
-          .select('id, name, regiao, status, motivo_rejeicao, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
+        supabase.from('trilhas_pendentes').select('id,name,regiao,status,motivo_rejeicao,created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
       ])
-
       if (minhas) setMinhasTrilhas(minhas)
-
-      if (favIds && favIds.length > 0) {
+      if (favIds?.length) {
         const ids = favIds.map((f: { trilha_id: string }) => f.trilha_id)
-        const { data: favTrilhas } = await supabase
-          .from('trilhas').select('*').in('id', ids).eq('aprovada', true)
+        const { data: favTrilhas } = await supabase.from('trilhas').select('*').in('id', ids).eq('aprovada', true)
         if (favTrilhas) setTrilhasFavoritas(favTrilhas)
       }
-
       setLoading(false)
     }
     load()
-  }, [router])
+  }, [])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!profile) return
-    setSaving(true)
-    setSaveStatus('idle')
-    const { error } = await supabase.from('profiles')
-      .update({
-        nome,
-        apelido,
-        telefone,
-        telefone_whatsapp: telefoneWhatsapp,
-        regiao,
-        telegram_username: telegram || null,
-      })
-      .eq('id', profile.id)
+    setSaving(true); setSaveStatus('idle')
+    const { error } = await supabase.from('profiles').update({ nome, apelido, telefone, telefone_whatsapp: telefoneWhatsapp, regiao, telegram_username: telegram || null }).eq('id', profile.id)
     setSaving(false)
-    if (error) {
-      setSaveStatus('error')
-    } else {
-      setSaveStatus('success')
-      setTimeout(() => setSaveStatus('idle'), 3000)
-    }
+    setSaveStatus(error ? 'error' : 'success')
+    if (!error) setTimeout(() => setSaveStatus('idle'), 3000)
   }
 
-  async function handleEmailToggle(value: boolean) {
+  async function handleEmailToggle(v: boolean) {
     if (!profile) return
-    setReceberEmail(value)
-    await supabase.from('profiles').update({
-      receber_email: value,
-      email_trilhas_favoritas: value ? true : undefined,
-    }).eq('id', profile.id)
-    setEmailSaveStatus('success')
-    setTimeout(() => setEmailSaveStatus('idle'), 2000)
+    setReceberEmail(v); setEmailSaving(true)
+    await supabase.from('profiles').update({ receber_email: v, ...(v ? { email_trilhas_favoritas: true } : {}) }).eq('id', profile.id)
+    setEmailSaving(false); setEmailSaved(true)
+    setTimeout(() => setEmailSaved(false), 2200)
   }
 
   async function handlePortal() {
@@ -140,453 +186,404 @@ export default function PerfilPage() {
       const res = await fetch('/api/stripe/portal', { method: 'POST' })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-    } finally {
-      setPortalLoading(false)
-    }
+    } finally { setPortalLoading(false) }
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setAvatarError(null)
-    setAvatarUploading(true)
-    const form = new FormData()
-    form.append('file', file)
+    const file = e.target.files?.[0]; if (!file) return
+    setAvatarError(null); setAvatarUploading(true)
+    const form = new FormData(); form.append('file', file)
     try {
       const res = await fetch('/api/profile/avatar', { method: 'POST', body: form })
       const data = await res.json()
-      if (!res.ok) {
-        setAvatarError(data.error || 'Erro ao enviar foto.')
-      } else {
-        setAvatarUrl(data.avatar_url)
-      }
-    } catch {
-      setAvatarError('Erro de conexão. Tente novamente.')
-    } finally {
-      setAvatarUploading(false)
-      e.target.value = ''
-    }
+      if (!res.ok) setAvatarError(data.error || 'Erro ao enviar foto.')
+      else setAvatarUrl(data.avatar_url)
+    } catch { setAvatarError('Erro de conexão.') }
+    finally { setAvatarUploading(false); e.target.value = '' }
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut()
-    window.location.href = '/login'
+    await supabase.auth.signOut(); window.location.href = '/login'
   }
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 36, height: 36, border: '2.5px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <p style={{ fontSize: 13, color: '#9ca3af' }}>Carregando perfil…</p>
       </div>
-    )
-  }
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
 
   const planoId = (profile?.plano || 'gratuito') as keyof typeof PLANOS
+  const plano = PLANOS[planoId] ?? PLANOS.gratuito
+  const isPago = plano.preco > 0
+  const displayName = profile?.apelido || profile?.nome || '–'
+  const initials = displayName[0]?.toUpperCase() ?? '?'
+
+  // ── Tabs content ────────────────────────────────────────────────────────
+
+  const tabConta = (
+    <form onSubmit={handleSave}>
+      <SectionTitle>Dados pessoais</SectionTitle>
+
+      {saveStatus === 'success' && <InlineAlert type="success">Alterações salvas com sucesso!</InlineAlert>}
+      {saveStatus === 'error' && <InlineAlert type="error">Erro ao salvar. Tente novamente.</InlineAlert>}
+
+      <div style={{ marginBottom: 20 }}>
+        <FieldLabel>E-mail</FieldLabel>
+        <div style={{ position: 'relative' }}>
+          <input className="input-field" type="email" value={profile?.email || ''} disabled style={{ paddingRight: 40, background: '#fafafa', color: '#9ca3af' }} />
+          <i className="ti ti-lock" style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#d1d5db' }} />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        <div>
+          <FieldLabel>Nome completo</FieldLabel>
+          <input className="input-field" type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" />
+        </div>
+        <div>
+          <FieldLabel>Apelido</FieldLabel>
+          <input className="input-field" type="text" value={apelido} onChange={e => setApelido(e.target.value)} placeholder="Como te chamam" />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <FieldLabel>Região</FieldLabel>
+        <select className="input-field" value={regiao} onChange={e => setRegiao(e.target.value)}>
+          <option value="">Selecione seu estado</option>
+          {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <FieldLabel>Telefone</FieldLabel>
+        <input className="input-field" type="tel" value={telefone} onChange={e => setTelefone(formatPhone(e.target.value))} placeholder="+55 (11) 99999-9999" />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, cursor: 'pointer' }}>
+          <input type="checkbox" checked={telefoneWhatsapp} onChange={e => setTelefoneWhatsapp(e.target.checked)} style={{ width: 14, height: 14, accentColor: '#111' }} />
+          <span style={{ fontSize: 13, color: '#6b7280' }}>Este número tem WhatsApp</span>
+        </label>
+      </div>
+
+      <Divider />
+
+      <div style={{ marginBottom: 24 }}>
+        <FieldLabel>Telegram <span style={{ fontWeight: 400, color: '#9ca3af' }}>(opcional)</span></FieldLabel>
+        {planoId === 'gratuito' ? (
+          <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 6, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <i className="ti ti-brand-telegram" style={{ fontSize: 16, color: '#9ca3af' }} />
+              <span style={{ fontSize: 13, color: '#9ca3af' }}>Disponível no Plano Básico</span>
+            </div>
+            <Link href="/planos" style={{ fontSize: 13, fontWeight: 600, color: '#111', textDecoration: 'underline' }}>Ver planos</Link>
+          </div>
+        ) : (
+          <>
+            <input className="input-field" type="text" value={telegram}
+              onChange={e => { const v = e.target.value; setTelegram(v && !v.startsWith('@') ? '@' + v : v) }}
+              placeholder="@seu_username" />
+            <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 6, lineHeight: 1.5 }}>
+              Abra o Telegram e inicie uma conversa com <strong>@mtbforecaster_bot</strong> enviando /start.
+            </p>
+          </>
+        )}
+      </div>
+
+      <button type="submit" disabled={saving} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        background: saving ? '#f3f4f6' : '#111', color: saving ? '#9ca3af' : '#fff',
+        border: 'none', borderRadius: 8, padding: '11px 24px',
+        fontSize: 14, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
+        transition: 'background 0.15s',
+      }}>
+        {saving && <Spinner />}
+        {saving ? 'Salvando…' : 'Salvar alterações'}
+      </button>
+    </form>
+  )
+
+  const tabNotif = (
+    <div>
+      <SectionTitle>Notificações</SectionTitle>
+
+      <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: receberEmail ? '#fefce8' : '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s' }}>
+            <i className="ti ti-mail" style={{ fontSize: 18, color: receberEmail ? '#b45309' : '#9ca3af' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>Report diário por e-mail</span>
+              {emailSaving && <Spinner size={12} />}
+              {emailSaved && !emailSaving && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ Salvo</span>}
+            </div>
+            <span style={{ fontSize: 13, color: '#9ca3af' }}>Previsão das suas trilhas favoritas</span>
+          </div>
+          <Toggle checked={receberEmail} onChange={handleEmailToggle} disabled={emailSaving} />
+        </div>
+
+        {receberEmail && (
+          <div style={{ borderTop: '1px solid #f3f4f6', padding: '14px 20px', background: '#fafafa' }}>
+            <p style={{ fontSize: 12, color: '#6b7280', margin: 0, lineHeight: 1.7 }}>
+              <strong style={{ color: '#111' }}>Horários de envio (BRT):</strong><br />
+              Seg–Dom às <strong>06h</strong> · Sex–Dom também às <strong>12h</strong> · Sex–Sáb também às <strong>20h</strong>
+            </p>
+            <p style={{ fontSize: 12, color: '#6b7280', margin: '10px 0 0', lineHeight: 1.7 }}>
+              Você receberá aderência, veredicto e previsão detalhada das trilhas que você favoritou.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {!receberEmail && (
+        <p style={{ fontSize: 13, color: '#9ca3af', marginTop: 14, lineHeight: 1.6 }}>
+          Ative para receber um report com a condição das suas trilhas favoritas em cada janela de envio.
+        </p>
+      )}
+    </div>
+  )
+
+  const tabAssinatura = (
+    <div>
+      <SectionTitle>Assinatura</SectionTitle>
+
+      <div style={{ background: isPago ? 'linear-gradient(135deg, #111 0%, #1a1a1a 100%)' : '#fff', border: isPago ? 'none' : '1px solid #f0f0f0', borderRadius: 14, padding: 24, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: isPago ? '#FFE000' : '#111', letterSpacing: '-0.03em' }}>{plano.nome}</span>
+              {isPago && <span style={{ fontSize: 11, fontWeight: 700, background: 'rgba(255,224,0,0.15)', color: '#FFE000', borderRadius: 4, padding: '3px 8px' }}>ATIVO</span>}
+            </div>
+            <p style={{ fontSize: 13, color: isPago ? '#9ca3af' : '#6b7280', margin: 0, lineHeight: 1.5 }}>{plano.descricao}</p>
+          </div>
+          {isPago && (
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', flexShrink: 0 }}>
+              R${plano.preco}<span style={{ fontSize: 13, fontWeight: 400, color: '#6b7280' }}>/mês</span>
+            </span>
+          )}
+        </div>
+
+        <div style={{ marginTop: 20 }}>
+          {isPago ? (
+            <button onClick={handlePortal} disabled={portalLoading} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(255,255,255,0.08)', color: '#e5e7eb',
+              border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+              padding: '9px 18px', fontSize: 13, fontWeight: 500, cursor: portalLoading ? 'not-allowed' : 'pointer',
+            }}>
+              {portalLoading ? <Spinner size={12} /> : <i className="ti ti-external-link" style={{ fontSize: 15 }} />}
+              Gerenciar assinatura
+            </button>
+          ) : (
+            <Link href="/planos" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: '#FFE000', color: '#111', border: '1.5px solid #111',
+              borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700,
+              textDecoration: 'none',
+            }}>
+              <i className="ti ti-rocket" style={{ fontSize: 15 }} /> Fazer upgrade
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {!isPago && (
+        <div style={{ border: '1px dashed #e5e7eb', borderRadius: 12, padding: 20 }}>
+          <p style={{ fontSize: 14, fontWeight: 600, color: '#111', margin: '0 0 8px' }}>O que você ganha com o upgrade:</p>
+          {['Alertas Telegram em tempo real', 'Histórico de condições da trilha', 'Filtros avançados no mapa', 'Suporte prioritário'].map(item => (
+            <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
+              <i className="ti ti-circle-check" style={{ fontSize: 15, color: '#16a34a', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: '#374151' }}>{item}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  const tabTrilhas = (
+    <div>
+      <SectionTitle>Minhas trilhas</SectionTitle>
+
+      <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
+        <Link href="/trilhas" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 18, color: '#111', textDecoration: 'none' }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#fafafa')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <div style={{ width: 38, height: 38, borderRadius: 9, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className="ti ti-heart" style={{ fontSize: 18, color: '#ef4444' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>Trilhas favoritas</div>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>{trilhasFavoritas.length} trilha{trilhasFavoritas.length !== 1 ? 's' : ''} salva{trilhasFavoritas.length !== 1 ? 's' : ''}</div>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#d1d5db' }} />
+        </Link>
+
+        <div style={{ height: 1, background: '#f3f4f6', margin: '0 18px' }} />
+
+        <Link href="/perfil/minhas-trilhas" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 18, color: '#111', textDecoration: 'none' }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#fafafa')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <div style={{ width: 38, height: 38, borderRadius: 9, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className="ti ti-map-pin" style={{ fontSize: 18, color: '#3b82f6' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>Trilhas que cadastrei</div>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>{minhasTrilhas.length} trilha{minhasTrilhas.length !== 1 ? 's' : ''} submetida{minhasTrilhas.length !== 1 ? 's' : ''}</div>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#d1d5db' }} />
+        </Link>
+
+        <div style={{ height: 1, background: '#f3f4f6', margin: '0 18px' }} />
+
+        <Link href="/trilhas/cadastrar" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 18, color: '#111', textDecoration: 'none' }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#fafafa')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+          <div style={{ width: 38, height: 38, borderRadius: 9, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className="ti ti-plus" style={{ fontSize: 18, color: '#16a34a' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>Cadastrar nova trilha</div>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>Submeter para aprovação</div>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#d1d5db' }} />
+        </Link>
+      </div>
+    </div>
+  )
+
+  const tabContent: Record<Tab, React.ReactNode> = { conta: tabConta, notificacoes: tabNotif, assinatura: tabAssinatura, trilhas: tabTrilhas }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @media (max-width: 768px) {
+          .perfil-layout { flex-direction: column !important; }
+          .perfil-sidebar { width: 100% !important; min-height: auto !important; padding: 28px 20px 16px !important; }
+          .perfil-sidebar-inner { position: static !important; }
+          .perfil-nav { display: flex !important; flex-direction: row !important; gap: 4px !important; overflow-x: auto; padding-bottom: 2px; flex-wrap: wrap; }
+          .perfil-content { padding: 24px 20px 48px !important; }
+          .perfil-avatar-section { flex-direction: row !important; text-align: left !important; align-items: center !important; gap: 16px !important; margin-bottom: 20px !important; }
+          .perfil-avatar-section .perfil-name { text-align: left !important; }
+        }
+      `}</style>
 
-      {/* ── Page header preto ─────────────────────────────────────────── */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 20 }}>
-          {/* Avatar */}
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: '50%',
-              background: '#2a2a2a', border: '2px solid #333',
-              overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Foto de perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ fontSize: 28, color: '#555', fontWeight: 700 }}>
-                  {(profile?.apelido || profile?.nome || profile?.email || '?')[0].toUpperCase()}
-                </span>
-              )}
-              {avatarUploading && (
+      <div className="perfil-layout" style={{ display: 'flex', maxWidth: 960, margin: '0 auto', minHeight: '100vh' }}>
+
+        {/* ── Sidebar ── */}
+        <aside className="perfil-sidebar" style={{ width: 240, background: '#111', padding: '40px 20px 32px', flexShrink: 0, minHeight: '100vh' }}>
+          <div className="perfil-sidebar-inner" style={{ position: 'sticky', top: 32 }}>
+
+            {/* Identity */}
+            <div className="perfil-avatar-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: 32 }}>
+              <div style={{ position: 'relative', marginBottom: 14, flexShrink: 0 }}>
                 <div style={{
-                  position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)',
-                  borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 76, height: 76, borderRadius: '50%',
+                  background: '#1a1a1a', border: '2px solid #2a2a2a',
+                  overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <div style={{ width: 20, height: 20, border: '2px solid #555', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                </div>
-              )}
-            </div>
-            <label style={{
-              position: 'absolute', bottom: -2, right: -2,
-              width: 24, height: 24, borderRadius: '50%',
-              background: '#FFE000', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 13, lineHeight: 1,
-            }} title="Alterar foto">
-              ✎
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                style={{ display: 'none' }}
-                onChange={handleAvatarUpload}
-                disabled={avatarUploading}
-              />
-            </label>
-          </div>
-
-          <div>
-            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Perfil</h1>
-            <p style={{ color: '#888', fontSize: 14, marginTop: 4 }}>
-              {profile?.apelido || profile?.nome || profile?.email || 'Minha conta'}
-            </p>
-            {avatarError && (
-              <p style={{ color: '#f87171', fontSize: 12, marginTop: 4 }}>{avatarError}</p>
-            )}
-          </div>
-        </div>
-      </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
-
-      {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: 32, maxWidth: 720, margin: '0 auto' }}>
-
-        {/* Dados pessoais */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
-          <SectionLabel>Dados pessoais</SectionLabel>
-
-          {saveStatus === 'success' && (
-            <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#166534', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
-              Perfil atualizado!
-            </div>
-          )}
-          {saveStatus === 'error' && (
-            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
-              Erro ao salvar. Tente novamente.
-            </div>
-          )}
-
-          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            {/* Email — read-only */}
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                E-mail
-                <span style={{ marginLeft: 6, fontSize: 11 }}>🔒</span>
-              </label>
-              <input
-                type="email"
-                value={profile?.email || ''}
-                disabled
-                className="input-field"
-                style={{ background: '#f7f7f5', color: '#888', cursor: 'not-allowed' }}
-              />
-            </div>
-
-            {/* Nome + Apelido — grid 2 col */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                  Nome completo
-                </label>
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={e => setNome(e.target.value)}
-                  className="input-field"
-                  style={{ fontSize: 13 }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                  Apelido
-                </label>
-                <input
-                  type="text"
-                  value={apelido}
-                  onChange={e => setApelido(e.target.value)}
-                  placeholder="Exibido no app"
-                  className="input-field"
-                  style={{ fontSize: 13 }}
-                />
-                <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>Exibido no app</p>
-              </div>
-            </div>
-
-            {/* Telefone */}
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                Telefone / WhatsApp
-              </label>
-              <input
-                type="tel"
-                value={telefone}
-                onChange={e => setTelefone(formatPhone(e.target.value))}
-                placeholder="+55 (11) 99999-9999"
-                className="input-field"
-              />
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={telefoneWhatsapp}
-                  onChange={e => setTelefoneWhatsapp(e.target.checked)}
-                  style={{ width: 15, height: 15, accentColor: '#111' }}
-                />
-                <span style={{ fontSize: 13, color: '#555' }}>Este número tem WhatsApp</span>
-              </label>
-            </div>
-
-            {/* Região */}
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Região</label>
-              <select value={regiao} onChange={e => setRegiao(e.target.value)} className="input-field">
-                <option value="">Selecione</option>
-                {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-              </select>
-            </div>
-
-            {/* Telegram */}
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                Telegram <span style={{ color: '#bbb' }}>(opcional)</span>
-              </label>
-              {planoId === 'gratuito' ? (
-                <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
-                  Disponível a partir do Plano Básico.{' '}
-                  <a href="/planos" style={{ color: '#888', textDecoration: 'underline' }}>Ver planos</a>
-                </p>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    value={telegram}
-                    onChange={e => {
-                      const v = e.target.value
-                      setTelegram(v && !v.startsWith('@') ? '@' + v : v)
-                    }}
-                    placeholder="@seu_username"
-                    className="input-field"
-                  />
-                  <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
-                    Para receber notificações: busque @mtbforecaster_bot no Telegram, inicie com /start e informe seu @username acima.
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Salvar */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-              <button
-                type="submit"
-                disabled={saving}
-                style={{
-                  background: '#FFE000', color: '#111',
-                  border: '1.5px solid #111', borderRadius: 4,
-                  padding: '10px 24px', fontSize: 14, fontWeight: 500,
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  opacity: saving ? 0.7 : 1,
-                  display: 'flex', alignItems: 'center', gap: 8,
-                }}
-              >
-                {saving && (
-                  <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #111', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                )}
-                {saving ? 'Salvando...' : 'Salvar alterações'}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Notificações por Email */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <SectionLabel>Notificações por Email</SectionLabel>
-            {emailSaveStatus === 'success' && (
-              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 500 }}>Preferências salvas</span>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingRight: 16 }}>
-              <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>Receber report diário por email</span>
-              <span style={{ fontSize: 12, color: '#888' }}>Seg–Dom às 06h · Sex–Dom também às 12h · Sex–Sáb também às 20h (BRT)</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleEmailToggle(!receberEmail)}
-              style={{
-                width: 44, height: 24, borderRadius: 12,
-                background: receberEmail ? '#111' : '#e5e5e5',
-                border: 'none', cursor: 'pointer',
-                position: 'relative', flexShrink: 0,
-                transition: 'background 0.2s',
-              }}
-            >
-              <span style={{
-                position: 'absolute', top: 2,
-                left: receberEmail ? 22 : 2,
-                width: 20, height: 20,
-                background: '#fff', borderRadius: '50%',
-                transition: 'left 0.2s',
-              }} />
-            </button>
-          </div>
-
-          <div style={{ background: '#f7f7f5', borderRadius: 6, padding: 12, marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <i className="ti ti-info-circle" style={{ fontSize: 16, color: '#888', flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 12, color: '#888', lineHeight: 1.5, margin: 0 }}>
-              O report inclui aderência, veredicto, chuva e vento das suas trilhas favoritas + análise do dia. Você pode cancelar a qualquer momento.
-            </p>
-          </div>
-        </div>
-
-        {/* Minha assinatura */}
-        {(() => {
-          const plano = PLANOS[planoId] ?? PLANOS.gratuito
-          const isPago = plano.preco > 0
-          return (
-            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
-              <SectionLabel>Minha assinatura</SectionLabel>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>{plano.nome}</span>
-                    <span style={{
-                      fontSize: 11, fontWeight: 500, borderRadius: 2, padding: '2px 8px',
-                      background: isPago ? '#dcfce7' : '#f3f4f6',
-                      color: isPago ? '#166534' : '#6b7280',
-                    }}>
-                      {isPago ? `R$${plano.preco}/mês` : 'Gratuito'}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: 12, color: '#888' }}>{plano.descricao}</p>
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {isPago ? (
-                    <button
-                      onClick={handlePortal}
-                      disabled={portalLoading}
-                      style={{
-                        background: '#fff', color: '#111',
-                        border: '1.5px solid #111', borderRadius: 4,
-                        padding: '8px 16px', fontSize: 13, fontWeight: 500,
-                        cursor: portalLoading ? 'not-allowed' : 'pointer',
-                        opacity: portalLoading ? 0.7 : 1,
-                        display: 'flex', alignItems: 'center', gap: 6,
-                      }}
-                    >
-                      {portalLoading && (
-                        <span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid #111', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                      )}
-                      Gerenciar assinatura
-                    </button>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <Link
-                      href="/planos"
-                      style={{
-                        display: 'inline-block',
-                        background: '#FFE000', color: '#111',
-                        border: '1.5px solid #111', borderRadius: 4,
-                        padding: '8px 16px', fontSize: 13, fontWeight: 500,
-                        textDecoration: 'none',
-                      }}
-                    >
-                      Ver planos →
-                    </Link>
+                    <span style={{ fontSize: 28, fontWeight: 800, color: '#FFE000', lineHeight: 1 }}>{initials}</span>
+                  )}
+                  {avatarUploading && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Spinner size={18} />
+                    </div>
                   )}
                 </div>
+                <label style={{
+                  position: 'absolute', bottom: 0, right: 0,
+                  width: 24, height: 24, borderRadius: '50%',
+                  background: '#FFE000', border: '2px solid #111',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, color: '#111',
+                }} title="Alterar foto">
+                  ✎
+                  <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleAvatarUpload} disabled={avatarUploading} />
+                </label>
               </div>
+
+              <div className="perfil-name" style={{ width: '100%' }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {displayName}
+                </div>
+                <div style={{ fontSize: 12, color: '#52525b', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {profile?.email}
+                </div>
+                <span style={{
+                  display: 'inline-block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                  padding: '3px 10px', borderRadius: 20, textTransform: 'uppercase',
+                  background: isPago ? 'rgba(255,224,0,0.15)' : 'rgba(255,255,255,0.06)',
+                  color: isPago ? '#FFE000' : '#6b7280',
+                  border: isPago ? '1px solid rgba(255,224,0,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                }}>
+                  {isPago ? plano.nome : 'Gratuito'}
+                </span>
+              </div>
+
+              {avatarError && <p style={{ fontSize: 11, color: '#f87171', marginTop: 8, lineHeight: 1.4, textAlign: 'left', width: '100%' }}>{avatarError}</p>}
             </div>
-          )
-        })()}
 
-        {/* Trilhas favoritas */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 24, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <SectionLabel>Trilhas favoritas</SectionLabel>
-            <span style={{ fontSize: 12, background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 6px', color: '#888' }}>
-              {trilhasFavoritas.length}
-            </span>
-          </div>
-          {trilhasFavoritas.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#888' }}>Nenhuma trilha favoritada ainda.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {trilhasFavoritas.map(t => (
-                <Link
-                  key={t.id}
-                  href={`/trilhas/${t.id}`}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 4, textDecoration: 'none' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f5')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 500, color: '#111' }}>{t.name}</span>
-                  <span style={{ fontSize: 12, color: '#888' }}>{t.regiao}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+            {/* Navigation */}
+            <nav className="perfil-nav" style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 24 }}>
+              <NavItem icon="ti-user" label="Conta" active={tab === 'conta'} onClick={() => setTab('conta')} />
+              <NavItem icon="ti-bell" label="Notificações" active={tab === 'notificacoes'} onClick={() => setTab('notificacoes')} />
+              <NavItem icon="ti-credit-card" label="Assinatura" active={tab === 'assinatura'} onClick={() => setTab('assinatura')} />
+              <NavItem icon="ti-mountain" label="Minhas trilhas" active={tab === 'trilhas'} onClick={() => setTab('trilhas')} />
+            </nav>
 
-        {/* Menu de atalhos */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '8px 0', marginBottom: 24 }}>
-          <Link
-            href="/perfil/minhas-trilhas"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '12px 20px', textDecoration: 'none', color: '#111',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#f7f7f5')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-          >
-            <i className="ti ti-map-pin" style={{ fontSize: 18, color: '#555', flexShrink: 0 }} />
-            <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>Trilhas que cadastrei</span>
-            {minhasTrilhas.length > 0 && (
-              <span style={{ fontSize: 12, background: '#f3f4f6', borderRadius: 10, padding: '2px 8px', color: '#555', fontWeight: 500 }}>
-                {minhasTrilhas.length}
-              </span>
-            )}
-            <span style={{ fontSize: 14, color: '#bbb' }}>→</span>
-          </Link>
-        </div>
-
-        {/* Admin */}
-        {profile?.is_admin && (
-          <div style={{ background: '#18181b', border: '0.5px solid #3f3f46', borderRadius: 8, padding: 24, marginBottom: 24 }}>
-            <SectionLabel>Administração</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {[
-                { href: '/admin', label: 'Painel admin', icon: 'ti-layout-dashboard' },
-                { href: '/admin/tabelas', label: 'Tabelas', icon: 'ti-table' },
-                { href: '/admin/importar-strava', label: 'Importar Strava', icon: 'ti-brand-strava' },
-              ].map(item => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  style={{
+            {/* Admin links */}
+            {profile?.is_admin && (
+              <div style={{ marginBottom: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.5px', color: '#52525b', textTransform: 'uppercase', marginBottom: 8, padding: '0 12px' }}>Admin</div>
+                {[
+                  { href: '/admin', icon: 'ti-layout-dashboard', label: 'Painel' },
+                  { href: '/admin/tabelas', icon: 'ti-table', label: 'Tabelas' },
+                  { href: '/admin/importar-strava', icon: 'ti-brand-strava', label: 'Strava' },
+                ].map(item => (
+                  <Link key={item.href} href={item.href} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 12px', borderRadius: 4, textDecoration: 'none',
-                    color: '#e4e4e7',
+                    padding: '7px 12px', borderRadius: 8, color: '#9ca3af',
+                    fontSize: 13, fontWeight: 500, textDecoration: 'none', transition: 'color 0.12s',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#27272a')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <i className={`ti ${item.icon}`} style={{ fontSize: 16, color: '#FFE000' }} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 12, color: '#71717a' }}>→</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af' }}
+                  >
+                    <i className={`ti ${item.icon}`} style={{ fontSize: 15, color: '#FFE000', flexShrink: 0 }} />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            )}
 
-        {/* Logout */}
-        <div style={{ textAlign: 'center' }}>
-          <button
-            onClick={handleLogout}
-            style={{ fontSize: 13, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
-          >
-            Sair da conta
-          </button>
-        </div>
+            {/* Logout */}
+            <button onClick={handleLogout} style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              width: '100%', background: 'transparent', border: 'none',
+              padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+              color: '#6b7280', fontSize: 14, fontWeight: 500,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#f87171' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+            >
+              <i className="ti ti-logout" style={{ fontSize: 16, flexShrink: 0 }} />
+              Sair da conta
+            </button>
+
+          </div>
+        </aside>
+
+        {/* ── Content ── */}
+        <main className="perfil-content" style={{ flex: 1, padding: '48px 40px', minWidth: 0 }}>
+          {tabContent[tab]}
+        </main>
+
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
