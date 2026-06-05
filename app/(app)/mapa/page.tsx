@@ -283,12 +283,8 @@ export default function MapaPage() {
           ${pt.cidade && pt.uf ? `<p style="margin:0 0 6px;font-size:11px;color:#6b7280;">${pt.cidade}, ${pt.uf}</p>` : ''}
           ${pt.tipo_superficie ? `<p style="margin:0 0 8px;font-size:11px;color:#6b7280;">🛣 ${pt.tipo_superficie}${pt.comprimento_estimado ? ' · ' + pt.comprimento_estimado : ''}</p>` : ''}
           ${hasForecast
-            ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                <span style="font-size:28px;line-height:1;">${rainEmoji(ptRainMm)}${windEmoji(ptWindKmh)}</span>
-                <span style="font-size:11px;color:#555;line-height:1.6;">
-                  ${ptRainMm != null ? `${ptRainMm.toFixed(1)}mm 48h` : ''}
-                  ${ptWindKmh != null ? `<br>${ptWindKmh.toFixed(0)} km/h` : ''}
-                </span>
+            ? `<div style="margin-bottom:10px;">
+                <span style="font-size:32px;line-height:1;">${rainEmoji(ptRainMm)}${windEmoji(ptWindKmh)}</span>
               </div>`
             : `<p style="margin:0 0 10px;font-size:11px;color:#9ca3af;font-style:italic;">Previsão em breve</p>`
           }
