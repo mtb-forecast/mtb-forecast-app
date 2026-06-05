@@ -40,6 +40,31 @@ function getVeredictoLabel(veredicto: string | undefined): string {
   return 'MELHOR ESPERAR'
 }
 
+function rainEmoji(mm: number | null | undefined): string {
+  const v = mm ?? 0
+  if (v === 0)    return '☀️'
+  if (v < 2)     return '🌤'
+  if (v < 8)     return '🌦'
+  if (v < 20)    return '🌧'
+  if (v < 40)    return '🌩'
+  return '⛈'
+}
+
+function windEmoji(kmh: number | null | undefined): string {
+  const v = kmh ?? 0
+  if (v > 50) return ' 🌪'
+  if (v > 25) return ' 💨'
+  return ''
+}
+
+function ultimaChuvaEmoji(h: number | null | undefined): string {
+  if (h == null) return '🕐 —'
+  if (h < 6)    return `🌧 ${Math.round(h)}h atrás`
+  if (h < 24)   return `💧 ${Math.round(h)}h atrás`
+  if (h < 72)   return `🌤 ${Math.floor(h / 24)}d atrás`
+  return `☀️ +${Math.floor(h / 24)}d atrás`
+}
+
 export default function MapaPage() {
   const router = useRouter()
   const mapRef = useRef<HTMLDivElement>(null)
@@ -188,20 +213,22 @@ export default function MapaPage() {
         `
         : `
           <div style="font-family:Inter,sans-serif;padding:4px 0;">
-            <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
-              ${trilha.name}
-            </p>
             <span style="
               display:inline-block;
               background:${cor}22;color:${cor};
               font-size:10px;font-weight:700;
               border-radius:4px;padding:2px 8px;
-              margin-bottom:8px;
+              margin-bottom:7px;
             ">${label}</span>
-            <p style="margin:0 0 8px;font-size:11px;color:#666;">
-              ${condicao!.acumulo_48h?.toFixed(1) ?? '—'}mm chuva 48h
-              · últ. ${condicao!.ultima_chuva_h != null ? condicao!.ultima_chuva_h + 'h atrás' : '—'}
+            <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
+              ${trilha.name}
             </p>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <span style="font-size:28px;line-height:1;">${rainEmoji(condicao!.acumulo_48h)}${windEmoji(null)}</span>
+              <span style="font-size:11px;color:#555;line-height:1.5;">
+                ${ultimaChuvaEmoji(condicao!.ultima_chuva_h)}
+              </span>
+            </div>
             <a href="/trilhas/${trilha.id}" style="
               font-size:11px;font-weight:600;color:#1A1A1A;
               text-decoration:none;display:inline-flex;align-items:center;gap:4px;
@@ -238,9 +265,9 @@ export default function MapaPage() {
         popupAnchor: [0, -16],
       })
 
-      const rainStr = cond?.rain_mm != null ? `${cond.rain_mm.toFixed(1)}mm chuva 48h` : null
-      const windStr = cond?.wind_kmh != null ? `${cond.wind_kmh.toFixed(0)} km/h vento` : null
-      const forecastLine = [rainStr, windStr].filter(Boolean).join(' · ')
+      const ptRainMm = cond?.rain_mm ?? null
+      const ptWindKmh = cond?.wind_kmh ?? null
+      const hasForecast = ptRainMm != null || ptWindKmh != null
 
       const popupContent = `
         <div style="font-family:Inter,sans-serif;padding:4px 0;min-width:160px;">
@@ -254,14 +281,30 @@ export default function MapaPage() {
             ${pt.nome}
           </p>
           ${pt.cidade && pt.uf ? `<p style="margin:0 0 6px;font-size:11px;color:#6b7280;">${pt.cidade}, ${pt.uf}</p>` : ''}
-          ${pt.tipo_superficie ? `<p style="margin:0 0 4px;font-size:11px;color:#6b7280;">🛣 ${pt.tipo_superficie}${pt.comprimento_estimado ? ' · ' + pt.comprimento_estimado : ''}</p>` : ''}
-          ${forecastLine ? `<p style="margin:0 0 10px;font-size:11px;color:#374151;">${forecastLine}</p>` : '<p style="margin:0 0 10px;font-size:11px;color:#9ca3af;font-style:italic;">Previsão em breve</p>'}
-          <a href="${wazeUrl}" target="_blank" rel="noopener noreferrer" style="
-            display:inline-flex;align-items:center;gap:5px;
-            background:#05C8F7;color:#fff;
-            border-radius:12px;padding:4px 10px;
-            font-size:11px;font-weight:600;text-decoration:none;
-          ">🗺 Como chegar</a>
+          ${pt.tipo_superficie ? `<p style="margin:0 0 8px;font-size:11px;color:#6b7280;">🛣 ${pt.tipo_superficie}${pt.comprimento_estimado ? ' · ' + pt.comprimento_estimado : ''}</p>` : ''}
+          ${hasForecast
+            ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <span style="font-size:28px;line-height:1;">${rainEmoji(ptRainMm)}${windEmoji(ptWindKmh)}</span>
+                <span style="font-size:11px;color:#555;line-height:1.6;">
+                  ${ptRainMm != null ? `${ptRainMm.toFixed(1)}mm 48h` : ''}
+                  ${ptWindKmh != null ? `<br>${ptWindKmh.toFixed(0)} km/h` : ''}
+                </span>
+              </div>`
+            : `<p style="margin:0 0 10px;font-size:11px;color:#9ca3af;font-style:italic;">Previsão em breve</p>`
+          }
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <a href="${wazeUrl}" target="_blank" rel="noopener noreferrer" style="
+              display:inline-flex;align-items:center;gap:5px;
+              background:#05C8F7;color:#fff;
+              border-radius:12px;padding:4px 10px;
+              font-size:11px;font-weight:600;text-decoration:none;
+            ">🗺 Como chegar</a>
+            <a href="/pump-track/${pt.id}" style="
+              display:inline-flex;align-items:center;gap:4px;
+              font-size:11px;font-weight:600;color:#7C3AED;text-decoration:none;
+              padding:4px 2px;
+            ">Ver detalhes →</a>
+          </div>
         </div>
       `
 
