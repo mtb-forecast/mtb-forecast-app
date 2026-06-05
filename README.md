@@ -1,11 +1,11 @@
 # MTB Forecaster — Web App + Agente Python
 
-Plataforma completa de monitoramento climático para trilhas de **Mountain Bike — DH, Enduro, XCC e XCM** no Brasil.
+Plataforma completa de monitoramento climático para **trilhas MTB (DH, Enduro, XCC e XCM) e pump tracks** no Brasil.
 
 Composta por dois sistemas integrados:
 
-- **Web App** — Next.js 14 App Router com autenticação (e-mail + Google OAuth via `@supabase/ssr`), favoritos, avaliações de riders, integração Strava, cadastro manual de trilhas, notificações por Telegram, compartilhamento por WhatsApp e PWA
-- **Agente Python** — executa via GitHub Actions com schedule diferenciado por dia da semana (Seg–Qui: 7h · Sex/Sáb: 7h, 13h e 21h · Dom: 7h e 13h BRT), coleta dados de 3 fontes meteorológicas, modela condição do solo com 14 tabelas de configuração no Supabase e grava resultados no banco
+- **Web App** — Next.js 14 App Router com autenticação (e-mail + Google OAuth via `@supabase/ssr`), favoritos, avaliações de riders, integração Strava, cadastro manual de trilhas e pump tracks, notificações por Telegram, compartilhamento por WhatsApp e PWA
+- **Agente Python** — executa via GitHub Actions com schedule diferenciado por dia da semana (Seg–Qui: 7h · Sex/Sáb: 7h, 13h e 21h · Dom: 7h e 13h BRT), coleta dados de 3 fontes meteorológicas, modela condição do solo com 14 tabelas de configuração no Supabase e grava resultados no banco. Pump tracks processam apenas previsão (sem modelo de solo)
 
 ---
 
@@ -73,6 +73,10 @@ Composta por dois sistemas integrados:
 │  observacoes_trilha · strava_segmentos_config                          │
 │  trilhas_pendentes · localidades · admin_aprovacoes                   │
 │                                                                        │
+│  PUMP TRACKS                                                           │
+│  trilhas_pumptrack · condicoes_pumptrack                               │
+│  fotos_pumptrack · observacoes_pumptrack                               │
+│                                                                        │
 │  TABELAS DE CONFIGURAÇÃO DO MODELO (14)                                │
 │  enso_config · aderencia_thresholds · veredicto_risco_pesos           │
 │  meia_vida_clima_mult · biomas · configuracoes_sistema                 │
@@ -88,12 +92,15 @@ Composta por dois sistemas integrados:
 │  /                    Landing page pública                             │
 │  /login               E-mail + Google OAuth                           │
 │  /cadastro            Cadastro completo + Google OAuth                │
-│  /dashboard           Favoritas + Strava pessoais                     │
-│  /trilhas             Listagem por estado (27 UFs) + busca + ranking  │
+│  /dashboard           Favoritas + Strava pessoais + banner pump track │
+│  /trilhas             Trilhas MTB + pump tracks por estado/cidade     │
 │  /trilhas/[id]        Detalhe: condição + avaliações + compartilhar   │
-│  /trilhas/cadastrar   Cadastro manual de trilha pelo rider            │
+│  /trilhas/cadastrar   Formulário dual: Trilha MTB ou Pump Track       │
+│  /pump-track/[id]     Detalhe pump track: previsão + fotos + reviews  │
+│  /mapa                Mapa Leaflet: pins trilhas (verde/amarelo/verme)│
+│                       + pins roxo "P" para pump tracks               │
 │  /t/[id]              Preview público (sem login) para WhatsApp       │
-│  /perfil              Dados pessoais + email + Telegram               │
+│  /perfil              Dados pessoais + foto de perfil + Telegram      │
 │  /perfil/strava       Gerenciamento de segmentos Strava               │
 │  /planos              Planos de assinatura (Stripe)                   │
 │  /admin               Aprovações de trilhas + sugestões Strava        │
@@ -549,7 +556,7 @@ TELEGRAM_BOT_TOKEN=seu_token_aqui
 
 ## Banco de dados — Supabase
 
-O banco tem **25 tabelas** organizadas em 5 grupos.
+O banco tem **31 tabelas** organizadas em 6 grupos (inclui pump tracks).
 
 ### Grupo 1 — Configuração do modelo (14 tabelas)
 
@@ -650,6 +657,7 @@ Estratégia de escrita: DELETE + INSERT por `trilha_id` (evita conflito sem UNIQ
 | `texture_class` | text | Classificação textural USDA (ex: Argiloso) |
 | `inclinacao` | numeric | Inclinação média calculada: `desnivel / (extensao × 1000) × 100` (%) |
 | `ultima_chuva_h` | numeric | Horas desde a última chuva significativa (≥ 0.5mm) |
+| `historico_atualizado_em` | timestamptz | Timestamp do último pipeline completo (OWM timemachine + OM archive). Null = nunca processado. Atualizado apenas por pipeline completo; shortcircuit preserva o valor anterior. Usado pelo gatilho de 72h |
 | `enso_fase` | text | Fase ENSO atual (El Niño Forte / El Niño / ENSO Neutro / La Niña / La Niña Forte) |
 | `enso_oni` | numeric | Anomalia ONI da NOAA (col ANOM do arquivo oni.ascii.txt) |
 | `fonte` | text | Fonte meteorológica: OpenWeather + Open-Meteo |
@@ -661,6 +669,62 @@ Estratégia de escrita: DELETE + INSERT por `trilha_id` (evita conflito sem UNIQ
 | `fds_d3_*` | text/numeric | Previsão D+3 |
 
 > A tabela `condicoes_strava` tem a mesma estrutura, com `strava_segment_id` como chave de DELETE+INSERT.
+
+---
+
+### Grupo 2b — Pump Tracks (4 tabelas)
+
+**`trilhas_pumptrack`** — pump tracks cadastrados. Populado via CSV inicial + formulário de cadastro dual `/trilhas/cadastrar`.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | text PK | Código único (ex: `BR-001`, `PT-<timestamp>`) |
+| `nome` | text | Nome do pump track |
+| `cidade` / `uf` | text | Cidade e sigla do estado |
+| `endereco` | text | Endereço completo (opcional) |
+| `latitude` / `longitude` | numeric | Coordenadas decimais |
+| `tipo_superficie` | text | Asfalto, Terra, Concreto, Terra/Saibro, etc. |
+| `comprimento_estimado` | text | Ex: `200m`, `350m (03 pistas)` |
+| `iluminacao` | text | Sim / Não |
+| `estacionamento` | text | Sim / Não / Na Rua / Sim (Parque) / etc. |
+| `fonte` | text | Velosolutions / Blue Pump Tracks / Governo SP / etc. |
+| `google_maps_url` | text | Link direto ao Google Maps |
+| `instagram` | text | Handle `@nome` ou `N/I` |
+| `status_validacao` | text | `Ativo - Homologado` / `Ativo - Base de Dados` / `Pendente - Revisão` |
+
+**`condicoes_pumptrack`** — previsão do tempo por pump track (sem modelo de solo).
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `pumptrack_id` | text FK | Referência a `trilhas_pumptrack.id` |
+| `gerado_em` | timestamptz | Momento da última atualização |
+| `rain_mm` | numeric | Chuva prevista próximas **24h** (mm) — `resumo_onecall[:24]` |
+| `pico_3h` | numeric | Maior acumulado em janela de 3h nas próximas 48h (mm) |
+| `wind_kmh` | numeric | Vento máximo previsto 24h (km/h) |
+| `temp_max` / `temp_min` | numeric | Temperatura máx/mín prevista 24h (°C) |
+| `pop_48h` | integer | Probabilidade de chuva 48h (%) |
+
+> Índice UNIQUE por `pumptrack_id` — estratégia DELETE+INSERT a cada execução do agente.
+
+**`fotos_pumptrack`** — galeria de fotos enviadas por riders.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `pumptrack_id` | text FK | Pump track da foto |
+| `user_id` | uuid FK | Usuário que enviou |
+| `url` | text | URL pública no bucket `pumptrack-photos` |
+
+**`observacoes_pumptrack`** — avaliações de riders com veredicto rápido.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `pumptrack_id` | text FK | Pump track avaliado |
+| `user_id` | uuid FK | Avaliador |
+| `estrelas` | integer | 1–5 estrelas |
+| `texto` | text | Máx. 200 caracteres |
+| `veredicto_rider` | text | `ROLOU TOP` / `ESTAVA MOLHADO` / `SECO E RÁPIDO` / `CHEIO DE PEDAL` / `BOM PRA FAMÍLIA` |
+
+> RLS: leitura pública, escrita apenas para `auth.uid() = user_id`. Edição liberada em até 24h após publicação.
 
 ---
 
@@ -768,17 +832,42 @@ GitHub Actions (schedule por dia da semana + workflow_dispatch manual)
    │
    ├── fetch_onecall() — previsão horária 48h (OWM, fonte primária, 70%)
    │
+   ├── fetch_onecall() + fetch_openmeteo() → Fusão 70/30
+   │     rain = OWM×0.7 + OM×0.3  (rain, wind, pop, pico_3h)
+   │
+   ├── ── OTIMIZAÇÃO ZERO-CHUVA ───────────────────────────────────────
+   │     Pré-busca: _buscar_ultima_condicao_supabase() SE rain == 0.0
+   │
+   │     rain > 0mm
+   │       └─ pipeline completo (sempre)
+   │     rain = 0mm
+   │       └─ sem histórico (primeiro processamento)
+   │             └─ pipeline completo → baseline
+   │                 log: "[zero-rain] sem histórico, pipeline completo (baseline)"
+   │       └─ com histórico
+   │             └─ historico_atualizado_em < 72h atrás
+   │                   └─ SHORTCIRCUIT
+   │                         new_ef = stored_ef × 0.5^(Δh / meia_vida_stored)
+   │                         ultima_chuva += Δh
+   │                         meia_vida, vento_hist → reutilizados do registro anterior
+   │                         log: "[zero-rain] Caso A/B | Δh | ef X→Y mm"
+   │             └─ historico_atualizado_em ≥ 72h atrás
+   │                   └─ pipeline completo + renova historico_atualizado_em
+   │                         log: "[zero-rain] histórico com Xh, forçando atualização"
+   │
+   │     Economia: 3 chamadas OWM timemachine + 2 OM archive por trilha por execução
+   │     HISTORICO_MAX_HORAS = 72  (constante em processar_trilha)
+   │
    ├── fetch_onecall_historico() — timemachine OWM: últimas 48h hora a hora
    │     Retorna: {meia_vida_h} (base × microclima × ajuste climático)
+   │     [Executado apenas no pipeline completo]
    │
    ├── fetch_historico_chuva_om() — Open-Meteo Archive ERA5 (última 48h)
    │     Calcula acumulo_ef via decaimento exponencial: Σ p × 0.5^(t/τ)
-   │
-   ├── fetch_openmeteo() — previsão horária 48h (OM, 30%)
-   │
-   ├── Fusão 70/30: rain = OWM×0.7 + OM×0.3 (rain, wind, pop, pico_3h)
+   │     [Executado apenas no pipeline completo]
    │
    ├── fetch_vento_historico() — ERA5 rajadas 48h → nível alerta 1/2/3
+   │     [Executado apenas no pipeline completo]
    │
    ├── calcular_aderencia() — score + status + descrição
    │     efetivo_combinado = acumulo_ef + pico_3h → lookup aderencia_thresholds
@@ -818,7 +907,18 @@ GitHub Actions (schedule por dia da semana + workflow_dispatch manual)
    DELETE + POST em condicoes_strava por strava_segment_id
         │
         ▼
-9. Notificações personalizadas
+9b. _processar_pumptracks()
+   Sem modelo de solo — apenas previsão do tempo
+   Para cada pump track em trilhas_pumptrack:
+   ├── fetch_onecall() → resumo_onecall()  (24h: rain, wind, pop, pico_3h, tmax, tmin)
+   ├── fetch_openmeteo() → resumo_openmeteo()
+   ├── Fusão 70/30 (mesma lógica de trilhas)
+   └── _gravar_condicao_pumptrack()
+         DELETE + INSERT em condicoes_pumptrack por pumptrack_id
+   Log: "[Pump Tracks] [OK] nome — rain=Xmm | pico=Xmm | vento=Xkm/h"
+        │
+        ▼
+10. Notificações personalizadas
    Email: _buscar_usuarios_email() → profiles com receber_email = true
           envia email com favoritas e/ou Strava por usuário
           credenciais via configuracoes_sistema (email_from, email_password)
@@ -1331,6 +1431,42 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 - Se qualquer bloco de 6h das próximas 12h tiver `rain_mm > 3mm`: trilhas SECO/GRIP PERFEITO são forçadas para **BOA ADERÊNCIA + DROP LIBERADO - Veja os alertas**; veredicto DROP LIBERADO limpo sobe para "Veja os alertas". BAIXA ADERÊNCIA/MELHOR ESPERAR nunca são tocadas.
 - Aplicada em trilhas públicas e segmentos Strava, antes de `gravar_supabase()`.
 - Documenta o motivo: "chuva prevista nas próximas 12h — avalie as condições antes de pedalar".
+
+### V9.0 — Pump Tracks + Otimização Pipeline (2026-06)
+
+**Pump Tracks:**
+- 15 pump tracks do Brasil cadastrados (SP, RJ, MG, ES, SC, CE) com dados do CSV `pumptracks_brasil.csv`
+- Tabelas: `trilhas_pumptrack`, `condicoes_pumptrack`, `fotos_pumptrack`, `observacoes_pumptrack`
+- Bucket Storage `pumptrack-photos` (5 MB, público, jpeg/png/webp)
+- Agente Python: `_processar_pumptracks()` — apenas previsão (sem histórico, sem modelo de solo)
+- Web App: `PumpTrackCard` com Waze, previsão 24h, iluminação, estacionamento, Instagram
+- Página `/pump-track/[id]`: mapa embed, previsão 24h em grid 3 colunas, galeria de fotos, avaliações de riders com 5 veredictos rápidos e edição em 24h
+- Formulário `/trilhas/cadastrar` dual: seletor Trilha MTB / Pump Track com campos condicionais
+- Página `/trilhas`: pump tracks integrados aos filtros (estado/cidade), seção separada abaixo das trilhas MTB, busca unificada, onboarding card "Pump Tracks no mapa"
+- Mapa `/mapa`: pins roxo circular "P" para pump tracks com popup emoji + Waze + "Ver detalhes"
+- Landing page: seção "Pump Tracks no mapa", hero tag, ticker, CTA atualizados
+- Dashboard: banner roxo de acesso rápido a pump tracks
+- Cadastro: painel com lista de features incluindo pump tracks
+- SEO/metadata: keywords e description atualizados
+
+**Otimização zero-chuva (agente Python):**
+- Shortcircuit quando `rain = 0mm` + histórico existe + `historico_atualizado_em < 72h`
+- Aplica decaimento matemático: `new_ef = stored_ef × 0.5^(Δh / meia_vida_stored)`
+- Atualiza `ultima_chuva_h += Δh` sem chamadas externas
+- Economia: 3 chamadas OWM timemachine + 2 OM archive por trilha por execução
+- Gatilho 72h: força pipeline completo para recalibrar `meia_vida` com clima atual
+- Trilha sem histórico → sempre pipeline completo (baseline nunca é shortcircuiteada)
+- Coluna `historico_atualizado_em` em `condicoes` rastreia timestamp do último pipeline real
+
+**Foto de perfil:**
+- Coluna `avatar_url` em `profiles`, bucket `avatars` (2 MB, público)
+- API `POST /api/profile/avatar` com validação de tipo/tamanho e cache-bust
+- Navbar: avatar circular 30px linkado para `/perfil`
+- Página de perfil: avatar 72px com botão ✎ de edição, upload sem salvar separado
+
+**CI/CD:**
+- `requirements-lock.txt` com 24 dependências pinadas
+- GitHub Actions: `actions/setup-python` com `cache: "pip"` — reduz step de instalação de ~60s para ~3s
 
 **Fixes e melhorias aplicados:**
 - **ONI parsing** (`fetch_oni_atual`): corrigido para ler `partes[3]` (ANOM) em vez de `partes[2]` (SST absoluto ~27°C). Bug causava classificação errada como "El Niño Forte" com ONI=27.28 em vez do correto ~0.11 (ENSO Neutro), tornando todos os thresholds 25% mais permissivos.
