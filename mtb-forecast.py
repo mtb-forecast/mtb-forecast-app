@@ -3893,18 +3893,17 @@ def _buscar_strava_usuario(user_id: str) -> list:
 
 def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_strava: list, hoje: str, datas: dict) -> None:
     """
-    Envia email personalizado com trilhas favoritas e/ou Strava do usuário.
+    Envia email personalizado com trilhas favoritas e/ou Strava do usuário via Resend.
     """
-    email_from     = _get_config("email_from", "EMAIL_FROM")
-    email_password = _get_config("email_password", "EMAIL_PASSWORD")
-    if not email_from or not email_password:
-        print(f"  [Email] Credenciais não encontradas — email não enviado para {usuario['email']}")
+    resend_key = _get_config("resend_api_key", "RESEND_API_KEY")
+    if not resend_key:
+        print(f"  [Email] RESEND_API_KEY não encontrada — email não enviado para {usuario['email']}")
         return
 
     nome = usuario.get("apelido") or usuario.get("nome") or usuario["email"].split("@")[0]
     todos_resultados = []
 
-    if usuario.get("email_trilhas_favoritas") and resultados_favoritos:
+    if usuario.get("email_trilhas_favoritas", True) and resultados_favoritos:
         todos_resultados.extend(resultados_favoritos)
     if usuario.get("email_trilhas_strava") and resultados_strava:
         todos_resultados.extend(resultados_strava)
@@ -3912,23 +3911,63 @@ def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_s
     if not todos_resultados:
         return
 
-    regiao  = usuario.get("regiao") or "BR"
-    enso    = todos_resultados[0].get("enso", {"fase": "ENSO Neutro", "oni": 0.0})
-    analise = gerar_analise_claude(todos_resultados, hoje, datas, regiao)
+    regiao    = usuario.get("regiao") or "BR"
+    analise   = gerar_analise_claude(todos_resultados, hoje, datas, regiao)
     html_body = gerar_html(todos_resultados, analise, hoje, datas, regiao)
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"🚵 MTB Forecaster — Suas trilhas hoje, {nome}! — {hoje}"
-        msg["From"] = email_from
-        msg["To"]   = usuario["email"]
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-            smtp.login(email_from, email_password)
-            smtp.sendmail(email_from, [usuario["email"]], msg.as_string())
-        print(f"  ✉️  Email pessoal enviado para {usuario['email']} ({len(todos_resultados)} trilha(s))")
+        payload = json.dumps({
+            "from":    "MTB Forecaster <noreply@mtbforecaster.com.br>",
+            "to":      [usuario["email"]],
+            "subject": f"🚵 MTB Forecaster — Suas trilhas hoje, {nome}! — {hoje}",
+            "html":    html_body,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {resend_key}",
+                "Content-Type":  "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=30) as r:
+            r.read()
+        print(f"  ✉️  Email enviado para {usuario['email']} ({len(todos_resultados)} trilha(s))")
     except Exception as exc:
         print(f"  [Email] Erro ao enviar para {usuario['email']}: {exc}")
+
+
+def _enviar_emails_usuarios(resultados_global: list, hoje: str, datas: dict) -> None:
+    """Envia report personalizado por email a cada usuário com receber_email=true."""
+    usuarios = _buscar_usuarios_email()
+    if not usuarios:
+        print("  [Email] Nenhum usuário com email ativado.")
+        return
+
+    ids_global = {r.get("trilha_id"): r for r in resultados_global if r.get("trilha_id")}
+
+    for usuario in usuarios:
+        uid = usuario.get("id")
+        if not uid or not usuario.get("email"):
+            continue
+
+        favoritos_ids = _buscar_favoritos_usuario(uid)
+        resultados_favoritos = [
+            ids_global[f["trilha_id"]]
+            for f in favoritos_ids
+            if f.get("trilha_id") in ids_global
+        ]
+
+        resultados_strava: list = []
+        if usuario.get("email_trilhas_strava"):
+            resultados_strava = _buscar_strava_com_condicoes(uid)
+
+        if not resultados_favoritos and not resultados_strava:
+            print(f"  [Email] {usuario['email']}: sem trilhas com dados — pulando")
+            continue
+
+        enviar_email_usuario(usuario, resultados_favoritos, resultados_strava, hoje, datas)
 
 
 def main() -> None:
@@ -4059,8 +4098,6 @@ def main() -> None:
             aviso     = "<br>".join(f"⚠️ {html_lib.escape(f)}" for f in falhas)
             html_body = html_body.replace("</body>", f'<p style="text-align:center;font-size:11px;color:#ef4444;">{aviso}</p></body>')
 
-        print(f"  [MTB] Envio de email desativado — dados gravados no Supabase.")
-
     # Processa pump tracks — apenas previsão do tempo, sem cálculo de solo
     print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
     _processar_pumptracks()
@@ -4072,6 +4109,10 @@ def main() -> None:
     # Notificações Telegram
     print("\n[MTB V8.0] Iniciando notificações Telegram...")
     _enviar_notificacoes_telegram(resultados_global, hoje)
+
+    # Reports por email (Resend)
+    print("\n[MTB V8.1] Enviando reports por email...")
+    _enviar_emails_usuarios(resultados_global, hoje, datas)
 
     print("\n[MTB V7.0] Concluído.")
 

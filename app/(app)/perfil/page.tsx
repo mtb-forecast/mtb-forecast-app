@@ -405,7 +405,7 @@ export default function PerfilPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingRight: 16 }}>
               <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>Receber report diário por email</span>
-              <span style={{ fontSize: 12, color: '#888' }}>Condições das suas trilhas favoritas, previsão e informações do dia — enviado às 07:00 BRT</span>
+              <span style={{ fontSize: 12, color: '#888' }}>Seg–Dom às 06h · Sex–Dom também às 12h · Sex–Sáb também às 20h (BRT)</span>
             </div>
             <button
               type="button"
@@ -431,7 +431,7 @@ export default function PerfilPage() {
           <div style={{ background: '#f7f7f5', borderRadius: 6, padding: 12, marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <i className="ti ti-info-circle" style={{ fontSize: 16, color: '#888', flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 12, color: '#888', lineHeight: 1.5, margin: 0 }}>
-              O report é enviado diariamente às 07:00 BRT com as condições das suas trilhas favoritas e previsão do tempo. Você pode cancelar a qualquer momento.
+              O report inclui aderência, veredicto, chuva e vento das suas trilhas favoritas + análise do dia. Você pode cancelar a qualquer momento.
             </p>
           </div>
         </div>
