@@ -2200,11 +2200,12 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
             "fds_d3_temp_min":    fds.get("d3", {}).get("temp_min"),
             "fds_d3_pop":         fds.get("d3", {}).get("pop"),
-            "dados_json":         json.dumps({
+            "dados_json":              json.dumps({
                 "bioma":      resultado.get("bioma"),
                 "trail_type": resultado.get("trail_type"),
                 "exposicao":  resultado.get("exposicao_raw"),
-            })
+            }),
+            "historico_atualizado_em": resultado.get("historico_atualizado_em"),
         }).encode("utf-8")
 
         # DELETE registro anterior
@@ -2513,7 +2514,8 @@ def _buscar_ultima_condicao_supabase(trail: dict) -> dict | None:
     try:
         campos = (
             "acumulo_ef,acumulo_48h,meia_vida_h,ultima_chuva_h,gerado_em,"
-            "alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh"
+            "alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh,"
+            "historico_atualizado_em"
         )
         url = (
             f"{SUPABASE_URL}/rest/v1/condicoes"
@@ -2626,15 +2628,37 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
 
     # ── OTIMIZAÇÃO ZERO-CHUVA ─────────────────────────────────────────────
     # forecast 48h = 0mm → tenta pular 3 chamadas OW timemachine + 2 OM archive.
-    # Pré-condição obrigatória: trilha já tem condição gravada no Supabase.
-    # Trilhas sem histórico rodam o pipeline completo para estabelecer baseline.
+    # Condições para o shortcircuit:
+    #   1. forecast = 0mm
+    #   2. existe registro anterior (baseline estabelecida)
+    #   3. histórico atualizado há menos de HISTORICO_MAX_HORAS horas
+    HISTORICO_MAX_HORAS = 72  # força pipeline completo se histórico > 72h desatualizado
+
     _ultimo = _buscar_ultima_condicao_supabase(trail) if rain == 0.0 else None
+    _usou_shortcircuit = False
 
     if rain == 0.0 and _ultimo is not None:
-        hist, acumulo_48h, acumulo_ef, ultima_chuva, vento_hist = \
-            _zero_rain_shortcircuit(trail, thresh_desc, _ultimo)
-    else:
-        if rain == 0.0:
+        # Verifica se o histórico real está dentro da janela de validade
+        _hist_at = _ultimo.get("historico_atualizado_em") or _ultimo.get("gerado_em")
+        _horas_hist = 0.0
+        if _hist_at:
+            try:
+                _dt = datetime.fromisoformat(_hist_at)
+                if _dt.tzinfo is None:
+                    _dt = _dt.replace(tzinfo=BRT)
+                _horas_hist = max(0.0, (datetime.now(BRT) - _dt).total_seconds() / 3600)
+            except Exception:
+                pass
+
+        if _horas_hist < HISTORICO_MAX_HORAS:
+            hist, acumulo_48h, acumulo_ef, ultima_chuva, vento_hist = \
+                _zero_rain_shortcircuit(trail, thresh_desc, _ultimo)
+            _usou_shortcircuit = True
+        else:
+            print(f"  [zero-rain] {trail['name']} — histórico com {_horas_hist:.0f}h, forçando atualização")
+
+    if not _usou_shortcircuit:
+        if rain == 0.0 and _ultimo is None:
             print(f"  [zero-rain] {trail['name']} — sem histórico, pipeline completo (baseline)")
         hist         = fetch_onecall_historico(trail)
         hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
@@ -2978,6 +3002,11 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "resumo_secagem_frase": narrativa,
         "resumo_secagem_cor":   cor_n,
         "resumo_secagem_bg":    bg_n,
+        # Pipeline completo = timestamp atual; shortcircuit = preserva valor anterior
+        "historico_atualizado_em": (
+            _ultimo.get("historico_atualizado_em") if _usou_shortcircuit and _ultimo
+            else datetime.now(BRT).isoformat()
+        ),
     }
 
 
