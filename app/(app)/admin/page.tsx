@@ -154,6 +154,7 @@ export default function AdminPage() {
       polyline:     p.polyline ?? null,
       aprovada:     true,
       localidade_id: localidadeId,
+      created_by:   p.user_id ?? null,
     })
 
     if (insertError) {
@@ -162,6 +163,15 @@ export default function AdminPage() {
     }
 
     await supabase.from('trilhas_pendentes').update({ status: 'aprovada' }).eq('id', p.id)
+
+    if (p.user_id) {
+      fetch('/api/notificacoes/trilha-aprovada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: p.user_id, trail_name: p.name }),
+      }).catch(() => {})
+    }
+
     setPendentes(prev => prev.filter(t => t.id !== p.id))
     setAprovacaoMsg('✓ Trilha aprovada com sucesso!')
     setTimeout(() => setAprovacaoMsg(null), 3000)

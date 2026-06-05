@@ -58,6 +58,79 @@ Se Open-Meteo falhar, apenas `oc` (OpenWeather) é usado, sem ponderação.
 
 ---
 
+## 1b. Otimização zero-chuva (shortcircuit)
+
+> Implementada em `processar_trilha()` a partir do commit `0e6c48b` (2026-06).
+
+### Motivação
+
+Cada execução do agente faz, por trilha, 3 chamadas OWM timemachine + 2 OM archive.
+Em dias sem chuva (forecast = 0mm), esses dados retornam basicamente o mesmo resultado
+que o registro anterior — com custo de API desnecessário.
+
+### Árvore de decisão
+
+```
+rain > 0mm
+  └─ pipeline completo (sempre — chuva pode alterar acumulo_ef)
+
+rain = 0mm
+  └─ sem histórico (primeira execução da trilha)
+        └─ pipeline completo → estabelece baseline
+           log: "[zero-rain] sem histórico, pipeline completo (baseline)"
+
+  └─ com histórico (condicoes já gravada)
+        └─ historico_atualizado_em < HISTORICO_MAX_HORAS (72h)
+              └─ SHORTCIRCUIT — decaimento matemático
+                 new_ef = stored_ef × 0.5^(Δh / meia_vida_stored)
+                 ultima_chuva_h += Δh
+                 meia_vida_h → reutilizada do registro anterior
+                 vento_hist → reutilizado do registro anterior
+                 log: "[zero-rain] trilha — Caso A/B | Δ6.0h | ef 3.1→2.8mm"
+
+        └─ historico_atualizado_em ≥ HISTORICO_MAX_HORAS (72h)
+              └─ pipeline completo + renova historico_atualizado_em
+                 Motivo: meia_vida precisa ser recalibrada com clima atual
+                 (período seco → menor umidade/nebulosidade → meia_vida menor)
+                 log: "[zero-rain] trilha — histórico com 73h, forçando atualização"
+```
+
+### Caso A vs. Caso B
+
+| Caso | Condição | Comportamento |
+|---|---|---|
+| **A — solo seco** | `new_ef < thresh_desc` | Solo já abaixo do threshold. Sem impacto no veredicto. Claude atualiza texto com condições atuais |
+| **B — secando** | `new_ef >= thresh_desc` | Solo ainda secando. `new_ef` atualizado matematicamente. Veredicto pode mudar a cada rodada conforme solo seca |
+
+### Fórmula do decaimento no shortcircuit
+
+```python
+HISTORICO_MAX_HORAS = 72  # constante em processar_trilha()
+
+horas_desde = (datetime.now(BRT) - gerado_em_anterior).total_seconds() / 3600
+
+new_ef = stored_ef × (0.5 ** (horas_desde / meia_vida_stored))
+# Onde meia_vida_stored é o valor do ÚLTIMO pipeline completo (não ajustado ao clima atual)
+
+ultima_chuva_h_nova = ultima_chuva_h_stored + horas_desde
+```
+
+> **Limitação conhecida:** o shortcircuit reutiliza `meia_vida_h` do último pipeline completo.
+> Se as condições climáticas mudarem significativamente (ex: chuva → sol forte), o decaimento
+> pode estar sub/superestimado. O gatilho de 72h mitiga isso forçando recalibração periódica.
+
+### Rastreamento: `historico_atualizado_em`
+
+Coluna em `condicoes` que distingue pipeline completo de shortcircuit:
+
+| Evento | `historico_atualizado_em` |
+|---|---|
+| Pipeline completo (rain > 0 ou sem histórico ou ≥ 72h) | `datetime.now(BRT).isoformat()` |
+| Shortcircuit | Preserva o valor anterior (não atualiza) |
+| Registro inexistente (first run) | `NULL` — sempre pipeline completo |
+
+---
+
 ## 2. Dados históricos vs. previsão futura
 
 ### Campos históricos

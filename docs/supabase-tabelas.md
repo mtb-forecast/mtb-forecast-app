@@ -1,7 +1,8 @@
 # MTB Forecast — Inventário Completo de Tabelas Supabase
 
 > Documento de referência gerado a partir de `mtb-forecast.py`, migrations SQL e código Next.js.
-> Cobre todas as 27 tabelas do sistema, seus campos, valores válidos e onde cada uma é consumida.
+> Cobre todas as **31 tabelas** do sistema, seus campos, valores válidos e onde cada uma é consumida.
+> Atualizado em 2026-06 com Grupo 6 (Pump Tracks) e coluna `historico_atualizado_em`.
 
 ---
 
@@ -14,6 +15,7 @@
 | [Strava](#grupo-3--strava) | 4 | Segmentos pessoais via integração Strava |
 | [Usuários](#grupo-4--usuários) | 2 | Perfis e preferências de usuários |
 | [Interações](#grupo-5--interações) | 2 | Avaliações de riders e aprovações administrativas |
+| [Pump Tracks](#grupo-6--pump-tracks) | 4 | Locais pump track com previsão, fotos e avaliações |
 
 ---
 
@@ -754,6 +756,9 @@ Resultado do processamento do agente Python por trilha. Uma linha por trilha (DE
 | `fds_d3_wind` | numeric | Vento previsto na segunda |
 | `fds_d3_temp` | numeric | Temp. máxima na segunda |
 | `dados_json` | jsonb | `{bioma, trail_type, exposicao}` — metadados da trilha no momento do cálculo |
+| `historico_atualizado_em` | timestamptz | Timestamp do último **pipeline completo** (OWM timemachine + OM archive). Atualizado apenas quando `_usou_shortcircuit = False`. Shortcircuit preserva o valor anterior. NULL = trilha nunca processada por pipeline completo |
+
+> **Gatilho 72h:** quando `historico_atualizado_em ≥ 72h` atrás E forecast = 0mm, o agente força pipeline completo para recalibrar `meia_vida` com as condições climáticas atuais. Ver seção "Otimização zero-chuva" em `docs/formulas-modelo.md`.
 
 **Usado em:**
 - `mtb-forecast.py` → `gravar_supabase()` — DELETE + INSERT a cada execução (07h e 13h BRT)
@@ -897,6 +902,7 @@ Perfil estendido de cada usuário autenticado. Espelha `auth.users` com dados ad
 | `email_trilhas_strava` | boolean | Inclui trilhas Strava no e-mail |
 | `telegram_ativo` | boolean | Opt-in de alertas Telegram |
 | `telegram_chat_id` | text | Chat ID do usuário no Telegram |
+| `avatar_url` | text | URL pública da foto de perfil no bucket `avatars` · inclui `?t=<timestamp>` para cache-bust |
 | `stripe_customer_id` | text | ID do cliente no Stripe |
 | `stripe_subscription_id` | text | ID da assinatura no Stripe |
 | `promo_code_used` | text | Código promocional usado |
@@ -993,18 +999,156 @@ Workflow de dupla aprovação para alterações nas tabelas de configuração do
 
 ---
 
+## Grupo 6 — Pump Tracks (4 tabelas)
+
+Todas com RLS: `SELECT` público, `INSERT/UPDATE/DELETE` apenas para `auth.uid() = user_id` (onde aplicável).
+
+---
+
+### `trilhas_pumptrack`
+
+Cadastro de pump tracks do Brasil. Populado via CSV inicial (`pumptracks_brasil.csv`) + formulário `/trilhas/cadastrar` (tipo "Pump Track").
+
+| Coluna | Tipo | Valores / Notas |
+|---|---|---|
+| `id` | text PK | `BR-001` a `BR-015` (dados iniciais) · `PT-<timestamp>` (cadastros de riders) |
+| `nome` | text NOT NULL | Nome do pump track |
+| `cidade` | text | Cidade do município |
+| `uf` | text | Sigla do estado (SP, RJ, MG...) — usado como chave de filtro no web app |
+| `endereco` | text | Endereço completo (opcional) |
+| `latitude` / `longitude` | numeric(10,6) | Coordenadas decimais — usadas no mapa Leaflet e link Waze |
+| `tipo_superficie` | text | Asfalto · Terra · Terra/Saibro · Concreto · Asfalto/Terra · Terra/Madeira · Concreto/Asf. |
+| `comprimento_estimado` | text | Ex: `200m` · `350m (03 pistas)` |
+| `iluminacao` | text | Sim · Não |
+| `estacionamento` | text | Sim · Não · Na Rua · Sim (Parque) · Sim (Privado) · Sim (Camping) · Sim (Hotel) · Sim (Complexo) |
+| `fonte` | text | Velosolutions · Blue Pump Tracks · Governo SP · Mobai · Sesc SC · etc. |
+| `google_maps_url` | text | Link direto (ex: `https://maps.google.com/?q=-23.5992,-46.6575`) |
+| `instagram` | text | Handle `@nome` · `N/I` quando não identificado |
+| `status_validacao` | text | `Ativo - Homologado` · `Ativo - Base de Dados` · `Pendente - Revisão` |
+| `created_at` | timestamptz | Auto |
+
+**Políticas RLS:**
+```
+SELECT: público (leitura livre)
+INSERT: usuário autenticado (qualquer) — status = 'Pendente - Revisão'
+```
+
+**Usado em:**
+- `mtb-forecast.py` → `_carregar_pumptracks_supabase()` — carrega todos para o loop do agente
+- `app/(app)/trilhas/page.tsx` → query com `condicoes_pumptrack(...)` — listagem
+- `app/(app)/pump-track/[id]/page.tsx` → query individual
+- `app/(app)/mapa/page.tsx` → marcadores roxo "P" no Leaflet
+- `app/(app)/trilhas/cadastrar/page.tsx` → INSERT novos pump tracks
+
+---
+
+### `condicoes_pumptrack`
+
+Previsão do tempo por pump track, gerada pelo agente Python. **Sem modelo de solo** — apenas dados meteorológicos das próximas 24–48h.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | uuid PK | Auto (`gen_random_uuid()`) |
+| `pumptrack_id` | text FK | → `trilhas_pumptrack.id` CASCADE DELETE |
+| `gerado_em` | timestamptz | Momento da última execução |
+| `rain_mm` | numeric(6,1) | Chuva prevista **próximas 24h** (mm) — `resumo_onecall(data["hourly"][:24])` |
+| `pico_3h` | numeric(6,1) | Maior acumulado em janela de 3h nas próximas 48h (mm) |
+| `wind_kmh` | numeric(6,1) | Vento máximo previsto 24h (km/h) — `wind_ms × 3.6` |
+| `temp_max` | numeric(5,1) | Temperatura máxima prevista 24h (°C) |
+| `temp_min` | numeric(5,1) | Temperatura mínima prevista 24h (°C) |
+| `pop_48h` | integer | Probabilidade máxima de chuva 48h (%) |
+
+> Índice UNIQUE por `pumptrack_id` → estratégia DELETE + INSERT a cada execução.
+> **Não existe otimização zero-chuva** para pump tracks — pipeline sempre completo (sem modelo de solo a economizar).
+
+**Fluxo de escrita (Python):**
+```
+fetch_onecall({"lat": pt["latitude"], "lon": pt["longitude"]})
+fetch_openmeteo({"lat": ..., "lon": ...})
+Fusão 70/30
+_gravar_condicao_pumptrack(pt["id"], dados)
+  DELETE condicoes_pumptrack WHERE pumptrack_id = pt_id
+  POST   condicoes_pumptrack (INSERT novo)
+```
+
+**Usado em:**
+- `app/(app)/trilhas/page.tsx` → `PumpTrackCard` exibe rain/wind/temp
+- `app/(app)/pump-track/[id]/page.tsx` → grid 3 colunas: Chuva 24h · Vento 24h · Temperatura
+- `app/(app)/mapa/page.tsx` → emoji de tempo no popup do marcador
+
+---
+
+### `fotos_pumptrack`
+
+Galeria de fotos enviadas por riders via `/pump-track/[id]`.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | uuid PK | Auto |
+| `pumptrack_id` | text FK | → `trilhas_pumptrack.id` CASCADE DELETE |
+| `user_id` | uuid FK | → `profiles.id` CASCADE DELETE |
+| `url` | text NOT NULL | URL pública no bucket `pumptrack-photos` (Supabase Storage) |
+| `created_at` | timestamptz | Auto |
+
+**Bucket Storage:** `pumptrack-photos` — público, 5 MB máx, jpeg/png/webp.
+
+**Path de upload:** `{user_id}/{pumptrack_id}_{timestamp}.{ext}`
+
+**RLS:**
+```
+SELECT: público
+INSERT: authenticated, auth.uid() = user_id
+DELETE: authenticated, auth.uid() = user_id
+```
+
+**API route:** `POST /api/pump-track/foto` — valida tipo/tamanho, faz upload via service role, insere referência.
+
+---
+
+### `observacoes_pumptrack`
+
+Avaliações de riders com estrelas, texto e veredicto rápido.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | uuid PK | Auto |
+| `pumptrack_id` | text FK | → `trilhas_pumptrack.id` CASCADE DELETE |
+| `user_id` | uuid FK | → `profiles.id` CASCADE DELETE |
+| `estrelas` | integer | 1–5 (CHECK) |
+| `texto` | text | Máx. 200 caracteres (CHECK `char_length <= 200`) |
+| `veredicto_rider` | text | `ROLOU TOP` · `ESTAVA MOLHADO` · `SECO E RÁPIDO` · `CHEIO DE PEDAL` · `BOM PRA FAMÍLIA` |
+| `created_at` | timestamptz | Auto |
+
+**RLS:**
+```
+SELECT: público
+INSERT: authenticated, auth.uid() = user_id
+UPDATE: authenticated, auth.uid() = user_id AND created_at > now() - interval '24 hours'
+DELETE: authenticated, auth.uid() = user_id
+```
+
+**Usado em:** `components/PumpTrackObservacoes.tsx` — tabs Avaliações / Fotos na página de detalhe.
+
+---
+
 ## Resumo — Matriz de Uso por Arquivo
 
 | Arquivo | Tabelas acessadas |
 |---|---|
-| `mtb-forecast.py` | `configuracoes_sistema` (inclui scoring), `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `biomas`, `trail_type_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais` |
+| `mtb-forecast.py` | `configuracoes_sistema`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `biomas`, `trail_type_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais`, `trilhas_pumptrack`, `condicoes_pumptrack` |
 | `app/(app)/dashboard/page.tsx` | `profiles`, `favoritos`, `trilhas` + `condicoes`, `trilhas_pessoais`, `condicoes_strava`, `observacoes_trilha` |
 | `app/(app)/trilhas/[id]/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `profiles`, `trilhas_pessoais`, `condicoes_strava` |
-| `app/(app)/trilhas/page.tsx` | `trilhas`, `favoritos`, `profiles`, `localidades` |
+| `app/(app)/trilhas/page.tsx` | `trilhas`, `favoritos`, `profiles`, `localidades`, `trilhas_pumptrack` + `condicoes_pumptrack` |
+| `app/(app)/pump-track/[id]/page.tsx` | `trilhas_pumptrack`, `condicoes_pumptrack`, `fotos_pumptrack`, `observacoes_pumptrack`, `profiles` |
+| `app/(app)/mapa/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `trilhas_pumptrack` + `condicoes_pumptrack` |
+| `app/(app)/trilhas/cadastrar/page.tsx` | `trilhas_pendentes` (trilha MTB) · `trilhas_pumptrack` (pump track) · `localidades` |
 | `app/(app)/admin/page.tsx` | `profiles`, `trilhas_pendentes`, `trilhas`, `strava_segmentos_config`, `strava_config_sugestoes`, `localidades`, `admin_aprovacoes` |
 | `app/(app)/admin/tabelas/page.tsx` | `profiles`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `biomas`, `trail_type_config`, `admin_aprovacoes` |
-| `app/(app)/perfil/page.tsx` | `profiles`, `trilhas_pendentes`, `favoritos`, `trilhas`, `trilhas_pessoais`, `strava_segmentos_config` |
+| `app/(app)/perfil/page.tsx` | `profiles` (inclui `avatar_url`), `trilhas_pendentes`, `favoritos`, `trilhas` |
 | `app/(app)/perfil/strava/page.tsx` | `trilhas_pessoais`, `strava_segmentos_config` |
 | `components/TrailObservations.tsx` | `observacoes_trilha`, `favoritos`, `profiles` |
-| `components/Navbar.tsx` | `profiles`, `admin_aprovacoes` |
+| `components/PumpTrackObservacoes.tsx` | `observacoes_pumptrack`, `fotos_pumptrack`, `profiles` |
+| `components/Navbar.tsx` | `profiles` (inclui `avatar_url`) |
+| `app/api/profile/avatar/route.ts` | `profiles` (avatar_url) · Storage bucket `avatars` |
+| `app/api/pump-track/foto/route.ts` | `fotos_pumptrack` · Storage bucket `pumptrack-photos` |
 | `lib/domain.ts` | `tabela_solo`, `strava_segmentos_config` |

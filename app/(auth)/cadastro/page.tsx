@@ -142,7 +142,12 @@ function CadastroContent() {
     })
 
     if (signUpError) {
-      setServerError(signUpError.message)
+      const msg = signUpError.message.toLowerCase()
+      if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit') || signUpError.status === 429) {
+        setServerError('Muitas tentativas de cadastro em pouco tempo. Aguarde alguns minutos e tente novamente.')
+      } else {
+        setServerError(signUpError.message)
+      }
       setLoading(false)
       return
     }
