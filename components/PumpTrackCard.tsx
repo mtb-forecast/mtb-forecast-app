@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import Link from 'next/link'
 import { PumpTrack } from '@/lib/types'
 import { rainColor, windColor, DISPLAY_THR } from '@/lib/display'
 
@@ -176,13 +177,24 @@ function PumpTrackCard({ pt }: Props) {
             )}
           </div>
 
-          {c?.gerado_em && (
-            <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
-              Atualizado às {new Date(c.gerado_em).toLocaleTimeString('pt-BR', {
-                hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
-              })}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {c?.gerado_em && (
+              <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
+                Atualizado às {new Date(c.gerado_em).toLocaleTimeString('pt-BR', {
+                  hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+                })}
+              </span>
+            )}
+            <Link
+              href={`/pump-track/${pt.id}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', marginLeft: 'auto' }}
+            >
+              <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#111111' }}>Ver detalhes</span>
+              <span style={{ background: '#EDE9FE', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#7C3AED' }} />
+              </span>
+            </Link>
+          </div>
         </div>
 
       </div>
