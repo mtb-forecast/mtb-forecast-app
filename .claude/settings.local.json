@@ -138,7 +138,8 @@
       "PowerShell(git add \"components/Navbar.tsx\" \"app/\\(app\\)/dashboard/page.tsx\")",
       "Bash(pip install *)",
       "Bash(pip freeze *)",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Sintaxe OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Sintaxe OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Python OK'\\)\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

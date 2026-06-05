@@ -139,6 +139,35 @@ export type TrilhaComCondicao = Trilha & {
   condicao?: Condicao
 }
 
+export type CondicaoPumptrack = {
+  gerado_em: string
+  rain_mm: number | null
+  pico_3h: number | null
+  wind_kmh: number | null
+  temp_max: number | null
+  temp_min: number | null
+  pop_48h: number | null
+}
+
+export type PumpTrack = {
+  id: string
+  nome: string
+  cidade: string | null
+  uf: string | null
+  endereco: string | null
+  latitude: number
+  longitude: number
+  tipo_superficie: string | null
+  comprimento_estimado: string | null
+  iluminacao: string | null
+  estacionamento: string | null
+  fonte: string | null
+  google_maps_url: string | null
+  instagram: string | null
+  status_validacao: string | null
+  condicao?: CondicaoPumptrack
+}
+
 export type Observacao = {
   id: string
   trilha_id?: string | null

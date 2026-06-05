@@ -5,8 +5,21 @@ import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
-import { TrilhaComCondicao } from '@/lib/types'
+import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
+import PumpTrackCard from '@/components/PumpTrackCard'
+
+// Mapa UF → nome completo do estado (para filtrar pump tracks pelo estadoSelecionado)
+const UF_PARA_ESTADO: Record<string, string> = {
+  AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas',
+  BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal',
+  ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão',
+  MT: 'Mato Grosso', MS: 'Mato Grosso do Sul', MG: 'Minas Gerais',
+  PA: 'Pará', PB: 'Paraíba', PR: 'Paraná', PE: 'Pernambuco',
+  PI: 'Piauí', RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte',
+  RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima',
+  SC: 'Santa Catarina', SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
+}
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
@@ -36,6 +49,7 @@ function TrilhasContent() {
 
   const [mounted, setMounted] = useState(false)
   const [trilhasAll, setTrilhasAll] = useState<TrilhaComCondicao[]>([])
+  const [pumptracksAll, setPumptracksAll] = useState<PumpTrack[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -63,7 +77,7 @@ function TrilhasContent() {
         if (!user) { window.location.href = '/login'; return }
         setUserId(user.id)
 
-        const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }] =
+        const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }, { data: ptData }] =
           await Promise.all([
             supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
             supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
@@ -83,6 +97,15 @@ function TrilhasContent() {
               .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
               .order('name'),
             supabase.from('localidades').select('estado').order('estado'),
+            supabase
+              .from('trilhas_pumptrack')
+              .select(`
+                id, nome, cidade, uf, endereco, latitude, longitude,
+                tipo_superficie, comprimento_estimado, iluminacao, estacionamento,
+                fonte, google_maps_url, instagram, status_validacao,
+                condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_48h)
+              `)
+              .order('nome'),
           ])
 
         if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
@@ -96,6 +119,15 @@ function TrilhasContent() {
             return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
           })
           setTrilhasAll(mapped)
+        }
+
+        if (ptData) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mapped = (ptData as any[]).map((pt) => {
+            const arr = Array.isArray(pt.condicoes_pumptrack) ? pt.condicoes_pumptrack : []
+            return { ...pt, condicao: arr[0] ?? undefined } as PumpTrack
+          })
+          setPumptracksAll(mapped)
         }
 
         if (estadosData) {
@@ -201,6 +233,16 @@ function TrilhasContent() {
     [localidadeSelecionada, cidadeSelecionada, estadoSelecionado]
   )
 
+  const pumptracks = useMemo(() => {
+    if (!estadoSelecionado) return []
+    return pumptracksAll.filter(pt => {
+      const estadoPt = pt.uf ? UF_PARA_ESTADO[pt.uf] : null
+      if (estadoPt !== estadoSelecionado) return false
+      if (search && !pt.nome.toLowerCase().includes(search.toLowerCase())) return false
+      return true
+    })
+  }, [pumptracksAll, estadoSelecionado, search])
+
   if (!mounted) return null
 
   const fieldBase: React.CSSProperties = {
@@ -248,7 +290,7 @@ function TrilhasContent() {
             </h1>
             <p style={{ color: '#9CA3AF', fontSize: 14, margin: '8px 0 0' }}>
               {estadoSelecionado
-                ? `${filtered.length} trilha${filtered.length !== 1 ? 's' : ''} em ${filtroLabel}`
+                ? `${filtered.length} trilha${filtered.length !== 1 ? 's' : ''}${pumptracks.length > 0 ? ` · ${pumptracks.length} pump track${pumptracks.length !== 1 ? 's' : ''}` : ''} em ${filtroLabel}`
                 : 'Selecione um estado para ver as trilhas'}
             </p>
           </div>
@@ -421,16 +463,46 @@ function TrilhasContent() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {filtered.map(t => (
-                <TrilhaCard
-                  key={t.id}
-                  trilha={t}
-                  isFavorito={favoritos.has(t.id)}
-                  onToggleFavorito={toggleFavorito}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filtered.map(t => (
+                  <TrilhaCard
+                    key={t.id}
+                    trilha={t}
+                    isFavorito={favoritos.has(t.id)}
+                    onToggleFavorito={toggleFavorito}
+                  />
+                ))}
+              </div>
+
+              {/* ── Seção Pump Tracks ───────────────────────────────── */}
+              {pumptracks.length > 0 && (
+                <div style={{ marginTop: 40 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                    <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        background: '#EDE9FE', color: '#7C3AED',
+                        borderRadius: 999, padding: '3px 12px',
+                        fontSize: 12, fontWeight: 700, letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                      }}>
+                        Pump Tracks
+                      </span>
+                      <span style={{ fontSize: 12, color: '#9CA3AF' }}>
+                        {pumptracks.length} local{pumptracks.length !== 1 ? 'is' : ''}
+                      </span>
+                    </div>
+                    <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {pumptracks.map(pt => (
+                      <PumpTrackCard key={pt.id} pt={pt} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )
         )}
       </div>
