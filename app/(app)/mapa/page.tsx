@@ -14,6 +14,18 @@ type TrilhaMapData = {
   condicoes?: Pick<Condicao, 'veredicto' | 'veredicto_12h' | 'acumulo_48h' | 'ultima_chuva_h'>[]
 }
 
+type PumpTrackMapData = {
+  id: string
+  nome: string
+  latitude: number
+  longitude: number
+  cidade: string | null
+  uf: string | null
+  tipo_superficie: string | null
+  comprimento_estimado: string | null
+  condicoes_pumptrack?: { rain_mm: number | null; wind_kmh: number | null; gerado_em: string }[]
+}
+
 function getVeredictoColor(veredicto: string | undefined): string {
   if (!veredicto) return '#999'
   if (veredicto.includes('DROP LIBERADO') && !veredicto.includes('alerta')) return '#16a34a'
@@ -42,7 +54,7 @@ export default function MapaPage() {
         const user = await getClientUser()
         if (!user) { window.location.href = '/login'; return }
 
-        const [{ data: trilhasData, error }, { data: favData }, L] = await Promise.all([
+        const [{ data: trilhasData, error }, { data: favData }, { data: ptData }, L] = await Promise.all([
           supabase
             .from('trilhas')
             .select(`
@@ -55,6 +67,14 @@ export default function MapaPage() {
             .order('name', { ascending: true })
             .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
           supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+          supabase
+            .from('trilhas_pumptrack')
+            .select(`
+              id, nome, latitude, longitude, cidade, uf,
+              tipo_superficie, comprimento_estimado,
+              condicoes_pumptrack(rain_mm, wind_kmh, gerado_em)
+            `)
+            .order('nome'),
           import('leaflet'),
         ])
 
@@ -62,9 +82,10 @@ export default function MapaPage() {
 
         const favoritedIds = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
         const trilhas: TrilhaMapData[] = trilhasData || []
+        const pumptracks: PumpTrackMapData[] = ptData || []
 
         setLoading(false)
-        buildMap(trilhas, L, favoritedIds)
+        buildMap(trilhas, pumptracks, L, favoritedIds)
       } catch {
         setErro('Erro ao carregar o mapa. Tente recarregar a página.')
         setLoading(false)
@@ -76,7 +97,7 @@ export default function MapaPage() {
   }, [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function buildMap(trilhas: TrilhaMapData[], L: any, favoritedIds: Set<string>) {
+  function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], L: any, favoritedIds: Set<string>) {
     if (!mapRef.current || leafletRef.current) return
 
     const defaultCenter: [number, number] = [-23.5505, -46.6333]
@@ -194,6 +215,60 @@ export default function MapaPage() {
         .addTo(map)
         .bindPopup(popup)
     })
+
+    // ── Pump Tracks ────────────────────────────────────────────────────
+    pumptracks.forEach((pt) => {
+      const cond = pt.condicoes_pumptrack?.[0]
+      const wazeUrl = `https://waze.com/ul?ll=${pt.latitude},${pt.longitude}&navigate=yes`
+
+      const ptIcon = L.divIcon({
+        html: `<div style="
+          width:26px;height:26px;
+          background:#7C3AED;
+          border-radius:50%;
+          border:2.5px solid #fff;
+          box-shadow:0 2px 6px rgba(0,0,0,0.35);
+          display:flex;align-items:center;justify-content:center;
+          font-size:9px;font-weight:800;color:#fff;font-family:Inter,sans-serif;
+          letter-spacing:0;
+        ">P</div>`,
+        className: '',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        popupAnchor: [0, -16],
+      })
+
+      const rainStr = cond?.rain_mm != null ? `${cond.rain_mm.toFixed(1)}mm chuva 48h` : null
+      const windStr = cond?.wind_kmh != null ? `${cond.wind_kmh.toFixed(0)} km/h vento` : null
+      const forecastLine = [rainStr, windStr].filter(Boolean).join(' · ')
+
+      const popupContent = `
+        <div style="font-family:Inter,sans-serif;padding:4px 0;min-width:160px;">
+          <div style="
+            display:inline-flex;align-items:center;gap:5px;
+            background:#EDE9FE;color:#7C3AED;
+            font-size:9px;font-weight:700;border-radius:4px;
+            padding:2px 7px;margin-bottom:7px;letter-spacing:0.04em;
+          ">● PUMP TRACK</div>
+          <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">
+            ${pt.nome}
+          </p>
+          ${pt.cidade && pt.uf ? `<p style="margin:0 0 6px;font-size:11px;color:#6b7280;">${pt.cidade}, ${pt.uf}</p>` : ''}
+          ${pt.tipo_superficie ? `<p style="margin:0 0 4px;font-size:11px;color:#6b7280;">🛣 ${pt.tipo_superficie}${pt.comprimento_estimado ? ' · ' + pt.comprimento_estimado : ''}</p>` : ''}
+          ${forecastLine ? `<p style="margin:0 0 10px;font-size:11px;color:#374151;">${forecastLine}</p>` : '<p style="margin:0 0 10px;font-size:11px;color:#9ca3af;font-style:italic;">Previsão em breve</p>'}
+          <a href="${wazeUrl}" target="_blank" rel="noopener noreferrer" style="
+            display:inline-flex;align-items:center;gap:5px;
+            background:#05C8F7;color:#fff;
+            border-radius:12px;padding:4px 10px;
+            font-size:11px;font-weight:600;text-decoration:none;
+          ">🗺 Como chegar</a>
+        </div>
+      `
+
+      L.marker([pt.latitude, pt.longitude], { icon: ptIcon })
+        .addTo(map)
+        .bindPopup(L.popup({ maxWidth: 220, minWidth: 180 }).setContent(popupContent))
+    })
   }
 
   useEffect(() => {
@@ -251,10 +326,10 @@ export default function MapaPage() {
         fontSize: 11,
       }}>
         {[
-          { cor: '#16a34a', label: 'DROP LIBERADO' },
-          { cor: '#d97706', label: 'ATENÇÃO' },
-          { cor: '#dc2626', label: 'MELHOR ESPERAR' },
-          { cor: '#999',    label: 'Favoritar Trilha' },
+          { cor: '#16a34a', label: 'DROP LIBERADO',  shape: 'pin' },
+          { cor: '#d97706', label: 'ATENÇÃO',         shape: 'pin' },
+          { cor: '#dc2626', label: 'MELHOR ESPERAR', shape: 'pin' },
+          { cor: '#999',    label: 'Favoritar Trilha', shape: 'pin' },
         ].map(({ cor, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
             <div style={{
@@ -264,6 +339,19 @@ export default function MapaPage() {
             <span style={{ color: '#333', fontWeight: 500 }}>{label}</span>
           </div>
         ))}
+        {/* Divisor */}
+        <div style={{ borderTop: '1px solid #E5E7EB', margin: '6px 0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{
+            width: 16, height: 16, borderRadius: '50%',
+            background: '#7C3AED', border: '2px solid #fff',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+            flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 7, fontWeight: 800, color: '#fff',
+          }}>P</div>
+          <span style={{ color: '#7C3AED', fontWeight: 600 }}>Pump Track</span>
+        </div>
       </div>
     </div>
   )
