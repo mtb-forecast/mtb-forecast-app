@@ -16,12 +16,17 @@ function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
     /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,
     /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/,
     /maps\/place\/[^/]+\/@(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /[?&]center=(-?\d+\.\d+)%2C(-?\d+\.\d+)/,
   ]
   for (const re of patterns) {
     const m = url.match(re)
     if (m) return { lat: parseFloat(m[1]), lon: parseFloat(m[2]) }
   }
   return null
+}
+
+function isShortUrl(url: string): boolean {
+  return /maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/maps/.test(url)
 }
 
 const SUPERFICIE_OPTIONS = [
@@ -103,6 +108,7 @@ export default function CadastrarTrilhaPage() {
   const [geoResult, setGeoResult] = useState<GeoResult | null>(null)
   const [geoPreview, setGeoPreview] = useState<string | null>(null)
   const [geocoding, setGeocoding] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Opções dinâmicas ───────────────────────────────────────────
@@ -144,10 +150,35 @@ export default function CadastrarTrilhaPage() {
     return () => { if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current) }
   }, [lat, lon]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleExtract() {
-    const coords = extrairCoordenadas(mapsUrl)
-    if (coords) { setLat(coords.lat.toString()); setLon(coords.lon.toString()); setErro(null) }
-    else setErro('Não foi possível extrair as coordenadas. Cole a URL completa do Google Maps.')
+  async function handleExtract() {
+    if (!mapsUrl.trim()) return
+    setErro(null)
+
+    let urlParaExtrair = mapsUrl.trim()
+
+    // URL curta: resolve server-side (CORS impede fetch direto no browser)
+    if (isShortUrl(urlParaExtrair)) {
+      setExtracting(true)
+      try {
+        const res = await fetch('/api/resolve-maps-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: urlParaExtrair }),
+        })
+        const data = await res.json()
+        if (data.resolvedUrl) urlParaExtrair = data.resolvedUrl
+        else { setErro('Não foi possível resolver a URL curta. Tente colar a URL completa.'); setExtracting(false); return }
+      } catch {
+        setErro('Erro de conexão ao resolver a URL. Tente novamente.')
+        setExtracting(false)
+        return
+      }
+      setExtracting(false)
+    }
+
+    const coords = extrairCoordenadas(urlParaExtrair)
+    if (coords) { setLat(coords.lat.toString()); setLon(coords.lon.toString()) }
+    else setErro('Não foi possível extrair as coordenadas. Verifique a URL e tente novamente.')
   }
 
   async function getOrCreateLocalidade(geo: GeoResult): Promise<string | null> {
@@ -301,60 +332,13 @@ export default function CadastrarTrilhaPage() {
     )
   }
 
-  // ── Bloco de coordenadas — compartilhado ────────────────────────
-  const coordsBlock = (
-    <SectionCard title="Localização">
-      {/* Google Maps URL */}
-      <Field label="URL do Google Maps">
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="url"
-            value={mapsUrl}
-            onChange={e => setMapsUrl(e.target.value)}
-            placeholder="Cole a URL do Google Maps aqui"
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button
-            type="button"
-            onClick={handleExtract}
-            style={{
-              background: '#111', color: '#fff', border: 'none',
-              borderRadius: 6, padding: '9px 14px',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-            }}
-          >
-            Extrair
-          </button>
-        </div>
-        <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
-          Cole a URL e clique em Extrair para preencher latitude e longitude automaticamente.
-        </p>
-      </Field>
-
-      {/* Lat / Lon */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="Latitude" required>
-          <input type="number" step="any" value={lat} onChange={e => setLat(e.target.value)}
-            placeholder="-23.5992" style={inputStyle} />
-        </Field>
-        <Field label="Longitude" required>
-          <input type="number" step="any" value={lon} onChange={e => setLon(e.target.value)}
-            placeholder="-46.6575" style={inputStyle} />
-        </Field>
-      </div>
-
-      {/* Geocoding preview */}
-      {geocoding && <p style={{ fontSize: 12, color: '#aaa' }}>📍 Identificando localização…</p>}
-      {geoPreview && !geocoding && (
-        <p style={{ fontSize: 12, color: '#16a34a', background: '#f0fdf4', borderRadius: 6, padding: '6px 10px' }}>
-          {geoPreview}
-        </p>
-      )}
-    </SectionCard>
-  )
+  const hasCoords = !!(lat && lon)
+  const accent = tipo === 'pumptrack' ? '#7C3AED' : '#FFE000'
+  const accentText = tipo === 'pumptrack' ? '#fff' : '#111'
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {/* Header */}
       <div style={{ background: '#111', padding: '40px 32px' }}>
@@ -363,9 +347,9 @@ export default function CadastrarTrilhaPage() {
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>Trilha MTB ou pump track — envie para revisão</p>
         </div>
       </div>
-      <div style={{ background: tipo === 'pumptrack' ? '#7C3AED' : '#FFE000', height: 3, transition: 'background 0.2s' }} />
+      <div style={{ background: accent, height: 3, transition: 'background 0.2s' }} />
 
-      <div style={{ padding: 32, maxWidth: 640, margin: '0 auto' }}>
+      <div style={{ padding: '24px 32px 48px', maxWidth: 640, margin: '0 auto' }}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* ── Seletor de tipo ── */}
@@ -376,26 +360,21 @@ export default function CadastrarTrilhaPage() {
             ] as const).map(opt => {
               const active = tipo === opt.val
               return (
-                <button
-                  key={opt.val}
-                  type="button"
+                <button key={opt.val} type="button"
                   onClick={() => { setTipo(opt.val); setErro(null) }}
                   style={{
                     background: active ? '#fff' : '#f7f7f5',
                     border: active ? `2px solid ${opt.accent}` : '1.5px solid #e5e5e5',
                     borderRadius: 10, padding: '16px 14px',
-                    cursor: 'pointer', textAlign: 'left',
-                    transition: 'all 0.15s',
-                  }}
-                >
+                    cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                  }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 20 }}>{opt.emoji}</span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{opt.label}</span>
                     {active && (
-                      <span style={{
-                        marginLeft: 'auto', background: opt.accent, color: opt.accentText,
-                        fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
-                      }}>Selecionado</span>
+                      <span style={{ marginLeft: 'auto', background: opt.accent, color: opt.accentText, fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px' }}>
+                        Selecionado
+                      </span>
                     )}
                   </div>
                   <p style={{ fontSize: 11, color: '#888', margin: 0, lineHeight: 1.4 }}>{opt.sub}</p>
@@ -406,40 +385,118 @@ export default function CadastrarTrilhaPage() {
 
           {/* Erro */}
           {erro && (
-            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '10px 14px', fontSize: 13 }}>
+            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 6, padding: '10px 14px', fontSize: 13 }}>
               {erro}
             </div>
           )}
 
-          {/* ════════════ CAMPOS TRILHA MTB ════════════ */}
-          {tipo === 'trilha' && (
+          {/* ── LOCALIZAÇÃO — sempre visível, primeiro passo ── */}
+          <SectionCard title="1. Localização">
+            <Field label="URL do Google Maps">
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input type="url" value={mapsUrl}
+                  onChange={e => setMapsUrl(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleExtract() } }}
+                  placeholder="URL completa ou curta (maps.app.goo.gl/…)"
+                  style={{ ...inputStyle, flex: 1 }} />
+                <button type="button" onClick={handleExtract}
+                  disabled={extracting || !mapsUrl.trim()}
+                  style={{
+                    background: extracting ? '#555' : '#111', color: '#fff', border: 'none',
+                    borderRadius: 6, padding: '9px 14px', fontSize: 12, fontWeight: 600,
+                    cursor: extracting || !mapsUrl.trim() ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap', minWidth: 72,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    transition: 'background 0.15s',
+                  }}>
+                  {extracting
+                    ? <><span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid #555', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Aguarde</>
+                    : 'Extrair'}
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
+                Aceita URL completa ou curta. Pressione Enter ou clique em Extrair.
+              </p>
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="Latitude" required>
+                <input type="number" step="any" value={lat} onChange={e => setLat(e.target.value)}
+                  placeholder="-23.5992" style={inputStyle} />
+              </Field>
+              <Field label="Longitude" required>
+                <input type="number" step="any" value={lon} onChange={e => setLon(e.target.value)}
+                  placeholder="-46.6575" style={inputStyle} />
+              </Field>
+            </div>
+
+            {/* Geocoding result */}
+            {geocoding && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#9ca3af' }}>
+                <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #d1d5db', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                Identificando localização…
+              </div>
+            )}
+            {geoResult && !geocoding && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 16px' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#16a34a', letterSpacing: '1.5px', textTransform: 'uppercase', margin: '0 0 10px' }}>
+                  ✓ Localização identificada
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 16px', fontSize: 13 }}>
+                  <span style={{ color: '#6b7280', fontWeight: 500 }}>Estado</span>
+                  <span style={{ fontWeight: 600, color: '#111' }}>{geoResult.estado}</span>
+                  <span style={{ color: '#6b7280', fontWeight: 500 }}>Cidade</span>
+                  <span style={{ fontWeight: 600, color: '#111' }}>{geoResult.cidade}</span>
+                  {geoResult.localidade && <>
+                    <span style={{ color: '#6b7280', fontWeight: 500 }}>Localidade</span>
+                    <span style={{ fontWeight: 600, color: '#111' }}>{geoResult.localidade}</span>
+                  </>}
+                </div>
+              </div>
+            )}
+            {hasCoords && !geoResult && !geocoding && (
+              <p style={{ fontSize: 12, color: '#f59e0b', background: '#fffbeb', borderRadius: 6, padding: '6px 10px', margin: 0 }}>
+                ⚠ Não foi possível identificar a localização. Preencha o estado/cidade manualmente abaixo.
+              </p>
+            )}
+          </SectionCard>
+
+          {/* ── Campos restantes — desbloqueados após coordenadas ── */}
+          {!hasCoords && (
+            <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 8, padding: '28px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: '#9ca3af', margin: 0 }}>
+                Preencha a <strong style={{ color: '#374151' }}>localização</strong> acima para continuar
+              </p>
+            </div>
+          )}
+
+          {/* ════════════ TRILHA MTB ════════════ */}
+          {hasCoords && tipo === 'trilha' && (
             <>
-              <SectionCard title="Identificação">
+              <SectionCard title="2. Identificação">
                 <Field label="Nome da trilha" required>
                   <input type="text" value={nome} onChange={e => setNome(e.target.value)}
-                    placeholder="Ex: Trilha das Pedras — Serra da Cantareira"
-                    style={inputStyle} />
+                    placeholder="Ex: Trilha das Pedras — Serra da Cantareira" style={inputStyle} />
                 </Field>
                 <Field label="Região (estado)" required>
                   <select value={regiao} onChange={e => setRegiao(e.target.value)} style={selectStyle}>
                     <option value="">Selecione o estado</option>
-                    {ESTADOS_BRASIL.map(est => (
-                      <option key={est.value} value={est.value}>{est.label}</option>
-                    ))}
+                    {ESTADOS_BRASIL.map(est => <option key={est.value} value={est.value}>{est.label}</option>)}
                   </select>
+                  {geoResult && regiao && (
+                    <p style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>✓ Preenchido automaticamente pelo geocoding</p>
+                  )}
                 </Field>
               </SectionCard>
 
-              {coordsBlock}
-
-              <SectionCard title="Altitude">
+              <SectionCard title="3. Altitude">
                 <Field label="Altitude (m)" required>
                   <input type="number" value={altitude} onChange={e => setAltitude(e.target.value)}
                     placeholder="Ex: 900" style={inputStyle} />
                 </Field>
               </SectionCard>
 
-              <SectionCard title="Características do solo e trilha">
+              <SectionCard title="4. Características do solo e trilha">
                 <Field label="Tipo de solo" required>
                   <select value={soloType} onChange={e => setSoloType(e.target.value)} style={selectStyle}>
                     <option value="">Selecione</option>
@@ -466,7 +523,7 @@ export default function CadastrarTrilhaPage() {
                 </Field>
               </SectionCard>
 
-              <SectionCard title="Métricas (opcional)">
+              <SectionCard title="5. Métricas (opcional)">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <Field label="Desnível (m)">
                     <input type="number" value={desnivel} onChange={e => setDesnivel(e.target.value)}
@@ -479,7 +536,7 @@ export default function CadastrarTrilhaPage() {
                 </div>
               </SectionCard>
 
-              <SectionCard title="Informações extras (opcional)">
+              <SectionCard title="6. Informações extras (opcional)">
                 <Field label="Link de referência">
                   <input type="url" value={linkRef} onChange={e => setLinkRef(e.target.value)}
                     placeholder="Strava, Wikiloc, site do parque…" style={inputStyle} />
@@ -493,10 +550,10 @@ export default function CadastrarTrilhaPage() {
             </>
           )}
 
-          {/* ════════════ CAMPOS PUMP TRACK ════════════ */}
-          {tipo === 'pumptrack' && (
+          {/* ════════════ PUMP TRACK ════════════ */}
+          {hasCoords && tipo === 'pumptrack' && (
             <>
-              <SectionCard title="Identificação">
+              <SectionCard title="2. Identificação">
                 <Field label="Nome do pump track" required>
                   <input type="text" value={nome} onChange={e => setNome(e.target.value)}
                     placeholder="Ex: Pump Track Moema" style={inputStyle} />
@@ -509,21 +566,20 @@ export default function CadastrarTrilhaPage() {
                   <Field label="Estado (UF)" required>
                     <select value={ptUf} onChange={e => setPtUf(e.target.value)} style={selectStyle}>
                       <option value="">UF</option>
-                      {ESTADOS_BRASIL.map(est => (
-                        <option key={est.value} value={est.value}>{est.label}</option>
-                      ))}
+                      {ESTADOS_BRASIL.map(est => <option key={est.value} value={est.value}>{est.label}</option>)}
                     </select>
                   </Field>
                 </div>
+                {geoResult && (ptCidade || ptUf) && (
+                  <p style={{ fontSize: 11, color: '#16a34a', marginTop: -6 }}>✓ Cidade e estado preenchidos automaticamente</p>
+                )}
                 <Field label="Endereço">
                   <input type="text" value={ptEndereco} onChange={e => setPtEndereco(e.target.value)}
                     placeholder="Ex: Parque das Bicicletas, Al. Iraé, 35" style={inputStyle} />
                 </Field>
               </SectionCard>
 
-              {coordsBlock}
-
-              <SectionCard title="Características da pista">
+              <SectionCard title="3. Características da pista">
                 <Field label="Tipo de superfície">
                   <select value={ptSuperficie} onChange={e => setPtSuperficie(e.target.value)} style={selectStyle}>
                     <option value="">Selecione (opcional)</option>
@@ -550,7 +606,7 @@ export default function CadastrarTrilhaPage() {
                 </div>
               </SectionCard>
 
-              <SectionCard title="Informações extras (opcional)">
+              <SectionCard title="4. Informações extras (opcional)">
                 <Field label="Instagram">
                   <input type="text" value={ptInstagram} onChange={e => setPtInstagram(e.target.value)}
                     placeholder="@nomeDoPumpTrack" style={inputStyle} />
@@ -568,24 +624,21 @@ export default function CadastrarTrilhaPage() {
             </>
           )}
 
-          {/* ── Submit ── */}
-          <button
-            type="submit"
-            disabled={saving}
-            style={{
-              background: tipo === 'pumptrack' ? '#7C3AED' : '#FFE000',
-              color: tipo === 'pumptrack' ? '#fff' : '#111',
-              border: 'none', borderRadius: 6,
+          {/* ── Submit — só aparece com coordenadas ── */}
+          {hasCoords && (
+            <button type="submit" disabled={saving} style={{
+              background: saving ? '#e5e7eb' : accent,
+              color: saving ? '#9ca3af' : accentText,
+              border: 'none', borderRadius: 8,
               padding: '14px', fontSize: 14, fontWeight: 700,
               cursor: saving ? 'not-allowed' : 'pointer',
-              opacity: saving ? 0.7 : 1,
-              transition: 'opacity 0.15s',
-            }}
-          >
-            {saving
-              ? 'Enviando…'
-              : tipo === 'pumptrack' ? 'Publicar pump track' : 'Enviar trilha para revisão'}
-          </button>
+              transition: 'background 0.15s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(0,0,0,0.15)', borderTopColor: tipo === 'pumptrack' ? '#fff' : '#111', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
+              {saving ? 'Enviando…' : tipo === 'pumptrack' ? 'Publicar pump track' : 'Enviar trilha para revisão'}
+            </button>
+          )}
 
         </form>
       </div>
