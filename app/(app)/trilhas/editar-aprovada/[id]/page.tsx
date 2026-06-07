@@ -58,35 +58,33 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function EditarTrilhaPage() {
+export default function EditarAprovadaPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
 
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
+  const [erro, setErro]         = useState<string | null>(null)
 
   // Form fields
-  const [nome, setNome] = useState('')
-  const [regiao, setRegiao] = useState('')
-  const [lat, setLat] = useState('')
-  const [lon, setLon] = useState('')
-  const [mapsUrl, setMapsUrl] = useState('')
-  const [altitude, setAltitude] = useState('')
-  const [soloType, setSoloType] = useState('')
+  const [nome, setNome]           = useState('')
+  const [regiao, setRegiao]       = useState('')
+  const [lat, setLat]             = useState('')
+  const [lon, setLon]             = useState('')
+  const [mapsUrl, setMapsUrl]     = useState('')
+  const [altitude, setAltitude]   = useState('')
+  const [soloType, setSoloType]   = useState('')
   const [exposicao, setExposicao] = useState('')
   const [trailType, setTrailType] = useState('')
-  const [bioma, setBioma] = useState('')
-  const [desnivel, setDesnivel] = useState('')
-  const [extensao, setExtensao] = useState('')
-  const [linkRef, setLinkRef] = useState('')
-  const [observacoes, setObservacoes] = useState('')
+  const [bioma, setBioma]         = useState('')
+  const [desnivel, setDesnivel]   = useState('')
+  const [extensao, setExtensao]   = useState('')
 
   // Geocoding
-  const [geoResult, setGeoResult] = useState<GeoResult | null>(null)
-  const [geocoding, setGeocoding] = useState(false)
+  const [geoResult, setGeoResult]   = useState<GeoResult | null>(null)
+  const [geocoding, setGeocoding]   = useState(false)
   const [extracting, setExtracting] = useState(false)
   const geoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -103,7 +101,7 @@ export default function EditarTrilhaPage() {
       if (!user) { window.location.href = '/login'; return }
 
       const [{ data: t }, sts, bio, exp, tty] = await Promise.all([
-        supabase.from('trilhas_pendentes').select('*').eq('id', id).eq('user_id', user.id).maybeSingle(),
+        supabase.from('trilhas').select('*').eq('id', id).eq('created_by', user.id).maybeSingle(),
         getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes(),
       ])
 
@@ -120,8 +118,6 @@ export default function EditarTrilhaPage() {
       setBioma(t.bioma || '')
       setDesnivel(t.desnivel_m ? String(t.desnivel_m) : '')
       setExtensao(t.extensao_km ? String(t.extensao_km) : '')
-      setLinkRef(t.link_referencia || '')
-      setObservacoes(t.observacoes || '')
 
       setSoloTypes(sts)
       setBiomas(bio)
@@ -135,7 +131,7 @@ export default function EditarTrilhaPage() {
   // ── Geocoding on lat/lon change ─────────────────────────────────────────────
   useEffect(() => {
     if (!lat || !lon) { setGeoResult(null); return }
-    const latN = parseFloat(lat); const lonN = parseFloat(lon)
+    const latN = parseFloat(lat), lonN = parseFloat(lon)
     if (isNaN(latN) || isNaN(lonN)) return
     if (geoTimer.current) clearTimeout(geoTimer.current)
     geoTimer.current = setTimeout(async () => {
@@ -173,7 +169,7 @@ export default function EditarTrilhaPage() {
   // ── Save ────────────────────────────────────────────────────────────────────
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!nome.trim())  return setErro('Nome obrigatório.')
+    if (!nome.trim()) return setErro('Nome obrigatório.')
     if (!regiao)       return setErro('Região obrigatória.')
     if (!lat || !lon)  return setErro('Coordenadas obrigatórias.')
     if (!altitude)     return setErro('Altitude obrigatória.')
@@ -182,7 +178,7 @@ export default function EditarTrilhaPage() {
     if (!trailType)    return setErro('Tipo de trilha obrigatório.')
 
     setSaving(true); setErro(null)
-    const { error } = await supabase.from('trilhas_pendentes').update({
+    const { error } = await supabase.from('trilhas').update({
       name: nome.trim(), regiao,
       lat: parseFloat(lat), lon: parseFloat(lon),
       altitude_m: parseInt(altitude),
@@ -190,8 +186,6 @@ export default function EditarTrilhaPage() {
       bioma: bioma || null,
       desnivel_m: desnivel ? parseFloat(desnivel) : null,
       extensao_km: extensao ? parseFloat(extensao) : null,
-      link_referencia: linkRef.trim() || null,
-      observacoes: observacoes.trim() || null,
     }).eq('id', id)
 
     setSaving(false)
@@ -200,7 +194,7 @@ export default function EditarTrilhaPage() {
     setTimeout(() => router.push('/perfil/minhas-trilhas'), 1200)
   }
 
-  // ── Loading / Not found ─────────────────────────────────────────────────────
+  // ── Loading / Not found / Saved ─────────────────────────────────────────────
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 32, height: 32, border: '2.5px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -248,7 +242,6 @@ export default function EditarTrilhaPage() {
       <div style={{ padding: '24px 20px 80px', maxWidth: 640, margin: '0 auto' }}>
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Error */}
           {erro && (
             <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
               {erro}
@@ -365,19 +358,6 @@ export default function EditarTrilhaPage() {
                   placeholder="Ex: 8.5" style={inputStyle} />
               </Field>
             </div>
-          </SectionCard>
-
-          {/* ── Extras ── */}
-          <SectionCard title="6. Informações extras (opcional)">
-            <Field label="Link de referência">
-              <input type="url" value={linkRef} onChange={e => setLinkRef(e.target.value)}
-                placeholder="Strava, Wikiloc, site do parque…" style={inputStyle} />
-            </Field>
-            <Field label="Observações">
-              <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
-                placeholder="Acesso, taxa de entrada, cuidados especiais…"
-                rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-            </Field>
           </SectionCard>
 
           {/* ── Actions ── */}

@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
-import { ESTADOS_BRASIL } from '@/lib/types'
-import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
+import { ESTADOS_BRASIL } from '@/lib/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
@@ -57,44 +56,40 @@ function Field({ label, required, children }: { label: string; required?: boolea
   )
 }
 
+const SUPERFICIE_OPTIONS = ['Concreto', 'Asfalto', 'Madeira', 'Terra compactada', 'Borracha', 'Misto', 'Outro']
+const SIM_NAO_OPTIONS = ['Sim', 'Não', 'Parcial']
+
 // ── Main component ────────────────────────────────────────────────────────────
-export default function EditarTrilhaPage() {
+export default function EditarPumptrackPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
 
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
+  const [erro, setErro]         = useState<string | null>(null)
 
   // Form fields
-  const [nome, setNome] = useState('')
-  const [regiao, setRegiao] = useState('')
-  const [lat, setLat] = useState('')
-  const [lon, setLon] = useState('')
-  const [mapsUrl, setMapsUrl] = useState('')
-  const [altitude, setAltitude] = useState('')
-  const [soloType, setSoloType] = useState('')
-  const [exposicao, setExposicao] = useState('')
-  const [trailType, setTrailType] = useState('')
-  const [bioma, setBioma] = useState('')
-  const [desnivel, setDesnivel] = useState('')
-  const [extensao, setExtensao] = useState('')
-  const [linkRef, setLinkRef] = useState('')
-  const [observacoes, setObservacoes] = useState('')
+  const [nome, setNome]                         = useState('')
+  const [mapsUrl, setMapsUrl]                   = useState('')
+  const [lat, setLat]                           = useState('')
+  const [lon, setLon]                           = useState('')
+  const [uf, setUf]                             = useState('')
+  const [cidade, setCidade]                     = useState('')
+  const [endereco, setEndereco]                 = useState('')
+  const [tipoSuperficie, setTipoSuperficie]     = useState('')
+  const [comprimento, setComprimento]           = useState('')
+  const [iluminacao, setIluminacao]             = useState('')
+  const [estacionamento, setEstacionamento]     = useState('')
+  const [instagram, setInstagram]               = useState('')
+  const [fonte, setFonte]                       = useState('')
 
   // Geocoding
-  const [geoResult, setGeoResult] = useState<GeoResult | null>(null)
-  const [geocoding, setGeocoding] = useState(false)
+  const [geoResult, setGeoResult]   = useState<GeoResult | null>(null)
+  const [geocoding, setGeocoding]   = useState(false)
   const [extracting, setExtracting] = useState(false)
   const geoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Options
-  const [soloTypes, setSoloTypes]   = useState<string[]>([])
-  const [biomas, setBiomas]         = useState<string[]>([])
-  const [exposicoes, setExposicoes] = useState<{ valor: string; label: string }[]>([])
-  const [trailTypes, setTrailTypes] = useState<{ valor: string; label: string }[]>([])
 
   // ── Load ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -102,31 +97,28 @@ export default function EditarTrilhaPage() {
       const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
 
-      const [{ data: t }, sts, bio, exp, tty] = await Promise.all([
-        supabase.from('trilhas_pendentes').select('*').eq('id', id).eq('user_id', user.id).maybeSingle(),
-        getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes(),
-      ])
+      const { data: p } = await supabase
+        .from('trilhas_pumptrack')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle()
 
-      if (!t) { setNotFound(true); setLoading(false); return }
+      if (!p) { setNotFound(true); setLoading(false); return }
 
-      setNome(t.name || '')
-      setRegiao(t.regiao || '')
-      setLat(t.lat ? String(t.lat) : '')
-      setLon(t.lon ? String(t.lon) : '')
-      setAltitude(t.altitude_m ? String(t.altitude_m) : '')
-      setSoloType(t.solo_type || '')
-      setExposicao(t.exposicao || '')
-      setTrailType(t.trail_type || '')
-      setBioma(t.bioma || '')
-      setDesnivel(t.desnivel_m ? String(t.desnivel_m) : '')
-      setExtensao(t.extensao_km ? String(t.extensao_km) : '')
-      setLinkRef(t.link_referencia || '')
-      setObservacoes(t.observacoes || '')
-
-      setSoloTypes(sts)
-      setBiomas(bio)
-      setExposicoes(exp)
-      setTrailTypes(tty)
+      setNome(p.nome || '')
+      setLat(p.latitude ? String(p.latitude) : '')
+      setLon(p.longitude ? String(p.longitude) : '')
+      setMapsUrl(p.google_maps_url || '')
+      setUf(p.uf || '')
+      setCidade(p.cidade || '')
+      setEndereco(p.endereco || '')
+      setTipoSuperficie(p.tipo_superficie || '')
+      setComprimento(p.comprimento_estimado || '')
+      setIluminacao(p.iluminacao || '')
+      setEstacionamento(p.estacionamento || '')
+      setInstagram(p.instagram || '')
+      setFonte(p.fonte || '')
       setLoading(false)
     }
     load()
@@ -135,7 +127,7 @@ export default function EditarTrilhaPage() {
   // ── Geocoding on lat/lon change ─────────────────────────────────────────────
   useEffect(() => {
     if (!lat || !lon) { setGeoResult(null); return }
-    const latN = parseFloat(lat); const lonN = parseFloat(lon)
+    const latN = parseFloat(lat), lonN = parseFloat(lon)
     if (isNaN(latN) || isNaN(lonN)) return
     if (geoTimer.current) clearTimeout(geoTimer.current)
     geoTimer.current = setTimeout(async () => {
@@ -144,7 +136,8 @@ export default function EditarTrilhaPage() {
       setGeocoding(false)
       if (geo) {
         setGeoResult(geo)
-        if (!regiao) setRegiao(geo.estado)
+        if (!uf) setUf(geo.estado)
+        if (!cidade) setCidade(geo.cidade)
       }
     }, 800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,25 +166,26 @@ export default function EditarTrilhaPage() {
   // ── Save ────────────────────────────────────────────────────────────────────
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!nome.trim())  return setErro('Nome obrigatório.')
-    if (!regiao)       return setErro('Região obrigatória.')
+    if (!nome.trim()) return setErro('Nome obrigatório.')
     if (!lat || !lon)  return setErro('Coordenadas obrigatórias.')
-    if (!altitude)     return setErro('Altitude obrigatória.')
-    if (!soloType)     return setErro('Tipo de solo obrigatório.')
-    if (!exposicao)    return setErro('Exposição obrigatória.')
-    if (!trailType)    return setErro('Tipo de trilha obrigatório.')
+    if (!uf)           return setErro('Estado obrigatório.')
+    if (!cidade.trim()) return setErro('Cidade obrigatória.')
 
     setSaving(true); setErro(null)
-    const { error } = await supabase.from('trilhas_pendentes').update({
-      name: nome.trim(), regiao,
-      lat: parseFloat(lat), lon: parseFloat(lon),
-      altitude_m: parseInt(altitude),
-      solo_type: soloType, exposicao, trail_type: trailType,
-      bioma: bioma || null,
-      desnivel_m: desnivel ? parseFloat(desnivel) : null,
-      extensao_km: extensao ? parseFloat(extensao) : null,
-      link_referencia: linkRef.trim() || null,
-      observacoes: observacoes.trim() || null,
+    const { error } = await supabase.from('trilhas_pumptrack').update({
+      nome: nome.trim(),
+      latitude: parseFloat(lat),
+      longitude: parseFloat(lon),
+      google_maps_url: mapsUrl.trim() || null,
+      uf: uf || null,
+      cidade: cidade.trim() || null,
+      endereco: endereco.trim() || null,
+      tipo_superficie: tipoSuperficie || null,
+      comprimento_estimado: comprimento.trim() || null,
+      iluminacao: iluminacao || null,
+      estacionamento: estacionamento || null,
+      instagram: instagram.trim() || null,
+      fonte: fonte.trim() || null,
     }).eq('id', id)
 
     setSaving(false)
@@ -200,7 +194,7 @@ export default function EditarTrilhaPage() {
     setTimeout(() => router.push('/perfil/minhas-trilhas'), 1200)
   }
 
-  // ── Loading / Not found ─────────────────────────────────────────────────────
+  // ── Loading / Not found / Saved ─────────────────────────────────────────────
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 32, height: 32, border: '2.5px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -210,8 +204,8 @@ export default function EditarTrilhaPage() {
 
   if (notFound) return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 32 }}>
-      <p style={{ fontSize: 16, color: '#111', fontWeight: 600 }}>Trilha não encontrada</p>
-      <p style={{ fontSize: 13, color: '#888' }}>Esta trilha não pertence à sua conta.</p>
+      <p style={{ fontSize: 16, color: '#111', fontWeight: 600 }}>Pump track não encontrado</p>
+      <p style={{ fontSize: 13, color: '#888' }}>Este pump track não pertence à sua conta.</p>
       <Link href="/perfil/minhas-trilhas" style={{ fontSize: 13, color: '#111', textDecoration: 'underline' }}>← Voltar</Link>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
@@ -239,16 +233,20 @@ export default function EditarTrilhaPage() {
             <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
             Minhas trilhas
           </Link>
-          <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Editar trilha</h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{nome}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 22 }}>🟣</span>
+            <div>
+              <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Editar pump track</h1>
+              <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{nome}</p>
+            </div>
+          </div>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a78bfa', height: 3 }} />
 
       <div style={{ padding: '24px 20px 80px', maxWidth: 640, margin: '0 auto' }}>
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Error */}
           {erro && (
             <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
               {erro}
@@ -300,83 +298,73 @@ export default function EditarTrilhaPage() {
                 </div>
               </div>
             )}
+
+            <Field label="Endereço">
+              <input type="text" value={endereco} onChange={e => setEndereco(e.target.value)}
+                placeholder="Rua, número, bairro…" style={inputStyle} />
+            </Field>
           </SectionCard>
 
           {/* ── Identificação ── */}
           <SectionCard title="2. Identificação">
-            <Field label="Nome da trilha" required>
+            <Field label="Nome do pump track" required>
               <input type="text" value={nome} onChange={e => setNome(e.target.value)}
-                placeholder="Ex: Trilha das Pedras" style={inputStyle} />
+                placeholder="Ex: Pump Track Mairiporã" style={inputStyle} />
             </Field>
-            <Field label="Região (estado)" required>
-              <select value={regiao} onChange={e => setRegiao(e.target.value)} style={selectStyle}>
-                <option value="">Selecione o estado</option>
-                {ESTADOS_BRASIL.map(est => <option key={est.value} value={est.value}>{est.label}</option>)}
-              </select>
-              {geoResult && regiao && <p style={{ fontSize: 11, color: '#16a34a', marginTop: 4 }}>✓ Preenchido pelo geocoding</p>}
-            </Field>
-          </SectionCard>
 
-          {/* ── Altitude ── */}
-          <SectionCard title="3. Altitude">
-            <Field label="Altitude (m)" required>
-              <input type="number" value={altitude} onChange={e => setAltitude(e.target.value)}
-                placeholder="Ex: 900" style={inputStyle} />
-            </Field>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="Estado (UF)" required>
+                <select value={uf} onChange={e => setUf(e.target.value)} style={selectStyle}>
+                  <option value="">Selecione</option>
+                  {ESTADOS_BRASIL.map(est => <option key={est.value} value={est.value}>{est.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Cidade" required>
+                <input type="text" value={cidade} onChange={e => setCidade(e.target.value)}
+                  placeholder="Nome da cidade" style={inputStyle} />
+              </Field>
+            </div>
           </SectionCard>
 
           {/* ── Características ── */}
-          <SectionCard title="4. Características do solo e trilha">
-            <Field label="Tipo de solo" required>
-              <select value={soloType} onChange={e => setSoloType(e.target.value)} style={selectStyle}>
-                <option value="">Selecione</option>
-                {soloTypes.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </Field>
-            <Field label="Exposição" required>
-              <select value={exposicao} onChange={e => setExposicao(e.target.value)} style={selectStyle}>
-                <option value="">Selecione</option>
-                {exposicoes.map(e => <option key={e.valor} value={e.valor}>{e.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Tipo de trilha" required>
-              <select value={trailType} onChange={e => setTrailType(e.target.value)} style={selectStyle}>
-                <option value="">Selecione</option>
-                {trailTypes.map(t => <option key={t.valor} value={t.valor}>{t.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Bioma">
-              <select value={bioma} onChange={e => setBioma(e.target.value)} style={selectStyle}>
+          <SectionCard title="3. Características">
+            <Field label="Tipo de superfície">
+              <select value={tipoSuperficie} onChange={e => setTipoSuperficie(e.target.value)} style={selectStyle}>
                 <option value="">Selecione (opcional)</option>
-                {biomas.map(b => <option key={b} value={b}>{b}</option>)}
+                {SUPERFICIE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
-          </SectionCard>
 
-          {/* ── Métricas ── */}
-          <SectionCard title="5. Métricas (opcional)">
+            <Field label="Comprimento estimado">
+              <input type="text" value={comprimento} onChange={e => setComprimento(e.target.value)}
+                placeholder="Ex: 200m, 500m…" style={inputStyle} />
+            </Field>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Field label="Desnível (m)">
-                <input type="number" value={desnivel} onChange={e => setDesnivel(e.target.value)}
-                  placeholder="Ex: 450" style={inputStyle} />
+              <Field label="Iluminação">
+                <select value={iluminacao} onChange={e => setIluminacao(e.target.value)} style={selectStyle}>
+                  <option value="">Selecione</option>
+                  {SIM_NAO_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
               </Field>
-              <Field label="Extensão (km)">
-                <input type="number" step="0.1" value={extensao} onChange={e => setExtensao(e.target.value)}
-                  placeholder="Ex: 8.5" style={inputStyle} />
+              <Field label="Estacionamento">
+                <select value={estacionamento} onChange={e => setEstacionamento(e.target.value)} style={selectStyle}>
+                  <option value="">Selecione</option>
+                  {SIM_NAO_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
               </Field>
             </div>
           </SectionCard>
 
           {/* ── Extras ── */}
-          <SectionCard title="6. Informações extras (opcional)">
-            <Field label="Link de referência">
-              <input type="url" value={linkRef} onChange={e => setLinkRef(e.target.value)}
-                placeholder="Strava, Wikiloc, site do parque…" style={inputStyle} />
+          <SectionCard title="4. Redes e referências (opcional)">
+            <Field label="Instagram">
+              <input type="text" value={instagram} onChange={e => setInstagram(e.target.value)}
+                placeholder="@perfil ou URL do Instagram" style={inputStyle} />
             </Field>
-            <Field label="Observações">
-              <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
-                placeholder="Acesso, taxa de entrada, cuidados especiais…"
-                rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            <Field label="Fonte / link de referência">
+              <input type="url" value={fonte} onChange={e => setFonte(e.target.value)}
+                placeholder="https://…" style={inputStyle} />
             </Field>
           </SectionCard>
 
@@ -391,14 +379,14 @@ export default function EditarTrilhaPage() {
               Cancelar
             </Link>
             <button type="submit" disabled={saving} style={{
-              flex: 1, background: saving ? '#e5e7eb' : '#FFE000',
-              color: saving ? '#9ca3af' : '#111', border: 'none',
+              flex: 1, background: saving ? '#e5e7eb' : '#a78bfa',
+              color: saving ? '#9ca3af' : '#fff', border: 'none',
               borderRadius: 10, padding: '13px 24px',
               fontSize: 14, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               transition: 'background 0.15s',
             }}>
-              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(0,0,0,0.15)', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
+              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
               {saving ? 'Salvando…' : 'Salvar alterações'}
             </button>
           </div>
