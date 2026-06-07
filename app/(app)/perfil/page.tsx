@@ -788,7 +788,7 @@ export default function PerfilPage() {
               {regiao && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <i className="ti ti-map-pin" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: T.text }}>{regiao} — {estadoLabel(regiao)}</span>
+                  <span style={{ fontSize: 13, color: T.text }}>{estadoLabel(regiao)}</span>
                 </div>
               )}
               {telefone && (
@@ -804,23 +804,6 @@ export default function PerfilPage() {
                   <span style={{ fontSize: 13, color: T.text }}>{instagram.startsWith('@') ? instagram : `@${instagram}`}</span>
                 </div>
               )}
-            </div>
-
-            {/* Plan row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: isPago ? 'rgba(244,197,66,0.08)' : '#1a1a1a', borderRadius: 12, padding: '10px 14px', border: isPago ? '1px solid rgba(244,197,66,0.2)' : `1px solid ${T.border}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 16 }}>{isPago ? '⭐' : '🎯'}</span>
-                <div>
-                  <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Plano atual</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: isPago ? T.primary : T.text, letterSpacing: '-0.02em' }}>{plano.nome}</div>
-                </div>
-              </div>
-              {!isPago && (
-                <Link href="/planos" style={{ fontSize: 12, fontWeight: 700, color: T.primary, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  Upgrade <i className="ti ti-arrow-right" style={{ fontSize: 12 }} />
-                </Link>
-              )}
-              {isPago && <span style={{ fontSize: 11, background: 'rgba(244,197,66,0.15)', color: T.primary, borderRadius: 20, padding: '4px 10px', fontWeight: 700 }}>ATIVO</span>}
             </div>
 
             {avatarError && <p style={{ fontSize: 11, color: '#f87171', marginTop: 10, margin: 0 }}>{avatarError}</p>}

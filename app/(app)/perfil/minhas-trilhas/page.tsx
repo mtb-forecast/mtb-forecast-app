@@ -54,6 +54,8 @@ type TipoFiltro = 'todos' | 'mtb' | 'pumptrack'
 export default function MinhasTrilhasPage() {
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Filters
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('todos')
@@ -164,6 +166,24 @@ export default function MinhasTrilhasPage() {
 
   const countMTB = items.filter(i => i.kind === 'mtb').length
   const countPT  = items.filter(i => i.kind === 'pumptrack').length
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  async function handleDelete(item: Item) {
+    setDeleting(true)
+    const kind = item.kind === 'pumptrack'
+      ? 'pumptrack'
+      : item.source === 'catalogo' ? 'mtb_catalogo' : 'mtb_pendente'
+    const res = await fetch('/api/delete-item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, id: item.id }),
+    })
+    setDeleting(false)
+    if (res.ok) {
+      setItems(prev => prev.filter(i => !(i.id === item.id && i.kind === item.kind)))
+      setConfirmDeleteId(null)
+    }
+  }
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) return (
@@ -387,29 +407,61 @@ export default function MinhasTrilhasPage() {
                     )}
 
                     {/* Actions */}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <Link href={editHref} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        background: '#232323', color: T.text, borderRadius: 10,
-                        padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                        textDecoration: 'none', border: `1px solid ${T.border}`,
-                      }}>
-                        <i className="ti ti-pencil" style={{ fontSize: 14, color: T.primary }} />
-                        Editar
-                      </Link>
-
-                      {isPTActive && (
-                        <Link href="/mapa" style={{
+                    {confirmDeleteId === `${item.kind}-${item.id}` ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px' }}>
+                        <span style={{ fontSize: 13, color: '#f87171', flex: 1 }}>Confirmar exclusão?</span>
+                        <button
+                          onClick={() => handleDelete(item)}
+                          disabled={deleting}
+                          style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {deleting
+                            ? <span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+                            : null}
+                          Excluir
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 13, padding: '7px 10px' }}>
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Link href={editHref} style={{
                           display: 'inline-flex', alignItems: 'center', gap: 6,
-                          background: '#1a1a00', color: T.primary, borderRadius: 10,
+                          background: '#232323', color: T.text, borderRadius: 10,
                           padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                          textDecoration: 'none', border: '1px solid rgba(244,197,66,0.2)',
+                          textDecoration: 'none', border: `1px solid ${T.border}`,
                         }}>
-                          <i className="ti ti-map" style={{ fontSize: 14 }} />
-                          Ver no mapa
+                          <i className="ti ti-pencil" style={{ fontSize: 14, color: T.primary }} />
+                          Editar
                         </Link>
-                      )}
-                    </div>
+
+                        {isPTActive && (
+                          <Link href="/mapa" style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            background: '#1a1a00', color: T.primary, borderRadius: 10,
+                            padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                            textDecoration: 'none', border: '1px solid rgba(244,197,66,0.2)',
+                          }}>
+                            <i className="ti ti-map" style={{ fontSize: 14 }} />
+                            Ver no mapa
+                          </Link>
+                        )}
+
+                        <button
+                          onClick={() => setConfirmDeleteId(`${item.kind}-${item.id}`)}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            background: 'transparent', color: '#f87171', borderRadius: 10,
+                            padding: '8px 12px', fontSize: 13, fontWeight: 600,
+                            border: '1px solid rgba(248,113,113,0.2)', cursor: 'pointer',
+                          }}>
+                          <i className="ti ti-trash" style={{ fontSize: 14 }} />
+                          Excluir
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
