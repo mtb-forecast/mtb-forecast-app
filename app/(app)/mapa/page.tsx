@@ -79,7 +79,7 @@ export default function MapaPage() {
         const user = await getClientUser()
         if (!user) { window.location.href = '/login'; return }
 
-        const [{ data: trilhasData, error }, { data: favData }, { data: ptData }, { data: pendentesData }, L] = await Promise.all([
+        const [{ data: trilhasData, error }, { data: favData }, { data: ptData }, L] = await Promise.all([
           supabase
             .from('trilhas')
             .select(`
@@ -100,12 +100,6 @@ export default function MapaPage() {
               condicoes_pumptrack(rain_mm, wind_kmh, gerado_em)
             `)
             .order('nome'),
-          supabase
-            .from('trilhas_pendentes')
-            .select('id, name, lat, lon, regiao, status')
-            .eq('user_id', user.id)
-            .not('lat', 'is', null)
-            .not('lon', 'is', null),
           import('leaflet'),
         ])
 
@@ -114,10 +108,9 @@ export default function MapaPage() {
         const favoritedIds = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
         const trilhas: TrilhaMapData[] = trilhasData || []
         const pumptracks: PumpTrackMapData[] = ptData || []
-        const pendentes: { id: string; name: string; lat: number; lon: number; regiao: string; status: string }[] = pendentesData || []
 
         setLoading(false)
-        buildMap(trilhas, pumptracks, pendentes, L, favoritedIds)
+        buildMap(trilhas, pumptracks, L, favoritedIds)
       } catch {
         setErro('Erro ao carregar o mapa. Tente recarregar a página.')
         setLoading(false)
@@ -129,7 +122,7 @@ export default function MapaPage() {
   }, [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], pendentes: { id: string; name: string; lat: number; lon: number; regiao: string; status: string }[], L: any, favoritedIds: Set<string>) {
+  function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], L: any, favoritedIds: Set<string>) {
     if (!mapRef.current || leafletRef.current) return
 
     const defaultCenter: [number, number] = [-23.5505, -46.6333]
@@ -314,48 +307,6 @@ export default function MapaPage() {
       L.marker([pt.latitude, pt.longitude], { icon: ptIcon })
         .addTo(map)
         .bindPopup(L.popup({ maxWidth: 220, minWidth: 180 }).setContent(popupContent))
-    })
-
-    // ── Trilhas pendentes do usuário ──────────────────────────────────
-    pendentes.forEach((p) => {
-      const isPending = p.status === 'pendente'
-      const statusLabel = isPending ? 'Aguardando revisão' : p.status === 'rejeitada' ? 'Rejeitada' : p.status
-      const dotColor = isPending ? '#f59e0b' : p.status === 'rejeitada' ? '#f87171' : '#4ade80'
-
-      const pendIcon = L.divIcon({
-        html: `<div style="
-          width:26px;height:26px;
-          background:#1c1c1c;
-          border-radius:50%;
-          border:2.5px dashed ${dotColor};
-          box-shadow:0 2px 6px rgba(0,0,0,0.4);
-          display:flex;align-items:center;justify-content:center;
-          font-size:11px;color:${dotColor};font-weight:900;font-family:Inter,sans-serif;
-        ">?</div>`,
-        className: '',
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
-        popupAnchor: [0, -16],
-      })
-
-      const popupContent = `
-        <div style="font-family:Inter,sans-serif;padding:4px 0;min-width:160px;">
-          <div style="
-            display:inline-flex;align-items:center;gap:5px;
-            background:rgba(245,158,11,0.12);color:${dotColor};
-            font-size:9px;font-weight:700;border-radius:4px;
-            padding:2px 7px;margin-bottom:7px;letter-spacing:0.04em;
-          ">● MEU CADASTRO</div>
-          <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#111;line-height:1.3;">${p.name}</p>
-          <p style="margin:0 0 8px;font-size:11px;color:#6b7280;">${p.regiao}</p>
-          <p style="margin:0 0 10px;font-size:11px;color:${dotColor};font-weight:600;">${statusLabel}</p>
-          <a href="/perfil/minhas-trilhas" style="font-size:11px;font-weight:600;color:#1A1A1A;text-decoration:none;">Ver meus cadastros →</a>
-        </div>
-      `
-
-      L.marker([p.lat, p.lon], { icon: pendIcon })
-        .addTo(map)
-        .bindPopup(L.popup({ maxWidth: 200, minWidth: 160 }).setContent(popupContent))
     })
   }
 
