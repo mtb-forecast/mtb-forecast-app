@@ -219,7 +219,7 @@ export default function CadastrarTrilhaPage() {
       estacionamento: ptEstacionamento || null,
       instagram: ptInstagram.trim() || null,
       fonte: ptFonte.trim() || null,
-      status_validacao: 'Pendente - Revisão',
+      status_validacao: 'Ativo - Base de Dados',
     })
     if (error) { setErro('Erro ao enviar. Tente novamente.'); return false }
     return true
@@ -270,11 +270,11 @@ export default function CadastrarTrilhaPage() {
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 48, textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>{isPt ? '🟣' : '✅'}</div>
             <h2 style={{ fontSize: 20, fontWeight: 600, color: '#111', marginBottom: 8 }}>
-              {isPt ? 'Pump track enviado!' : 'Trilha enviada!'}
+              {isPt ? 'Pump track publicado!' : 'Trilha enviada!'}
             </h2>
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>
               {isPt
-                ? 'Seu pump track foi enviado para revisão. Nossa equipe irá validar e publicar em breve.'
+                ? 'Seu pump track já está publicado no catálogo e disponível para todos os riders!'
                 : 'Sua trilha foi enviada para revisão. Você pode acompanhar o status no seu perfil.'}
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -584,7 +584,7 @@ export default function CadastrarTrilhaPage() {
           >
             {saving
               ? 'Enviando…'
-              : tipo === 'pumptrack' ? 'Enviar pump track para revisão' : 'Enviar trilha para revisão'}
+              : tipo === 'pumptrack' ? 'Publicar pump track' : 'Enviar trilha para revisão'}
           </button>
 
         </form>
