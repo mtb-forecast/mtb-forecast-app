@@ -14,6 +14,7 @@ type TrilhaMTB = {
   status: string
   motivo_rejeicao?: string | null
   created_at: string
+  source: 'pendentes' | 'catalogo'
 }
 
 type PumpTrack = {
@@ -65,11 +66,16 @@ export default function MinhasTrilhasPage() {
       const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
 
-      const [{ data: mtb }, { data: pt }] = await Promise.all([
+      const [{ data: mtb }, { data: catalogo }, { data: pt }] = await Promise.all([
         supabase
           .from('trilhas_pendentes')
           .select('id, name, regiao, status, motivo_rejeicao, created_at')
           .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('trilhas')
+          .select('id, name, regiao, created_at')
+          .eq('created_by', user.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('trilhas_pumptrack')
@@ -78,18 +84,36 @@ export default function MinhasTrilhasPage() {
           .order('created_at', { ascending: false }),
       ])
 
-      const mtbItems: TrilhaMTB[] = (mtb || []).map(t => ({
-        kind: 'mtb',
-        id: t.id,
-        name: t.name,
-        regiao: t.regiao || '',
-        cidade: null,
-        status: t.status,
-        motivo_rejeicao: t.motivo_rejeicao,
-        created_at: t.created_at,
-      }))
+      // IDs já em trilhas_pendentes — não duplicar
+      const pendentesIds = new Set((mtb || []).map((t: { id: string }) => t.id))
 
-      const ptItems: PumpTrack[] = (pt || []).map(p => ({
+      const mtbItems: TrilhaMTB[] = [
+        ...(mtb || []).map((t: { id: string; name: string; regiao: string; status: string; motivo_rejeicao?: string | null; created_at: string }) => ({
+          kind: 'mtb' as const,
+          id: t.id,
+          name: t.name,
+          regiao: t.regiao || '',
+          cidade: null,
+          status: t.status,
+          motivo_rejeicao: t.motivo_rejeicao,
+          created_at: t.created_at,
+          source: 'pendentes' as const,
+        })),
+        ...(catalogo || [])
+          .filter((t: { id: string }) => !pendentesIds.has(t.id))
+          .map((t: { id: string; name: string; regiao: string; created_at: string }) => ({
+            kind: 'mtb' as const,
+            id: t.id,
+            name: t.name,
+            regiao: t.regiao || '',
+            cidade: null,
+            status: 'aprovada',
+            created_at: t.created_at,
+            source: 'catalogo' as const,
+          })),
+      ]
+
+      const ptItems: PumpTrack[] = (pt || []).map((p: { id: string; nome: string; uf: string | null; cidade: string | null; status_validacao: string | null; created_at: string }) => ({
         kind: 'pumptrack',
         id: p.id,
         name: p.nome,
@@ -311,8 +335,11 @@ export default function MinhasTrilhasPage() {
               const cfg = statusCfg(item.status)
               const isPumptrack = item.kind === 'pumptrack'
               const isPTActive = isPumptrack && item.status === 'Ativo - Base de Dados'
-              const isMTBApproved = !isPumptrack && item.status === 'aprovada'
-              const canEdit = !isPumptrack && !isMTBApproved
+              const editHref = isPumptrack
+                ? `/trilhas/editar-pumptrack/${item.id}`
+                : item.kind === 'mtb' && item.source === 'catalogo'
+                  ? `/trilhas/editar-aprovada/${item.id}`
+                  : `/trilhas/editar/${item.id}`
 
               return (
                 <div key={`${item.kind}-${item.id}`} style={{
@@ -323,7 +350,6 @@ export default function MinhasTrilhasPage() {
                     {/* Header row */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        {/* Type badge */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', color: isPumptrack ? '#a78bfa' : T.muted, textTransform: 'uppercase' }}>
                             {isPumptrack ? '🟣 Pump Track' : '🏔 Trilha MTB'}
@@ -341,7 +367,7 @@ export default function MinhasTrilhasPage() {
                     </div>
 
                     {/* Meta */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: canEdit ? 12 : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                       <span style={{ fontSize: 12, color: T.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <i className="ti ti-map-pin" style={{ fontSize: 12 }} />
                         {item.regiao}{item.cidade ? ` · ${item.cidade}` : ''}
@@ -353,7 +379,7 @@ export default function MinhasTrilhasPage() {
 
                     {/* Rejection reason (MTB only) */}
                     {item.kind === 'mtb' && item.status === 'rejeitada' && item.motivo_rejeicao && (
-                      <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: canEdit ? 12 : 0 }}>
+                      <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
                         <p style={{ fontSize: 12, color: '#f87171', margin: 0, lineHeight: 1.6 }}>
                           <strong>Motivo:</strong> {item.motivo_rejeicao}
                         </p>
@@ -361,8 +387,8 @@ export default function MinhasTrilhasPage() {
                     )}
 
                     {/* Actions */}
-                    {canEdit && (
-                      <Link href={`/trilhas/editar/${item.id}`} style={{
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <Link href={editHref} style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                         background: '#232323', color: T.text, borderRadius: 10,
                         padding: '8px 16px', fontSize: 13, fontWeight: 600,
@@ -371,25 +397,19 @@ export default function MinhasTrilhasPage() {
                         <i className="ti ti-pencil" style={{ fontSize: 14, color: T.primary }} />
                         Editar
                       </Link>
-                    )}
 
-                    {isPTActive && (
-                      <Link href="/mapa" style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        background: '#1a1a00', color: T.primary, borderRadius: 10,
-                        padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                        textDecoration: 'none', border: '1px solid rgba(244,197,66,0.2)',
-                      }}>
-                        <i className="ti ti-map" style={{ fontSize: 14 }} />
-                        Ver no mapa
-                      </Link>
-                    )}
-
-                    {isMTBApproved && (
-                      <p style={{ fontSize: 11, color: T.muted, margin: '8px 0 0', fontStyle: 'italic' }}>
-                        Trilha aprovada — disponível no catálogo.
-                      </p>
-                    )}
+                      {isPTActive && (
+                        <Link href="/mapa" style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          background: '#1a1a00', color: T.primary, borderRadius: 10,
+                          padding: '8px 16px', fontSize: 13, fontWeight: 600,
+                          textDecoration: 'none', border: '1px solid rgba(244,197,66,0.2)',
+                        }}>
+                          <i className="ti ti-map" style={{ fontSize: 14 }} />
+                          Ver no mapa
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
