@@ -775,21 +775,30 @@ export default function PerfilPage() {
         <div style={{ padding: '12px 16px 0' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { label: 'Favoritas', value: trilhasFavoritas.length },
-              { label: 'Cadastradas', value: minhasTrilhas.length },
-              { label: 'Alertas ativos', value: receberEmail ? 1 : 0 },
-              { label: 'Segmentos', value: 0 },
-            ].map(s => (
-              <div key={s.label} style={{
-                background: T.card2, borderRadius: 16, padding: '16px 18px',
-                border: `1px solid ${T.border}`,
-              }}>
-                <div style={{ fontSize: 26, fontWeight: 900, color: s.value > 0 ? T.text : T.dim, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 6 }}>
-                  {s.value > 0 ? s.value : '—'}
+              { label: 'Favoritas',    value: trilhasFavoritas.length, href: '/trilhas' },
+              { label: 'Cadastradas',  value: minhasTrilhas.length,    href: '/perfil/minhas-trilhas' },
+              { label: 'Alertas ativos', value: receberEmail ? 1 : 0, href: undefined },
+              { label: 'Segmentos',    value: 0,                       href: undefined },
+            ].map(s => {
+              const inner = (
+                <div style={{
+                  background: T.card2, borderRadius: 16, padding: '16px 18px',
+                  border: `1px solid ${s.href ? 'rgba(244,197,66,0.18)' : T.border}`,
+                  transition: 'border-color 0.15s',
+                }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: s.value > 0 ? T.text : T.dim, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 6 }}>
+                    {s.value > 0 ? s.value : '—'}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: T.muted, fontWeight: 500 }}>{s.label}</span>
+                    {s.href && <i className="ti ti-arrow-right" style={{ fontSize: 10, color: T.dim }} />}
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: T.muted, fontWeight: 500 }}>{s.label}</div>
-              </div>
-            ))}
+              )
+              return s.href
+                ? <Link key={s.label} href={s.href} style={{ textDecoration: 'none', display: 'block' }}>{inner}</Link>
+                : <div key={s.label}>{inner}</div>
+            })}
           </div>
         </div>
 
