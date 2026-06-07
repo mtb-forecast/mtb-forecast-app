@@ -7,7 +7,7 @@ import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
 import { PLANOS } from '@/lib/stripe-config'
 
 type Tab = 'conta' | 'alertas' | 'plano' | 'integracoes'
-type SheetField = 'nome' | 'telefone' | 'regiao' | 'telegram' | null
+type SheetField = 'nome' | 'telefone' | 'regiao' | 'telegram' | 'instagram' | null
 type TrilhaPendente = {
   id: string; name: string; regiao: string
   status: string; motivo_rejeicao?: string | null; created_at: string
@@ -199,6 +199,7 @@ export default function PerfilPage() {
   const [telefoneWhatsapp, setTelefoneWhatsapp] = useState(true)
   const [regiao, setRegiao] = useState('')
   const [telegram, setTelegram] = useState('')
+  const [instagram, setInstagram] = useState('')
 
   // Counters
   const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaPendente[]>([])
@@ -235,6 +236,7 @@ export default function PerfilPage() {
         setTelefoneWhatsapp(p.telefone_whatsapp ?? true)
         setRegiao(p.regiao || '')
         setTelegram(p.telegram_username || '')
+        setInstagram(p.instagram || '')
         setReceberEmail((p as Record<string,unknown>).receber_email as boolean ?? false)
         setAvatarUrl(p.avatar_url || null)
       }
@@ -265,7 +267,8 @@ export default function PerfilPage() {
     telefone !== (profile.telefone || '') ||
     telefoneWhatsapp !== (profile.telefone_whatsapp ?? true) ||
     regiao !== (profile.regiao || '') ||
-    telegram !== (profile.telegram_username || '')
+    telegram !== (profile.telegram_username || '') ||
+    instagram !== (profile.instagram || '')
   ))
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -275,10 +278,11 @@ export default function PerfilPage() {
     const { error } = await supabase.from('profiles').update({
       nome, apelido, telefone, telefone_whatsapp: telefoneWhatsapp,
       regiao, telegram_username: telegram || null,
+      instagram: instagram || null,
     }).eq('id', profile.id)
     setSaving(false)
     if (!error) {
-      setProfile(prev => prev ? { ...prev, nome, apelido, telefone, telefone_whatsapp: telefoneWhatsapp, regiao, telegram_username: telegram || undefined } : prev)
+      setProfile(prev => prev ? { ...prev, nome, apelido, telefone, telefone_whatsapp: telefoneWhatsapp, regiao, telegram_username: telegram || undefined, instagram: instagram || undefined } : prev)
       setSaveOk(true); setTimeout(() => setSaveOk(false), 3000)
     }
   }
@@ -377,10 +381,16 @@ export default function PerfilPage() {
         <InfoRow icon="ti-mail" label="E-mail" value={profile?.email || ''} locked />
         <Divider />
         <InfoRow
-          icon="ti-phone" label="Telefone"
+          icon="ti-device-mobile" label="Celular"
           value={telefone}
           sub={telefone && telefoneWhatsapp ? '✓ WhatsApp' : undefined}
           onTap={() => setSheetField('telefone')}
+        />
+        <Divider />
+        <InfoRow
+          icon="ti-brand-instagram" label="Instagram"
+          value={instagram ? (instagram.startsWith('@') ? instagram : `@${instagram}`) : ''}
+          onTap={() => setSheetField('instagram')}
         />
       </ProfileSection>
 
@@ -686,6 +696,21 @@ export default function PerfilPage() {
       </EditSheet>
     )
 
+    if (sheetField === 'instagram') return (
+      <EditSheet open title="Instagram" onClose={() => setSheetField(null)}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Perfil do Instagram</label>
+          <input style={inp} type="text" value={instagram}
+            onChange={e => { const v = e.target.value; setInstagram(v && !v.startsWith('@') ? '@' + v : v) }}
+            placeholder="@seu_perfil" autoFocus />
+          <p style={{ fontSize: 12, color: T.muted, marginTop: 10, lineHeight: 1.6 }}>
+            Seu handle aparece no card de perfil e ajuda outros riders a te encontrar.
+          </p>
+          <SheetSaveBtn onClick={() => setSheetField(null)} />
+        </div>
+      </EditSheet>
+    )
+
     return null
   }
 
@@ -712,24 +737,24 @@ export default function PerfilPage() {
           <div style={{
             background: `linear-gradient(160deg, #1e1e1e 0%, ${T.card} 60%, #0e0e0e 100%)`,
             borderRadius: 24, border: `1px solid ${T.border}`,
-            padding: '28px 24px 24px', position: 'relative', overflow: 'hidden',
+            padding: '24px 20px 20px', position: 'relative', overflow: 'hidden',
           }}>
             {/* Glow */}
             <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(244,197,66,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
-            {/* Avatar row */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 18 }}>
+            {/* Avatar + identity */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#232323', border: `2px solid ${T.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 88, height: 88, borderRadius: '50%', background: '#232323', border: `2.5px solid ${T.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {avatarUploading
-                    ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}><Spinner size={22} /></div>
+                    ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}><Spinner size={24} /></div>
                     : avatarUrl
                       ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ fontSize: 26, fontWeight: 900, color: T.primary }}>{initials}</span>}
+                      : <span style={{ fontSize: 32, fontWeight: 900, color: T.primary }}>{initials}</span>}
                 </div>
                 <label style={{
-                  position: 'absolute', bottom: 0, right: 0,
-                  width: 26, height: 26, borderRadius: '50%',
+                  position: 'absolute', bottom: 2, right: 2,
+                  width: 28, height: 28, borderRadius: '50%',
                   background: T.primary, border: `2.5px solid ${T.card}`,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 13, fontWeight: 700, color: '#000',
@@ -739,35 +764,66 @@ export default function PerfilPage() {
                 </label>
               </div>
 
-              <div style={{ flex: 1, minWidth: 0, paddingTop: 4 }}>
-                <h1 style={{ fontSize: 20, fontWeight: 800, color: T.text, margin: '0 0 2px', letterSpacing: '-0.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: T.text, margin: '0 0 2px', letterSpacing: '-0.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {displayName}
                 </h1>
                 {profile?.apelido && (
-                  <p style={{ fontSize: 13, color: T.muted, margin: '0 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <p style={{ fontSize: 13, color: T.muted, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     @{profile.apelido}
                   </p>
                 )}
-                {regiao && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-                    <i className="ti ti-map-pin" style={{ fontSize: 12, color: T.muted }} />
-                    <span style={{ fontSize: 12, color: T.muted }}>{estadoLabel(regiao)}</span>
-                  </div>
-                )}
-                {/* Plan badge */}
-                <span style={{
-                  display: 'inline-block', fontSize: 10, fontWeight: 800, letterSpacing: '1px',
-                  padding: '4px 12px', borderRadius: 20, textTransform: 'uppercase',
-                  background: isPago ? 'rgba(244,197,66,0.15)' : 'rgba(255,255,255,0.06)',
-                  color: isPago ? T.primary : T.muted,
-                  border: isPago ? '1px solid rgba(244,197,66,0.3)' : `1px solid ${T.border}`,
-                }}>
-                  {isPago ? `⭐ ${plano.nome}` : 'Gratuito'}
-                </span>
               </div>
             </div>
 
-            {avatarError && <p style={{ fontSize: 11, color: '#f87171', marginTop: 4 }}>{avatarError}</p>}
+            {/* Info grid */}
+            <div style={{ height: 1, background: T.border, marginBottom: 16 }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+              {nome && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="ti ti-user" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</span>
+                </div>
+              )}
+              {regiao && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="ti ti-map-pin" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: T.text }}>{regiao} — {estadoLabel(regiao)}</span>
+                </div>
+              )}
+              {telefone && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="ti ti-device-mobile" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: T.text }}>{telefone}</span>
+                  {telefoneWhatsapp && <span style={{ fontSize: 10, background: 'rgba(37,211,102,0.12)', color: '#25D366', borderRadius: 20, padding: '2px 8px', fontWeight: 600 }}>WhatsApp</span>}
+                </div>
+              )}
+              {instagram && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <i className="ti ti-brand-instagram" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: T.text }}>{instagram.startsWith('@') ? instagram : `@${instagram}`}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Plan row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: isPago ? 'rgba(244,197,66,0.08)' : '#1a1a1a', borderRadius: 12, padding: '10px 14px', border: isPago ? '1px solid rgba(244,197,66,0.2)' : `1px solid ${T.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 16 }}>{isPago ? '⭐' : '🎯'}</span>
+                <div>
+                  <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>Plano atual</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: isPago ? T.primary : T.text, letterSpacing: '-0.02em' }}>{plano.nome}</div>
+                </div>
+              </div>
+              {!isPago && (
+                <Link href="/planos" style={{ fontSize: 12, fontWeight: 700, color: T.primary, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  Upgrade <i className="ti ti-arrow-right" style={{ fontSize: 12 }} />
+                </Link>
+              )}
+              {isPago && <span style={{ fontSize: 11, background: 'rgba(244,197,66,0.15)', color: T.primary, borderRadius: 20, padding: '4px 10px', fontWeight: 700 }}>ATIVO</span>}
+            </div>
+
+            {avatarError && <p style={{ fontSize: 11, color: '#f87171', marginTop: 10, margin: 0 }}>{avatarError}</p>}
           </div>
         </div>
 
