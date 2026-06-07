@@ -16,12 +16,17 @@ function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
     /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/,
     /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/,
     /maps\/place\/[^/]+\/@(-?\d+\.\d+),(-?\d+\.\d+)/,
+    /[?&]center=(-?\d+\.\d+)%2C(-?\d+\.\d+)/,
   ]
   for (const re of patterns) {
     const m = url.match(re)
     if (m) return { lat: parseFloat(m[1]), lon: parseFloat(m[2]) }
   }
   return null
+}
+
+function isShortUrl(url: string): boolean {
+  return /maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/maps/.test(url)
 }
 
 const SUPERFICIE_OPTIONS = [
@@ -103,6 +108,7 @@ export default function CadastrarTrilhaPage() {
   const [geoResult, setGeoResult] = useState<GeoResult | null>(null)
   const [geoPreview, setGeoPreview] = useState<string | null>(null)
   const [geocoding, setGeocoding] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Opções dinâmicas ───────────────────────────────────────────
@@ -144,10 +150,35 @@ export default function CadastrarTrilhaPage() {
     return () => { if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current) }
   }, [lat, lon]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleExtract() {
-    const coords = extrairCoordenadas(mapsUrl)
-    if (coords) { setLat(coords.lat.toString()); setLon(coords.lon.toString()); setErro(null) }
-    else setErro('Não foi possível extrair as coordenadas. Cole a URL completa do Google Maps.')
+  async function handleExtract() {
+    if (!mapsUrl.trim()) return
+    setErro(null)
+
+    let urlParaExtrair = mapsUrl.trim()
+
+    // URL curta: resolve server-side (CORS impede fetch direto no browser)
+    if (isShortUrl(urlParaExtrair)) {
+      setExtracting(true)
+      try {
+        const res = await fetch('/api/resolve-maps-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: urlParaExtrair }),
+        })
+        const data = await res.json()
+        if (data.resolvedUrl) urlParaExtrair = data.resolvedUrl
+        else { setErro('Não foi possível resolver a URL curta. Tente colar a URL completa.'); setExtracting(false); return }
+      } catch {
+        setErro('Erro de conexão ao resolver a URL. Tente novamente.')
+        setExtracting(false)
+        return
+      }
+      setExtracting(false)
+    }
+
+    const coords = extrairCoordenadas(urlParaExtrair)
+    if (coords) { setLat(coords.lat.toString()); setLon(coords.lon.toString()) }
+    else setErro('Não foi possível extrair as coordenadas. Verifique a URL e tente novamente.')
   }
 
   async function getOrCreateLocalidade(geo: GeoResult): Promise<string | null> {
@@ -311,23 +342,31 @@ export default function CadastrarTrilhaPage() {
             type="url"
             value={mapsUrl}
             onChange={e => setMapsUrl(e.target.value)}
-            placeholder="Cole a URL do Google Maps aqui"
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleExtract() } }}
+            placeholder="URL completa ou curta (maps.app.goo.gl/…)"
             style={{ ...inputStyle, flex: 1 }}
           />
           <button
             type="button"
             onClick={handleExtract}
+            disabled={extracting || !mapsUrl.trim()}
             style={{
-              background: '#111', color: '#fff', border: 'none',
+              background: extracting ? '#555' : '#111', color: '#fff', border: 'none',
               borderRadius: 6, padding: '9px 14px',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+              fontSize: 12, fontWeight: 600,
+              cursor: extracting || !mapsUrl.trim() ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap', minWidth: 72,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              transition: 'background 0.15s',
             }}
           >
-            Extrair
+            {extracting
+              ? <><span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid #555', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Aguarde</>
+              : 'Extrair'}
           </button>
         </div>
         <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
-          Cole a URL e clique em Extrair para preencher latitude e longitude automaticamente.
+          Aceita URL completa ou curta do Google Maps. Pressione Enter ou clique em Extrair.
         </p>
       </Field>
 
