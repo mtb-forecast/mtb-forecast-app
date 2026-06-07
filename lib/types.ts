@@ -128,6 +128,7 @@ export type Profile = {
   telefone?: string
   telefone_whatsapp?: boolean
   telegram_username?: string
+  instagram?: string
   regiao?: string
   is_admin: boolean
   plano?: string
