@@ -233,6 +233,9 @@ export default function CadastrarTrilhaPage() {
     if (!ptCidade.trim()) { setErro('Cidade é obrigatória.'); return false }
     if (!ptUf) { setErro('Estado (UF) é obrigatório.'); return false }
 
+    const user = await getClientUser()
+    if (!user) { window.location.href = '/login'; return false }
+
     // Gera ID sequencial simples (BR-XXX) ou usa timestamp
     const ptId = `PT-${Date.now()}`
 
@@ -251,6 +254,7 @@ export default function CadastrarTrilhaPage() {
       instagram: ptInstagram.trim() || null,
       fonte: ptFonte.trim() || null,
       status_validacao: 'Ativo - Base de Dados',
+      user_id: user.id,
     })
     if (error) { setErro('Erro ao enviar. Tente novamente.'); return false }
     return true
