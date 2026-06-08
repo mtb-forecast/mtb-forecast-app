@@ -85,8 +85,6 @@ export default function GravarTrilhaPage() {
   const [bioma, setBioma] = useState('')
   const [desnivel, setDesnivel] = useState('')
   const [extensao, setExtensao] = useState('')
-  const [linkRef, setLinkRef] = useState('')
-  const [observacoes, setObservacoes] = useState('')
   const [geoResult, setGeoResult] = useState<GeoResult | null>(null)
   const [formErro, setFormErro] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -279,12 +277,13 @@ export default function GravarTrilhaPage() {
   }
 
   async function handleSave() {
-    if (!nome.trim())  { setFormErro('Nome da trilha é obrigatório.'); return }
-    if (!regiao)       { setFormErro('Selecione a região.'); return }
-    if (!altitude)     { setFormErro('Altitude é obrigatória.'); return }
-    if (!soloType)     { setFormErro('Tipo de solo é obrigatório.'); return }
-    if (!exposicao)    { setFormErro('Exposição é obrigatória.'); return }
-    if (!trailType)    { setFormErro('Tipo de trilha é obrigatório.'); return }
+    if (!nome.trim()) { setFormErro('Nome da trilha é obrigatório.'); return }
+    if (!regiao)      { setFormErro('Selecione a região/estado.'); return }
+    if (!altitude)    { setFormErro('Altitude é obrigatória.'); return }
+    if (!extensao)    { setFormErro('Extensão é obrigatória — verifique os dados de GPS.'); return }
+    if (!soloType)    { setFormErro('Tipo de solo é obrigatório.'); return }
+    if (!exposicao)   { setFormErro('Exposição é obrigatória.'); return }
+    if (!trailType)   { setFormErro('Tipo de trilha é obrigatório.'); return }
 
     setFormErro(null); setSaving(true)
     const user = await getClientUser()
@@ -310,23 +309,22 @@ export default function GravarTrilhaPage() {
       }
     }
 
-    const { error } = await supabase.from('trilhas_pendentes').insert({
+    const { error } = await supabase.from('trilhas').insert({
       name: nome.trim(), regiao,
       lat: start.lat, lon: start.lng,
       altitude_m: parseInt(altitude),
       solo_type: soloType, exposicao, trail_type: trailType,
       bioma: bioma || null,
       desnivel_m:  desnivel  ? parseFloat(desnivel)  : null,
-      extensao_km: extensao  ? parseFloat(extensao)  : null,
-      link_referencia: linkRef.trim() || null,
-      observacoes: observacoes.trim() || null,
-      user_id: user.id, status: 'pendente',
+      extensao_km: parseFloat(extensao),
+      aprovada: true,
+      created_by: user.id,
       localidade_id: localidadeId,
       polyline: pts.length >= 2 ? encodePolyline(pts) : null,
     })
 
     setSaving(false)
-    if (error) { setFormErro('Erro ao salvar. Tente novamente.'); return }
+    if (error) { setFormErro(`Erro ao gravar: ${error.message}`); return }
     setPhaseSync('success')
   }
 
@@ -346,17 +344,25 @@ export default function GravarTrilhaPage() {
     return (
       <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div style={{ background: '#fff', border: '0.5px solid #d0d4c6', borderRadius: 14, padding: '48px 32px', textAlign: 'center', maxWidth: 400, width: '100%' }}>
-          <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#2a2e25', margin: '0 0 8px' }}>Trilha enviada!</h2>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>🏔</div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#2a2e25', margin: '0 0 8px' }}>Trilha gravada!</h2>
           <p style={{ fontSize: 14, color: '#6d745f', margin: '0 0 32px' }}>
-            Sua trilha foi enviada para revisão. Acompanhe o status no seu perfil.
+            Sua trilha já está disponível no catálogo para todos os riders.
           </p>
-          <a href="/perfil/minhas-trilhas" style={{
-            display: 'inline-block', background: '#6d745f', color: '#fff',
-            borderRadius: 8, padding: '12px 28px', fontSize: 14, fontWeight: 600, textDecoration: 'none',
-          }}>
-            Ver minhas trilhas
-          </a>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <a href="/trilhas" style={{
+              display: 'inline-block', background: '#6d745f', color: '#fff',
+              borderRadius: 8, padding: '12px 24px', fontSize: 14, fontWeight: 600, textDecoration: 'none',
+            }}>
+              Ver catálogo
+            </a>
+            <a href="/gravar" style={{
+              display: 'inline-block', background: '#eaece4', color: '#2a2e25',
+              borderRadius: 8, padding: '12px 24px', fontSize: 14, fontWeight: 600, textDecoration: 'none',
+            }}>
+              Gravar outra
+            </a>
+          </div>
         </div>
       </div>
     )
@@ -638,23 +644,6 @@ export default function GravarTrilhaPage() {
               </div>
             </div>
 
-            {/* 5. Extras */}
-            <div style={{ background: '#fff', border: '0.5px solid #d0d4c6', borderRadius: 8, padding: 20 }}>
-              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '2px', color: '#8a9280', textTransform: 'uppercase', margin: '0 0 14px' }}>5. Informações extras</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#6d745f', marginBottom: 5 }}>Link de referência</label>
-                  <input type="url" value={linkRef} onChange={e => setLinkRef(e.target.value)} placeholder="Strava, Wikiloc, site do parque…" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, color: '#6d745f', marginBottom: 5 }}>Observações</label>
-                  <textarea value={observacoes} onChange={e => setObservacoes(e.target.value)}
-                    placeholder="Acesso, taxa de entrada, cuidados especiais…"
-                    rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
-                </div>
-              </div>
-            </div>
-
             {/* Submit */}
             <button onClick={handleSave} disabled={saving} style={{
               background: saving ? '#d0d4c6' : '#6d745f', color: saving ? '#8a9280' : '#fff',
@@ -663,7 +652,7 @@ export default function GravarTrilhaPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}>
               {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
-              {saving ? 'Enviando…' : 'Enviar trilha para revisão'}
+              {saving ? 'Gravando…' : 'Gravar trilha no catálogo'}
             </button>
           </div>
         </div>
