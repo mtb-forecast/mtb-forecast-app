@@ -3725,6 +3725,9 @@ def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_s
         with urllib.request.urlopen(req, timeout=30) as r:
             r.read()
         print(f"  ✉️  Email enviado para {usuario['email']} ({len(todos_resultados)} trilha(s))")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        print(f"  [Email] Erro ao enviar para {usuario['email']}: {exc} | body={body}")
     except Exception as exc:
         print(f"  [Email] Erro ao enviar para {usuario['email']}: {exc}")
 
