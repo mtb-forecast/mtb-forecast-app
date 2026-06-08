@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: 'ti-layout-dashboard' },
   { href: '/trilhas',   label: 'Trilhas',   icon: 'ti-map-2'            },
-  { href: '/gravar',    label: 'Gravar',    icon: 'ti-route'            },
+  { href: '/gravar',    label: 'Gravar',    icon: 'ti-player-record'    },
   { href: '/mapa',      label: 'Mapa',      icon: 'ti-map-pin'          },
   { href: '/perfil',    label: 'Perfil',    icon: 'ti-user'             },
 ]

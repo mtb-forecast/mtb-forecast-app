@@ -131,7 +131,10 @@ export default function GravarTrilhaPage() {
       if (!mapDivRef.current) return
 
       const map = L.map(mapDivRef.current, { zoomControl: true, attributionControl: false })
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
+      // Satélite Esri — sem API key necessária
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19, attribution: 'Esri',
+      }).addTo(map)
       mapRef.current = map
 
       // fallback view while GPS loads
@@ -467,7 +470,7 @@ export default function GravarTrilhaPage() {
                 style={{
                   pointerEvents: 'all',
                   width: 88, height: 88, borderRadius: '50%',
-                  background: '#6d745f',
+                  background: '#dc2626',
                   border: '5px solid rgba(255,255,255,0.9)',
                   boxShadow: '0 4px 24px rgba(0,0,0,0.30)',
                   cursor: 'pointer',
@@ -486,7 +489,7 @@ export default function GravarTrilhaPage() {
                 padding: '5px 14px', borderRadius: 999,
                 backdropFilter: 'blur(4px)',
               }}>
-                INICIAR GRAVAÇÃO
+                ● REC
               </span>
             </div>
           )}
@@ -518,7 +521,7 @@ export default function GravarTrilhaPage() {
                 <span style={{ width: 7, height: 7, background: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }} />
                 GRAVANDO
               </span>
-              <button onClick={handlePause} style={{ pointerEvents: 'all', width: 84, height: 84, borderRadius: '50%', background: '#ef4444', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 24px rgba(0,0,0,0.32)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={handlePause} style={{ pointerEvents: 'all', width: 84, height: 84, borderRadius: '50%', background: '#d97706', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 24px rgba(0,0,0,0.32)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <i className="ti ti-player-pause-filled" style={{ fontSize: 32, color: '#fff' }} />
               </button>
               <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>PAUSAR</span>
@@ -529,13 +532,13 @@ export default function GravarTrilhaPage() {
           {phase === 'paused' && (
             <div style={{ position: 'absolute', bottom: 44, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 48, zIndex: 1000, pointerEvents: 'none' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <button onClick={handleContinue} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#6d745f', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={handleContinue} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#dc2626', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-player-play-filled" style={{ fontSize: 28, color: '#fff' }} />
                 </button>
                 <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>CONTINUAR</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <button onClick={handleEnd} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#2a2e25', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={handleEnd} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#16a34a', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-flag-filled" style={{ fontSize: 28, color: '#fff' }} />
                 </button>
                 <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>ENCERRAR</span>
