@@ -461,15 +461,13 @@ export default function GravarTrilhaPage() {
                 top: phase === 'paused' ? 76 : 12,
                 right: 12, zIndex: 1000,
                 background: '#fff', border: '1.5px solid #2563eb',
-                borderRadius: 20, padding: '7px 12px',
-                display: 'flex', alignItems: 'center', gap: 6,
+                borderRadius: '50%', width: 40, height: 40,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.20)',
-                cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563eb',
-                letterSpacing: '0.03em', whiteSpace: 'nowrap',
+                cursor: 'pointer',
               }}
             >
-              <i className="ti ti-navigation" style={{ fontSize: 15, color: '#2563eb' }} />
-              Estou aqui
+              <i className="ti ti-navigation" style={{ fontSize: 18, color: '#2563eb' }} />
             </button>
           )}
 
