@@ -3,104 +3,167 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
-import { VEREDICTO_ACCENT, VEREDICTO_JANELA_BG } from '@/lib/display'
+import { formatLocalidade } from '@/lib/geocoding'
 
-function aderenciaBadge(a: string): { bg: string; color: string } {
-  if (a === 'GRIP PERFEITO')   return { bg: '#DCFCE7', color: '#15803D' }
-  if (a === 'BOA ADERÊNCIA')   return { bg: '#FFF7ED', color: '#C2410C' }
-  if (a === 'BAIXA ADERÊNCIA') return { bg: '#FEE2E2', color: '#B91C1C' }
-  return { bg: '#FEF9C3', color: '#A16207' }
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtUltimaChuva(h: number): string {
+  if (h < 24) return `${Math.round(h)}h`
+  return `${Math.floor(h / 24)}d`
 }
+
+function topBarColor(v: string | null): string {
+  if (!v) return '#d0d4c6'
+  if (v.includes('LIBERADO')) return '#2a6b1e'
+  if (v.includes('ESPERAR') || v.includes('AGUARDAR') || v.includes('ALERTA')) return '#8a5e00'
+  if (v.includes('EVITAR') || v.includes('FECHADA')) return '#8a1a1a'
+  return '#d0d4c6'
+}
+
+type VerdictStyle = { icon: string; bg: string; text: string; border: string }
+
+function verdictStyle(v: string | null): VerdictStyle {
+  if (!v) return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
+  if (v.includes('LIBERADO')) return { icon: 'ti-circle-check', bg: '#d6edcc', text: '#2a6b1e', border: '#a8d99a' }
+  if (v.includes('ESPERAR') || v.includes('AGUARDAR') || v.includes('ALERTA')) return { icon: 'ti-alert-triangle', bg: '#fdf0cc', text: '#8a5e00', border: '#e8d080' }
+  if (v.includes('EVITAR') || v.includes('FECHADA')) return { icon: 'ti-circle-x', bg: '#fcd8d8', text: '#8a1a1a', border: '#e8a0a0' }
+  return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
+}
+
+function soloLabel(a: string | null | undefined): string | null {
+  if (!a) return null
+  const s = a.trim()
+  if (s === 'SECO' || s === 'GRIP PERFEITO') return 'SECO'
+  if (s === 'BOA ADERÊNCIA') return 'ÚMIDO'
+  if (s === 'BAIXA ADERÊNCIA') return 'SATURADO'
+  return null
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Props = {
   trilha: TrilhaComCondicao
   avaliacao?: { count: number; media: number }
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 function DashboardTrailCard({ trilha, avaliacao }: Props) {
   const c            = trilha.condicao
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg         = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-  const accentColor  = veredictoText ? (VEREDICTO_ACCENT[veredictoText] ?? '#D1D5DB') : '#D1D5DB'
-  const janelaBg     = veredictoText ? (VEREDICTO_JANELA_BG[veredictoText] ?? '#F9FAFB') : '#F9FAFB'
+  const hasData      = c != null && vcfg != null
   const has12h       = !!c?.veredicto_12h?.trim()
+
+  const barColor = topBarColor(veredictoText)
+  const vs       = verdictStyle(veredictoText)
+  const solo     = soloLabel(c?.aderencia_status)
+
+  const tagBase: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '3px 8px', borderRadius: 999, lineHeight: 1.4,
+    border: `0.5px solid ${vs.border}`,
+    background: vs.bg, color: vs.text,
+    fontWeight: 700,
+  }
 
   return (
     <Link href={`/trilhas/${trilha.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-      <div
-        style={{
-          background: '#FFFFFF', borderRadius: 12,
-          boxShadow: '0 1px 8px rgba(0,0,0,0.05)',
-          display: 'flex', overflow: 'hidden',
-          transition: 'box-shadow 0.15s, transform 0.15s',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.10)'
-          e.currentTarget.style.transform = 'translateY(-1px)'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.boxShadow = '0 1px 8px rgba(0,0,0,0.05)'
-          e.currentTarget.style.transform = 'translateY(0)'
-        }}
-      >
-        {/* Barra de acento */}
-        <div style={{ width: 5, flexShrink: 0, background: accentColor }} />
+      <div style={{
+        borderRadius: 14, border: '0.5px solid #d0d4c6',
+        background: '#ffffff', overflow: 'hidden',
+      }}>
 
-        {/* Conteúdo */}
-        <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* ── Barra de acento ── */}
+        <div style={{ height: 3, width: '100%', background: barColor }} />
 
-          {/* Nome */}
+        {/* ── Card body ── */}
+        <div style={{ padding: '14px 16px 12px' }}>
+
+          {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#111', lineHeight: 1.3 }}>
-              {trilha.name}
-            </span>
-            <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#9CA3AF', flexShrink: 0, marginTop: 2 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 14, fontWeight: 600, color: '#2a2e25', lineHeight: 1.3,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {trilha.name}
+              </div>
+              <div style={{ fontSize: 11, color: '#6d745f', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
+                {formatLocalidade(trilha.localidades, trilha.regiao)}
+              </div>
+            </div>
+            <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#8a9480', flexShrink: 0, marginTop: 1 }} />
           </div>
 
-          {vcfg && veredictoText ? (
-            <>
-              {/* Badges */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                <span style={{
-                  background: accentColor + '22', color: accentColor,
-                  borderRadius: 6, fontSize: 12, fontWeight: 700, padding: '3px 10px',
-                }}>
-                  {vcfg.emoji} {veredictoText}
-                  {has12h && <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 4 }}>12h</span>}
-                </span>
-                {c?.aderencia_status && (() => {
-                  const ab = aderenciaBadge(c.aderencia_status.trim())
-                  return (
-                    <span style={{ background: ab.bg, color: ab.color, borderRadius: 6, fontSize: 12, fontWeight: 600, padding: '3px 10px' }}>
-                      {c.aderencia_status}
-                    </span>
-                  )
-                })()}
-                {avaliacao && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#92400E', background: '#FFFBEB', borderRadius: 6, padding: '3px 8px' }}>
-                    <i className="ti ti-star-filled" style={{ fontSize: 11, color: '#F59E0B' }} />
-                    {avaliacao.media}
-                    <span style={{ color: '#9CA3AF' }}>({avaliacao.count})</span>
-                  </span>
-                )}
-              </div>
+          {/* Verdict row */}
+          {hasData && (
+            <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ ...tagBase, fontSize: 10 }}>
+                <i className={`ti ${vs.icon}`} style={{ fontSize: 10 }} />
+                {veredictoText}
+              </span>
 
-              {/* Janela */}
-              {c?.janela && (
-                <div style={{ background: janelaBg, borderRadius: 6, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <i className="ti ti-clock" style={{ fontSize: 12, color: '#6B7280' }} />
-                  <span style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Janela:</span>
-                  <span style={{ fontSize: 11, color: '#374151' }}>{c.janela}</span>
-                </div>
+              {has12h && (
+                <span style={{ ...tagBase, fontSize: 9, fontWeight: 600 }}>12h</span>
               )}
-            </>
-          ) : (
-            <span style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>
-              Condição ainda não calculada.
-            </span>
+
+              {solo && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  fontSize: 10, fontWeight: 600,
+                  padding: '3px 8px', borderRadius: 999, lineHeight: 1.4,
+                  background: '#eaece4', color: '#6d745f', border: '0.5px solid #d0d4c6',
+                }}>
+                  {solo}
+                </span>
+              )}
+
+              {avaliacao && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                  fontSize: 10, fontWeight: 600,
+                  padding: '3px 8px', borderRadius: 999, lineHeight: 1.4,
+                  background: '#fffbeb', color: '#92400e', border: '0.5px solid #fde68a',
+                }}>
+                  <i className="ti ti-star-filled" style={{ fontSize: 10, color: '#f59e0b' }} />
+                  {avaliacao.media}
+                  <span style={{ color: '#9CA3AF', fontWeight: 400 }}>({avaliacao.count})</span>
+                </span>
+              )}
+            </div>
           )}
 
+          {!hasData && (
+            <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', margin: '8px 0 0' }}>
+              Condição ainda não calculada.
+            </p>
+          )}
         </div>
+
+        {/* ── Card footer ── */}
+        {hasData && c && (
+          <div style={{
+            borderTop: '0.5px solid #d0d4c6',
+            background: '#f4f5f0',
+            padding: '8px 16px 10px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <i className="ti ti-clock" style={{ fontSize: 11 }} />
+              {c.janela ? `JANELA: ${c.janela}` : '—'}
+            </div>
+
+            <div style={{ width: 1, height: 12, background: '#d0d4c6', flexShrink: 0 }} />
+
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <i className="ti ti-hourglass" style={{ fontSize: 11 }} />
+              {c.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
+            </div>
+          </div>
+        )}
+
       </div>
     </Link>
   )
