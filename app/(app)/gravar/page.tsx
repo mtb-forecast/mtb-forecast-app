@@ -106,6 +106,7 @@ export default function GravarTrilhaPage() {
   const trimStartMarkerRef = useRef<import('leaflet').Marker | null>(null)
   const trimEndMarkerRef = useRef<import('leaflet').Marker | null>(null)
   const mapInitRef = useRef(false)
+  const idleWatchRef = useRef<number | null>(null)
 
   // Timer
   const watchIdRef = useRef<number | null>(null)
@@ -133,18 +134,43 @@ export default function GravarTrilhaPage() {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
       mapRef.current = map
 
-      navigator.geolocation?.getCurrentPosition(
-        ({ coords }) => {
-          map.setView([coords.latitude, coords.longitude], 16)
-          const icon = L.divIcon({ html: divIcon('#6d745f'), iconSize: [14, 14], className: '' })
-          markerRef.current = L.marker([coords.latitude, coords.longitude], { icon }).addTo(map)
-        },
-        () => map.setView([-23.5505, -46.6333], 12),
-        { enableHighAccuracy: true, timeout: 8000 }
-      )
+      // fallback view while GPS loads
+      map.setView([-23.5505, -46.6333], 12)
+
+      // Continuous idle watch — pulsing blue "you are here" marker
+      if (navigator.geolocation) {
+        let centered = false
+        idleWatchRef.current = navigator.geolocation.watchPosition(
+          ({ coords }) => {
+            if (phaseRef.current !== 'idle') return
+            const { latitude, longitude } = coords
+
+            if (!markerRef.current) {
+              const icon = L.divIcon({
+                html: `<div class="gps-dot-wrap"><div class="gps-ring"></div><div class="gps-dot"></div></div>`,
+                iconSize: [24, 24], iconAnchor: [12, 12], className: '',
+              })
+              markerRef.current = L.marker([latitude, longitude], { icon, zIndexOffset: 500 }).addTo(map)
+            } else {
+              markerRef.current.setLatLng([latitude, longitude])
+            }
+
+            if (!centered) {
+              map.setView([latitude, longitude], 16)
+              centered = true
+            }
+          },
+          () => { /* keep fallback view */ },
+          { enableHighAccuracy: true, maximumAge: 3000, timeout: 12000 }
+        )
+      }
     })
 
     return () => {
+      if (idleWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(idleWatchRef.current)
+        idleWatchRef.current = null
+      }
       mapRef.current?.remove()
       mapRef.current = null
       mapInitRef.current = false
@@ -165,6 +191,21 @@ export default function GravarTrilhaPage() {
   // ── GPS ──
   function startGpsWatch() {
     if (!navigator.geolocation) { setGpsError('GPS não suportado neste dispositivo.'); return }
+
+    // stop idle watch; swap marker to red recording dot
+    if (idleWatchRef.current !== null) {
+      navigator.geolocation.clearWatch(idleWatchRef.current)
+      idleWatchRef.current = null
+    }
+    const L = LRef.current
+    if (L && markerRef.current) {
+      const recIcon = L.divIcon({
+        html: `<div style="width:14px;height:14px;background:#ef4444;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>`,
+        iconSize: [14, 14], iconAnchor: [7, 7], className: '',
+      })
+      markerRef.current.setIcon(recIcon)
+    }
+
     watchIdRef.current = navigator.geolocation.watchPosition(
       ({ coords }) => {
         if (phaseRef.current !== 'recording') return
@@ -174,7 +215,6 @@ export default function GravarTrilhaPage() {
         setPoints([...pointsRef.current])
         if (prev) setDistance(d => d + haversine(prev, newPt))
 
-        const L = LRef.current
         if (L && mapRef.current) {
           markerRef.current?.setLatLng([coords.latitude, coords.longitude])
           const lls = pointsRef.current.map(p => [p.lat, p.lng] as [number, number])
@@ -374,8 +414,12 @@ export default function GravarTrilhaPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', flexDirection: 'column' }}>
       <style>{`
-        @keyframes spin  { to { transform: rotate(360deg) } }
-        @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.45 } }
+        @keyframes spin      { to { transform: rotate(360deg) } }
+        @keyframes pulse     { 0%,100% { opacity:1 } 50% { opacity:.45 } }
+        @keyframes gps-pulse { 0% { transform:translate(-50%,-50%) scale(.5); opacity:.9 } 100% { transform:translate(-50%,-50%) scale(2.6); opacity:0 } }
+        .gps-dot-wrap { position:relative; width:24px; height:24px; }
+        .gps-ring     { position:absolute; top:50%; left:50%; width:18px; height:18px; border-radius:50%; background:rgba(37,99,235,0.35); animation:gps-pulse 1.8s ease-out infinite; }
+        .gps-dot      { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:14px; height:14px; background:#2563eb; border:3px solid #fff; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,.35); }
         .leaflet-container { font: inherit; }
         input[type=range] { -webkit-appearance: none; height: 4px; border-radius: 4px; outline: none; cursor: pointer; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: pointer; }
@@ -393,6 +437,26 @@ export default function GravarTrilhaPage() {
             <div style={{ position: 'absolute', top: 12, left: 12, right: 12, background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, padding: '10px 14px', fontSize: 13, zIndex: 1000 }}>
               {gpsError}
             </div>
+          )}
+
+          {/* IDLE — botão centralizar (canto superior direito) */}
+          {phase === 'idle' && markerRef.current && (
+            <button
+              onClick={() => {
+                const m = markerRef.current
+                if (m && mapRef.current) mapRef.current.setView(m.getLatLng(), 17)
+              }}
+              title="Centralizar na minha localização"
+              style={{
+                position: 'absolute', top: 12, right: 12, zIndex: 1000,
+                width: 40, height: 40, borderRadius: '50%',
+                background: '#fff', border: '1.5px solid #d0d4c6',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <i className="ti ti-current-location" style={{ fontSize: 18, color: '#2563eb' }} />
+            </button>
           )}
 
           {/* IDLE — botão central flutuante */}
