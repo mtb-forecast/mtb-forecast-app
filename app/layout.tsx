@@ -1,7 +1,22 @@
 import type { Metadata } from 'next'
+import { DM_Sans, DM_Mono } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+})
+
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
+  variable: '--font-dm-mono',
+  display: 'swap',
+})
 
 export const dynamic = 'force-dynamic'
 
@@ -33,12 +48,6 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
         <link
           href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"
           rel="stylesheet"
@@ -51,7 +60,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="MTB Forecaster" />
         <link rel="apple-touch-icon" href="/icons/icon-apple.png" />
       </head>
-      <body className="min-h-screen antialiased">
+      <body className={`${dmSans.variable} ${dmMono.variable} min-h-screen antialiased`}>
         <Navbar />
         <main>
           {children}

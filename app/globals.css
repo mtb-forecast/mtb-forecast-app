@@ -13,13 +13,14 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-dm-sans), sans-serif;
   background: #f4f5f0;
   color: #2a2e25;
   -webkit-font-smoothing: antialiased;
 }
 
 .font-wheat { font-family: 'WheatSmile', Georgia, serif !important; }
+.font-mono-data { font-family: var(--font-dm-mono), monospace; }
 
 a { text-decoration: none; color: inherit; }
 

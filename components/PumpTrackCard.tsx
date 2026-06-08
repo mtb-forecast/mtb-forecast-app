@@ -91,22 +91,22 @@ function PumpTrackCard({ pt }: Props) {
             {c.rain_mm != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                 <i className="ti ti-droplet" style={{ fontSize: 12, color: rainColor(c.rain_mm) }} />
-                <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.rain_mm) }}>{c.rain_mm.toFixed(1)}mm</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.rain_mm) }} className="font-mono">{c.rain_mm.toFixed(1)}mm</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>chuva 24h</span>
               </div>
             )}
             {c.wind_kmh != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                 <i className="ti ti-wind" style={{ fontSize: 12, color: windColor(c.wind_kmh) }} />
-                <span style={{ fontSize: 11, fontWeight: 500, color: windColor(c.wind_kmh) }}>{c.wind_kmh.toFixed(0)} km/h</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: windColor(c.wind_kmh) }} className="font-mono">{c.wind_kmh.toFixed(0)} km/h</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento 24h</span>
               </div>
             )}
             {c.temp_max != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                 <i className="ti ti-temperature" style={{ fontSize: 12, color: '#F59E0B' }} />
-                <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }}>{Math.round(c.temp_max)}°C</span>
-                {c.temp_min != null && <span style={{ fontSize: 10, color: '#9CA3AF' }}>/ {Math.round(c.temp_min)}°</span>}
+                <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }} className="font-mono">{Math.round(c.temp_max)}°C</span>
+                {c.temp_min != null && <span style={{ fontSize: 10, color: '#9CA3AF' }} className="font-mono">/ {Math.round(c.temp_min)}°</span>}
               </div>
             )}
           </div>
