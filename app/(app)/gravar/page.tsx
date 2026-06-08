@@ -99,7 +99,7 @@ export default function GravarTrilhaPage() {
   // Leaflet refs
   const mapDivRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<import('leaflet').Map | null>(null)
-  const LRef = useRef<typeof import('leaflet').default | null>(null)
+  const LRef = useRef<typeof import('leaflet') | null>(null)
   const polyRef = useRef<import('leaflet').Polyline | null>(null)
   const markerRef = useRef<import('leaflet').Marker | null>(null)
   const fullPolyRef = useRef<import('leaflet').Polyline | null>(null)
