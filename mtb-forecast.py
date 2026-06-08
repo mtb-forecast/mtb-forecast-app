@@ -3684,11 +3684,12 @@ def _buscar_strava_usuario(user_id: str) -> list:
 
 def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_strava: list, hoje: str, datas: dict) -> None:
     """
-    Envia email personalizado com trilhas favoritas e/ou Strava do usuário via Resend.
+    Envia email personalizado via endpoint /api/send-email da Vercel (proxy para Resend).
+    Evita bloqueio Cloudflare 1010 que ocorre ao chamar api.resend.com diretamente.
     """
-    resend_key = _get_config("resend_api_key", "RESEND_API_KEY")
-    if not resend_key:
-        print(f"  [Email] RESEND_API_KEY não encontrada — email não enviado para {usuario['email']}")
+    send_secret = _get_config("send_email_secret", "SEND_EMAIL_SECRET")
+    if not send_secret:
+        print(f"  [Email] SEND_EMAIL_SECRET não encontrada — email não enviado para {usuario['email']}")
         return
 
     nome = usuario.get("apelido") or usuario.get("nome") or usuario["email"].split("@")[0]
@@ -3708,17 +3709,16 @@ def enviar_email_usuario(usuario: dict, resultados_favoritos: list, resultados_s
 
     try:
         payload = json.dumps({
-            "from":    "MTB Forecaster <noreply@mtbforecaster.com.br>",
-            "to":      [usuario["email"]],
+            "to":      usuario["email"],
             "subject": f"🚵 MTB Forecaster — Suas trilhas hoje, {nome}! — {hoje}",
             "html":    html_body,
         }).encode("utf-8")
         req = urllib.request.Request(
-            "https://api.resend.com/emails",
+            "https://www.mtbforecaster.com.br/api/send-email",
             data=payload,
             method="POST",
             headers={
-                "Authorization": f"Bearer {resend_key}",
+                "Authorization": f"Bearer {send_secret}",
                 "Content-Type":  "application/json",
             },
         )
