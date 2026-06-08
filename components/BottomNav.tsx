@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: 'ti-layout-dashboard' },
   { href: '/trilhas',   label: 'Trilhas',   icon: 'ti-map-2'            },
+  { href: '/gravar',    label: 'Gravar',    icon: 'ti-route'            },
   { href: '/mapa',      label: 'Mapa',      icon: 'ti-map-pin'          },
   { href: '/perfil',    label: 'Perfil',    icon: 'ti-user'             },
 ]
@@ -44,7 +45,7 @@ export default function BottomNav() {
           align-items: center;
           gap: 3px;
           text-decoration: none;
-          padding: 6px 16px;
+          padding: 6px 10px;
           border-radius: 8px;
           transition: background 0.15s;
           position: relative;
