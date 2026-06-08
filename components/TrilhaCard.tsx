@@ -1,23 +1,43 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
+import { formatLocalidade } from '@/lib/geocoding'
 
-function aderenciaBadge(a: string): { bg: string; color: string } {
-  if (a === 'GRIP PERFEITO') return { bg: '#DCFCE7', color: '#15803D' }
-  if (a === 'BOA ADERÊNCIA') return { bg: '#FFF7ED', color: '#C2410C' }
-  if (a === 'BAIXA ADERÊNCIA') return { bg: '#FEE2E2', color: '#B91C1C' }
-  return { bg: '#FEF9C3', color: '#A16207' }
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtUltimaChuva(h: number): string {
-  const hrs = Math.round(h)
-  if (h < 24) return `${hrs}h atrás`
-  const dias = Math.floor(h / 24)
-  const resto = Math.round(h % 24)
-  return `${hrs}h atrás · ${dias}d${resto > 0 ? ` ${resto}h` : ''}`
+  if (h < 24) return `${Math.round(h)}h`
+  return `${Math.floor(h / 24)}d`
 }
-import { formatLocalidade } from '@/lib/geocoding'
-import { rainColor, windColor, DISPLAY_THR, VEREDICTO_ACCENT, VEREDICTO_JANELA_BG } from '@/lib/display'
+
+function topBarColor(v: string | null): string {
+  if (!v) return '#d0d4c6'
+  if (v.includes('LIBERADO')) return '#2a6b1e'
+  if (v.includes('ESPERAR') || v.includes('AGUARDAR') || v.includes('ALERTA')) return '#8a5e00'
+  if (v.includes('EVITAR') || v.includes('FECHADA')) return '#8a1a1a'
+  return '#d0d4c6'
+}
+
+type VerdictStyle = { icon: string; bg: string; text: string; border: string }
+
+function verdictStyle(v: string | null): VerdictStyle {
+  if (!v) return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
+  if (v.includes('LIBERADO')) return { icon: 'ti-circle-check', bg: '#d6edcc', text: '#2a6b1e', border: '#a8d99a' }
+  if (v.includes('ESPERAR') || v.includes('AGUARDAR') || v.includes('ALERTA')) return { icon: 'ti-alert-triangle', bg: '#fdf0cc', text: '#8a5e00', border: '#e8d080' }
+  if (v.includes('EVITAR') || v.includes('FECHADA')) return { icon: 'ti-circle-x', bg: '#fcd8d8', text: '#8a1a1a', border: '#e8a0a0' }
+  return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
+}
+
+function soloLabel(a: string | null | undefined): string | null {
+  if (!a) return null
+  const s = a.trim()
+  if (s === 'SECO' || s === 'GRIP PERFEITO') return 'SECO'
+  if (s === 'BOA ADERÊNCIA') return 'ÚMIDO'
+  if (s === 'BAIXA ADERÊNCIA') return 'SATURADO'
+  return null
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Props = {
   trilha: TrilhaComCondicao
@@ -25,196 +45,129 @@ type Props = {
   onToggleFavorito?: (id: string) => void
 }
 
-function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
-  const c = trilha.condicao
-  const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
-  const vcfg      = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-  const hasData   = c != null && vcfg != null
-  const accentColor = veredictoText ? (VEREDICTO_ACCENT[veredictoText] ?? '#D1D5DB') : '#D1D5DB'
-  const janelaBg    = veredictoText ? (VEREDICTO_JANELA_BG[veredictoText] ?? '#F9FAFB') : '#F9FAFB'
-  const has12h    = !!c?.veredicto_12h?.trim()
-  const showPico  = c?.pico_3h != null && c.pico_3h >= DISPLAY_THR.picoMin
-  const windKmh   = c?.wind_ms != null ? c.wind_ms * 3.6 : null
-  const hasAlerta = !!(c?.aderencia_futura_status && c?.aderencia_futura_label &&
-    c.aderencia_futura_status !== c.aderencia_status)
+// ── Component ─────────────────────────────────────────────────────────────────
 
-  const pill: React.CSSProperties = {
-    fontSize: '0.7rem', color: '#6B7280', background: '#F3F4F6',
-    borderRadius: 999, padding: '2px 9px',
+function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
+  const c            = trilha.condicao
+  const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
+  const vcfg         = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
+  const hasData      = c != null && vcfg != null
+  const has12h       = !!c?.veredicto_12h?.trim()
+
+  const barColor = topBarColor(veredictoText)
+  const vs       = verdictStyle(veredictoText)
+  const solo     = soloLabel(c?.aderencia_status)
+
+  const tagBase: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '3px 8px', borderRadius: 999, lineHeight: 1.4,
+    border: `0.5px solid ${vs.border}`,
+    background: vs.bg, color: vs.text,
+    fontWeight: 700,
   }
 
   return (
-    <div
-      style={{
-        background: '#FFFFFF', borderRadius: 16,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        display: 'flex', overflow: 'hidden',
-        transition: 'box-shadow 0.2s ease',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.10)')}
-      onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)')}
-    >
-      {/* Barra vertical esquerda */}
-      <div style={{ width: 6, flexShrink: 0, background: accentColor }} />
+    <Link href={`/trilhas/${trilha.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+      <div style={{
+        borderRadius: 14, border: '0.5px solid #d0d4c6',
+        background: '#ffffff', overflow: 'hidden',
+      }}>
 
-      {/* Conteúdo */}
-      <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* ── Barra de acento ── */}
+        <div style={{ height: 3, width: '100%', background: barColor }} />
 
-        {/* Nome + estrela */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#2a2e25', lineHeight: 1.3, flex: 1, margin: 0 }}>
-            {trilha.name}
-          </h3>
-          {onToggleFavorito && (
-            <button
-              onClick={e => { e.preventDefault(); onToggleFavorito(trilha.id) }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 17, flexShrink: 0, lineHeight: 1, padding: 0,
-                color: isFavorito ? '#a8b899' : '#D1D5DB',
-                transition: 'color 0.15s',
-              }}
-            >
-              {isFavorito ? '★' : '☆'}
-            </button>
+        {/* ── Card body ── */}
+        <div style={{ padding: '14px 16px 12px' }}>
+
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 14, fontWeight: 600, color: '#2a2e25', lineHeight: 1.3,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {trilha.name}
+              </div>
+              <div style={{ fontSize: 11, color: '#6d745f', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
+                {formatLocalidade(trilha.localidades, trilha.regiao)}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 1 }}>
+              {onToggleFavorito && (
+                <button
+                  onClick={e => { e.preventDefault(); onToggleFavorito(trilha.id) }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 16, lineHeight: 1, padding: 0,
+                    color: isFavorito ? '#a8b899' : '#d0d4c6',
+                    transition: 'color 0.15s',
+                  }}
+                >
+                  {isFavorito ? '★' : '☆'}
+                </button>
+              )}
+              <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#8a9480' }} />
+            </div>
+          </div>
+
+          {/* Verdict row */}
+          {hasData && (
+            <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ ...tagBase, fontSize: 10 }}>
+                <i className={`ti ${vs.icon}`} style={{ fontSize: 10 }} />
+                {veredictoText}
+              </span>
+
+              {has12h && (
+                <span style={{ ...tagBase, fontSize: 9, fontWeight: 600 }}>12h</span>
+              )}
+
+              {solo && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  fontSize: 10, fontWeight: 600,
+                  padding: '3px 8px', borderRadius: 999, lineHeight: 1.4,
+                  background: '#eaece4', color: '#6d745f', border: '0.5px solid #d0d4c6',
+                }}>
+                  {solo}
+                </span>
+              )}
+            </div>
+          )}
+
+          {!hasData && (
+            <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', margin: '8px 0 0' }}>
+              Condição ainda não calculada.
+            </p>
           )}
         </div>
 
-        {/* Tags */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {trilha.bioma && <span style={pill}>{trilha.bioma}</span>}
-          <span style={pill}>{trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}</span>
-          <span style={pill}>{formatLocalidade(trilha.localidades, trilha.regiao)}</span>
-        </div>
-
-        {hasData && c ? (
-          <>
-            {/* Veredicto */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{
-                  background: accentColor + '26', color: accentColor,
-                  borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px',
-                }}>
-                  {vcfg.emoji} {veredictoText}
-                </span>
-                {has12h && (
-                  <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>12h</span>
-                )}
-              </div>
-              {c.aderencia_status && (() => {
-                const ab = aderenciaBadge(c.aderencia_status.trim())
-                return (
-                  <span style={{ background: ab.bg, color: ab.color, borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px' }}>
-                    {c.aderencia_status}
-                  </span>
-                )
-              })()}
+        {/* ── Card footer ── */}
+        {hasData && c && (
+          <div style={{
+            borderTop: '0.5px solid #d0d4c6',
+            background: '#f4f5f0',
+            padding: '8px 16px 10px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <i className="ti ti-clock" style={{ fontSize: 11 }} />
+              {c.janela ? `JANELA: ${c.janela}` : '—'}
             </div>
 
-            {/* Texto dinâmico */}
-            {(c.texto_dinamico || c.frase_secagem) && (
-              <p style={{
-                fontSize: 12, color: '#374151', lineHeight: 1.6, margin: 0,
-                borderLeft: `3px solid ${accentColor}`, paddingLeft: 10,
-                overflow: 'hidden',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-              } as React.CSSProperties}>
-                {c.texto_dinamico ?? c.frase_secagem}
-              </p>
-            )}
+            <div style={{ width: 1, height: 12, background: '#d0d4c6', flexShrink: 0 }} />
 
-            {/* Badges solo */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {c.acumulo_48h != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                  <i className="ti ti-droplet" style={{ fontSize: 12, color: rainColor(c.acumulo_48h) }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.acumulo_48h) }} className="font-mono">{c.acumulo_48h.toFixed(1)}mm</span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>chuva 48h</span>
-                </div>
-              )}
-              {showPico && c.pico_3h != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                  <i className="ti ti-droplet-half" style={{ fontSize: 12, color: rainColor(c.pico_3h) }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.pico_3h) }} className="font-mono">{c.pico_3h.toFixed(1)}mm</span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>pico 3h</span>
-                </div>
-              )}
-              {windKmh != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                  <i className="ti ti-wind" style={{ fontSize: 12, color: windColor(windKmh) }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: windColor(windKmh) }} className="font-mono">{windKmh.toFixed(0)} km/h</span>
-                  <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento</span>
-                </div>
-              )}
-              {c.ultima_chuva_h != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                  <i className="ti ti-history" style={{ fontSize: 12, color: '#9CA3AF' }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }} className="font-mono">últ. chuva {fmtUltimaChuva(c.ultima_chuva_h)}</span>
-                </div>
-              )}
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <i className="ti ti-hourglass" style={{ fontSize: 11 }} />
+              {c.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
             </div>
-
-            {/* Alerta aderência futura */}
-            {hasAlerta && (
-              <div style={{
-                background: '#FFFBEB', borderLeft: '3px solid #F59E0B',
-                borderRadius: 8, padding: '6px 10px',
-                display: 'flex', alignItems: 'center', gap: 6,
-                fontSize: 11, color: '#92400E',
-              }}>
-                <i className="ti ti-alert-triangle" style={{ fontSize: 12, color: '#F59E0B', flexShrink: 0 }} />
-                <span>{c.aderencia_futura_label}: <b>{c.aderencia_futura_status}</b></span>
-              </div>
-            )}
-
-            {/* Janela de pedal */}
-            {c.janela ? (
-              <div style={{ background: janelaBg, borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <i className="ti ti-clock" style={{ fontSize: 13, color: '#6B7280' }} />
-                <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela:</span>
-                <span style={{ fontSize: 12, color: '#374151' }} className="font-mono">{c.janela}</span>
-              </div>
-            ) : (
-              <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#9CA3AF' }} />
-                <span style={{ fontSize: 12, color: '#9CA3AF' }}>Sem janela definida</span>
-              </div>
-            )}
-          </>
-        ) : (
-          <p style={{ fontSize: '0.8rem', color: '#9CA3AF', fontStyle: 'italic', margin: 0 }}>
-            Condição ainda não calculada.
-          </p>
+          </div>
         )}
 
-        {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-          {c?.gerado_em ? (
-            <span style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
-              Atualizado às {new Date(c.gerado_em).toLocaleTimeString('pt-BR', {
-                hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
-              })}
-            </span>
-          ) : <span />}
-          <Link
-            href={`/trilhas/${trilha.id}`}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
-          >
-            <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#2a2e25' }}>Ver detalhes</span>
-            <span style={{
-              background: '#F3F4F6', borderRadius: '50%', width: 22, height: 22,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#2a2e25' }} />
-            </span>
-          </Link>
-        </div>
-
       </div>
-    </div>
+    </Link>
   )
 }
 
