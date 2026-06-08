@@ -107,6 +107,7 @@ export default function GravarTrilhaPage() {
   const trimEndMarkerRef = useRef<import('leaflet').Marker | null>(null)
   const mapInitRef = useRef(false)
   const idleWatchRef = useRef<number | null>(null)
+  const currentPosRef = useRef<{ lat: number; lng: number } | null>(null)
 
   // Timer
   const watchIdRef = useRef<number | null>(null)
@@ -147,6 +148,7 @@ export default function GravarTrilhaPage() {
           ({ coords }) => {
             if (phaseRef.current !== 'idle') return
             const { latitude, longitude } = coords
+            currentPosRef.current = { lat: latitude, lng: longitude }
 
             if (!markerRef.current) {
               const icon = L.divIcon({
@@ -212,6 +214,7 @@ export default function GravarTrilhaPage() {
     watchIdRef.current = navigator.geolocation.watchPosition(
       ({ coords }) => {
         if (phaseRef.current !== 'recording') return
+        currentPosRef.current = { lat: coords.latitude, lng: coords.longitude }
         const newPt: Pt = { lat: coords.latitude, lng: coords.longitude, alt: coords.altitude, ts: Date.now() }
         const prev = pointsRef.current[pointsRef.current.length - 1]
         pointsRef.current = [...pointsRef.current, newPt]
@@ -296,6 +299,10 @@ export default function GravarTrilhaPage() {
     pointsRef.current = trimmed; setPoints(trimmed)
     await fillForm(trimmed)
     setPhaseSync('finished')
+  }
+
+  function handleDiscard() {
+    window.location.href = '/gravar'
   }
 
   async function fillForm(pts: Pt[]) {
@@ -442,23 +449,27 @@ export default function GravarTrilhaPage() {
             </div>
           )}
 
-          {/* IDLE — botão centralizar (canto superior direito) */}
-          {phase === 'idle' && markerRef.current && (
+          {/* Estou aqui — centraliza mapa na posição GPS atual */}
+          {(phase === 'idle' || phase === 'paused' || phase === 'trimming') && (
             <button
               onClick={() => {
-                const m = markerRef.current
-                if (m && mapRef.current) mapRef.current.setView(m.getLatLng(), 17)
+                if (currentPosRef.current && mapRef.current)
+                  mapRef.current.setView([currentPosRef.current.lat, currentPosRef.current.lng], 17)
               }}
-              title="Centralizar na minha localização"
               style={{
-                position: 'absolute', top: 12, right: 12, zIndex: 1000,
-                width: 40, height: 40, borderRadius: '50%',
-                background: '#fff', border: '1.5px solid #d0d4c6',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'absolute',
+                top: phase === 'paused' ? 80 : 12,
+                right: 12, zIndex: 1000,
+                background: '#fff', border: '1.5px solid #2563eb',
+                borderRadius: 20, padding: '7px 12px',
+                display: 'flex', alignItems: 'center', gap: 6,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.20)',
+                cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563eb',
+                letterSpacing: '0.03em', whiteSpace: 'nowrap',
               }}
             >
-              <i className="ti ti-current-location" style={{ fontSize: 18, color: '#2563eb' }} />
+              <i className="ti ti-navigation" style={{ fontSize: 15, color: '#2563eb' }} />
+              Estou aqui
             </button>
           )}
 
@@ -711,16 +722,28 @@ export default function GravarTrilhaPage() {
               </div>
             </div>
 
-            {/* Submit */}
-            <button onClick={handleSave} disabled={saving} style={{
-              background: saving ? '#d0d4c6' : '#6d745f', color: saving ? '#8a9280' : '#fff',
-              border: 'none', borderRadius: 12, padding: '16px', fontSize: 15, fontWeight: 700,
-              cursor: saving ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}>
-              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
-              {saving ? 'Gravando…' : 'Gravar trilha no catálogo'}
-            </button>
+            {/* Submit + Descartar */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={handleDiscard} style={{
+                background: '#fee2e2', color: '#991b1b',
+                border: '1px solid #fca5a5', borderRadius: 12, padding: '16px 14px',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}>
+                <i className="ti ti-trash" style={{ fontSize: 16 }} />
+                Descartar
+              </button>
+              <button onClick={handleSave} disabled={saving} style={{
+                flex: 1, background: saving ? '#d0d4c6' : '#6d745f', color: saving ? '#8a9280' : '#fff',
+                border: 'none', borderRadius: 12, padding: '16px', fontSize: 15, fontWeight: 700,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
+                {saving ? 'Gravando…' : 'Gravar trilha no catálogo'}
+              </button>
+            </div>
           </div>
         </div>
       )}
