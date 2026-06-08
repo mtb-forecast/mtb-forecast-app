@@ -90,6 +90,7 @@ export default function GravarTrilhaPage() {
   const [geoResult, setGeoResult] = useState<GeoResult | null>(null)
   const [formErro, setFormErro] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [gpsAltAvail, setGpsAltAvail] = useState(false)
 
   const [soloTypes, setSoloTypes] = useState<string[]>([])
   const [biomas, setBiomas] = useState<string[]>([])
@@ -263,9 +264,12 @@ export default function GravarTrilhaPage() {
 
     const alts = pts.map(p => p.alt).filter((a): a is number => a !== null)
     if (alts.length > 0) {
+      setGpsAltAvail(true)
       setAltitude(String(Math.round(alts.reduce((a, b) => a + b) / alts.length)))
       const gain = alts.reduce((g, a, i) => (i === 0 ? g : a > alts[i - 1] ? g + (a - alts[i - 1]) : g), 0)
       setDesnivel(String(Math.round(gain)))
+    } else {
+      setGpsAltAvail(false)
     }
 
     // Geocode do INÍCIO da trilha (trimmed[0])
@@ -375,11 +379,7 @@ export default function GravarTrilhaPage() {
       {showMap && (
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <div ref={mapDivRef} style={{
-            height: phase === 'idle'
-              ? 'calc(100vh - 64px)'
-              : phase === 'trimming'
-                ? 'calc(100vh - 64px - 240px)'
-                : 'calc(100vh - 64px - 122px)',
+            height: phase === 'trimming' ? 'calc(100vh - 64px - 240px)' : 'calc(100vh - 64px)',
             width: '100%', background: '#eaece4',
           }} />
 
@@ -440,48 +440,43 @@ export default function GravarTrilhaPage() {
               </div>
             </div>
           )}
+
+          {/* RECORDING — PAUSAR flutuante centralizado */}
+          {phase === 'recording' && (
+            <div style={{ position: 'absolute', bottom: 44, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, zIndex: 1000, pointerEvents: 'none' }}>
+              <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '5px 14px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ width: 7, height: 7, background: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }} />
+                GRAVANDO
+              </span>
+              <button onClick={handlePause} style={{ pointerEvents: 'all', width: 84, height: 84, borderRadius: '50%', background: '#ef4444', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 24px rgba(0,0,0,0.32)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <i className="ti ti-player-pause-filled" style={{ fontSize: 32, color: '#fff' }} />
+              </button>
+              <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>PAUSAR</span>
+            </div>
+          )}
+
+          {/* PAUSED — CONTINUAR + ENCERRAR flutuantes */}
+          {phase === 'paused' && (
+            <div style={{ position: 'absolute', bottom: 44, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 48, zIndex: 1000, pointerEvents: 'none' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <button onClick={handleContinue} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#6d745f', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ti ti-player-play-filled" style={{ fontSize: 28, color: '#fff' }} />
+                </button>
+                <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>CONTINUAR</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <button onClick={handleEnd} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#2a2e25', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ti ti-flag-filled" style={{ fontSize: 28, color: '#fff' }} />
+                </button>
+                <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>ENCERRAR</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* ── CONTROLS ──────────────────────────────────────────────── */}
       <div style={{ background: '#2a2e25', flexShrink: 0 }}>
-
-        {/* IDLE — sem barra, botão está no mapa */}
-        {phase === 'idle' && (
-          <div style={{ display: 'none' }}>
-          </div>
-        )}
-
-        {/* RECORDING */}
-        {phase === 'recording' && (
-          <div style={{ padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 10, height: 10, background: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }} />
-              <span style={{ color: '#f4f5f0', fontSize: 14, fontWeight: 600 }}>Gravando…</span>
-            </div>
-            <button onClick={handlePause} style={{ background: '#eaece4', color: '#2a2e25', border: 'none', borderRadius: 12, padding: '16px', fontSize: 16, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <i className="ti ti-player-pause-filled" style={{ fontSize: 18 }} />
-              PAUSAR
-            </button>
-          </div>
-        )}
-
-        {/* PAUSED */}
-        {phase === 'paused' && (
-          <div style={{ padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <p style={{ color: '#a8b899', fontSize: 13, margin: 0, fontWeight: 600 }}>Gravação pausada</p>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button onClick={handleContinue} style={{ flex: 1, background: '#6d745f', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <i className="ti ti-player-play-filled" style={{ fontSize: 16 }} />
-                CONTINUAR
-              </button>
-              <button onClick={handleEnd} style={{ flex: 1, background: '#3a4035', color: '#f4f5f0', border: 'none', borderRadius: 12, padding: '16px', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <i className="ti ti-flag-filled" style={{ fontSize: 16 }} />
-                ENCERRAR
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* TRIMMING */}
         {phase === 'trimming' && (
@@ -585,7 +580,8 @@ export default function GravarTrilhaPage() {
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: '#6d745f', marginBottom: 5 }}>Altitude média (m) <span style={{ color: '#ef4444' }}>*</span></label>
                 <input type="number" value={altitude} onChange={e => setAltitude(e.target.value)} placeholder="Ex: 900" style={inputStyle} />
-                {altitude && <p style={{ fontSize: 11, color: '#16a34a', margin: '4px 0 0' }}>✓ Calculado pelo GPS</p>}
+                {altitude && gpsAltAvail && <p style={{ fontSize: 11, color: '#16a34a', margin: '4px 0 0' }}>✓ Detectado pelo GPS</p>}
+                {!gpsAltAvail && <p style={{ fontSize: 11, color: '#f59e0b', margin: '4px 0 0' }}>⚠ GPS sem altitude — insira manualmente</p>}
               </div>
             </div>
 
@@ -631,12 +627,13 @@ export default function GravarTrilhaPage() {
                 <div>
                   <label style={{ display: 'block', fontSize: 12, color: '#6d745f', marginBottom: 5 }}>Desnível (m)</label>
                   <input type="number" value={desnivel} onChange={e => setDesnivel(e.target.value)} placeholder="Ex: 450" style={inputStyle} />
-                  {desnivel && <p style={{ fontSize: 10, color: '#16a34a', margin: '3px 0 0' }}>✓ GPS</p>}
+                  {desnivel && gpsAltAvail && <p style={{ fontSize: 10, color: '#16a34a', margin: '3px 0 0' }}>✓ Calculado pelo GPS</p>}
+                  {!gpsAltAvail && <p style={{ fontSize: 10, color: '#f59e0b', margin: '3px 0 0' }}>⚠ Insira manualmente</p>}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, color: '#6d745f', marginBottom: 5 }}>Extensão (km)</label>
                   <input type="number" step="0.01" value={extensao} onChange={e => setExtensao(e.target.value)} placeholder="Ex: 8.5" style={inputStyle} />
-                  {extensao && <p style={{ fontSize: 10, color: '#16a34a', margin: '3px 0 0' }}>✓ GPS</p>}
+                  {extensao && <p style={{ fontSize: 10, color: '#16a34a', margin: '3px 0 0' }}>✓ Calculado pelo GPS ({distance.toFixed(2)} km)</p>}
                 </div>
               </div>
             </div>
