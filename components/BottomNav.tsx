@@ -29,7 +29,7 @@ export default function BottomNav() {
         .bnav-root {
           position: fixed;
           bottom: 0; left: 0; right: 0;
-          z-index: 50;
+          z-index: 2000;
           background: #2a2e25;
           border-top: 1px solid #3a4035;
           height: 64px;

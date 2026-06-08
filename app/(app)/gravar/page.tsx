@@ -439,7 +439,7 @@ export default function GravarTrilhaPage() {
       {showMap && (
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <div ref={mapDivRef} style={{
-            height: phase === 'trimming' ? 'calc(100vh - 64px - 240px)' : 'calc(100vh - 64px)',
+            height: phase === 'trimming' ? 'calc(100vh - 64px - 240px)' : 'calc(100vh - 128px)',
             width: '100%', background: '#eaece4',
           }} />
 
@@ -458,24 +458,22 @@ export default function GravarTrilhaPage() {
               }}
               style={{
                 position: 'absolute',
-                top: phase === 'paused' ? 80 : 12,
+                top: phase === 'paused' ? 76 : 12,
                 right: 12, zIndex: 1000,
                 background: '#fff', border: '1.5px solid #2563eb',
-                borderRadius: 20, padding: '7px 12px',
-                display: 'flex', alignItems: 'center', gap: 6,
+                borderRadius: '50%', width: 40, height: 40,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.20)',
-                cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563eb',
-                letterSpacing: '0.03em', whiteSpace: 'nowrap',
+                cursor: 'pointer',
               }}
             >
-              <i className="ti ti-navigation" style={{ fontSize: 15, color: '#2563eb' }} />
-              Estou aqui
+              <i className="ti ti-navigation" style={{ fontSize: 18, color: '#2563eb' }} />
             </button>
           )}
 
           {/* IDLE — botão central flutuante */}
           {phase === 'idle' && (
-            <div style={{ position: 'absolute', bottom: 48, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 1000, pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 1000, pointerEvents: 'none' }}>
               <button
                 onClick={handleStart}
                 style={{
@@ -527,7 +525,7 @@ export default function GravarTrilhaPage() {
 
           {/* RECORDING — PAUSAR flutuante centralizado */}
           {phase === 'recording' && (
-            <div style={{ position: 'absolute', bottom: 44, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, zIndex: 1000, pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', bottom: 20, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, zIndex: 1000, pointerEvents: 'none' }}>
               <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '5px 14px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ width: 7, height: 7, background: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.4s ease-in-out infinite' }} />
                 GRAVANDO
@@ -541,7 +539,7 @@ export default function GravarTrilhaPage() {
 
           {/* PAUSED — CONTINUAR + ENCERRAR flutuantes */}
           {phase === 'paused' && (
-            <div style={{ position: 'absolute', bottom: 44, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 48, zIndex: 1000, pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', bottom: 20, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 48, zIndex: 1000, pointerEvents: 'none' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                 <button onClick={handleContinue} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#dc2626', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-player-play-filled" style={{ fontSize: 28, color: '#fff' }} />
