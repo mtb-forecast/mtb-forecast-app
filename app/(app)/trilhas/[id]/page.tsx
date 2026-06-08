@@ -153,8 +153,8 @@ export default function TrilhaDetalhe() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
@@ -191,10 +191,10 @@ export default function TrilhaDetalhe() {
   if (c?.alerta_vento_kmh) fontes.push('💨 Vento hist.: MERRA-2 / ERA5')
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Page header grafite ─────────────────────────────────────────── */}
-      <div className="page-header" style={{ background: '#1A1A1A', padding: '40px 32px' }}>
+      <div className="page-header" style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
           {/* Voltar */}
@@ -246,8 +246,8 @@ export default function TrilhaDetalhe() {
                   onClick={toggleFavorito}
                   style={{
                     background: 'none', border: '1px solid', cursor: 'pointer',
-                    borderColor: isFavorito ? '#FFE000' : '#444',
-                    color: isFavorito ? '#FFE000' : '#888',
+                    borderColor: isFavorito ? '#a8b899' : '#8a9280',
+                    color: isFavorito ? '#a8b899' : '#8a9280',
                     fontSize: 18, padding: '4px 10px', borderRadius: 4,
                   }}
                 >
@@ -276,7 +276,7 @@ export default function TrilhaDetalhe() {
               </span>
             )}
             {isQuadrilatero && (
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#FFE000', background: 'rgba(255,224,0,0.12)', borderRadius: 999, padding: '2px 10px' }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#6d745f', background: 'rgba(168,184,153,0.2)', borderRadius: 999, padding: '2px 10px' }}>
                 ⛏ Quadrilátero Ferrífero
               </span>
             )}
@@ -311,8 +311,8 @@ export default function TrilhaDetalhe() {
 </div>
       </div>
 
-      {/* ── Faixa amarela ─────────────────────────────────────────────── */}
-      <div style={{ background: '#FFE000', height: 3 }} />
+      {/* ── Faixa de acento ─────────────────────────────────────────────── */}
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div className="content-area" style={{ padding: '32px 32px 48px', maxWidth: 720, margin: '0 auto' }}>
@@ -431,12 +431,12 @@ export default function TrilhaDetalhe() {
       {limiteMsg && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#111', color: '#fff', borderRadius: 8, padding: '12px 20px',
+          background: '#2a2e25', color: '#fff', borderRadius: 8, padding: '12px 20px',
           fontSize: 13, zIndex: 1000, maxWidth: 440, textAlign: 'center',
           boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
         }}>
           Plano Gratuito permite até 5 trilhas favoritas.{' '}
-          <a href="/planos" style={{ color: '#FFE000', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
+          <a href="/planos" style={{ color: '#a8b899', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
           para monitorar mais trilhas.
         </div>
       )}

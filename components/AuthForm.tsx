@@ -45,17 +45,17 @@ export default function AuthForm({
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#f4f5f0' }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <span className="text-3xl">🚵</span>
-            <span className="text-2xl font-extrabold text-white">MTB Forecaster</span>
+            <span className="text-2xl font-extrabold" style={{ color: '#2a2e25' }}>MTB Forecaster</span>
           </div>
         </div>
 
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-xl font-bold text-white mb-6">{title}</h1>
+        <div className="rounded-2xl p-8 shadow-sm" style={{ background: '#fff', border: '1px solid #d0d4c6' }}>
+          <h1 className="text-xl font-bold mb-6" style={{ color: '#2a2e25' }}>{title}</h1>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 mb-6 text-sm">
@@ -66,7 +66,7 @@ export default function AuthForm({
           <form onSubmit={handleSubmit} className="space-y-5">
             {fields.map((field) => (
               <div key={field.name}>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: '#6d745f' }}>
                   {field.label}
                 </label>
                 <input
@@ -83,15 +83,16 @@ export default function AuthForm({
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition-colors"
+              className="w-full disabled:opacity-60 text-white font-bold py-3 rounded-xl transition-colors"
+              style={{ background: loading ? '#a8b899' : '#6d745f' }}
             >
               {loading ? loadingLabel : submitLabel}
             </button>
           </form>
 
-          <p className="text-center text-slate-400 text-sm mt-6">
+          <p className="text-center text-sm mt-6" style={{ color: '#6d745f' }}>
             {footerText}{' '}
-            <Link href={footerLink} className="text-green-400 hover:text-green-300 font-medium">
+            <Link href={footerLink} className="font-medium" style={{ color: '#6d745f', textDecoration: 'underline' }}>
               {footerLinkLabel}
             </Link>
           </p>

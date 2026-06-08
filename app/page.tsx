@@ -47,13 +47,13 @@ const HOW_IT_WORKS = [
 
 export default function LandingPage() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#111' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#2a2e25' }}>
 
       <style>{`
         .lp-hero-slide { opacity: 0; transition: opacity 0.6s ease; }
         .lp-hero-slide.active { opacity: 1; }
         .lp-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.3s; border: none; padding: 0; }
-        .lp-dot.active { background: #FFE000; width: 20px; border-radius: 3px; }
+        .lp-dot.active { background: #a8b899; width: 20px; border-radius: 3px; }
         .lp-nav-link { font-size: 13px; color: #aaa; text-decoration: none; transition: color 0.15s; }
         .lp-nav-link:hover { color: #fff; }
         .lp-footer-link { font-size: 12px; color: #555; text-decoration: none; transition: color 0.15s; }
@@ -103,7 +103,7 @@ export default function LandingPage() {
             <a href="#como-funciona" className="lp-nav-link lp-nav-como">Como funciona</a>
             <Link href="/login" className="lp-nav-link">Entrar</Link>
             <Link href="/cadastro" style={{
-              background: '#FFE000', color: '#111',
+              background: '#6d745f', color: '#fff',
               fontSize: 12, fontWeight: 700,
               padding: '9px 20px', borderRadius: 4,
               textDecoration: 'none', whiteSpace: 'nowrap',
@@ -140,7 +140,7 @@ export default function LandingPage() {
         }}>
           <p style={{
             fontSize: 10, fontWeight: 700, letterSpacing: '3px',
-            color: '#FFE000', textTransform: 'uppercase', marginBottom: 16,
+            color: '#a8b899', textTransform: 'uppercase', marginBottom: 16,
           }}>
             MTB · EMTB · XC · PUMP TRACK · MOTO · RUN
           </p>
@@ -148,7 +148,7 @@ export default function LandingPage() {
             fontSize: 'clamp(36px, 6vw, 64px)', fontWeight: 800,
             lineHeight: 1.05, color: '#fff', letterSpacing: '-1px', marginBottom: 16,
           }}>
-            Saiba antes<br />de <span style={{ color: '#FFE000' }}>pedalar.</span>
+            Saiba antes<br />de <span style={{ color: '#a8b899' }}>pedalar.</span>
           </h1>
           <p style={{
             fontSize: 15, color: 'rgba(255,255,255,0.7)',
@@ -158,7 +158,7 @@ export default function LandingPage() {
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Link href="/cadastro" style={{
-              background: '#FFE000', color: '#111',
+              background: '#6d745f', color: '#fff',
               fontSize: 14, fontWeight: 700,
               padding: '14px 32px', borderRadius: 4, textDecoration: 'none',
               whiteSpace: 'nowrap',
@@ -200,11 +200,11 @@ export default function LandingPage() {
 
       {/* ── TICKER ── */}
       <div className="lp-ticker" style={{
-        background: '#FFE000', padding: '11px 48px',
+        background: '#a8b899', padding: '11px 48px',
         display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
       }}>
         {['Trilhas monitoradas diariamente', 'Pump Tracks mapeados', 'Chuva acumulada 48h', 'Modelo de secagem do solo', 'Navegação via Waze', 'Brasil'].map(t => (
-          <span key={t} style={{ fontSize: 11, fontWeight: 700, color: '#111', letterSpacing: '0.5px' }}>{t}</span>
+          <span key={t} style={{ fontSize: 11, fontWeight: 700, color: '#2a2e25', letterSpacing: '0.5px' }}>{t}</span>
         ))}
       </div>
 
@@ -219,7 +219,7 @@ export default function LandingPage() {
         </p>
         <h2 style={{
           fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: 800,
-          color: '#111', textAlign: 'center',
+          color: '#2a2e25', textAlign: 'center',
           marginBottom: 56, letterSpacing: '-0.5px',
         }}>
           Do céu ao veredicto
@@ -232,14 +232,14 @@ export default function LandingPage() {
           {HOW_IT_WORKS.map(item => (
             <div key={item.step}>
               <div style={{
-                width: 36, height: 36, background: '#FFE000', borderRadius: '50%',
+                width: 36, height: 36, background: '#6d745f', borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, fontWeight: 800, color: '#111', marginBottom: 16,
+                fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 16,
               }}>
                 {item.step}
               </div>
-              <div style={{ width: 32, height: 3, background: '#FFE000', borderRadius: 2, marginBottom: 16 }} />
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111', marginBottom: 8 }}>{item.title}</h3>
+              <div style={{ width: 32, height: 3, background: '#a8b899', borderRadius: 2, marginBottom: 16 }} />
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#2a2e25', marginBottom: 8 }}>{item.title}</h3>
               <p style={{ fontSize: 13, color: '#777', lineHeight: 1.65 }}>{item.desc}</p>
             </div>
           ))}
@@ -247,7 +247,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── PUMP TRACKS ── */}
-      <div style={{ background: '#0D0D0D', padding: '80px 48px', borderTop: '1px solid #1E1E1E' }}>
+      <div style={{ background: '#2a2e25', padding: '80px 48px', borderTop: '1px solid #3a4035' }}>
         <div style={{ maxWidth: 960, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 48, flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 280px' }}>
@@ -283,7 +283,7 @@ export default function LandingPage() {
                 { icon: '📍', title: '6 estados', desc: 'SP, RJ, MG, ES, SC e CE com mais chegando em breve.' },
               ].map(f => (
                 <div key={f.title} style={{
-                  background: '#181818', border: '1px solid #222',
+                  background: '#1a2218', border: '1px solid #3a4035',
                   borderRadius: 10, padding: '16px 18px',
                 }}>
                   <span style={{ fontSize: 20, display: 'block', marginBottom: 8 }}>{f.icon}</span>
@@ -298,26 +298,26 @@ export default function LandingPage() {
 
       {/* ── CTA FINAL ── */}
       <div className="lp-section-cta" style={{
-        background: '#111', padding: '100px 48px',
-        textAlign: 'center', borderTop: '1px solid #1E1E1E',
+        background: '#2a2e25', padding: '100px 48px',
+        textAlign: 'center', borderTop: '1px solid #3a4035',
       }}>
         <p style={{
           fontSize: 10, fontWeight: 700, letterSpacing: '3px',
-          color: '#FFE000', textTransform: 'uppercase', marginBottom: 16,
+          color: '#a8b899', textTransform: 'uppercase', marginBottom: 16,
         }}>
           Gratuito para começar
         </p>
         <h2 style={{
           fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 800,
-          color: '#fff', marginBottom: 16, letterSpacing: '-0.5px',
+          color: '#f4f5f0', marginBottom: 16, letterSpacing: '-0.5px',
         }}>
           Pronto para pedalar<br />com segurança?
         </h2>
-        <p style={{ fontSize: 15, color: '#777', marginBottom: 36 }}>
+        <p style={{ fontSize: 15, color: '#8a9280', marginBottom: 36 }}>
           Crie sua conta e acompanhe trilhas MTB e pump tracks perto de você.
         </p>
         <Link href="/cadastro" style={{
-          background: '#FFE000', color: '#111',
+          background: '#6d745f', color: '#fff',
           fontSize: 15, fontWeight: 700,
           padding: '16px 48px', borderRadius: 4,
           textDecoration: 'none', display: 'inline-block',
@@ -328,11 +328,11 @@ export default function LandingPage() {
 
       {/* ── FOOTER ── */}
       <div className="lp-footer-wrap" style={{
-        background: '#0A0A0A', padding: '32px 48px',
+        background: '#1a2218', padding: '32px 48px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        borderTop: '1px solid #1E1E1E', flexWrap: 'wrap', gap: 16,
+        borderTop: '1px solid #3a4035', flexWrap: 'wrap', gap: 16,
       }}>
-        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '2px', color: '#444' }}>
+        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '2px', color: '#8a9280' }}>
           MTB FORECASTER
         </span>
         <div style={{ display: 'flex', gap: 24 }}>
@@ -340,7 +340,7 @@ export default function LandingPage() {
           <Link href="/login" className="lp-footer-link">Entrar</Link>
           <Link href="/cadastro" className="lp-footer-link">Criar conta</Link>
         </div>
-        <span style={{ fontSize: 11, color: '#333' }}>© 2026 MTB Forecaster</span>
+        <span style={{ fontSize: 11, color: '#6d745f' }}>© 2026 MTB Forecaster</span>
       </div>
 
       {/* ── SLIDESHOW SCRIPT ── */}

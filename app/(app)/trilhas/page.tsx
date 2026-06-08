@@ -237,18 +237,18 @@ function TrilhasContent() {
     borderRadius: 8,
     background: '#FFFFFF',
     fontSize: 14,
-    color: '#111111',
+    color: '#2a2e25',
     outline: 'none',
     transition: 'border-color 0.15s, box-shadow 0.15s',
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8F9FA' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
-        .trilhas-select:focus { border-color: #FFE000 !important; box-shadow: 0 0 0 2px rgba(255,224,0,0.2) !important; }
-        .trilhas-input:focus  { border-color: #FFE000 !important; box-shadow: 0 0 0 2px rgba(255,224,0,0.2) !important; }
+        .trilhas-select:focus { border-color: #6d745f !important; box-shadow: 0 0 0 2px rgba(109,116,95,0.2) !important; }
+        .trilhas-input:focus  { border-color: #6d745f !important; box-shadow: 0 0 0 2px rgba(109,116,95,0.2) !important; }
         @media (max-width: 640px) {
           .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
 .trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
@@ -259,7 +259,7 @@ function TrilhasContent() {
       `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div style={{ background: '#1A1A1A', padding: '36px 28px' }}>
+      <div style={{ background: '#2a2e25', padding: '36px 28px' }}>
         <div style={{
           maxWidth: 1200, margin: '0 auto',
           display: 'flex', alignItems: 'center',
@@ -285,7 +285,7 @@ function TrilhasContent() {
             <Link
               href="/trilhas/cadastrar"
               style={{
-                background: '#FFE000', color: '#111111',
+                background: '#6d745f', color: '#fff',
                 borderRadius: 8, padding: '10px 20px',
                 fontSize: 13, fontWeight: 600,
                 textDecoration: 'none', whiteSpace: 'nowrap',
@@ -298,11 +298,11 @@ function TrilhasContent() {
         </div>
       </div>
 
-      {/* Faixa amarela */}
-      <div style={{ background: '#FFE000', height: 3 }} />
+      {/* Faixa de acento */}
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* ── Filtros ─────────────────────────────────────────────────────── */}
-      <div style={{ background: '#F8F9FA', borderBottom: '0.5px solid #E5E7EB', padding: '16px 28px' }}>
+      <div style={{ background: '#f4f5f0', borderBottom: '0.5px solid #E5E7EB', padding: '16px 28px' }}>
         <div
           className="trilhas-filtros"
           style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
@@ -318,7 +318,7 @@ function TrilhasContent() {
                 ...fieldBase,
                 appearance: 'none', WebkitAppearance: 'none',
                 padding: '10px 40px 10px 14px',
-                color: estadoSelecionado ? '#111111' : '#9CA3AF',
+                color: estadoSelecionado ? '#2a2e25' : '#9CA3AF',
                 cursor: 'pointer', width: 200,
               }}
             >
@@ -339,7 +339,7 @@ function TrilhasContent() {
                   ...fieldBase,
                   appearance: 'none', WebkitAppearance: 'none',
                   padding: '10px 40px 10px 14px',
-                  color: cidadeSelecionada ? '#111111' : '#9CA3AF',
+                  color: cidadeSelecionada ? '#2a2e25' : '#9CA3AF',
                   cursor: 'pointer', width: 220,
                 }}
               >
@@ -361,7 +361,7 @@ function TrilhasContent() {
                   ...fieldBase,
                   appearance: 'none', WebkitAppearance: 'none',
                   padding: '10px 40px 10px 14px',
-                  color: localidadeSelecionada ? '#111111' : '#9CA3AF',
+                  color: localidadeSelecionada ? '#2a2e25' : '#9CA3AF',
                   cursor: 'pointer', width: 220,
                 }}
               >
@@ -400,16 +400,16 @@ function TrilhasContent() {
               style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}
             >
               {[
-                { icon: 'ti-map-2',        color: '#FFE000', title: 'Selecione seu estado',   text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
-                { icon: 'ti-star',         color: '#FFE000', title: 'Favorite suas trilhas',  text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
-                { icon: 'ti-message-star', color: '#FFE000', title: 'Avalie as trilhas',      text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
+                { icon: 'ti-map-2',        color: '#a8b899', title: 'Selecione seu estado',   text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
+                { icon: 'ti-star',         color: '#a8b899', title: 'Favorite suas trilhas',  text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
+                { icon: 'ti-message-star', color: '#a8b899', title: 'Avalie as trilhas',      text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
               ].map(({ icon, color, title, text }) => (
                 <div
                   key={title}
                   style={{ background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #E5E7EB', padding: 20 }}
                 >
                   <i className={`ti ${icon}`} style={{ fontSize: 24, color, display: 'block', marginBottom: 12 }} />
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#111111', margin: '0 0 6px' }}>{title}</p>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: '0 0 6px' }}>{title}</p>
                   <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: 0 }}>{text}</p>
                 </div>
               ))}
@@ -432,7 +432,7 @@ function TrilhasContent() {
                     letterSpacing: '0.06em', textTransform: 'uppercase',
                   }}>Novo</span>
                 </div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#111111', margin: '0 0 6px' }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: '0 0 6px' }}>
                   Pump Tracks no mapa
                 </p>
                 <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 12px' }}>
@@ -455,7 +455,7 @@ function TrilhasContent() {
         {/* Loading inicial */}
         {loading && estadoSelecionado && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-            <div style={{ width: 32, height: 32, border: '2px solid #E5E7EB', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <div style={{ width: 32, height: 32, border: '2px solid #E5E7EB', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         )}
 
@@ -475,7 +475,7 @@ function TrilhasContent() {
                     href="/trilhas/cadastrar"
                     style={{
                       display: 'inline-block',
-                      background: '#FFE000', color: '#111111',
+                      background: '#6d745f', color: '#fff',
                       borderRadius: 8, padding: '12px 24px',
                       fontSize: 14, fontWeight: 600, textDecoration: 'none',
                     }}
@@ -532,13 +532,13 @@ function TrilhasContent() {
       {limiteMsg && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#1A1A1A', color: '#FFFFFF',
+          background: '#2a2e25', color: '#FFFFFF',
           borderRadius: 12, padding: '12px 20px',
           fontSize: 13, zIndex: 1000, maxWidth: 440, textAlign: 'center',
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)', whiteSpace: 'nowrap',
         }}>
           Plano Gratuito permite até 5 trilhas favoritas.{' '}
-          <a href="/planos" style={{ color: '#FFE000', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
+          <a href="/planos" style={{ color: '#a8b899', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
           para monitorar mais trilhas.
         </div>
       )}
@@ -548,7 +548,7 @@ function TrilhasContent() {
 
 export default function TrilhasPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F8F9FA' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f4f5f0' }} />}>
       <TrilhasContent />
     </Suspense>
   )

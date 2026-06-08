@@ -13,7 +13,7 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
         {label}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>{value}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#2a2e25' }}>{value}</div>
     </div>
   )
 }

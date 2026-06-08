@@ -13,11 +13,11 @@ const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 function LoadingSpin() {
   return (
-    <div style={{ minHeight: '100vh', background: '#F8F9FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{
           width: 32, height: 32, border: '2px solid #e5e5e5',
-          borderTopColor: '#111', borderRadius: '50%',
+          borderTopColor: '#6d745f', borderRadius: '50%',
           animation: 'spin 0.8s linear infinite', margin: '0 auto 12px',
         }} />
         <p style={{ color: '#888', fontSize: 14 }}>Carregando comparação...</p>
@@ -31,7 +31,7 @@ function TrilhaColumn({ trilha, label }: { trilha: TrilhaComCondicao; label: str
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{
-        background: '#1A1A1A', color: '#FFE000',
+        background: '#2a2e25', color: '#a8b899',
         borderRadius: 8, padding: '5px 12px',
         fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
         textTransform: 'uppercase', width: 'fit-content',
@@ -39,7 +39,7 @@ function TrilhaColumn({ trilha, label }: { trilha: TrilhaComCondicao; label: str
         {label}
       </div>
       <div>
-        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#111', margin: '0 0 4px' }}>{trilha.name}</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#2a2e25', margin: '0 0 4px' }}>{trilha.name}</h2>
         <p style={{ fontSize: 12, color: '#6B7280', margin: 0 }}>
           {formatLocalidade(trilha.localidades, trilha.regiao)}
         </p>
@@ -101,8 +101,8 @@ function ComparacaoContent() {
   if (!trilhaA || !trilhaB) return null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8F9FA' }}>
-      <div style={{ background: '#1A1A1A', padding: '32px 28px 28px' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
+      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Link
             href="/dashboard"
@@ -116,13 +116,13 @@ function ComparacaoContent() {
             fontSize: 36, fontWeight: 800,
             textTransform: 'uppercase', lineHeight: 1.05, margin: 0,
           }}>
-            <span style={{ color: '#FFE000' }}>Comparando</span>
+            <span style={{ color: '#a8b899' }}>Comparando</span>
             <span style={{ color: '#FFFFFF' }}> trilhas</span>
           </h1>
           <p style={{ color: '#9CA3AF', fontSize: 13, marginTop: 6 }}>
             {trilhaA.name} vs. {trilhaB.name}
           </p>
-          <div style={{ background: '#FFE000', height: 3, marginTop: 20 }} />
+          <div style={{ background: '#a8b899', height: 3, marginTop: 20 }} />
         </div>
       </div>
 

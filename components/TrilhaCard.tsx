@@ -62,7 +62,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
 
         {/* Nome + estrela */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#111111', lineHeight: 1.3, flex: 1, margin: 0 }}>
+          <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#2a2e25', lineHeight: 1.3, flex: 1, margin: 0 }}>
             {trilha.name}
           </h3>
           {onToggleFavorito && (
@@ -71,7 +71,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: 17, flexShrink: 0, lineHeight: 1, padding: 0,
-                color: isFavorito ? '#FFE000' : '#D1D5DB',
+                color: isFavorito ? '#a8b899' : '#D1D5DB',
                 transition: 'color 0.15s',
               }}
             >
@@ -203,12 +203,12 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
             href={`/trilhas/${trilha.id}`}
             style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
           >
-            <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#111111' }}>Ver detalhes</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#2a2e25' }}>Ver detalhes</span>
             <span style={{
               background: '#F3F4F6', borderRadius: '50%', width: 22, height: 22,
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#111111' }} />
+              <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#2a2e25' }} />
             </span>
           </Link>
         </div>

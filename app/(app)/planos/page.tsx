@@ -12,8 +12,8 @@ type PlanStat = { plano: string; total: number }
 const PLANO_BAR_COLOR: Record<string, string> = {
   gratuito: '#d1d5db',
   plano_a:  '#60a5fa',
-  plano_b:  '#111111',
-  plano_c:  '#FFE000',
+  plano_b:  '#2a2e25',
+  plano_c:  '#a8b899',
 }
 
 export default function PlanosPage() {
@@ -106,10 +106,10 @@ export default function PlanosPage() {
   const maxTotal = stats.length > 0 ? Math.max(...stats.map(s => s.total), 1) : 1
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* Header */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Planos</h1>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
@@ -117,7 +117,7 @@ export default function PlanosPage() {
           </p>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '40px 32px' }}>
 
@@ -125,8 +125,8 @@ export default function PlanosPage() {
         {profileLoaded && isAdmin && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            background: '#111', color: '#FFE000',
-            border: '1.5px solid #FFE000', borderRadius: 6,
+            background: '#2a2e25', color: '#a8b899',
+            border: '1.5px solid #a8b899', borderRadius: 6,
             padding: '12px 20px', marginBottom: 32,
           }}>
             <span style={{ fontSize: 16 }}>★</span>
@@ -158,7 +158,7 @@ export default function PlanosPage() {
                     key={planoId}
                     style={{
                       background: '#fff',
-                      border: planoId === 'plano_b' ? '2px solid #111' : '0.5px solid #e5e5e5',
+                      border: planoId === 'plano_b' ? '2px solid #2a2e25' : '0.5px solid #e5e5e5',
                       borderRadius: 8,
                       padding: 24,
                       display: 'flex',
@@ -173,13 +173,13 @@ export default function PlanosPage() {
                         top: -12,
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        background: '#FFE000',
-                        border: '1.5px solid #111',
+                        background: '#6d745f',
+                        border: 'none',
                         borderRadius: 20,
                         padding: '2px 12px',
                         fontSize: 11,
                         fontWeight: 700,
-                        color: '#111',
+                        color: '#fff',
                         whiteSpace: 'nowrap',
                       }}>
                         EM CONSTRUÇÃO
@@ -191,13 +191,13 @@ export default function PlanosPage() {
                         top: -12,
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        background: '#FFE000',
-                        border: '1.5px solid #111',
+                        background: '#6d745f',
+                        border: 'none',
                         borderRadius: 20,
                         padding: '2px 12px',
                         fontSize: 11,
                         fontWeight: 700,
-                        color: '#111',
+                        color: '#fff',
                         whiteSpace: 'nowrap',
                       }}>
                         MAIS POPULAR
@@ -211,11 +211,11 @@ export default function PlanosPage() {
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
                       {isPago ? (
                         <>
-                          <span style={{ fontSize: 28, fontWeight: 700, color: '#111' }}>R${plano.preco}</span>
+                          <span style={{ fontSize: 28, fontWeight: 700, color: '#2a2e25' }}>R${plano.preco}</span>
                           <span style={{ fontSize: 13, color: '#888' }}>/mês</span>
                         </>
                       ) : (
-                        <span style={{ fontSize: 28, fontWeight: 700, color: '#111' }}>Grátis</span>
+                        <span style={{ fontSize: 28, fontWeight: 700, color: '#2a2e25' }}>Grátis</span>
                       )}
                     </div>
 
@@ -256,9 +256,9 @@ export default function PlanosPage() {
                         onClick={() => handleCheckout(planoId)}
                         disabled={isLoading}
                         style={{
-                          background: planoId === 'plano_b' ? '#111' : '#fff',
-                          color: planoId === 'plano_b' ? '#fff' : '#111',
-                          border: '1.5px solid #111',
+                          background: planoId === 'plano_b' ? '#2a2e25' : '#fff',
+                          color: planoId === 'plano_b' ? '#fff' : '#2a2e25',
+                          border: '1.5px solid #2a2e25',
                           borderRadius: 4,
                           padding: '10px 16px',
                           fontSize: 13,
@@ -327,7 +327,7 @@ export default function PlanosPage() {
 
             {statsLoading ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#888', fontSize: 13 }}>
-                <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                 Carregando...
               </div>
             ) : (
@@ -337,7 +337,7 @@ export default function PlanosPage() {
                   const total = stat?.total ?? 0
                   const pct = Math.round((total / maxTotal) * 100)
                   const color = PLANO_BAR_COLOR[planoId] ?? '#e5e5e5'
-                  const labelColor = planoId === 'plano_c' ? '#111' : planoId === 'gratuito' ? '#555' : '#fff'
+                  const labelColor = planoId === 'plano_c' ? '#2a2e25' : planoId === 'gratuito' ? '#555' : '#fff'
 
                   return (
                     <div key={planoId}>
@@ -405,9 +405,9 @@ export default function PlanosPage() {
               type="submit"
               disabled={promoLoading || !codigo.trim()}
               style={{
-                background: '#111',
+                background: '#2a2e25',
                 color: '#fff',
-                border: '1.5px solid #111',
+                border: 'none',
                 borderRadius: 4,
                 padding: '10px 20px',
                 fontSize: 13,

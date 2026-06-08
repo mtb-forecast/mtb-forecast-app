@@ -43,7 +43,7 @@ function Stars({ count, size = 13 }: { count: number; size?: number }) {
   return (
     <span style={{ display: 'inline-flex', gap: 1 }}>
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} style={{ color: i < count ? '#FFE000' : '#e5e5e5', fontSize: size, lineHeight: 1 }}>★</span>
+        <span key={i} style={{ color: i < count ? '#a8b899' : '#e5e5e5', fontSize: size, lineHeight: 1 }}>★</span>
       ))}
     </span>
   )
@@ -59,7 +59,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
           <span
             key={i}
             className="star-selector-star"
-            style={{ color: filled ? '#FFE000' : '#e5e5e5', fontSize: 24, cursor: 'pointer', lineHeight: 1, userSelect: 'none' }}
+            style={{ color: filled ? '#a8b899' : '#e5e5e5', fontSize: 24, cursor: 'pointer', lineHeight: 1, userSelect: 'none' }}
             onMouseEnter={() => setHovered(i + 1)}
             onMouseLeave={() => setHovered(0)}
             onClick={() => onChange(i + 1)}
@@ -214,7 +214,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
         </p>
         {media && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#888' }}>
-            <b style={{ color: '#111' }}>{media}</b>
+            <b style={{ color: '#2a2e25' }}>{media}</b>
             <Stars count={Math.round(parseFloat(media))} />
             <span>({observacoes.length})</span>
           </div>
@@ -242,25 +242,25 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                   left: -14, top: 12,
                   width: 10, height: 10,
                   borderRadius: '50%',
-                  background: isRecent ? '#FFE000' : '#e5e5e5',
-                  border: `1.5px solid ${isRecent ? '#111' : '#ccc'}`,
+                  background: isRecent ? '#a8b899' : '#e5e5e5',
+                  border: `1.5px solid ${isRecent ? '#6d745f' : '#ccc'}`,
                 }} />
 
                 {/* Card */}
-                <div style={{ background: '#f7f7f5', borderRadius: 6, padding: '10px 12px' }}>
+                <div style={{ background: '#f4f5f0', borderRadius: 6, padding: '10px 12px' }}>
 
                   {/* Top row: avatar + name + stars */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isEditing ? 8 : 6 }}>
                     <div style={{
                       width: 24, height: 24, borderRadius: '50%',
-                      background: '#111', color: '#FFE000',
+                      background: '#6d745f', color: '#fff',
                       fontSize: 10, fontWeight: 500,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0,
                     }}>
                       {getInitials(obs)}
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: '#111' }}>{getDisplayName(obs)}</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25' }}>{getDisplayName(obs)}</span>
                     {isEditing
                       ? <StarSelector value={editEstrelas} onChange={setEditEstrelas} />
                       : <Stars count={obs.estrelas} />
@@ -280,7 +280,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                           resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
                           outline: 'none',
                         }}
-                        onFocus={e => (e.target.style.borderColor = '#111')}
+                        onFocus={e => (e.target.style.borderColor = '#6d745f')}
                         onBlur={e => (e.target.style.borderColor = '#e5e5e5')}
                       />
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
@@ -298,8 +298,8 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                             onClick={() => handleSaveEdit(obs.id)}
                             disabled={saving || !editTexto.trim() || editTexto.length > 150 || editEstrelas === 0}
                             style={{
-                              fontSize: 12, fontWeight: 500, color: '#111',
-                              background: '#FFE000', border: '1px solid #111',
+                              fontSize: 12, fontWeight: 500, color: '#fff',
+                              background: '#6d745f', border: 'none',
                               borderRadius: 4, padding: '4px 12px', cursor: saving ? 'not-allowed' : 'pointer',
                               opacity: saving ? 0.7 : 1,
                             }}
@@ -356,8 +356,8 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                 onClick={handleFavoritar}
                 disabled={favoritando}
                 style={{
-                  background: '#FFE000', color: '#111',
-                  border: '1.5px solid #111', borderRadius: 4,
+                  background: '#6d745f', color: '#fff',
+                  border: 'none', borderRadius: 4,
                   padding: '6px 14px', fontSize: 12, fontWeight: 500,
                   cursor: favoritando ? 'not-allowed' : 'pointer',
                   opacity: favoritando ? 0.7 : 1,
@@ -407,9 +407,9 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                   width: '100%', border: '1px solid #e5e5e5', borderRadius: 4,
                   padding: '10px 12px', fontSize: 13, minHeight: 72,
                   resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-                  outline: 'none', color: '#111',
+                  outline: 'none', color: '#2a2e25',
                 }}
-                onFocus={e => (e.target.style.borderColor = '#111')}
+                onFocus={e => (e.target.style.borderColor = '#6d745f')}
                 onBlur={e => (e.target.style.borderColor = '#e5e5e5')}
               />
               <div style={{ textAlign: 'right', fontSize: 11, color: texto.length > 130 ? '#ef4444' : '#888', marginTop: 2 }}>
@@ -423,8 +423,8 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                 onClick={handlePublish}
                 disabled={!canPublish || publishing}
                 style={{
-                  background: '#FFE000', color: '#111',
-                  border: '1.5px solid #111', borderRadius: 4,
+                  background: '#6d745f', color: '#fff',
+                  border: 'none', borderRadius: 4,
                   padding: '8px 18px', fontSize: 13, fontWeight: 500,
                   cursor: canPublish && !publishing ? 'pointer' : 'not-allowed',
                   opacity: canPublish && !publishing ? 1 : 0.5,

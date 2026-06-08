@@ -44,8 +44,8 @@ function statusCfg(status: string) {
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
-  bg: '#0b0b0b', card: '#141414', card2: '#1c1c1c',
-  border: '#252525', primary: '#f4c542', text: '#ffffff', muted: '#8b8b8b',
+  bg: '#f4f5f0', card: '#ffffff', card2: '#eaece4',
+  border: '#d0d4c6', primary: '#6d745f', text: '#2a2e25', muted: '#6d745f',
 }
 
 type TipoFiltro = 'todos' | 'mtb' | 'pumptrack'
@@ -188,7 +188,7 @@ export default function MinhasTrilhasPage() {
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) return (
     <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid rgba(255,255,255,0.08)', borderTopColor: T.primary, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 32, height: 32, border: '2px solid rgba(0,0,0,0.08)', borderTopColor: T.primary, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -215,7 +215,7 @@ export default function MinhasTrilhasPage() {
           </div>
           <Link href="/trilhas/cadastrar" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: T.primary, color: '#000', borderRadius: 12,
+            background: T.primary, color: '#fff', borderRadius: 12,
             padding: '9px 14px', fontSize: 13, fontWeight: 800, textDecoration: 'none', flexShrink: 0,
           }}>
             <i className="ti ti-plus" style={{ fontSize: 14 }} />
@@ -239,13 +239,13 @@ export default function MinhasTrilhasPage() {
                 flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 14px', borderRadius: 20,
                 background: tipoFiltro === opt.id ? T.primary : T.card2,
-                color: tipoFiltro === opt.id ? '#000' : T.muted,
+                color: tipoFiltro === opt.id ? '#fff' : T.muted,
                 border: tipoFiltro === opt.id ? 'none' : `1px solid ${T.border}`,
                 fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 transition: 'all 0.15s', outline: 'none',
               }}>
               {opt.label}
-              <span style={{ fontSize: 11, background: tipoFiltro === opt.id ? 'rgba(0,0,0,0.15)' : '#252525', borderRadius: 10, padding: '1px 7px' }}>{opt.count}</span>
+              <span style={{ fontSize: 11, background: tipoFiltro === opt.id ? 'rgba(255,255,255,0.2)' : T.border, borderRadius: 10, padding: '1px 7px' }}>{opt.count}</span>
             </button>
           ))}
         </div>
@@ -307,7 +307,7 @@ export default function MinhasTrilhasPage() {
         {(estadoFiltro || cidadeFiltro) && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
             {estadoFiltro && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(244,197,66,0.1)', border: '1px solid rgba(244,197,66,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(109,116,95,0.08)', border: '1px solid rgba(109,116,95,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
                 {estadoFiltro}
                 <button onClick={() => { setEstadoFiltro(''); setCidadeFiltro('') }} style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', padding: 0, fontSize: 12, display: 'flex' }}>
                   <i className="ti ti-x" />
@@ -315,7 +315,7 @@ export default function MinhasTrilhasPage() {
               </span>
             )}
             {cidadeFiltro && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(244,197,66,0.1)', border: '1px solid rgba(244,197,66,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(109,116,95,0.08)', border: '1px solid rgba(109,116,95,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
                 {cidadeFiltro}
                 <button onClick={() => setCidadeFiltro('')} style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', padding: 0, fontSize: 12, display: 'flex' }}>
                   <i className="ti ti-x" />
@@ -330,14 +330,14 @@ export default function MinhasTrilhasPage() {
       <div style={{ padding: '0 16px 100px', maxWidth: 640, margin: '0 auto' }}>
         {items.length === 0 ? (
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 20, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <i className="ti ti-map-pin" style={{ fontSize: 24, color: T.muted }} />
             </div>
             <p style={{ fontSize: 15, color: T.text, fontWeight: 600, margin: '0 0 8px' }}>Nenhum cadastro ainda</p>
             <p style={{ fontSize: 13, color: T.muted, margin: '0 0 24px' }}>Compartilhe suas trilhas e pump tracks com a comunidade MTB.</p>
             <Link href="/trilhas/cadastrar" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: T.primary, color: '#000', borderRadius: 14,
+              background: T.primary, color: '#fff', borderRadius: 14,
               padding: '12px 24px', fontSize: 14, fontWeight: 800, textDecoration: 'none',
             }}>
               <i className="ti ti-plus" style={{ fontSize: 16 }} />
@@ -429,7 +429,7 @@ export default function MinhasTrilhasPage() {
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <Link href={editHref} style={{
                           display: 'inline-flex', alignItems: 'center', gap: 6,
-                          background: '#232323', color: T.text, borderRadius: 10,
+                          background: T.card2, color: T.text, borderRadius: 10,
                           padding: '8px 16px', fontSize: 13, fontWeight: 600,
                           textDecoration: 'none', border: `1px solid ${T.border}`,
                         }}>
@@ -440,9 +440,9 @@ export default function MinhasTrilhasPage() {
                         {isPTActive && (
                           <Link href="/mapa" style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
-                            background: '#1a1a00', color: T.primary, borderRadius: 10,
+                            background: T.card2, color: T.primary, borderRadius: 10,
                             padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                            textDecoration: 'none', border: '1px solid rgba(244,197,66,0.2)',
+                            textDecoration: 'none', border: `1px solid ${T.border}`,
                           }}>
                             <i className="ti ti-map" style={{ fontSize: 14 }} />
                             Ver no mapa

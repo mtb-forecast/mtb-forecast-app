@@ -42,7 +42,7 @@ function Stars({ count, size = 13 }: { count: number; size?: number }) {
   return (
     <span style={{ display: 'inline-flex', gap: 1 }}>
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} style={{ color: i < count ? '#FFE000' : '#e5e5e5', fontSize: size }}>★</span>
+        <span key={i} style={{ color: i < count ? '#a8b899' : '#e5e5e5', fontSize: size }}>★</span>
       ))}
     </span>
   )
@@ -58,7 +58,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
           onMouseEnter={() => setHovered(i + 1)}
           onMouseLeave={() => setHovered(0)}
           onClick={() => onChange(i + 1)}
-          style={{ color: i < (hovered || value) ? '#FFE000' : '#d1d5db', fontSize: 24, cursor: 'pointer', transition: 'color 0.1s' }}
+          style={{ color: i < (hovered || value) ? '#a8b899' : '#d1d5db', fontSize: 24, cursor: 'pointer', transition: 'color 0.1s' }}
         >★</span>
       ))}
     </div>

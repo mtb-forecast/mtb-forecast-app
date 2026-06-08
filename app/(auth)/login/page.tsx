@@ -107,7 +107,7 @@ function LoginForm() {
       {/* Left: black branding panel */}
       <div
         className="hidden lg:flex"
-        style={{ background: '#111', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
+        style={{ background: '#2a2e25', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
       >
         <Link href="/" className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
           MTB FORECASTER
@@ -169,7 +169,7 @@ function LoginForm() {
               <div style={{ textAlign: 'right', marginTop: 8 }}>
                 <span
                   onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotSent(false); setForgotError(null) }}
-                  style={{ fontSize: 13, color: '#111', cursor: 'pointer', borderBottom: '1px solid #ccc' }}
+                  style={{ fontSize: 13, color: '#6d745f', cursor: 'pointer', borderBottom: '1px solid #a8b899' }}
                 >
                   Esqueci minha senha
                 </span>
@@ -179,8 +179,8 @@ function LoginForm() {
               type="submit"
               disabled={loading}
               style={{
-                background: '#FFE000', color: '#111',
-                border: '1.5px solid #111', borderRadius: 4,
+                background: '#6d745f', color: '#fff',
+                border: 'none', borderRadius: 4,
                 padding: '10px 20px', fontSize: 14, fontWeight: 500,
                 cursor: loading ? 'not-allowed' : 'pointer',
                 opacity: loading ? 0.7 : 1,
@@ -207,7 +207,7 @@ function LoginForm() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               cursor: 'pointer',
             }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#111')}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = '#6d745f')}
             onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5e5e5')}
           >
             <GoogleIcon />
@@ -215,7 +215,7 @@ function LoginForm() {
           </button>
 
           <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <Link href="/cadastro" style={{ fontSize: 14, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
+            <Link href="/cadastro" style={{ fontSize: 14, color: '#6d745f', fontWeight: 500, borderBottom: '1px solid #a8b899' }}>
               Criar conta grátis
             </Link>
           </div>
@@ -241,7 +241,7 @@ function LoginForm() {
                 </p>
                 <button
                   onClick={() => setShowForgot(false)}
-                  style={{ width: '100%', background: '#111', color: '#FFE000', border: 'none', borderRadius: 4, padding: '10px 20px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                  style={{ width: '100%', background: '#6d745f', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 20px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
                 >
                   Fechar
                 </button>
@@ -279,7 +279,7 @@ function LoginForm() {
                     <button
                       type="submit"
                       disabled={forgotLoading}
-                      style={{ flex: 2, background: '#FFE000', color: '#111', border: '1.5px solid #111', borderRadius: 4, padding: '10px', fontSize: 14, fontWeight: 500, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.7 : 1 }}
+                      style={{ flex: 2, background: '#6d745f', color: '#fff', border: 'none', borderRadius: 4, padding: '10px', fontSize: 14, fontWeight: 500, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.7 : 1 }}
                     >
                       {forgotLoading ? 'Enviando...' : 'Enviar link'}
                     </button>
