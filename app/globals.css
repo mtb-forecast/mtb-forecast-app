@@ -19,7 +19,7 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-.font-wheat { font-family: 'WheatSmile', Georgia, serif !important; }
+.font-wheat { /* WheatSmile removida — herda DM Sans do body */ }
 .font-mono-data { font-family: var(--font-dm-mono), monospace; }
 
 a { text-decoration: none; color: inherit; }
