@@ -373,8 +373,15 @@ export default function GravarTrilhaPage() {
 
       {/* ── MAP ───────────────────────────────────────────────────── */}
       {showMap && (
-        <div style={{ position: 'relative', flex: 1 }}>
-          <div ref={mapDivRef} style={{ height: 'calc(100vh - 210px)', width: '100%', background: '#eaece4' }} />
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div ref={mapDivRef} style={{
+            height: phase === 'idle'
+              ? 'calc(100vh - 64px)'
+              : phase === 'trimming'
+                ? 'calc(100vh - 64px - 240px)'
+                : 'calc(100vh - 64px - 122px)',
+            width: '100%', background: '#eaece4',
+          }} />
 
           {gpsError && (
             <div style={{ position: 'absolute', top: 12, left: 12, right: 12, background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 8, padding: '10px 14px', fontSize: 13, zIndex: 1000 }}>
@@ -382,6 +389,39 @@ export default function GravarTrilhaPage() {
             </div>
           )}
 
+          {/* IDLE — botão central flutuante */}
+          {phase === 'idle' && (
+            <div style={{ position: 'absolute', bottom: 48, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, zIndex: 1000, pointerEvents: 'none' }}>
+              <button
+                onClick={handleStart}
+                style={{
+                  pointerEvents: 'all',
+                  width: 88, height: 88, borderRadius: '50%',
+                  background: '#6d745f',
+                  border: '5px solid rgba(255,255,255,0.9)',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.30)',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 32px rgba(0,0,0,0.38)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.30)' }}
+              >
+                <i className="ti ti-player-record-filled" style={{ fontSize: 36, color: '#fff' }} />
+              </button>
+              <span style={{
+                pointerEvents: 'none',
+                background: 'rgba(42,46,37,0.82)', color: '#f4f5f0',
+                fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
+                padding: '5px 14px', borderRadius: 999,
+                backdropFilter: 'blur(4px)',
+              }}>
+                INICIAR GRAVAÇÃO
+              </span>
+            </div>
+          )}
+
+          {/* Stats overlay — recording / paused */}
           {(phase === 'recording' || phase === 'paused') && (
             <div style={{ position: 'absolute', top: 12, left: 12, right: 12, background: 'rgba(255,255,255,0.96)', borderRadius: 12, padding: '12px 16px', zIndex: 1000, display: 'flex', justifyContent: 'space-around', alignItems: 'center', boxShadow: '0 2px 12px rgba(0,0,0,.12)' }}>
               <div style={{ textAlign: 'center' }}>
@@ -406,17 +446,9 @@ export default function GravarTrilhaPage() {
       {/* ── CONTROLS ──────────────────────────────────────────────── */}
       <div style={{ background: '#2a2e25', flexShrink: 0 }}>
 
-        {/* IDLE */}
+        {/* IDLE — sem barra, botão está no mapa */}
         {phase === 'idle' && (
-          <div style={{ padding: '20px 20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <h2 style={{ color: '#f4f5f0', fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Gravar trilha</h2>
-              <p style={{ color: '#8a9280', fontSize: 12, margin: 0 }}>Posicione-se no início e pressione Iniciar</p>
-            </div>
-            <button onClick={handleStart} style={{ background: '#6d745f', color: '#fff', border: 'none', borderRadius: 12, padding: '18px', fontSize: 17, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <i className="ti ti-player-play-filled" style={{ fontSize: 20 }} />
-              INICIAR GRAVAÇÃO
-            </button>
+          <div style={{ display: 'none' }}>
           </div>
         )}
 
