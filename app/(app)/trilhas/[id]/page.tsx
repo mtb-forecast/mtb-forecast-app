@@ -285,10 +285,10 @@ export default function TrilhaDetalhe() {
           {/* b) Dados físicos */}
           {(trilha.desnivel_m != null || trilha.extensao_km != null || (clay != null && c?.texture_class)) && (
             <div className="dados-fisicos" style={{ fontSize: 13, color: '#9CA3AF', marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {trilha.desnivel_m != null && <span>⛰ {trilha.desnivel_m}m desnível</span>}
-              {trilha.extensao_km != null && <span>📏 {trilha.extensao_km}km</span>}
+              {trilha.desnivel_m != null && <span className="font-mono">⛰ {trilha.desnivel_m}m desnível</span>}
+              {trilha.extensao_km != null && <span className="font-mono">📏 {trilha.extensao_km}km</span>}
               {clay != null && c?.texture_class && (
-                <span>🪨 {c.texture_class} (arg {clay}% · ar {c?.sand_pct ?? '?'}%)</span>
+                <span>🪨 {c.texture_class} (<span className="font-mono">arg {clay}% · ar {c?.sand_pct ?? '?'}%</span>)</span>
               )}
             </div>
           )}
@@ -298,9 +298,9 @@ export default function TrilhaDetalhe() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
               <span style={{ fontSize: 28 }}>{emojiTempo(c.rain_mm, c.pop_12h)}</span>
               <div>
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#E5E7EB' }}>{c.temp_max}°</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#E5E7EB' }} className="font-mono">{c.temp_max}°</span>
                 {c.temp_min != null && (
-                  <span style={{ fontSize: 14, color: '#6B7280', fontWeight: 400 }}> / {c.temp_min}°</span>
+                  <span style={{ fontSize: 14, color: '#6B7280', fontWeight: 400 }} className="font-mono"> / {c.temp_min}°</span>
                 )}
               </div>
             </div>
@@ -381,8 +381,8 @@ export default function TrilhaDetalhe() {
                 🟡 <b>Rajadas previstas nas próximas 48h</b><br />
                 <span style={{ fontWeight: 400, color: '#a16207' }}>
                   {trilha.exposicao?.toLowerCase() === 'aberta'
-                    ? `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h. Trilha exposta — risco em descidas rápidas e cristas.`
-                    : `Rajadas de até ${c.alerta_rajada_kmh.toFixed(0)} km/h. Mesmo em trilha fechada, rajadas acima de 50 km/h podem atingir clareiras.`}
+                    ? <>Rajadas de até <span className="font-mono">{c.alerta_rajada_kmh.toFixed(0)} km/h</span>. Trilha exposta — risco em descidas rápidas e cristas.</>
+                    : <>Rajadas de até <span className="font-mono">{c.alerta_rajada_kmh.toFixed(0)} km/h</span>. Mesmo em trilha fechada, rajadas acima de <span className="font-mono">50 km/h</span> podem atingir clareiras.</>}
                 </span>
               </div>
             )}
@@ -404,7 +404,7 @@ export default function TrilhaDetalhe() {
               const rajada = c.alerta_rajada_kmh ? ` · rajada ${c.alerta_rajada_kmh.toFixed(0)} km/h` : ''
               return (
                 <div style={{ background: a.bg, borderLeft: `3px solid ${a.border}`, borderRadius: '0 4px 4px 0', padding: '10px 14px', fontSize: 12, color: a.corT, fontWeight: 600, lineHeight: 1.5 }}>
-                  {a.emoji} <b>{a.titulo}</b> ({c.alerta_vento_kmh.toFixed(0)} km/h sustentado{rajada})<br />
+                  {a.emoji} <b>{a.titulo}</b> (<span className="font-mono">{c.alerta_vento_kmh.toFixed(0)} km/h sustentado{rajada}</span>)<br />
                   <span style={{ fontWeight: 400, color: a.corS }}>{a.msg}</span>
                 </div>
               )

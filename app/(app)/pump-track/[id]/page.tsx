@@ -183,7 +183,7 @@ export default function PumpTrackDetailPage() {
                       Chuva 24h
                     </span>
                   </div>
-                  <p style={{ fontSize: 22, fontWeight: 800, color: rainColor(c.rain_mm ?? 0), margin: 0, lineHeight: 1 }}>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: rainColor(c.rain_mm ?? 0), margin: 0, lineHeight: 1 }} className="font-mono">
                     {c.rain_mm != null ? `${c.rain_mm.toFixed(1)}` : '—'}
                     <span style={{ fontSize: 12, fontWeight: 500, marginLeft: 3 }}>mm</span>
                   </p>
@@ -197,7 +197,7 @@ export default function PumpTrackDetailPage() {
                       Vento 24h
                     </span>
                   </div>
-                  <p style={{ fontSize: 22, fontWeight: 800, color: windColor(c.wind_kmh ?? 0), margin: 0, lineHeight: 1 }}>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: windColor(c.wind_kmh ?? 0), margin: 0, lineHeight: 1 }} className="font-mono">
                     {c.wind_kmh != null ? `${c.wind_kmh.toFixed(0)}` : '—'}
                     <span style={{ fontSize: 12, fontWeight: 500, marginLeft: 3 }}>km/h</span>
                   </p>
@@ -211,7 +211,7 @@ export default function PumpTrackDetailPage() {
                       Temperatura
                     </span>
                   </div>
-                  <p style={{ fontSize: 22, fontWeight: 800, color: '#374151', margin: 0, lineHeight: 1 }}>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: '#374151', margin: 0, lineHeight: 1 }} className="font-mono">
                     {c.temp_max != null ? `${Math.round(c.temp_max)}°` : '—'}
                     {c.temp_min != null && (
                       <span style={{ fontSize: 14, fontWeight: 500, color: '#9CA3AF', marginLeft: 4 }}>

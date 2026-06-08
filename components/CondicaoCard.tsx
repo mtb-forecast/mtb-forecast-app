@@ -234,7 +234,7 @@ function CondicaoCard({ condicao }: Props) {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 11, color: '#9CA3AF' }}>Report: {horaReport}</div>
-          <div style={{ fontSize: 10, color: '#9CA3AF' }}>{driftHoras}h atrás</div>
+          <div style={{ fontSize: 10, color: '#9CA3AF' }} className="font-mono">{driftHoras}h atrás</div>
         </div>
       </div>
 
@@ -280,14 +280,14 @@ function CondicaoCard({ condicao }: Props) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
               <i className="ti ti-droplet" style={{ fontSize: 13, color: rainColor(acumuloAgora) }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: rainColor(acumuloAgora) }}>{acumuloAgora.toFixed(1)}mm</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: rainColor(acumuloAgora) }} className="font-mono">{acumuloAgora.toFixed(1)}mm</span>
               <span style={{ fontSize: 11, color: '#6B7280' }}>retidos</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
               <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }} className="font-mono">
                 {badgeSolo}
               </span>
             </div>
@@ -295,7 +295,7 @@ function CondicaoCard({ condicao }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
               <i className="ti ti-history" style={{ fontSize: 13, color: '#9CA3AF' }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }} className="font-mono">
                 {condicao.ultima_chuva_h != null
                   ? `últ. chuva ${fmtUltimaChuva(ultimaChuvaH)}`
                   : 'sem chuva registrada'}
@@ -316,7 +316,7 @@ function CondicaoCard({ condicao }: Props) {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 11, color: '#9CA3AF' }}>Caminho para Grip Perfeito</span>
-              <span style={{ fontSize: 11, fontWeight: 500, color: indicatorColor }}>
+              <span style={{ fontSize: 11, fontWeight: 500, color: indicatorColor }} className="font-mono">
                 {labelGrip}
               </span>
             </div>
@@ -341,7 +341,7 @@ function CondicaoCard({ condicao }: Props) {
                       <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#F59E0B' }} />
                       Previsão {condicao.aderencia_futura_label}: {condicao.aderencia_futura_status}
                       {condicao.aderencia_futura_rain != null && condicao.aderencia_futura_rain > 0
-                        ? ` (${condicao.aderencia_futura_rain.toFixed(1)}mm previstos)` : ''}
+                        ? <span className="font-mono"> ({condicao.aderencia_futura_rain.toFixed(1)}mm previstos)</span> : null}
                     </div>
                     <span style={{ fontSize: 11, color: '#B45309', paddingLeft: 19 }}>Evite a trilha neste período.</span>
                   </div>
@@ -353,7 +353,7 @@ function CondicaoCard({ condicao }: Props) {
                     <div style={{ fontSize: 12, color: vCfg.cor, fontWeight: 600, marginBottom: 3 }}>
                       <i className="ti ti-wind" style={{ fontSize: 12, marginRight: 5 }} />
                       {vCfg.titulo}
-                      {condicao.alerta_vento_kmh != null && ` · ${condicao.alerta_vento_kmh.toFixed(0)} km/h`}
+                      {condicao.alerta_vento_kmh != null && <span className="font-mono"> · {condicao.alerta_vento_kmh.toFixed(0)} km/h</span>}
                     </div>
                     <p style={{ fontSize: 11, color: vCfg.cor, margin: 0, opacity: 0.8, paddingLeft: 19 }}>{vCfg.msg}</p>
                   </div>
@@ -363,7 +363,7 @@ function CondicaoCard({ condicao }: Props) {
                 {temRajada && condicao.gust_max_kmh != null && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F9FAFB', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#374151' }}>
                     <i className="ti ti-wind" style={{ fontSize: 14, color: windColor(condicao.gust_max_kmh) }} />
-                    <span>Rajada prevista de até <b>{condicao.gust_max_kmh.toFixed(0)} km/h</b> nas próximas 24h</span>
+                    <span>Rajada prevista de até <b className="font-mono">{condicao.gust_max_kmh.toFixed(0)} km/h</b> nas próximas 24h</span>
                   </div>
                 )}
 
@@ -371,7 +371,7 @@ function CondicaoCard({ condicao }: Props) {
                 {temChuva24h && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F9FAFB', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#374151' }}>
                     <i className="ti ti-droplet" style={{ fontSize: 14, color: '#3B82F6' }} />
-                    <span>
+                    <span className="font-mono">
                       Chuva prevista: {chuvasPrev.map(b => `${b.rain_mm.toFixed(1)}mm (${b.label})`).join(', ')}
                     </span>
                   </div>
@@ -406,16 +406,16 @@ function CondicaoCard({ condicao }: Props) {
               {condicao.previsao_24h!.map(b => (
                 <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '5px 10px', borderRadius: 6, background: '#F9FAFB' }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', minWidth: 70 }}>{b.label}</span>
-                  <span style={{ color: b.rain_mm > 5 ? '#EF4444' : b.rain_mm > 1 ? '#F59E0B' : '#22C55E' }}>
+                  <span style={{ color: b.rain_mm > 5 ? '#EF4444' : b.rain_mm > 1 ? '#F59E0B' : '#22C55E' }} className="font-mono">
                     <i className="ti ti-droplet" style={{ fontSize: 11 }} /> {b.rain_mm.toFixed(1)}mm
                   </span>
-                  <span style={{ color: '#9CA3AF' }}>
+                  <span style={{ color: '#9CA3AF' }} className="font-mono">
                     <i className="ti ti-cloud" style={{ fontSize: 11 }} /> {b.pop_max}%
                   </span>
-                  <span style={{ color: '#6B7280' }}>
+                  <span style={{ color: '#6B7280' }} className="font-mono">
                     <i className="ti ti-wind" style={{ fontSize: 11 }} /> {b.wind_max.toFixed(1)}m/s
                   </span>
-                  <span style={{ color: '#9CA3AF', marginLeft: 'auto' }}>{b.temp_med}°C</span>
+                  <span style={{ color: '#9CA3AF', marginLeft: 'auto' }} className="font-mono">{b.temp_med}°C</span>
                 </div>
               ))}
             </div>
@@ -447,12 +447,12 @@ function CondicaoCard({ condicao }: Props) {
                       <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>{label}</div>
                       <div style={{ fontSize: 22, marginBottom: 2 }}>{emojiTempo(rain, pop)}</div>
                       {(tmax != null || tmin != null) && (
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 3 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 3 }} className="font-mono">
                           {tmax != null ? `${tmax}°` : '—'}<span style={{ color: '#9CA3AF', fontWeight: 400 }}> / {tmin != null ? `${tmin}°` : '—'}</span>
                         </div>
                       )}
                       <div style={{ fontSize: 10, fontWeight: 600, color: vcfg?.cor ?? '#9CA3AF', marginBottom: 4 }}>{vcfg?.emoji ?? ''} {v ?? 'SEM DADOS'}</div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF' }}>
+                      <div style={{ fontSize: 10, color: '#9CA3AF' }} className="font-mono">
                         {rain != null && `🌧 ${rain.toFixed(1)}mm`}
                         {pop != null && ` (${pop}%)`}
                         {wind != null && ` · 💨 ${wind.toFixed(1)}m/s`}
@@ -473,7 +473,7 @@ function CondicaoCard({ condicao }: Props) {
             <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela</span>
             <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
               <i className="ti ti-clock" style={{ fontSize: 13, color: janela.color }} />
-              <span style={{ color: janela.color }}>{condicao.janela}</span>
+              <span style={{ color: janela.color }} className="font-mono">{condicao.janela}</span>
             </div>
           </div>
         ) : (

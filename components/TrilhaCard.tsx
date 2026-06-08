@@ -131,28 +131,28 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
               {c.acumulo_48h != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                   <i className="ti ti-droplet" style={{ fontSize: 12, color: rainColor(c.acumulo_48h) }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.acumulo_48h) }}>{c.acumulo_48h.toFixed(1)}mm</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.acumulo_48h) }} className="font-mono">{c.acumulo_48h.toFixed(1)}mm</span>
                   <span style={{ fontSize: 10, color: '#9CA3AF' }}>chuva 48h</span>
                 </div>
               )}
               {showPico && c.pico_3h != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                   <i className="ti ti-droplet-half" style={{ fontSize: 12, color: rainColor(c.pico_3h) }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.pico_3h) }}>{c.pico_3h.toFixed(1)}mm</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.pico_3h) }} className="font-mono">{c.pico_3h.toFixed(1)}mm</span>
                   <span style={{ fontSize: 10, color: '#9CA3AF' }}>pico 3h</span>
                 </div>
               )}
               {windKmh != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                   <i className="ti ti-wind" style={{ fontSize: 12, color: windColor(windKmh) }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: windColor(windKmh) }}>{windKmh.toFixed(0)} km/h</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: windColor(windKmh) }} className="font-mono">{windKmh.toFixed(0)} km/h</span>
                   <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento</span>
                 </div>
               )}
               {c.ultima_chuva_h != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
                   <i className="ti ti-history" style={{ fontSize: 12, color: '#9CA3AF' }} />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }}>últ. chuva {fmtUltimaChuva(c.ultima_chuva_h)}</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }} className="font-mono">últ. chuva {fmtUltimaChuva(c.ultima_chuva_h)}</span>
                 </div>
               )}
             </div>
@@ -175,7 +175,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
               <div style={{ background: janelaBg, borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <i className="ti ti-clock" style={{ fontSize: 13, color: '#6B7280' }} />
                 <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela:</span>
-                <span style={{ fontSize: 12, color: '#374151' }}>{c.janela}</span>
+                <span style={{ fontSize: 12, color: '#374151' }} className="font-mono">{c.janela}</span>
               </div>
             ) : (
               <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
