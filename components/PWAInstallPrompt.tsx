@@ -68,8 +68,8 @@ export default function PWAInstallPrompt() {
       backdropFilter: 'blur(4px)',
     }}>
       <div style={{
-        background: '#111',
-        border: '1.5px solid #FFE000',
+        background: '#2a2e25',
+        border: '1.5px solid #a8b899',
         borderRadius: '12px',
         padding: '20px',
         maxWidth: '480px',
@@ -78,11 +78,11 @@ export default function PWAInstallPrompt() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
           <div style={{
             width: '48px', height: '48px',
-            background: '#111', border: '1px solid #333',
+            background: '#1a2218', border: '1px solid #3a4035',
             borderRadius: '12px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <span style={{ fontFamily: 'Georgia,serif', fontSize: '12px', fontWeight: '700', color: '#FFE000', letterSpacing: '-0.5px' }}>MTB</span>
+            <span style={{ fontFamily: 'Georgia,serif', fontSize: '12px', fontWeight: '700', color: '#a8b899', letterSpacing: '-0.5px' }}>MTB</span>
           </div>
           <div>
             <div style={{ fontSize: '15px', fontWeight: '500', color: '#fff' }}>Instalar MTB Forecaster</div>
@@ -106,8 +106,8 @@ export default function PWAInstallPrompt() {
               onClick={handleInstall}
               style={{
                 flex: 1,
-                background: '#FFE000', color: '#111',
-                border: '1.5px solid #111', borderRadius: '4px',
+                background: '#6d745f', color: '#fff',
+                border: 'none', borderRadius: '4px',
                 padding: '10px', fontSize: '14px', fontWeight: '500',
                 cursor: 'pointer',
               }}
@@ -119,8 +119,8 @@ export default function PWAInstallPrompt() {
             onClick={handleDismiss}
             style={{
               flex: isIOS ? 1 : 'none',
-              background: 'transparent', color: '#888',
-              border: '1px solid #333', borderRadius: '4px',
+              background: 'transparent', color: '#a8b899',
+              border: '1px solid #3a4035', borderRadius: '4px',
               padding: '10px 16px', fontSize: '14px',
               cursor: 'pointer',
             }}

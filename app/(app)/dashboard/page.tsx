@@ -129,11 +129,11 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#F8F9FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
             width: 32, height: 32, border: '2px solid #e5e5e5',
-            borderTopColor: '#111', borderRadius: '50%',
+            borderTopColor: '#6d745f', borderRadius: '50%',
             animation: 'spin 0.8s linear infinite', margin: '0 auto 12px',
           }} />
           <p style={{ color: '#888', fontSize: 14 }}>Carregando condições...</p>
@@ -146,10 +146,10 @@ export default function DashboardPage() {
   const name = profile?.apelido || profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8F9FA' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <div style={{ background: '#1A1A1A', padding: '32px 28px 28px' }}>
+      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h1 style={{
             fontFamily: barlow.style.fontFamily,
@@ -160,7 +160,7 @@ export default function DashboardPage() {
             {name ? (
               <>
                 <span style={{ color: '#FFFFFF' }}>Olá, </span>
-                <span style={{ color: '#FFE000' }}>{name}</span>
+                <span style={{ color: '#a8b899' }}>{name}</span>
                 <span style={{ color: '#FFFFFF' }}>.</span>
               </>
             ) : (
@@ -193,7 +193,7 @@ export default function DashboardPage() {
             </p>
           )}
 
-          <div style={{ background: '#FFE000', height: 3, marginTop: 20 }} />
+          <div style={{ background: '#a8b899', height: 3, marginTop: 20 }} />
         </div>
       </div>
 
@@ -207,8 +207,8 @@ export default function DashboardPage() {
             <Link
               href="/perfil"
               style={{
-                fontSize: 13, fontWeight: 500, color: '#111',
-                background: '#FFE000', border: '1.5px solid #111',
+                fontSize: 13, fontWeight: 500, color: '#fff',
+                background: '#6d745f', border: 'none',
                 borderRadius: 4, padding: '6px 16px',
                 whiteSpace: 'nowrap', textDecoration: 'none',
               }}
@@ -224,7 +224,7 @@ export default function DashboardPage() {
 
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 500, color: '#111111' }}>Minhas trilhas favoritas</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 500, color: '#2a2e25' }}>Minhas trilhas favoritas</h2>
             <Link href="/trilhas" style={{ fontSize: 13, color: '#6B7280', fontWeight: 400, textDecoration: 'none' }}>
               Ver todas →
             </Link>
@@ -234,8 +234,8 @@ export default function DashboardPage() {
             <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 40, textAlign: 'center' }}>
               <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>Você ainda não tem trilhas favoritas.</p>
               <Link href="/trilhas" style={{
-                background: '#FFE000', color: '#111',
-                border: '1.5px solid #111', borderRadius: 4,
+                background: '#6d745f', color: '#fff',
+                border: 'none', borderRadius: 4,
                 padding: '10px 20px', fontSize: 13, fontWeight: 500,
                 textDecoration: 'none',
               }}>

@@ -36,14 +36,14 @@ export default function NovaSenhaPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8F9FA', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ background: '#fff', borderRadius: 8, padding: 40, width: '100%', maxWidth: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
 
-        <Link href="/" className="font-wheat" style={{ color: '#111', fontSize: 16, letterSpacing: '1.5px', display: 'block', marginBottom: 32 }}>
+        <Link href="/" className="font-wheat" style={{ color: '#2a2e25', fontSize: 16, letterSpacing: '1.5px', display: 'block', marginBottom: 32 }}>
           MTB FORECASTER
         </Link>
 
-        <h2 className="font-wheat" style={{ fontSize: 26, color: '#111', marginBottom: 8 }}>Nova senha</h2>
+        <h2 className="font-wheat" style={{ fontSize: 26, color: '#2a2e25', marginBottom: 8 }}>Nova senha</h2>
         <p style={{ fontSize: 13, color: '#888', marginBottom: 28, lineHeight: 1.6 }}>
           Escolha uma nova senha para sua conta.
         </p>
@@ -88,8 +88,8 @@ export default function NovaSenhaPage() {
                 type="submit"
                 disabled={loading}
                 style={{
-                  background: '#FFE000', color: '#111',
-                  border: '1.5px solid #111', borderRadius: 4,
+                  background: '#6d745f', color: '#fff',
+                  border: 'none', borderRadius: 4,
                   padding: '10px 20px', fontSize: 14, fontWeight: 500,
                   cursor: loading ? 'not-allowed' : 'pointer',
                   opacity: loading ? 0.7 : 1,

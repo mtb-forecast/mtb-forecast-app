@@ -15,6 +15,16 @@ const config: Config = {
           'green-light': '#22c55e',
           'green-dark': '#15803d',
         },
+        sage: {
+          base: '#f4f5f0',
+          surface: '#eaece4',
+          card: '#ffffff',
+          border: '#d0d4c6',
+          accent: '#6d745f',
+          'accent-light': '#a8b899',
+          text: '#2a2e25',
+          muted: '#6d745f',
+        },
         dark: {
           900: '#0f172a',
           800: '#1e293b',

@@ -259,8 +259,8 @@ function ImportarStravaContent() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
@@ -269,10 +269,10 @@ function ImportarStravaContent() {
   if (!isAdmin) return null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* Header */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <Link
             href="/admin"
@@ -297,7 +297,7 @@ function ImportarStravaContent() {
           </p>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       <div style={{ padding: '32px 32px 48px', maxWidth: 900, margin: '0 auto' }}>
 
@@ -331,7 +331,7 @@ function ImportarStravaContent() {
         {!hasToken && !fetchError && (
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 56, textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>⭐</div>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#111', marginBottom: 8 }}>Conectar com Strava</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#2a2e25', marginBottom: 8 }}>Conectar com Strava</h2>
             <p style={{ fontSize: 14, color: '#888', maxWidth: 420, margin: '0 auto 32px' }}>
               Conecte sua conta Strava para importar seus segmentos favoritos como trilhas pendentes de aprovação.
             </p>
@@ -367,10 +367,10 @@ function ImportarStravaContent() {
         {hasToken && segments.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 500, color: '#111' }}>Segmentos favoritos no Strava</h2>
+              <h2 style={{ fontSize: 16, fontWeight: 500, color: '#2a2e25' }}>Segmentos favoritos no Strava</h2>
               <span style={{
                 fontSize: 11, fontWeight: 600,
-                background: '#f7f7f5', color: '#888',
+                background: '#f4f5f0', color: '#888',
                 border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 8px',
               }}>
                 {segments.length} segmento{segments.length !== 1 ? 's' : ''}
@@ -400,7 +400,7 @@ function ImportarStravaContent() {
                       <StravaMap polyline={seg.polyline} />
                     ) : tentouPolyline ? (
                       <div style={{
-                        height: 110, background: '#f7f7f5',
+                        height: 110, background: '#f4f5f0',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         borderBottom: '0.5px solid #e5e5e5',
                       }}>
@@ -411,7 +411,7 @@ function ImportarStravaContent() {
                     <div style={{ padding: 20 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: status === 'error' ? 12 : 0 }}>
                         <div>
-                          <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>{seg.name}</p>
+                          <p style={{ fontSize: 15, fontWeight: 600, color: '#2a2e25' }}>{seg.name}</p>
                           <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
                             {seg.distance_km > 0 && (
                               <span style={{ fontSize: 12, color: '#888' }}>📏 {seg.distance_km} km</span>
@@ -431,9 +431,9 @@ function ImportarStravaContent() {
                           onClick={() => importarSegmento(seg)}
                           disabled={isLoading}
                           style={{
-                            background: jaImportado ? '#dcfce7' : '#FFE000',
-                            color: jaImportado ? '#166534' : '#111',
-                            border: jaImportado ? '1.5px solid #86efac' : '1.5px solid #111',
+                            background: jaImportado ? '#dcfce7' : '#6d745f',
+                            color: jaImportado ? '#166534' : '#fff',
+                            border: jaImportado ? '1.5px solid #86efac' : 'none',
                             borderRadius: 4,
                             padding: '8px 20px', fontSize: 13, fontWeight: 500,
                             cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -444,7 +444,7 @@ function ImportarStravaContent() {
                           {isLoading && (
                             <span style={{
                               display: 'inline-block', width: 10, height: 10,
-                              border: `2px solid ${jaImportado ? '#86efac' : '#111'}`,
+                              border: `2px solid ${jaImportado ? '#86efac' : 'rgba(255,255,255,0.5)'}`,
                               borderTopColor: 'transparent',
                               borderRadius: '50%', animation: 'spin 0.7s linear infinite',
                             }} />
@@ -481,8 +481,8 @@ function ImportarStravaContent() {
 export default function ImportarStravaPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     }>

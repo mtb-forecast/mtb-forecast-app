@@ -14,8 +14,8 @@
 
 html, body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f7f7f5;
-  color: #111111;
+  background: #f4f5f0;
+  color: #2a2e25;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -28,15 +28,15 @@ input, select, textarea, button { font-family: inherit; }
 @layer components {
   .input-field {
     @apply w-full outline-none;
-    border: 1px solid #e5e5e5;
+    border: 1px solid #d0d4c6;
     border-radius: 4px;
     padding: 10px 14px;
     font-size: 14px;
     background: #fff;
-    color: #111;
+    color: #2a2e25;
     transition: border-color 0.15s;
   }
-  .input-field:focus { border-color: #111; }
+  .input-field:focus { border-color: #6d745f; }
   .input-field::placeholder { color: #888; }
   .input-field:disabled { opacity: 0.5; cursor: not-allowed; }
 

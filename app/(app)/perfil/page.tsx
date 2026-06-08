@@ -15,14 +15,14 @@ type TrilhaPendente = {
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:       '#0b0b0b',
-  card:     '#141414',
-  card2:    '#1c1c1c',
-  border:   '#252525',
-  primary:  '#f4c542',
-  text:     '#ffffff',
-  muted:    '#8b8b8b',
-  dim:      '#3a3a3a',
+  bg:       '#f4f5f0',
+  card:     '#ffffff',
+  card2:    '#eaece4',
+  border:   '#d0d4c6',
+  primary:  '#6d745f',
+  text:     '#2a2e25',
+  muted:    '#6d745f',
+  dim:      '#8a9280',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ function Spinner({ size = 16 }: { size?: number }) {
   return (
     <span style={{
       display: 'inline-block', width: size, height: size,
-      border: '2px solid rgba(255,255,255,0.12)',
+      border: '2px solid rgba(0,0,0,0.1)',
       borderTopColor: T.primary, borderRadius: '50%',
       animation: 'spin 0.65s linear infinite', flexShrink: 0,
     }} />
@@ -55,13 +55,13 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
     <button type="button" onClick={() => !disabled && onChange(!checked)}
       style={{
         width: 48, height: 28, borderRadius: 14,
-        background: checked ? T.primary : '#2a2a2a',
+        background: checked ? T.primary : '#d0d4c6',
         border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
         position: 'relative', flexShrink: 0, transition: 'background 0.2s', outline: 'none',
       }}>
       <span style={{
         position: 'absolute', top: 3, left: checked ? 23 : 3,
-        width: 22, height: 22, background: checked ? '#000' : '#555',
+        width: 22, height: 22, background: checked ? '#fff' : '#8a9280',
         borderRadius: '50%', transition: 'left 0.2s',
         boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
       }} />
@@ -90,7 +90,7 @@ function InfoRow({
       }}
     >
       <div style={{
-        width: 40, height: 40, borderRadius: 12, background: '#232323',
+        width: 40, height: 40, borderRadius: 12, background: '#eaece4',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}>
         <i className={`ti ${icon}`} style={{ fontSize: 18, color: T.primary }} />
@@ -158,7 +158,7 @@ function EditSheet({
 // ── Input style (dark) ────────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
-  background: '#1a1a1a', border: `1.5px solid ${T.border}`,
+  background: '#f4f5f0', border: `1.5px solid ${T.border}`,
   borderRadius: 12, padding: '13px 16px',
   fontSize: 15, color: T.text,
   outline: 'none', transition: 'border-color 0.15s',
@@ -171,8 +171,8 @@ function SheetSaveBtn({ onClick, loading }: { onClick: () => void; loading?: boo
     <button type="button" onClick={onClick} disabled={loading}
       style={{
         width: '100%', marginTop: 20,
-        background: loading ? '#2a2a2a' : T.primary,
-        color: loading ? T.muted : '#000',
+        background: loading ? '#d0d4c6' : T.primary,
+        color: loading ? T.muted : '#fff',
         border: 'none', borderRadius: 14, padding: '15px',
         fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
         transition: 'background 0.15s',
@@ -325,7 +325,7 @@ export default function PerfilPage() {
   if (loading) return (
     <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 36, height: 36, border: '2px solid rgba(255,255,255,0.08)', borderTopColor: T.primary, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <div style={{ width: 36, height: 36, border: '2px solid rgba(0,0,0,0.08)', borderTopColor: T.primary, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
         <p style={{ fontSize: 13, color: T.muted }}>Carregando…</p>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -354,18 +354,18 @@ export default function PerfilPage() {
 
       {/* Região */}
       <div style={{
-        background: `linear-gradient(135deg, #1c1800 0%, #141414 100%)`,
-        borderRadius: 20, border: `1px solid rgba(244,197,66,0.15)`,
+        background: `linear-gradient(135deg, #eaece4 0%, #f4f5f0 100%)`,
+        borderRadius: 20, border: `1px solid rgba(109,116,95,0.2)`,
         padding: '18px 20px', marginBottom: 12,
         display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
       }}
         onClick={() => setSheetField('regiao')}
       >
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(244,197,66,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(109,116,95,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <i className="ti ti-map-pin" style={{ fontSize: 20, color: T.primary }} />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: 'rgba(244,197,66,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: 'rgba(109,116,95,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>
             Região principal
           </div>
           <div style={{ fontSize: 16, color: regiao ? T.text : T.muted, fontWeight: 700 }}>
@@ -398,7 +398,7 @@ export default function PerfilPage() {
       <ProfileSection title="Comunicação">
         {/* WhatsApp */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0' }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#232323', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <i className="ti ti-brand-whatsapp" style={{ fontSize: 20, color: '#25D366' }} />
           </div>
           <div style={{ flex: 1 }}>
@@ -413,13 +413,13 @@ export default function PerfilPage() {
         {/* Telegram */}
         {planoId === 'gratuito' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: '#232323', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: 0.5 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: 0.5 }}>
               <i className="ti ti-brand-telegram" style={{ fontSize: 20, color: '#26A5E4' }} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 14, color: T.muted, fontWeight: 600 }}>Telegram</span>
-                <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(244,197,66,0.15)', color: T.primary, borderRadius: 20, padding: '2px 8px', letterSpacing: '0.5px' }}>PREMIUM</span>
+                <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(109,116,95,0.12)', color: T.primary, borderRadius: 20, padding: '2px 8px', letterSpacing: '0.5px' }}>PREMIUM</span>
               </div>
               <div style={{ fontSize: 12, color: T.muted }}>Disponível no plano Básico</div>
             </div>
@@ -467,7 +467,7 @@ export default function PerfilPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 0' }}>
           <div style={{
             width: 40, height: 40, borderRadius: 12,
-            background: receberEmail ? 'rgba(244,197,66,0.1)' : '#232323',
+            background: receberEmail ? 'rgba(109,116,95,0.1)' : '#eaece4',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             transition: 'background 0.2s',
           }}>
@@ -485,7 +485,7 @@ export default function PerfilPage() {
         </div>
 
         {receberEmail && (
-          <div style={{ background: '#111', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: `1px solid ${T.border}` }}>
+          <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: `1px solid ${T.border}` }}>
             <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.7 }}>
               <span style={{ color: T.text, fontWeight: 600 }}>Horários (BRT):</span><br />
               Seg–Dom às <strong style={{ color: T.text }}>06h</strong> · Sex–Dom às <strong style={{ color: T.text }}>12h</strong> · Sex–Sáb às <strong style={{ color: T.text }}>20h</strong>
@@ -510,14 +510,14 @@ export default function PerfilPage() {
       {/* Plan card */}
       <div style={{
         background: isPago
-          ? `linear-gradient(135deg, #1c1800 0%, #141414 60%, #0b0b0b 100%)`
+          ? `linear-gradient(135deg, #eaece4 0%, #f4f5f0 60%, #e2e5da 100%)`
           : T.card,
         borderRadius: 24,
-        border: isPago ? `1px solid rgba(244,197,66,0.25)` : `1px solid ${T.border}`,
+        border: isPago ? `1px solid rgba(109,116,95,0.3)` : `1px solid ${T.border}`,
         padding: '28px 24px', marginBottom: 12, position: 'relative', overflow: 'hidden',
       }}>
         {isPago && (
-          <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(244,197,66,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle, rgba(109,116,95,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
         )}
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -541,7 +541,7 @@ export default function PerfilPage() {
           {plano.features.map(f => (
             <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '5px 0' }}>
               <i className="ti ti-circle-check" style={{ fontSize: 16, color: isPago ? T.primary : '#4ade80', flexShrink: 0, marginTop: 1 }} />
-              <span style={{ fontSize: 13, color: isPago ? '#e5e5e5' : T.muted, lineHeight: 1.5 }}>{f}</span>
+              <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{f}</span>
             </div>
           ))}
         </div>
@@ -550,8 +550,8 @@ export default function PerfilPage() {
           <button onClick={handlePortal} disabled={portalLoading}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(255,255,255,0.08)', color: '#ccc',
-              border: `1px solid rgba(255,255,255,0.12)`, borderRadius: 12,
+              background: '#eaece4', color: T.text,
+              border: `1px solid ${T.border}`, borderRadius: 12,
               padding: '11px 20px', fontSize: 13, fontWeight: 600,
               cursor: portalLoading ? 'not-allowed' : 'pointer',
             }}>
@@ -561,10 +561,10 @@ export default function PerfilPage() {
         ) : (
           <Link href="/planos" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: T.primary, color: '#000',
+            background: T.primary, color: '#fff',
             borderRadius: 14, padding: '13px 24px',
             fontSize: 14, fontWeight: 800, textDecoration: 'none',
-            boxShadow: '0 4px 20px rgba(244,197,66,0.25)',
+            boxShadow: '0 4px 20px rgba(109,116,95,0.25)',
           }}>
             <i className="ti ti-rocket" style={{ fontSize: 16 }} />
             Fazer upgrade
@@ -686,7 +686,7 @@ export default function PerfilPage() {
           <input style={inp} type="text" value={telegram}
             onChange={e => { const v = e.target.value; setTelegram(v && !v.startsWith('@') ? '@' + v : v) }}
             placeholder="@seu_username" autoFocus />
-          <div style={{ background: '#111', borderRadius: 12, padding: '14px', marginTop: 12, border: `1px solid ${T.border}` }}>
+          <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px', marginTop: 12, border: `1px solid ${T.border}` }}>
             <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.7 }}>
               Abra o Telegram e inicie uma conversa com <strong style={{ color: T.text }}>@mtbforecaster_bot</strong> enviando <strong style={{ color: T.text }}>/start</strong> para ativar as notificações.
             </p>
@@ -735,17 +735,17 @@ export default function PerfilPage() {
         {/* ── HERO ── */}
         <div style={{ padding: '20px 16px 0' }}>
           <div style={{
-            background: `linear-gradient(160deg, #1e1e1e 0%, ${T.card} 60%, #0e0e0e 100%)`,
+            background: `linear-gradient(160deg, #eaece4 0%, ${T.card} 60%, #f4f5f0 100%)`,
             borderRadius: 24, border: `1px solid ${T.border}`,
             padding: '24px 20px 20px', position: 'relative', overflow: 'hidden',
           }}>
             {/* Glow */}
-            <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(244,197,66,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(109,116,95,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
             {/* Avatar + identity */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div style={{ width: 88, height: 88, borderRadius: '50%', background: '#232323', border: `2.5px solid ${T.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 88, height: 88, borderRadius: '50%', background: '#eaece4', border: `2.5px solid ${T.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {avatarUploading
                     ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}><Spinner size={24} /></div>
                     : avatarUrl
@@ -757,7 +757,7 @@ export default function PerfilPage() {
                   width: 28, height: 28, borderRadius: '50%',
                   background: T.primary, border: `2.5px solid ${T.card}`,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700, color: '#000',
+                  fontSize: 13, fontWeight: 700, color: '#fff',
                 }} title="Trocar foto">
                   ✎
                   <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleAvatarUpload} disabled={avatarUploading} />
@@ -822,7 +822,7 @@ export default function PerfilPage() {
               const inner = (
                 <div style={{
                   background: T.card2, borderRadius: 16, padding: '16px 18px',
-                  border: `1px solid ${s.href ? 'rgba(244,197,66,0.18)' : T.border}`,
+                  border: `1px solid ${s.href ? 'rgba(109,116,95,0.25)' : T.border}`,
                   transition: 'border-color 0.15s',
                 }}>
                   <div style={{ fontSize: 26, fontWeight: 900, color: s.value > 0 ? T.text : T.dim, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 6 }}>
@@ -890,7 +890,7 @@ export default function PerfilPage() {
                   cursor: 'pointer', textAlign: 'left',
                 }}
               >
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#1a1a00', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <i className="ti ti-shield" style={{ fontSize: 18, color: T.primary }} />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -957,12 +957,12 @@ export default function PerfilPage() {
           disabled={saving}
           style={{
             maxWidth: 480, width: '100%',
-            background: saving ? '#2a2a2a' : T.primary,
-            color: saving ? T.muted : '#000',
+            background: saving ? '#d0d4c6' : T.primary,
+            color: saving ? T.muted : '#fff',
             border: 'none', borderRadius: 16, padding: '15px 24px',
             fontSize: 15, fontWeight: 800,
             cursor: saving ? 'not-allowed' : 'pointer',
-            boxShadow: `0 8px 32px rgba(244,197,66,0.35)`,
+            boxShadow: `0 8px 32px rgba(109,116,95,0.3)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             transition: 'background 0.15s',
           }}

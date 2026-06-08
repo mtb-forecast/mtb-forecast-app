@@ -292,19 +292,19 @@ export default function CadastrarTrilhaPage() {
   if (submitted) {
     const isPt = tipo === 'pumptrack'
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
-        <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
+        <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
           <div style={{ maxWidth: 600, margin: '0 auto' }}>
             <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>
               {isPt ? 'Cadastrar pump track' : 'Cadastrar trilha'}
             </h1>
           </div>
         </div>
-        <div style={{ background: isPt ? '#7C3AED' : '#FFE000', height: 3 }} />
+        <div style={{ background: isPt ? '#7C3AED' : '#a8b899', height: 3 }} />
         <div style={{ padding: 32, maxWidth: 600, margin: '0 auto' }}>
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 48, textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>{isPt ? '🟣' : '✅'}</div>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: '#111', marginBottom: 8 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: '#2a2e25', marginBottom: 8 }}>
               {isPt ? 'Pump track publicado!' : 'Trilha enviada!'}
             </h2>
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>
@@ -314,9 +314,9 @@ export default function CadastrarTrilhaPage() {
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href={isPt ? '/trilhas' : '/perfil'} style={{
-                background: isPt ? '#7C3AED' : '#FFE000',
-                color: isPt ? '#fff' : '#111',
-                border: isPt ? 'none' : '1.5px solid #111',
+                background: isPt ? '#7C3AED' : '#6d745f',
+                color: '#fff',
+                border: 'none',
                 borderRadius: 4, padding: '10px 24px',
                 fontSize: 13, fontWeight: 500, textDecoration: 'none',
               }}>
@@ -337,21 +337,21 @@ export default function CadastrarTrilhaPage() {
   }
 
   const hasCoords = !!(lat && lon)
-  const accent = tipo === 'pumptrack' ? '#7C3AED' : '#FFE000'
-  const accentText = tipo === 'pumptrack' ? '#fff' : '#111'
+  const accent = tipo === 'pumptrack' ? '#7C3AED' : '#6d745f'
+  const accentText = '#fff'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {/* Header */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Cadastrar local</h1>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>Trilha MTB ou pump track — envie para revisão</p>
         </div>
       </div>
-      <div style={{ background: accent, height: 3, transition: 'background 0.2s' }} />
+      <div style={{ background: tipo === 'pumptrack' ? '#7C3AED' : '#a8b899', height: 3, transition: 'background 0.2s' }} />
 
       <div style={{ padding: '24px 32px 48px', maxWidth: 640, margin: '0 auto' }}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -359,7 +359,7 @@ export default function CadastrarTrilhaPage() {
           {/* ── Seletor de tipo ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {([
-              { val: 'trilha',    emoji: '🏔', label: 'Trilha MTB',  sub: 'DH, Enduro, XC, Natural, Bike Park', accent: '#FFE000', accentText: '#111' },
+              { val: 'trilha',    emoji: '🏔', label: 'Trilha MTB',  sub: 'DH, Enduro, XC, Natural, Bike Park', accent: '#6d745f', accentText: '#fff' },
               { val: 'pumptrack', emoji: '🟣', label: 'Pump Track',  sub: 'Asfalto, Terra, Homologado',          accent: '#7C3AED', accentText: '#fff' },
             ] as const).map(opt => {
               const active = tipo === opt.val
@@ -367,14 +367,14 @@ export default function CadastrarTrilhaPage() {
                 <button key={opt.val} type="button"
                   onClick={() => { setTipo(opt.val); setErro(null) }}
                   style={{
-                    background: active ? '#fff' : '#f7f7f5',
+                    background: active ? '#fff' : '#f4f5f0',
                     border: active ? `2px solid ${opt.accent}` : '1.5px solid #e5e5e5',
                     borderRadius: 10, padding: '16px 14px',
                     cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
                   }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontSize: 20 }}>{opt.emoji}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{opt.label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#2a2e25' }}>{opt.label}</span>
                     {active && (
                       <span style={{ marginLeft: 'auto', background: opt.accent, color: opt.accentText, fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px' }}>
                         Selecionado
@@ -406,7 +406,7 @@ export default function CadastrarTrilhaPage() {
                 <button type="button" onClick={handleExtract}
                   disabled={extracting || !mapsUrl.trim()}
                   style={{
-                    background: extracting ? '#555' : '#111', color: '#fff', border: 'none',
+                    background: extracting ? '#8a9280' : '#2a2e25', color: '#fff', border: 'none',
                     borderRadius: 6, padding: '9px 14px', fontSize: 12, fontWeight: 600,
                     cursor: extracting || !mapsUrl.trim() ? 'not-allowed' : 'pointer',
                     whiteSpace: 'nowrap', minWidth: 72,
@@ -414,7 +414,7 @@ export default function CadastrarTrilhaPage() {
                     transition: 'background 0.15s',
                   }}>
                   {extracting
-                    ? <><span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid #555', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Aguarde</>
+                    ? <><span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid #d0d4c6', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Aguarde</>
                     : 'Extrair'}
                 </button>
               </div>
@@ -437,7 +437,7 @@ export default function CadastrarTrilhaPage() {
             {/* Geocoding result */}
             {geocoding && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#9ca3af' }}>
-                <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #d1d5db', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #d0d4c6', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                 Identificando localização…
               </div>
             )}
@@ -448,12 +448,12 @@ export default function CadastrarTrilhaPage() {
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 16px', fontSize: 13 }}>
                   <span style={{ color: '#6b7280', fontWeight: 500 }}>Estado</span>
-                  <span style={{ fontWeight: 600, color: '#111' }}>{geoResult.estado}</span>
+                  <span style={{ fontWeight: 600, color: '#2a2e25' }}>{geoResult.estado}</span>
                   <span style={{ color: '#6b7280', fontWeight: 500 }}>Cidade</span>
-                  <span style={{ fontWeight: 600, color: '#111' }}>{geoResult.cidade}</span>
+                  <span style={{ fontWeight: 600, color: '#2a2e25' }}>{geoResult.cidade}</span>
                   {geoResult.localidade && <>
                     <span style={{ color: '#6b7280', fontWeight: 500 }}>Localidade</span>
-                    <span style={{ fontWeight: 600, color: '#111' }}>{geoResult.localidade}</span>
+                    <span style={{ fontWeight: 600, color: '#2a2e25' }}>{geoResult.localidade}</span>
                   </>}
                 </div>
               </div>
@@ -639,7 +639,7 @@ export default function CadastrarTrilhaPage() {
               transition: 'background 0.15s',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}>
-              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(0,0,0,0.15)', borderTopColor: tipo === 'pumptrack' ? '#fff' : '#111', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
+              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
               {saving ? 'Enviando…' : tipo === 'pumptrack' ? 'Publicar pump track' : 'Enviar trilha para revisão'}
             </button>
           )}

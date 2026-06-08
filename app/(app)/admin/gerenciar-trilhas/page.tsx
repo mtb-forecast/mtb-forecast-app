@@ -30,7 +30,7 @@ type PTItem = {
 type AnyItem = MTBItem | PTItem
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
-const T = { bg: '#f7f7f5', card: '#fff', border: '#e5e5e5', text: '#111', muted: '#888', danger: '#ef4444' }
+const T = { bg: '#f4f5f0', card: '#fff', border: '#e5e5e5', text: '#2a2e25', muted: '#888', danger: '#ef4444' }
 
 const STATUS_COLOR: Record<string, string> = {
   pendente: '#d97706',
@@ -127,7 +127,7 @@ export default function GerenciarTrilhasPage() {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -137,7 +137,7 @@ export default function GerenciarTrilhasPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {/* Header */}
-      <div style={{ background: '#111', padding: '32px 24px' }}>
+      <div style={{ background: '#2a2e25', padding: '32px 24px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#888', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
             <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
@@ -145,14 +145,14 @@ export default function GerenciarTrilhasPage() {
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Gerenciar trilhas</h1>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '1px', background: '#FFE000', color: '#111', borderRadius: 4, padding: '3px 8px' }}>ADMIN</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '1px', background: '#6d745f', color: '#fff', borderRadius: 4, padding: '3px 8px' }}>ADMIN</span>
           </div>
           <p style={{ color: '#888', fontSize: 13, marginTop: 6 }}>
             {countMTB} trilha{countMTB !== 1 ? 's' : ''} MTB · {countPT} pump track{countPT !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       <div style={{ padding: '24px', maxWidth: 900, margin: '0 auto' }}>
 
@@ -172,13 +172,13 @@ export default function GerenciarTrilhasPage() {
             <button key={opt.id} onClick={() => setTipoFiltro(opt.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 20,
-                background: tipoFiltro === opt.id ? '#111' : '#fff',
-                color: tipoFiltro === opt.id ? '#FFE000' : T.muted,
-                border: `1px solid ${tipoFiltro === opt.id ? '#111' : T.border}`,
+                background: tipoFiltro === opt.id ? '#2a2e25' : '#fff',
+                color: tipoFiltro === opt.id ? '#a8b899' : T.muted,
+                border: `1px solid ${tipoFiltro === opt.id ? '#2a2e25' : T.border}`,
                 fontSize: 13, fontWeight: 700, cursor: 'pointer', outline: 'none',
               }}>
               {opt.label}
-              <span style={{ fontSize: 11, background: tipoFiltro === opt.id ? 'rgba(255,224,0,0.15)' : '#f7f7f5', borderRadius: 10, padding: '1px 7px' }}>{opt.count}</span>
+              <span style={{ fontSize: 11, background: tipoFiltro === opt.id ? 'rgba(168,184,153,0.2)' : '#f4f5f0', borderRadius: 10, padding: '1px 7px' }}>{opt.count}</span>
             </button>
           ))}
         </div>
@@ -268,7 +268,7 @@ export default function GerenciarTrilhasPage() {
                       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <Link href={editHref} style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4,
-                          background: '#f7f7f5', color: T.text, borderRadius: 8,
+                          background: '#f4f5f0', color: T.text, borderRadius: 8,
                           padding: '7px 12px', fontSize: 12, fontWeight: 600,
                           textDecoration: 'none', border: `1px solid ${T.border}`,
                         }}>

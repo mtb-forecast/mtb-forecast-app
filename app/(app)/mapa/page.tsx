@@ -206,7 +206,7 @@ export default function MapaPage() {
               ⭐ Favoritar esta trilha para receber atualizações diárias.
             </p>
             <a href="/trilhas/${trilha.id}" style="
-              font-size:11px;font-weight:600;color:#1A1A1A;
+              font-size:11px;font-weight:600;color:#2a2e25;
               text-decoration:none;display:inline-flex;align-items:center;gap:4px;
             ">Ver trilha →</a>
           </div>
@@ -230,7 +230,7 @@ export default function MapaPage() {
               </span>
             </div>
             <a href="/trilhas/${trilha.id}" style="
-              font-size:11px;font-weight:600;color:#1A1A1A;
+              font-size:11px;font-weight:600;color:#2a2e25;
               text-decoration:none;display:inline-flex;align-items:center;gap:4px;
             ">Ver detalhes →</a>
           </div>
@@ -325,14 +325,14 @@ export default function MapaPage() {
       {loading && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 10,
-          background: '#1A1A1A',
+          background: '#f4f5f0',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexDirection: 'column', gap: 12,
         }}>
           <div style={{
             width: 36, height: 36,
-            border: '3px solid #2A2A2A',
-            borderTop: '3px solid #FFE000',
+            border: '3px solid #d0d4c6',
+            borderTop: '3px solid #6d745f',
             borderRadius: '50%',
             animation: 'spin 0.8s linear infinite',
           }} />
@@ -344,7 +344,7 @@ export default function MapaPage() {
       {erro && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 10,
-          background: '#1A1A1A',
+          background: '#f4f5f0',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <p style={{ color: '#ef4444', fontSize: 14 }}>{erro}</p>

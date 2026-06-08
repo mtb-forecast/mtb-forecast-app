@@ -63,7 +63,7 @@ export default function PumpTrackDetailPage() {
 
   if (loading || !pt) {
     return (
-      <div style={{ minHeight: '100vh', background: '#F8F9FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 32, height: 32, border: '2px solid #E5E7EB', borderTopColor: '#7C3AED', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
@@ -77,10 +77,10 @@ export default function PumpTrackDetailPage() {
   const instagramHandle = pt.instagram && pt.instagram !== 'N/I' ? pt.instagram.replace('@', '') : null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8F9FA' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div style={{ background: '#111', padding: '32px 28px 28px' }}>
+      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
 
           {/* Breadcrumb */}
@@ -101,12 +101,12 @@ export default function PumpTrackDetailPage() {
                   </span>
                 )}
                 {pt.tipo_superficie && (
-                  <span style={{ background: '#1F1F1F', color: '#9CA3AF', fontSize: 10, fontWeight: 500, borderRadius: 999, padding: '2px 10px' }}>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#D1D5DB', fontSize: 10, fontWeight: 500, borderRadius: 999, padding: '2px 10px' }}>
                     {pt.tipo_superficie}
                   </span>
                 )}
                 {pt.comprimento_estimado && (
-                  <span style={{ background: '#1F1F1F', color: '#9CA3AF', fontSize: 10, fontWeight: 500, borderRadius: 999, padding: '2px 10px' }}>
+                  <span style={{ background: 'rgba(255,255,255,0.1)', color: '#D1D5DB', fontSize: 10, fontWeight: 500, borderRadius: 999, padding: '2px 10px' }}>
                     {pt.comprimento_estimado}
                   </span>
                 )}

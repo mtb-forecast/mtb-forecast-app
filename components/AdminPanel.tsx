@@ -155,7 +155,7 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 500, color: '#111' }}>Trilhas pendentes de cadastro</h2>
+        <h2 style={{ fontSize: 16, fontWeight: 500, color: '#2a2e25' }}>Trilhas pendentes de cadastro</h2>
         <span style={{ fontSize: 11, fontWeight: 600, background: '#fef9c3', color: '#854d0e', borderRadius: 2, padding: '2px 8px' }}>
           {trilhas.length} pendente{trilhas.length > 1 ? 's' : ''}
         </span>
@@ -175,7 +175,7 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
               {/* Header */}
               <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>{trilha.name}</p>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: '#2a2e25' }}>{trilha.name}</p>
                   <p style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
                     {new Date(trilha.created_at).toLocaleDateString('pt-BR')}
                     {trilha.polyline && <span style={{ marginLeft: 8, color: '#FC4C02', fontWeight: 500 }}>· via Strava</span>}
@@ -246,23 +246,23 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                   </div>
 
                   {/* Campos somente leitura */}
-                  <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '8px 12px' }}>
+                  <div style={{ background: '#f4f5f0', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '8px 12px' }}>
                     <p style={{ ...labelSm, marginBottom: 3 }}>Desnível</p>
-                    <p style={{ fontSize: 13, color: trilha.desnivel_m != null ? '#111' : '#bbb', fontWeight: 500 }}>
+                    <p style={{ fontSize: 13, color: trilha.desnivel_m != null ? '#2a2e25' : '#bbb', fontWeight: 500 }}>
                       {trilha.desnivel_m != null ? `${trilha.desnivel_m}m` : '—'}
                     </p>
                   </div>
 
-                  <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '8px 12px' }}>
+                  <div style={{ background: '#f4f5f0', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '8px 12px' }}>
                     <p style={{ ...labelSm, marginBottom: 3 }}>Extensão</p>
-                    <p style={{ fontSize: 13, color: trilha.extensao_km != null ? '#111' : '#bbb', fontWeight: 500 }}>
+                    <p style={{ fontSize: 13, color: trilha.extensao_km != null ? '#2a2e25' : '#bbb', fontWeight: 500 }}>
                       {trilha.extensao_km != null ? `${trilha.extensao_km}km` : '—'}
                     </p>
                   </div>
 
-                  <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '8px 12px' }}>
+                  <div style={{ background: '#f4f5f0', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '8px 12px' }}>
                     <p style={{ ...labelSm, marginBottom: 3 }}>Coordenadas</p>
-                    <p style={{ fontSize: 12, color: '#111', fontWeight: 500 }}>
+                    <p style={{ fontSize: 12, color: '#2a2e25', fontWeight: 500 }}>
                       {trilha.lat?.toFixed(4)}, {trilha.lon?.toFixed(4)}
                     </p>
                     {geoPreview[trilha.id] && (
@@ -280,9 +280,9 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                       rel="noopener noreferrer"
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
-                        background: '#f7f7f5', border: '0.5px solid #e5e5e5',
+                        background: '#f4f5f0', border: '0.5px solid #e5e5e5',
                         borderRadius: 4, padding: '8px 14px',
-                        fontSize: 13, color: '#111', textDecoration: 'none',
+                        fontSize: 13, color: '#2a2e25', textDecoration: 'none',
                       }}
                     >
                       📍 Ver localização no Google Maps ↗
@@ -301,9 +301,9 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                 )}
 
                 {trilha.observacoes && (
-                  <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '10px 14px', marginBottom: 16 }}>
+                  <div style={{ background: '#f4f5f0', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '10px 14px', marginBottom: 16 }}>
                     <p style={{ ...labelSm, marginBottom: 6 }}>Observações</p>
-                    <p style={{ fontSize: 13, color: '#111' }}>{trilha.observacoes}</p>
+                    <p style={{ fontSize: 13, color: '#2a2e25' }}>{trilha.observacoes}</p>
                   </div>
                 )}
 
@@ -328,9 +328,9 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
                     disabled={!ok || isSaving}
                     style={{
                       flex: 1,
-                      background: ok ? '#FFE000' : '#f7f7f5',
-                      color: ok ? '#111' : '#bbb',
-                      border: ok ? '1.5px solid #111' : '1.5px solid #e5e5e5',
+                      background: ok ? '#6d745f' : '#f4f5f0',
+                      color: ok ? '#fff' : '#bbb',
+                      border: ok ? 'none' : '1.5px solid #e5e5e5',
                       borderRadius: 4, padding: '9px 0',
                       fontSize: 13, fontWeight: 500,
                       cursor: ok && !isSaving ? 'pointer' : 'not-allowed',
@@ -366,7 +366,7 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
           zIndex: 1000, padding: 24,
         }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: 24, maxWidth: 440, width: '100%' }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#111', marginBottom: 8 }}>Rejeitar trilha</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#2a2e25', marginBottom: 8 }}>Rejeitar trilha</h3>
             <p style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>Informe o motivo para o usuário saber como corrigir.</p>
             <textarea
               value={rejeicao.motivo}

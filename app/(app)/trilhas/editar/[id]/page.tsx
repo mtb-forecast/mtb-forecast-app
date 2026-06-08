@@ -33,7 +33,7 @@ const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
   background: '#fff', border: '1.5px solid #e5e5e5',
   borderRadius: 8, padding: '10px 14px',
-  fontSize: 14, color: '#111', outline: 'none',
+  fontSize: 14, color: '#2a2e25', outline: 'none',
 }
 const selectStyle: React.CSSProperties = { ...inputStyle, cursor: 'pointer' }
 
@@ -202,27 +202,27 @@ export default function EditarTrilhaPage() {
 
   // ── Loading / Not found ─────────────────────────────────────────────────────
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2.5px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '2.5px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 
   if (notFound) return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 32 }}>
-      <p style={{ fontSize: 16, color: '#111', fontWeight: 600 }}>Trilha não encontrada</p>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 32 }}>
+      <p style={{ fontSize: 16, color: '#2a2e25', fontWeight: 600 }}>Trilha não encontrada</p>
       <p style={{ fontSize: 13, color: '#888' }}>Esta trilha não pertence à sua conta.</p>
-      <Link href="/perfil/minhas-trilhas" style={{ fontSize: 13, color: '#111', textDecoration: 'underline' }}>← Voltar</Link>
+      <Link href="/perfil/minhas-trilhas" style={{ fontSize: 13, color: '#6d745f', textDecoration: 'underline' }}>← Voltar</Link>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 
   if (saved) return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
       <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <i className="ti ti-circle-check" style={{ fontSize: 28, color: '#16a34a' }} />
       </div>
-      <p style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>Alterações salvas!</p>
+      <p style={{ fontSize: 16, fontWeight: 700, color: '#2a2e25' }}>Alterações salvas!</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -233,7 +233,7 @@ export default function EditarTrilhaPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {/* Header */}
-      <div style={{ background: '#111', padding: '32px 20px' }}>
+      <div style={{ background: '#2a2e25', padding: '32px 20px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <Link href="/perfil/minhas-trilhas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#888', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
             <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
@@ -243,7 +243,7 @@ export default function EditarTrilhaPage() {
           <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{nome}</p>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       <div style={{ padding: '24px 20px 80px', maxWidth: 640, margin: '0 auto' }}>
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -265,14 +265,14 @@ export default function EditarTrilhaPage() {
                   style={{ ...inputStyle, flex: 1 }} />
                 <button type="button" onClick={handleExtract} disabled={extracting || !mapsUrl.trim()}
                   style={{
-                    background: extracting ? '#555' : '#111', color: '#fff', border: 'none',
+                    background: extracting ? '#8a9280' : '#2a2e25', color: '#fff', border: 'none',
                     borderRadius: 8, padding: '10px 14px', fontSize: 12, fontWeight: 600,
                     cursor: extracting || !mapsUrl.trim() ? 'not-allowed' : 'pointer',
                     whiteSpace: 'nowrap', minWidth: 72,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   }}>
                   {extracting
-                    ? <><span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid #555', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Aguarde</>
+                    ? <><span style={{ display: 'inline-block', width: 11, height: 11, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Aguarde</>
                     : 'Extrair'}
                 </button>
               </div>
@@ -391,14 +391,14 @@ export default function EditarTrilhaPage() {
               Cancelar
             </Link>
             <button type="submit" disabled={saving} style={{
-              flex: 1, background: saving ? '#e5e7eb' : '#FFE000',
-              color: saving ? '#9ca3af' : '#111', border: 'none',
+              flex: 1, background: saving ? '#e5e7eb' : '#6d745f',
+              color: saving ? '#9ca3af' : '#fff', border: 'none',
               borderRadius: 10, padding: '13px 24px',
               fontSize: 14, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               transition: 'background 0.15s',
             }}>
-              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(0,0,0,0.15)', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
+              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
               {saving ? 'Salvando…' : 'Salvar alterações'}
             </button>
           </div>

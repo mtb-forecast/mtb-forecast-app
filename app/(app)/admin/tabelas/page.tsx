@@ -262,15 +262,15 @@ export default function TabelasPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
   }
 
-  const tdStyle: React.CSSProperties = { padding: '10px 12px', fontSize: 13, color: '#111', borderBottom: '0.5px solid #f0f0f0', verticalAlign: 'middle' }
-  const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase' as const, letterSpacing: '1px', background: '#f7f7f5', borderBottom: '0.5px solid #e5e5e5', textAlign: 'left' as const, cursor: 'help' }
+  const tdStyle: React.CSSProperties = { padding: '10px 12px', fontSize: 13, color: '#2a2e25', borderBottom: '0.5px solid #f0f0f0', verticalAlign: 'middle' }
+  const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase' as const, letterSpacing: '1px', background: '#f4f5f0', borderBottom: '0.5px solid #e5e5e5', textAlign: 'left' as const, cursor: 'help' }
   const inputSm: React.CSSProperties = { border: '1px solid #e5e5e5', borderRadius: 4, padding: '4px 8px', fontSize: 13, width: '100%', outline: 'none', background: '#fff' }
   const btnSm = (bg: string, color: string): React.CSSProperties => ({
     background: bg, color, border: 'none', borderRadius: 4,
@@ -279,25 +279,25 @@ export default function TabelasPage() {
   const hintStyle: React.CSSProperties = { fontSize: 11, color: '#888', marginTop: 3 }
 
   const legendFieldStyle: React.CSSProperties = { fontSize: 11 }
-  const legendKeyStyle: React.CSSProperties = { fontWeight: 600, color: '#111', fontFamily: 'monospace', fontSize: 11 }
+  const legendKeyStyle: React.CSSProperties = { fontWeight: 600, color: '#2a2e25', fontFamily: 'monospace', fontSize: 11 }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* Header */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Tabelas Mestras</h1>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>Alterações requerem aprovação de outro admin</p>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       <div style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto' }}>
 
         {/* Toast */}
         {toast && (
-          <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 200, background: '#111', color: '#fff', borderRadius: 6, padding: '12px 20px', fontSize: 13, fontWeight: 500 }}>
+          <div style={{ position: 'fixed', top: 24, right: 24, zIndex: 200, background: '#2a2e25', color: '#fff', borderRadius: 6, padding: '12px 20px', fontSize: 13, fontWeight: 500 }}>
             {toast}
           </div>
         )}
@@ -314,12 +314,12 @@ export default function TabelasPage() {
                   <div key={apr.id} style={{ background: '#fff', border: '0.5px solid #fde047', borderRadius: 6, padding: '12px 16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 13, fontWeight: 500, color: '#111', marginBottom: 4 }}>
-                          <span style={{ color: '#854d0e' }}>{solNome}</span> quer {apr.operacao === 'insert' ? 'inserir' : 'editar'} em <code style={{ background: '#f7f7f5', borderRadius: 3, padding: '1px 5px', fontSize: 11 }}>{apr.tabela}</code>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: '#2a2e25', marginBottom: 4 }}>
+                          <span style={{ color: '#854d0e' }}>{solNome}</span> quer {apr.operacao === 'insert' ? 'inserir' : 'editar'} em <code style={{ background: '#f4f5f0', borderRadius: 3, padding: '1px 5px', fontSize: 11 }}>{apr.tabela}</code>
                         </p>
                         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, fontSize: 12, color: '#555' }}>
                           {apr.operacao === 'update' && Object.keys(apr.dados_novos).filter(k => k !== 'id').map(k => (
-                            <span key={k}><b>{k}:</b> {String(apr.dados_anteriores[k])} → <b style={{ color: '#111' }}>{String(apr.dados_novos[k])}</b></span>
+                            <span key={k}><b>{k}:</b> {String(apr.dados_anteriores[k])} → <b style={{ color: '#2a2e25' }}>{String(apr.dados_novos[k])}</b></span>
                           ))}
                           {apr.operacao === 'insert' && Object.entries(apr.dados_novos).map(([k, v]) => (
                             <span key={k}><b>{k}:</b> {String(v)}</span>
@@ -344,7 +344,7 @@ export default function TabelasPage() {
                           autoFocus
                         />
                         <button onClick={() => rejeitarAprovacao(apr)} disabled={!rejectMotivo.trim()} style={{ ...btnSm('#ef4444', '#fff'), opacity: rejectMotivo.trim() ? 1 : 0.5 }}>Confirmar</button>
-                        <button onClick={() => setRejectingId(null)} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                        <button onClick={() => setRejectingId(null)} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                       </div>
                     )}
                   </div>
@@ -369,9 +369,9 @@ export default function TabelasPage() {
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 padding: '10px 20px', fontSize: 13,
-                color: tab === t.key ? '#111' : '#888',
+                color: tab === t.key ? '#2a2e25' : '#888',
                 fontWeight: tab === t.key ? 500 : 400,
-                borderBottom: tab === t.key ? '2px solid #111' : '2px solid transparent',
+                borderBottom: tab === t.key ? '2px solid #2a2e25' : '2px solid transparent',
                 marginBottom: -1,
               }}
             >
@@ -384,8 +384,8 @@ export default function TabelasPage() {
         {tab === 'solo' && (
           <>
             {/* Legend card */}
-            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+            <div style={{ background: '#f4f5f0', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25', marginBottom: 10 }}>Como interpretar esta tabela</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>solo_type</span><br /><span style={{ color: '#555' }}>Tipo de solo da trilha definido no cadastro. Ex: terra, misto, pedra, ferro, misto_mg, preto</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>bioma</span><br /><span style={{ color: '#555' }}>Bioma onde a trilha está localizada. Use TODOS para aplicar a todos os biomas daquele solo_type</span></div>
@@ -394,7 +394,7 @@ export default function TabelasPage() {
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>sand_pct</span><br /><span style={{ color: '#555' }}>Percentual de areia (0-100%). Quanto maior, mais rápido o solo drena após chuva</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>texture_class</span><br /><span style={{ color: '#555' }}>Classificação textural do solo. Opções: Argiloso, Muito argiloso, Franco-argiloso, Franco, Franco-arenoso, Arenoso</span></div>
               </div>
-              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', marginTop: 12, fontSize: 11, color: '#555' }}>
+              <div style={{ background: '#fff', borderLeft: '3px solid #a8b899', padding: '8px 12px', marginTop: 12, fontSize: 11, color: '#555' }}>
                 ⚡ Prioridade de lookup: 1º match exato (solo+bioma+regiao) → 2º match (solo+bioma+TODOS) → 3º match (solo+TODOS+TODOS)
               </div>
             </div>
@@ -443,11 +443,11 @@ export default function TabelasPage() {
                             {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
                             {isEditing ? (
                               <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'tabela_solo', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
-                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'tabela_solo', 'update')} style={btnSm('#6d745f', '#fff')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                               </div>
                             ) : (
-                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f4f5f0', '#2a2e25')}>Editar</button>
                             )}
                           </td>
                         </tr>
@@ -503,13 +503,13 @@ export default function TabelasPage() {
                     <p style={hintStyle}>Classificação textural</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', paddingTop: 16 }}>
-                    <button onClick={() => openModal({}, newRow, 'tabela_solo', 'insert')} style={btnSm('#FFE000', '#111')}>Enviar</button>
-                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                    <button onClick={() => openModal({}, newRow, 'tabela_solo', 'insert')} style={btnSm('#6d745f', '#fff')}>Enviar</button>
+                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                   </div>
                 </div>
               ) : (
                 <div style={{ padding: '12px 16px', borderTop: '0.5px solid #e5e5e5' }}>
-                  <button onClick={() => { setAddingRow(true); setNewRow({}); cancelEdit() }} style={{ ...btnSm('#f7f7f5', '#111'), fontSize: 13 }}>+ Adicionar linha</button>
+                  <button onClick={() => { setAddingRow(true); setNewRow({}); cancelEdit() }} style={{ ...btnSm('#f4f5f0', '#2a2e25'), fontSize: 13 }}>+ Adicionar linha</button>
                 </div>
               )}
             </div>
@@ -520,15 +520,15 @@ export default function TabelasPage() {
         {tab === 'threshold' && (
           <>
             {/* Legend card */}
-            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+            <div style={{ background: '#f4f5f0', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25', marginBottom: 10 }}>Como interpretar esta tabela</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>regiao</span><br /><span style={{ color: '#555' }}>Estado onde as trilhas estão localizadas. Use DEFAULT como fallback para estados não mapeados</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>mes</span><br /><span style={{ color: '#555' }}>Mês do ano (1=Janeiro ... 12=Dezembro)</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>threshold_descansado</span><br /><span style={{ color: '#555' }}>Acúmulo efetivo de chuva (mm) abaixo do qual o solo é considerado DESCANSADO. Valores típicos: 2–8 mm dependendo da estação</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>threshold_saturado</span><br /><span style={{ color: '#555' }}>Acúmulo efetivo de chuva (mm) acima do qual o bike park é considerado SATURADO. Valores típicos: 6–16 mm</span></div>
               </div>
-              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', marginTop: 12, fontSize: 11, color: '#555' }}>
+              <div style={{ background: '#fff', borderLeft: '3px solid #a8b899', padding: '8px 12px', marginTop: 12, fontSize: 11, color: '#555' }}>
                 🌧 Esses thresholds variam por estação — no inverno seco (Jun–Set) o solo aguenta mais chuva antes de saturar. No verão úmido (Nov–Mar) os limites são menores pois o solo já está mais úmido.
               </div>
               <div style={{ background: '#fff', borderLeft: '3px solid #e5e5e5', padding: '8px 12px', marginTop: 8, fontSize: 11, color: '#555' }}>
@@ -570,11 +570,11 @@ export default function TabelasPage() {
                             {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
                             {isEditing ? (
                               <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'threshold_sazonal', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
-                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'threshold_sazonal', 'update')} style={btnSm('#6d745f', '#fff')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                               </div>
                             ) : (
-                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f4f5f0', '#2a2e25')}>Editar</button>
                             )}
                           </td>
                         </tr>
@@ -613,13 +613,13 @@ export default function TabelasPage() {
                     <p style={hintStyle}>mm (típico: 6–16)</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', paddingTop: 16 }}>
-                    <button onClick={() => openModal({}, newRow, 'threshold_sazonal', 'insert')} style={btnSm('#FFE000', '#111')}>Enviar</button>
-                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                    <button onClick={() => openModal({}, newRow, 'threshold_sazonal', 'insert')} style={btnSm('#6d745f', '#fff')}>Enviar</button>
+                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                   </div>
                 </div>
               ) : (
                 <div style={{ padding: '12px 16px', borderTop: '0.5px solid #e5e5e5' }}>
-                  <button onClick={() => { setAddingRow(true); setNewRow({}); cancelEdit() }} style={{ ...btnSm('#f7f7f5', '#111'), fontSize: 13 }}>+ Adicionar</button>
+                  <button onClick={() => { setAddingRow(true); setNewRow({}); cancelEdit() }} style={{ ...btnSm('#f4f5f0', '#2a2e25'), fontSize: 13 }}>+ Adicionar</button>
                 </div>
               )}
             </div>
@@ -630,8 +630,8 @@ export default function TabelasPage() {
         {tab === 'meiavida' && (
           <>
             {/* Legend card */}
-            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+            <div style={{ background: '#f4f5f0', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25', marginBottom: 10 }}>Como interpretar esta tabela</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', marginBottom: 12 }}>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>solo_type</span><br /><span style={{ color: '#555' }}>Tipo de solo. Cada combinação solo+exposição tem uma taxa de secagem diferente</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>exposicao</span><br /><span style={{ color: '#555' }}>aberta = sol direto, vento, sem cobertura vegetal / fechada = mata densa, sombra constante</span></div>
@@ -643,10 +643,10 @@ export default function TabelasPage() {
               <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '10px 14px' }}>
                 <p style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 8 }}>Escala de referência</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '4px 12px', fontSize: 11, color: '#555' }}>
-                  <span style={{ fontWeight: 600, color: '#111' }}>6–8h</span><span>Pedra/ferro aberto — seca muito rápido (após 1 dia ≈ seco)</span>
-                  <span style={{ fontWeight: 600, color: '#111' }}>14–18h</span><span>Solo ferroso fechado / misto aberto — secagem moderada</span>
-                  <span style={{ fontWeight: 600, color: '#111' }}>24–28h</span><span>Terra aberta / misto fechado — secagem lenta</span>
-                  <span style={{ fontWeight: 600, color: '#111' }}>36h</span><span>Terra fechada — secagem muito lenta (referência máxima)</span>
+                  <span style={{ fontWeight: 600, color: '#2a2e25' }}>6–8h</span><span>Pedra/ferro aberto — seca muito rápido (após 1 dia ≈ seco)</span>
+                  <span style={{ fontWeight: 600, color: '#2a2e25' }}>14–18h</span><span>Solo ferroso fechado / misto aberto — secagem moderada</span>
+                  <span style={{ fontWeight: 600, color: '#2a2e25' }}>24–28h</span><span>Terra aberta / misto fechado — secagem lenta</span>
+                  <span style={{ fontWeight: 600, color: '#2a2e25' }}>36h</span><span>Terra fechada — secagem muito lenta (referência máxima)</span>
                 </div>
               </div>
             </div>
@@ -679,11 +679,11 @@ export default function TabelasPage() {
                             {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
                             {isEditing ? (
                               <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'meia_vida_secagem', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
-                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'meia_vida_secagem', 'update')} style={btnSm('#6d745f', '#fff')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                               </div>
                             ) : (
-                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f4f5f0', '#2a2e25')}>Editar</button>
                             )}
                           </td>
                         </tr>
@@ -716,13 +716,13 @@ export default function TabelasPage() {
                     <p style={hintStyle}>horas (6–36)</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', paddingTop: 16 }}>
-                    <button onClick={() => openModal({}, newRow, 'meia_vida_secagem', 'insert')} style={btnSm('#FFE000', '#111')}>Enviar</button>
-                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                    <button onClick={() => openModal({}, newRow, 'meia_vida_secagem', 'insert')} style={btnSm('#6d745f', '#fff')}>Enviar</button>
+                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                   </div>
                 </div>
               ) : (
                 <div style={{ padding: '12px 16px', borderTop: '0.5px solid #e5e5e5' }}>
-                  <button onClick={() => { setAddingRow(true); setNewRow({}); cancelEdit() }} style={{ ...btnSm('#f7f7f5', '#111'), fontSize: 13 }}>+ Adicionar</button>
+                  <button onClick={() => { setAddingRow(true); setNewRow({}); cancelEdit() }} style={{ ...btnSm('#f4f5f0', '#2a2e25'), fontSize: 13 }}>+ Adicionar</button>
                 </div>
               )}
             </div>
@@ -731,8 +731,8 @@ export default function TabelasPage() {
         {/* ── TAB: Biomas ────────────────────────────────────────────── */}
         {tab === 'biomas' && (
           <>
-            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+            <div style={{ background: '#f4f5f0', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25', marginBottom: 10 }}>Como interpretar esta tabela</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', marginBottom: 12 }}>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>chuva_pct</span><br /><span style={{ color: '#555' }}>Fração da chuva que efetivamente chega ao solo (0–1). Dossel denso intercepta até 80% da precipitação</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>vento_pct</span><br /><span style={{ color: '#555' }}>Fração do vento externo que chega ao nível do solo (0–1). Mata fechada reduz a quase zero</span></div>
@@ -741,7 +741,7 @@ export default function TabelasPage() {
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>altitude_min</span><br /><span style={{ color: '#555' }}>Altitude mínima em metros para aplicar esta linha. NULL = vale para qualquer altitude</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>sazonalidade</span><br /><span style={{ color: '#555' }}>Meses em que o dossel abre (ex: Cerrado abr–set, Caatinga jun–set). Coeficientes sazonais sobrepõem os principais</span></div>
               </div>
-              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
+              <div style={{ background: '#fff', borderLeft: '3px solid #a8b899', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
                 ⚡ Prioridade de lookup: altitude_min preenchida (mais específico) antes de NULL (geral). Sazonalidade prevalece nos meses definidos.
               </div>
 
@@ -754,7 +754,7 @@ export default function TabelasPage() {
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                     <thead>
-                      <tr style={{ background: '#f7f7f5' }}>
+                      <tr style={{ background: '#f4f5f0' }}>
                         <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Bioma / Exposição</th>
                         <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Coeficiente</th>
                         <th style={{ padding: '5px 10px', textAlign: 'left' as const, color: '#888', fontWeight: 600, borderBottom: '0.5px solid #e5e5e5' }}>Range Gemini</th>
@@ -787,11 +787,11 @@ export default function TabelasPage() {
                         { bioma: 'Pampa fechado',             coef: 'sol_pct',    range: '8–20%',  calc: '(8+20)/2 = 14%',   val: '0.140' },
                       ].map((r, i) => (
                         <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f7f7f5' }}>
-                          <td style={{ padding: '4px 10px', color: '#111' }}>{r.bioma}</td>
+                          <td style={{ padding: '4px 10px', color: '#2a2e25' }}>{r.bioma}</td>
                           <td style={{ padding: '4px 10px', fontFamily: 'monospace', color: '#555' }}>{r.coef}</td>
                           <td style={{ padding: '4px 10px', color: '#888' }}>{r.range}</td>
                           <td style={{ padding: '4px 10px', color: '#888' }}>{r.calc}</td>
-                          <td style={{ padding: '4px 10px', textAlign: 'right' as const, fontWeight: 600, color: '#111', fontFamily: 'monospace' }}>{r.val}</td>
+                          <td style={{ padding: '4px 10px', textAlign: 'right' as const, fontWeight: 600, color: '#2a2e25', fontFamily: 'monospace' }}>{r.val}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -876,11 +876,11 @@ export default function TabelasPage() {
                             {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
                             {isEditing ? (
                               <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'biomas', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
-                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'biomas', 'update')} style={btnSm('#6d745f', '#fff')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                               </div>
                             ) : (
-                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f4f5f0', '#2a2e25')}>Editar</button>
                             )}
                           </td>
                         </tr>
@@ -933,13 +933,13 @@ export default function TabelasPage() {
                     <p style={hintStyle}>padrão: 1.0</p>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', paddingTop: 16 }}>
-                    <button onClick={() => openModal({}, newRow, 'biomas', 'insert')} style={btnSm('#FFE000', '#111')}>Enviar</button>
-                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                    <button onClick={() => openModal({}, newRow, 'biomas', 'insert')} style={btnSm('#6d745f', '#fff')}>Enviar</button>
+                    <button onClick={() => { setAddingRow(false); setNewRow({}) }} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                   </div>
                 </div>
               ) : (
                 <div style={{ padding: '12px 16px', borderTop: '0.5px solid #e5e5e5' }}>
-                  <button onClick={() => { setAddingRow(true); setNewRow({ fator_threshold: 1.0 }); cancelEdit() }} style={{ ...btnSm('#f7f7f5', '#111'), fontSize: 13 }}>+ Adicionar linha</button>
+                  <button onClick={() => { setAddingRow(true); setNewRow({ fator_threshold: 1.0 }); cancelEdit() }} style={{ ...btnSm('#f4f5f0', '#2a2e25'), fontSize: 13 }}>+ Adicionar linha</button>
                 </div>
               )}
             </div>
@@ -949,19 +949,19 @@ export default function TabelasPage() {
         {/* ── TAB: Trail Type ───────────────────────────────────────── */}
         {tab === 'trailtype' && (
           <>
-            <div style={{ background: '#f7f7f5', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: '#111', marginBottom: 10 }}>Como interpretar esta tabela</p>
+            <div style={{ background: '#f4f5f0', borderRadius: 8, padding: 16, marginBottom: 16, border: '0.5px solid #e5e5e5' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25', marginBottom: 10 }}>Como interpretar esta tabela</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', marginBottom: 12 }}>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>trail_type</span><br /><span style={{ color: '#555' }}>Tipo da trilha: <code>natural</code> (sem drenagem projetada, retém mais umidade) ou <code>bikepark</code> (drenagem projetada, seca mais rápido)</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>exposicao</span><br /><span style={{ color: '#555' }}>Exposição ao sol/vento: <code>aberta</code> (campos, cristas), <code>mista</code> (cobertura parcial), <code>fechada</code> (mata densa). NULL = genérico para o trail_type</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>meia_vida_mult</span><br /><span style={{ color: '#555' }}>Multiplicador sobre a meia_vida_base calculada. Natural/fechada (1.22) seca 22% mais devagar; bikepark/aberta (0.35) seca 65% mais rápido que uma trilha natural/aberta equivalente</span></div>
                 <div style={legendFieldStyle}><span style={legendKeyStyle}>score_mult</span><br /><span style={{ color: '#555' }}>Multiplicador de score de impacto. Bikepark (0.90) aplica 10% de desconto quando o solo não está saturado — drenagem reduz o impacto real da chuva. Natural = 1.00 (sem desconto)</span></div>
               </div>
-              <div style={{ background: '#fff', borderLeft: '3px solid #FFE000', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
+              <div style={{ background: '#fff', borderLeft: '3px solid #a8b899', padding: '8px 12px', fontSize: 11, color: '#555', marginBottom: 10 }}>
                 ⚡ Prioridade de lookup: match exato (trail_type + exposicao) → row com exposicao NULL (genérico por trail_type) → padrão neutro (mult = 1.0)
               </div>
               <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 6, padding: '10px 14px', fontSize: 11, color: '#555' }}>
-                <b style={{ color: '#111' }}>Referência — Trilha Macaco (natural/fechada/Mata Atlântica):</b> meia_vida terra/fechada base = 36h × 1.22 = <b>43.9h</b>. Bikepark fechado equivalente: 36h × 0.60 = 21.6h. Esta tabela centraliza multiplicadores que antes estavam espalhados em <code>configuracoes_sistema</code> (natural_meia_vida_mult) e <code>meia_vida_clima_mult</code> (variavel=bikepark).
+                <b style={{ color: '#2a2e25' }}>Referência — Trilha Macaco (natural/fechada/Mata Atlântica):</b> meia_vida terra/fechada base = 36h × 1.22 = <b>43.9h</b>. Bikepark fechado equivalente: 36h × 0.60 = 21.6h. Esta tabela centraliza multiplicadores que antes estavam espalhados em <code>configuracoes_sistema</code> (natural_meia_vida_mult) e <code>meia_vida_clima_mult</code> (variavel=bikepark).
               </div>
             </div>
 
@@ -1005,11 +1005,11 @@ export default function TabelasPage() {
                             {isPendente && !isEditing && <span style={{ fontSize: 11, background: '#fef9c3', color: '#854d0e', borderRadius: 3, padding: '2px 6px', marginRight: 6 }}>⏳ Pendente</span>}
                             {isEditing ? (
                               <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'trail_type_config', 'update')} style={btnSm('#FFE000', '#111')}>Salvar</button>
-                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#111')}>Cancelar</button>
+                                <button onClick={() => openModal({ ...row } as unknown as Record<string, unknown>, { ...editValues }, 'trail_type_config', 'update')} style={btnSm('#6d745f', '#fff')}>Salvar</button>
+                                <button onClick={cancelEdit} style={btnSm('#e5e5e5', '#2a2e25')}>Cancelar</button>
                               </div>
                             ) : (
-                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f7f7f5', '#111')}>Editar</button>
+                              !isPendente && <button onClick={() => startEdit(row as unknown as Record<string, unknown>)} style={btnSm('#f4f5f0', '#2a2e25')}>Editar</button>
                             )}
                           </td>
                         </tr>
@@ -1033,7 +1033,7 @@ export default function TabelasPage() {
           padding: 16,
         }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: 24, maxWidth: 520, width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
-            <h2 className="font-wheat" style={{ fontSize: 20, color: '#111', marginBottom: 16 }}>Confirmar alteração</h2>
+            <h2 className="font-wheat" style={{ fontSize: 20, color: '#2a2e25', marginBottom: 16 }}>Confirmar alteração</h2>
 
             {/* Impact line */}
             {(() => {
@@ -1063,7 +1063,7 @@ export default function TabelasPage() {
                   const depois = modal.dadosNovos[k]
                   if (String(antes) === String(depois)) return null
                   return (
-                    <div key={k} style={{ background: '#f7f7f5', borderRadius: 4, padding: '8px 12px', marginBottom: 6, fontSize: 13 }}>
+                    <div key={k} style={{ background: '#f4f5f0', borderRadius: 4, padding: '8px 12px', marginBottom: 6, fontSize: 13 }}>
                       <span style={{ color: '#888', fontWeight: 500 }}>{k}: </span>
                       <span style={{ color: '#ef4444' }}>{String(antes)}</span>
                       <span style={{ color: '#888', margin: '0 6px' }}>→</span>
@@ -1074,7 +1074,7 @@ export default function TabelasPage() {
               </div>
             )}
             {modal.operacao === 'insert' && (
-              <div style={{ marginBottom: 16, background: '#f7f7f5', borderRadius: 4, padding: '8px 12px', fontSize: 13 }}>
+              <div style={{ marginBottom: 16, background: '#f4f5f0', borderRadius: 4, padding: '8px 12px', fontSize: 13 }}>
                 <p style={{ color: '#888', fontWeight: 500, marginBottom: 6 }}>Nova linha:</p>
                 {Object.entries(modal.dadosNovos).map(([k, v]) => (
                   <div key={k}><span style={{ color: '#888' }}>{k}: </span><b>{String(v)}</b></div>
@@ -1103,16 +1103,16 @@ export default function TabelasPage() {
             </div>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setModal(null)} style={{ ...btnSm('#e5e5e5', '#111'), padding: '9px 20px', fontSize: 13 }}>
+              <button onClick={() => setModal(null)} style={{ ...btnSm('#e5e5e5', '#2a2e25'), padding: '9px 20px', fontSize: 13 }}>
                 Cancelar
               </button>
               <button
                 onClick={enviarParaAprovacao}
                 disabled={modal.motivo.trim().length < 20 || modal.submitting}
                 style={{
-                  ...btnSm('#FFE000', '#111'),
+                  ...btnSm('#6d745f', '#fff'),
                   padding: '9px 20px', fontSize: 13, fontWeight: 500,
-                  border: '1.5px solid #111',
+                  border: 'none',
                   opacity: modal.motivo.trim().length < 20 || modal.submitting ? 0.5 : 1,
                   cursor: modal.motivo.trim().length < 20 || modal.submitting ? 'not-allowed' : 'pointer',
                 }}

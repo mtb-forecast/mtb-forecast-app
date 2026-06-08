@@ -29,8 +29,8 @@ export default function BottomNav() {
           position: fixed;
           bottom: 0; left: 0; right: 0;
           z-index: 50;
-          background: #111;
-          border-top: 1px solid #2A2A2A;
+          background: #2a2e25;
+          border-top: 1px solid #3a4035;
           height: 64px;
           display: flex;
           align-items: center;
@@ -49,11 +49,11 @@ export default function BottomNav() {
           transition: background 0.15s;
           position: relative;
         }
-        .bnav-item:hover { background: #1A1A1A; }
+        .bnav-item:hover { background: #3a4035; }
 
         .bnav-icon {
           font-size: 22px;
-          color: #555;
+          color: #8a9280;
           transition: color 0.15s;
           line-height: 1;
         }
@@ -61,17 +61,17 @@ export default function BottomNav() {
         .bnav-label {
           font-size: 9px;
           font-weight: 500;
-          color: #555;
+          color: #8a9280;
           letter-spacing: 0.02em;
           transition: color 0.15s;
         }
 
-        .bnav-item.active .bnav-icon { color: #fff; }
-        .bnav-item.active .bnav-label { color: #FFE000; }
+        .bnav-item.active .bnav-icon { color: #f4f5f0; }
+        .bnav-item.active .bnav-label { color: #a8b899; }
 
         .bnav-dot {
           width: 3px; height: 3px;
-          background: #FFE000;
+          background: #a8b899;
           border-radius: 50%;
           position: absolute;
           bottom: 2px;

@@ -177,7 +177,7 @@ function CadastroContent() {
 
   if (success) {
     return (
-      <div style={{ minHeight: '100vh', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ minHeight: '100vh', background: '#2a2e25', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', maxWidth: 400, padding: 48 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
           <h2 className="font-wheat" style={{ color: '#fff', fontSize: 28, marginBottom: 12 }}>Conta criada!</h2>
@@ -195,7 +195,7 @@ function CadastroContent() {
       {/* Left: black branding panel */}
       <div
         className="hidden lg:flex"
-        style={{ background: '#111', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
+        style={{ background: '#2a2e25', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
       >
         <Link href="/" className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
           MTB FORECASTER
@@ -248,7 +248,7 @@ function CadastroContent() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               cursor: 'pointer', marginBottom: 4,
             }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#111')}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = '#6d745f')}
             onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5e5e5')}
           >
             <GoogleIcon />
@@ -358,7 +358,7 @@ function CadastroContent() {
                   type="checkbox"
                   checked={form.telefone_whatsapp}
                   onChange={e => set('telefone_whatsapp', e.target.checked)}
-                  style={{ width: 15, height: 15, accentColor: '#111' }}
+                  style={{ width: 15, height: 15, accentColor: '#6d745f' }}
                 />
                 <span style={{ fontSize: 13, color: '#555' }}>Este número tem WhatsApp</span>
               </label>
@@ -404,8 +404,8 @@ function CadastroContent() {
               type="submit"
               disabled={loading || (submitted && !valid)}
               style={{
-                background: '#FFE000', color: '#111',
-                border: '1.5px solid #111', borderRadius: 4,
+                background: '#6d745f', color: '#fff',
+                border: 'none', borderRadius: 4,
                 padding: '11px 20px', fontSize: 14, fontWeight: 500,
                 cursor: loading ? 'not-allowed' : 'pointer',
                 opacity: (!valid && submitted) || loading ? 0.5 : 1,
@@ -419,7 +419,7 @@ function CadastroContent() {
 
           <div style={{ marginTop: 24, textAlign: 'center' }}>
             <span style={{ fontSize: 14, color: '#888' }}>Já tem conta? </span>
-            <Link href="/login" style={{ fontSize: 14, color: '#111', fontWeight: 500, borderBottom: '1px solid #111' }}>
+            <Link href="/login" style={{ fontSize: 14, color: '#6d745f', fontWeight: 500, borderBottom: '1px solid #a8b899' }}>
               Entrar
             </Link>
           </div>
@@ -434,7 +434,7 @@ export default function CadastroPage() {
     <Suspense fallback={
       <div style={{
         minHeight: '100vh',
-        background: '#111',
+        background: '#2a2e25',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

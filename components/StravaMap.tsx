@@ -54,7 +54,7 @@ export default function StravaMap({ polyline }: { polyline: string }) {
         L.divIcon({ html: dot(color), className: '', iconSize: [11, 11], iconAnchor: [5, 5] })
 
       L.marker(coords[0], { icon: makeIcon('#22c55e') }).addTo(map)
-      L.marker(coords[coords.length - 1], { icon: makeIcon('#1e293b') }).addTo(map)
+      L.marker(coords[coords.length - 1], { icon: makeIcon('#2a2e25') }).addTo(map)
       map.fitBounds(line.getBounds(), { padding: [24, 24] })
     })
 

@@ -68,21 +68,21 @@ export default function Navbar() {
           font-size: 0.875rem;
           font-weight: 500;
           font-family: inherit;
-          color: #999;
+          color: #a8b899;
           cursor: pointer;
           padding: 0;
           transition: color 0.15s;
         }
-        .nb-btn:hover { color: #fff; }
+        .nb-btn:hover { color: #f4f5f0; }
       `}</style>
 
       <nav style={{
         position: 'fixed',
         top: 0, left: 0, right: 0,
         zIndex: 50,
-        background: '#1A1A1A',
+        background: '#2a2e25',
         height: 56,
-        borderBottom: '1px solid #2A2A2A',
+        borderBottom: '1px solid #3a4035',
       }}>
         <div style={{
           maxWidth: 1200,
@@ -130,13 +130,13 @@ export default function Navbar() {
 
           {!isLoggedIn && (
             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              <Link href="/login" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#999', textDecoration: 'none' }}>
+              <Link href="/login" style={{ fontSize: '0.875rem', fontWeight: 500, color: '#a8b899', textDecoration: 'none' }}>
                 Entrar
               </Link>
               <Link
                 href="/cadastro"
                 style={{
-                  background: '#FFE000', color: '#111',
+                  background: '#6d745f', color: '#fff',
                   borderRadius: 4, padding: '6px 16px',
                   fontSize: '0.875rem', fontWeight: 600,
                   textDecoration: 'none',

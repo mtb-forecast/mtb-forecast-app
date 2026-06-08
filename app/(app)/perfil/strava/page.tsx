@@ -279,10 +279,10 @@ function StravaPageInner() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Page header preto ─────────────────────────────────────────── */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 680, margin: '0 auto' }}>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 28 }}>Conectar trilhas do Strava</h1>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
@@ -290,7 +290,7 @@ function StravaPageInner() {
           </p>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div style={{ padding: '32px 32px 48px', maxWidth: 680, margin: '0 auto' }}>
@@ -327,7 +327,7 @@ function StravaPageInner() {
             <p style={{ fontSize: 13, color: '#888', marginBottom: 16 }}>Você já tem 3 trilhas pessoais. Exclua uma no Perfil para adicionar nova.</p>
             <button
               onClick={() => router.replace('/perfil')}
-              style={{ fontSize: 13, color: '#111', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #111' }}
+              style={{ fontSize: 13, color: '#2a2e25', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #2a2e25' }}
             >
               Ir para o Perfil →
             </button>
@@ -355,8 +355,8 @@ function StravaPageInner() {
                   key={seg.id}
                   style={{
                     background: '#fff',
-                    border: isSelected ? '1.5px solid #111' : '0.5px solid #e5e5e5',
-                    borderLeft: isSelected ? '3px solid #111' : '3px solid #e5e5e5',
+                    border: isSelected ? '1.5px solid #6d745f' : '0.5px solid #e5e5e5',
+                    borderLeft: isSelected ? '3px solid #6d745f' : '3px solid #e5e5e5',
                     borderRadius: 8,
                     overflow: 'hidden',
                     opacity: isDisabled ? 0.45 : 1,
@@ -375,11 +375,11 @@ function StravaPageInner() {
                         disabled={isDisabled}
                         onChange={() => toggleSegment(seg)}
                         onClick={e => e.stopPropagation()}
-                        style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: '#111' }}
+                        style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0, accentColor: '#6d745f' }}
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                          <p style={{ fontSize: 13, fontWeight: 500, color: '#111', lineHeight: 1.3 }}>{seg.name}</p>
+                          <p style={{ fontSize: 13, fontWeight: 500, color: '#2a2e25', lineHeight: 1.3 }}>{seg.name}</p>
                           <a
                             href={`https://www.strava.com/segments/${seg.id}`}
                             target="_blank"
@@ -402,7 +402,7 @@ function StravaPageInner() {
 
                   {/* Expanded form */}
                   {isSelected && form && (
-                    <div style={{ padding: '16px 16px 20px', borderTop: '0.5px solid #e5e5e5', background: '#f7f7f5', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ padding: '16px 16px 20px', borderTop: '0.5px solid #e5e5e5', background: '#f4f5f0', display: 'flex', flexDirection: 'column', gap: 14 }}>
                       {/* Nome */}
                       <div>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: '#888', marginBottom: 4 }}>Nome</label>
@@ -443,13 +443,13 @@ function StravaPageInner() {
                         <RequiredLabel>Tipo de solo</RequiredLabel>
                         {soil === 'loading' && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#888', marginBottom: 6 }}>
-                            <div style={{ width: 12, height: 12, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                            <div style={{ width: 12, height: 12, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                             Buscando tipo de solo via OpenLandMap...
                           </div>
                         )}
                         {soil === 'ok' && (
                           <div style={{ marginBottom: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, background: '#FFE000', color: '#111', borderRadius: 2, padding: '2px 8px' }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, background: '#a8b899', color: '#2a2e25', borderRadius: 2, padding: '2px 8px' }}>
                               🤖 Sugerido pela API
                             </span>
                           </div>

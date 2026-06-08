@@ -206,8 +206,8 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f7f7f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#111', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
@@ -216,16 +216,16 @@ export default function AdminPage() {
   if (!isAdmin) return null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Page header preto ─────────────────────────────────────────── */}
-      <div style={{ background: '#111', padding: '40px 32px' }}>
+      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Painel Admin</h1>
             <span style={{
               fontSize: 11, fontWeight: 600, letterSpacing: '1px',
-              background: '#FFE000', color: '#111',
+              background: '#6d745f', color: '#fff',
               borderRadius: 2, padding: '3px 8px',
             }}>
               ADMIN
@@ -236,7 +236,7 @@ export default function AdminPage() {
           </p>
         </div>
       </div>
-      <div style={{ background: '#FFE000', height: 3 }} />
+      <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div style={{ padding: 32, maxWidth: 900, margin: '0 auto' }}>
@@ -245,11 +245,11 @@ export default function AdminPage() {
         <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1, minWidth: 140 }}>
             <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Trilhas pendentes</p>
-            <p style={{ fontSize: 32, fontWeight: 700, color: '#111' }}>{pendentes.length}</p>
+            <p style={{ fontSize: 32, fontWeight: 700, color: '#2a2e25' }}>{pendentes.length}</p>
           </div>
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 24px', flex: 1, minWidth: 140 }}>
             <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Sugestões Strava</p>
-            <p style={{ fontSize: 32, fontWeight: 700, color: '#111' }}>{sugestoes.length}</p>
+            <p style={{ fontSize: 32, fontWeight: 700, color: '#2a2e25' }}>{sugestoes.length}</p>
           </div>
           <Link
             href="/admin/tabelas"
@@ -272,7 +272,7 @@ export default function AdminPage() {
             )}
             <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Tabelas Mestras</p>
             <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Solo · Thresholds · Meia-vida</p>
-            <p style={{ fontSize: 12, color: '#111', fontWeight: 500, marginTop: 12 }}>Gerenciar →</p>
+            <p style={{ fontSize: 12, color: '#2a2e25', fontWeight: 500, marginTop: 12 }}>Gerenciar →</p>
           </Link>
           <Link
             href="/admin/importar-strava"
@@ -313,7 +313,7 @@ export default function AdminPage() {
         {/* Sugestões Strava */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 500, color: '#111' }}>Sugestões de configuração Strava</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 500, color: '#2a2e25' }}>Sugestões de configuração Strava</h2>
             {sugestoes.length > 0 && (
               <span style={{ fontSize: 11, fontWeight: 600, background: '#fef9c3', color: '#854d0e', borderRadius: 2, padding: '2px 8px' }}>
                 {sugestoes.length} pendente{sugestoes.length > 1 ? 's' : ''}
@@ -337,7 +337,7 @@ export default function AdminPage() {
                 <div key={s.id} style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 20 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
                     <div>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{s.segmento_nome}</p>
+                      <p style={{ fontSize: 14, fontWeight: 500, color: '#2a2e25' }}>{s.segmento_nome}</p>
                       <p style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
                         Segmento #{s.strava_segment_id} · {new Date(s.created_at).toLocaleDateString('pt-BR')}
                       </p>
@@ -349,34 +349,34 @@ export default function AdminPage() {
 
                   {s.config_atual && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-                      <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: 12 }}>
+                      <div style={{ background: '#f4f5f0', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: 12 }}>
                         <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>Config atual</p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Solo: <b style={{ color: '#111' }}>{s.config_atual.solo_type}</b></p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Exposição: <b style={{ color: '#111' }}>{s.config_atual.exposicao}</b></p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Tipo: <b style={{ color: '#111' }}>{s.config_atual.trail_type}</b></p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Bioma: <b style={{ color: '#111' }}>{s.config_atual.bioma}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Solo: <b style={{ color: '#2a2e25' }}>{s.config_atual.solo_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Exposição: <b style={{ color: '#2a2e25' }}>{s.config_atual.exposicao}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Tipo: <b style={{ color: '#2a2e25' }}>{s.config_atual.trail_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Bioma: <b style={{ color: '#2a2e25' }}>{s.config_atual.bioma}</b></p>
                       </div>
                       <div style={{ background: '#fef9c3', border: '0.5px solid #fde047', borderRadius: 4, padding: 12 }}>
                         <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', color: '#854d0e', textTransform: 'uppercase', marginBottom: 8 }}>Sugestão</p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Solo: <b style={{ color: '#111' }}>{s.solo_type}</b></p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Exposição: <b style={{ color: '#111' }}>{s.exposicao}</b></p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Tipo: <b style={{ color: '#111' }}>{s.trail_type}</b></p>
-                        <p style={{ fontSize: 12, color: '#888' }}>Bioma: <b style={{ color: '#111' }}>{s.bioma}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Solo: <b style={{ color: '#2a2e25' }}>{s.solo_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Exposição: <b style={{ color: '#2a2e25' }}>{s.exposicao}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Tipo: <b style={{ color: '#2a2e25' }}>{s.trail_type}</b></p>
+                        <p style={{ fontSize: 12, color: '#888' }}>Bioma: <b style={{ color: '#2a2e25' }}>{s.bioma}</b></p>
                       </div>
                     </div>
                   )}
 
-                  <div style={{ background: '#f7f7f5', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '10px 14px', marginBottom: 14 }}>
+                  <div style={{ background: '#f4f5f0', border: '0.5px solid #e5e5e5', borderRadius: 4, padding: '10px 14px', marginBottom: 14 }}>
                     <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 6 }}>Motivo</p>
-                    <p style={{ fontSize: 13, color: '#111' }}>{s.motivo}</p>
+                    <p style={{ fontSize: 13, color: '#2a2e25' }}>{s.motivo}</p>
                   </div>
 
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       onClick={() => aprovarSugestao(s)}
                       style={{
-                        flex: 1, background: '#FFE000', color: '#111',
-                        border: '1.5px solid #111', borderRadius: 4,
+                        flex: 1, background: '#6d745f', color: '#fff',
+                        border: 'none', borderRadius: 4,
                         padding: '9px 0', fontSize: 13, fontWeight: 500, cursor: 'pointer',
                       }}
                     >
