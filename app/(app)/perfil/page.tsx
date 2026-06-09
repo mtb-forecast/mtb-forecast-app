@@ -718,25 +718,88 @@ export default function PerfilPage() {
   // ─────────────────────────────────────────────────────────────────────────────
   // TAB: INTEGRAÇÕES
   // ─────────────────────────────────────────────────────────────────────────────
-  const tabIntegracoes = (
-    <div>
-      <ProfileSection title="Strava">
-        <Link href="/perfil/strava" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 0' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(252,76,2,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <i className="ti ti-brand-strava" style={{ fontSize: 20, color: '#FC4C02' }} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 3 }}>Strava</div>
-              <div style={{ fontSize: 12, color: T.muted }}>Conectar conta e importar segmentos</div>
-            </div>
-            <i className="ti ti-chevron-right" style={{ fontSize: 14, color: T.dim }} />
-          </div>
-        </Link>
-      </ProfileSection>
+  const INTEGRACOES = [
+    {
+      nome: 'Strava',
+      sub: 'Segmentos favoritos e histórico de atividades',
+      icon: <i className="ti ti-brand-strava" style={{ fontSize: 22, color: '#FC4C02' }} />,
+      bg: 'rgba(252,76,2,0.10)',
+      border: 'rgba(252,76,2,0.20)',
+      color: '#FC4C02',
+    },
+    {
+      nome: 'Garmin Connect',
+      sub: 'Sincronizar treinos e dados de performance',
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#006BBD"/>
+          <path d="M8 12a4 4 0 1 1 8 0 4 4 0 0 1-8 0z" fill="#fff"/>
+          <path d="M12 8v4l3 2" stroke="#006BBD" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      ),
+      bg: 'rgba(0,107,189,0.10)',
+      border: 'rgba(0,107,189,0.20)',
+      color: '#006BBD',
+    },
+    {
+      nome: 'Zepp / Amazfit',
+      sub: 'Monitoramento de saúde e métricas de treino',
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="2" width="20" height="20" rx="6" fill="#00BCD4"/>
+          <path d="M7 17L12 7l5 10" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M9 13h6" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      ),
+      bg: 'rgba(0,188,212,0.10)',
+      border: 'rgba(0,188,212,0.20)',
+      color: '#00BCD4',
+    },
+  ]
 
-      <p style={{ fontSize: 12, color: T.muted, padding: '0 4px', lineHeight: 1.7 }}>
-        A integração com o Strava permite importar seus segmentos favoritos e receber alertas de condições personalizados.
+  const tabIntegracoes = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {INTEGRACOES.map(integ => (
+        <div
+          key={integ.nome}
+          style={{
+            background: '#f9f9f7',
+            borderRadius: 20,
+            border: `1px solid ${T.border}`,
+            padding: '18px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            opacity: 0.55,
+            cursor: 'not-allowed',
+            filter: 'grayscale(0.4)',
+          }}
+        >
+          <div style={{
+            width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+            background: '#eaece4',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {integ.icon}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 3 }}>{integ.nome}</div>
+            <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.4 }}>{integ.sub}</div>
+          </div>
+          <span style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.8px',
+            background: '#e5e7e0',
+            color: '#8a9280',
+            borderRadius: 20, padding: '4px 10px',
+            whiteSpace: 'nowrap', flexShrink: 0,
+          }}>
+            EM BREVE
+          </span>
+        </div>
+      ))}
+
+      <p style={{ fontSize: 12, color: T.muted, padding: '4px 4px 0', lineHeight: 1.7 }}>
+        As integrações vão permitir importar atividades, segmentos e métricas de performance diretamente para o MTB Forecaster.
       </p>
     </div>
   )
