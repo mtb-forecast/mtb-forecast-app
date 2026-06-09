@@ -3847,7 +3847,13 @@ def _enviar_emails_usuarios(resultados_global: list, hoje: str, datas: dict) -> 
             print(f"  [Email] {usuario['email']}: sem trilhas com dados — pulando")
             continue
 
-        enviar_email_usuario(usuario, resultados_favoritos, resultados_strava, hoje, datas)
+        print(f"  [Email] Processando {usuario['email']} ({len(resultados_favoritos)} fav, {len(resultados_strava)} strava)...")
+        try:
+            enviar_email_usuario(usuario, resultados_favoritos, resultados_strava, hoje, datas)
+        except Exception as exc:
+            import traceback
+            print(f"  [Email] ERRO ao processar {usuario['email']}: {exc}")
+            traceback.print_exc()
 
 
 def _carregar_resultados_supabase() -> list:
