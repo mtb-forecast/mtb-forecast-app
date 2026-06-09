@@ -32,7 +32,7 @@ jobs:
         run: pip install -r requirements-lock.txt
 
       - name: Send email reports
-        run: python mtb-forecast.py --email-only 2>&1 | tee debug_email_$(date +%Y-%m-%d).log
+        run: python mtb_email_html.py 2>&1 | tee debug_email_$(date +%Y-%m-%d).log
 
       - name: Upload debug log
         if: always()
