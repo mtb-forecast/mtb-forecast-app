@@ -37,7 +37,7 @@ export default function AuthCallbackPage() {
               telefone: meta.telefone || null,
               telefone_whatsapp: meta.telefone_whatsapp ?? true,
               telegram_username: meta.telegram_username || null,
-              plano: 'gratuito',
+              plano: 'plano_a',
               is_admin: false,
             })
           } else if (!existing.nome && meta.nome) {

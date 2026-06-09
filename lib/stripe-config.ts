@@ -1,22 +1,9 @@
 export const PLANOS = {
-  gratuito: {
-    id: 'gratuito',
-    nome: 'Gratuito',
-    preco: 0,
-    priceId: null as string | null,
-    descricao: 'Para começar a explorar',
-    em_construcao: false,
-    features: [
-      'Trilhas atualizadas às 06hrs',
-      'Monitore até 5 trilhas',
-      'Receba o email do report diário',
-    ],
-  },
   plano_a: {
     id: 'plano_a',
     nome: 'Básico',
-    preco: 3,
-    priceId: 'price_1TXXkp9nHSRThrcwIklizBNU' as string | null,
+    preco: 0,
+    priceId: null as string | null,
     descricao: 'Para quem pedala todo final de semana',
     em_construcao: false,
     features: [

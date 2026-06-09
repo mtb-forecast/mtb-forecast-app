@@ -45,7 +45,6 @@ export async function GET() {
   if (profilesError) return NextResponse.json({ error: 'Erro ao buscar profiles' }, { status: 500 })
 
   const counts: Record<string, number> = {
-    gratuito: 0,
     plano_a: 0,
     plano_b: 0,
     plano_c: 0,
@@ -55,7 +54,7 @@ export async function GET() {
     const plano = row.plano
     const key = (typeof plano === 'string' && plano !== '' && VALID_PLANOS.has(plano))
       ? plano
-      : 'gratuito'
+      : 'plano_a'
     counts[key]++
   }
 
