@@ -11,9 +11,7 @@ import json
 import os
 import urllib.request
 import urllib.error
-from datetime import datetime
-
-import pytz
+from datetime import datetime, timezone, timedelta
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -21,7 +19,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "https://eydlkvrjopffyqpdstzh.supabase.
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_SERVICE_KEY")
 SEND_SECRET  = os.getenv("SEND_EMAIL_SECRET")
 APP_URL      = "https://www.mtbforecaster.com.br"
-BRT          = pytz.timezone("America/Sao_Paulo")
+BRT          = timezone(timedelta(hours=-3))
 
 # ─── Paleta (espelha o TrilhaCard do app) ─────────────────────────────────────
 
