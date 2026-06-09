@@ -435,29 +435,29 @@ export default function PerfilPage() {
 
       {/* Minhas trilhas */}
       <ProfileSection title="Trilhas">
-        <Link href="/trilhas" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <InfoRow
-            icon="ti-heart" label="Favoritas"
-            value={`${trilhasFavoritas.length} trilha${trilhasFavoritas.length !== 1 ? 's' : ''}`}
-          />
-        </Link>
+        <InfoRow
+          icon="ti-heart" label="Favoritas"
+          value={`${trilhasFavoritas.length} trilha${trilhasFavoritas.length !== 1 ? 's' : ''}`}
+          onTap={() => { window.location.href = '/trilhas' }}
+        />
         <Divider />
-        <Link href="/perfil/minhas-trilhas" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <InfoRow
-            icon="ti-map-pin" label="Que cadastrei"
-            value={`${minhasTrilhas.length} trilha${minhasTrilhas.length !== 1 ? 's' : ''}`}
-          />
-        </Link>
+        <InfoRow
+          icon="ti-map-pin" label="Que cadastrei"
+          value={`${minhasTrilhas.length} trilha${minhasTrilhas.length !== 1 ? 's' : ''}`}
+          onTap={() => { window.location.href = '/perfil/minhas-trilhas' }}
+        />
         <Divider />
-        <Link href="/trilhas/cadastrar" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <InfoRow icon="ti-plus" label="Cadastrar nova trilha" value="Publicar no catálogo" />
-        </Link>
+        <InfoRow
+          icon="ti-plus" label="Cadastrar nova trilha" value="Publicar no catálogo"
+          onTap={() => { window.location.href = '/trilhas/cadastrar' }}
+        />
         {profile?.is_admin && (
           <>
             <Divider />
-            <Link href="/admin/importar-strava" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <InfoRow icon="ti-brand-strava" label="Importar Strava" value="Segmentos e rotas" />
-            </Link>
+            <InfoRow
+              icon="ti-brand-strava" label="Importar Strava" value="Segmentos e rotas"
+              onTap={() => { window.location.href = '/admin/importar-strava' }}
+            />
           </>
         )}
       </ProfileSection>
