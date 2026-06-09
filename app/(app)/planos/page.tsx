@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation'
 import { PLANOS } from '@/lib/stripe-config'
 import { supabase, getClientUser } from '@/lib/supabase'
 
-const PLANO_ORDER = ['gratuito', 'plano_a', 'plano_b', 'plano_c'] as const
+const PLANO_ORDER = ['plano_a', 'plano_b', 'plano_c'] as const
 
 type PlanStat = { plano: string; total: number }
 
 const PLANO_BAR_COLOR: Record<string, string> = {
-  gratuito: '#d1d5db',
   plano_a:  '#60a5fa',
   plano_b:  '#2a2e25',
   plano_c:  '#a8b899',
@@ -56,7 +55,6 @@ export default function PlanosPage() {
   }, [])
 
   async function handleCheckout(planoId: string) {
-    if (planoId === 'gratuito') return
     setLoading(planoId)
     try {
       const res = await fetch('/api/stripe/checkout', {
@@ -337,7 +335,7 @@ export default function PlanosPage() {
                   const total = stat?.total ?? 0
                   const pct = Math.round((total / maxTotal) * 100)
                   const color = PLANO_BAR_COLOR[planoId] ?? '#e5e5e5'
-                  const labelColor = planoId === 'plano_c' ? '#2a2e25' : planoId === 'gratuito' ? '#555' : '#fff'
+                  const labelColor = planoId === 'plano_c' ? '#2a2e25' : '#fff'
 
                   return (
                     <div key={planoId}>

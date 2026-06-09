@@ -52,10 +52,6 @@ function TrilhasContent() {
 
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
-  const [plano, setPlano] = useState<string | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [limiteMsg, setLimiteMsg] = useState(false)
-
   useEffect(() => { setMounted(true) }, [])
 
   // Carrega todas as trilhas + estados na montagem
@@ -66,10 +62,9 @@ function TrilhasContent() {
         if (!user) { window.location.href = '/login'; return }
         setUserId(user.id)
 
-        const [{ data: favData }, { data: profile }, { data: trilhasData }, { data: estadosData }, { data: ptData }] =
+        const [{ data: favData }, { data: trilhasData }, { data: estadosData }, { data: ptData }] =
           await Promise.all([
             supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-            supabase.from('profiles').select('plano, is_admin').eq('id', user.id).single(),
             supabase
               .from('trilhas')
               .select(`
@@ -98,8 +93,6 @@ function TrilhasContent() {
           ])
 
         if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
-        setPlano(profile?.plano ?? null)
-        setIsAdmin(!!profile?.is_admin)
 
         if (trilhasData) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -185,16 +178,10 @@ function TrilhasContent() {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
       setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
     } else {
-      const isGratuito = !plano || plano === 'gratuito'
-      if (isGratuito && !isAdmin && favoritos.size >= 5) {
-        setLimiteMsg(true)
-        setTimeout(() => setLimiteMsg(false), 6000)
-        return
-      }
       await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
       setFavoritos(prev => new Set([...prev, trilhaId]))
     }
-  }, [userId, favoritos, plano, isAdmin])
+  }, [userId, favoritos])
 
   // Filtragem client-side — memoizado para evitar recálculo a cada render
   const trilhasFiltradas = useMemo(() => trilhasAll.filter(t => {
@@ -527,21 +514,6 @@ function TrilhasContent() {
           </>
         )}
       </div>
-
-      {/* Toast limite de favoritos */}
-      {limiteMsg && (
-        <div style={{
-          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          background: '#2a2e25', color: '#FFFFFF',
-          borderRadius: 12, padding: '12px 20px',
-          fontSize: 13, zIndex: 1000, maxWidth: 440, textAlign: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)', whiteSpace: 'nowrap',
-        }}>
-          Plano Gratuito permite até 5 trilhas favoritas.{' '}
-          <a href="/planos" style={{ color: '#a8b899', fontWeight: 600, textDecoration: 'none' }}>Faça upgrade</a>{' '}
-          para monitorar mais trilhas.
-        </div>
-      )}
     </div>
   )
 }

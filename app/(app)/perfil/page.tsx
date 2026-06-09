@@ -254,8 +254,8 @@ export default function PerfilPage() {
   }, [])
 
   // ── Computed ────────────────────────────────────────────────────────────────
-  const planoId = (profile?.plano || 'gratuito') as keyof typeof PLANOS
-  const plano = PLANOS[planoId] ?? PLANOS.gratuito
+  const planoId = (profile?.plano || 'plano_a') as keyof typeof PLANOS
+  const plano = PLANOS[planoId] ?? PLANOS.plano_a
   const isPago = plano.preco > 0
   const displayName = profile?.apelido || profile?.nome || '–'
   const initials = displayName[0]?.toUpperCase() ?? '?'
@@ -409,28 +409,12 @@ export default function PerfilPage() {
         <Divider />
 
         {/* Telegram */}
-        {planoId === 'gratuito' ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: 0.5 }}>
-              <i className="ti ti-brand-telegram" style={{ fontSize: 20, color: '#26A5E4' }} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 14, color: T.muted, fontWeight: 600 }}>Telegram</span>
-                <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(109,116,95,0.12)', color: T.primary, borderRadius: 20, padding: '2px 8px', letterSpacing: '0.5px' }}>PREMIUM</span>
-              </div>
-              <div style={{ fontSize: 12, color: T.muted }}>Disponível no plano Básico</div>
-            </div>
-            <Link href="/planos" style={{ fontSize: 12, fontWeight: 700, color: T.primary, textDecoration: 'none', flexShrink: 0 }}>Upgrade</Link>
-          </div>
-        ) : (
-          <InfoRow
-            icon="ti-brand-telegram" label="Telegram"
-            value={telegram || ''}
-            sub={telegram ? 'Ativo' : 'Clique para configurar'}
-            onTap={() => setSheetField('telegram')}
-          />
-        )}
+        <InfoRow
+          icon="ti-brand-telegram" label="Telegram"
+          value={telegram || ''}
+          sub={telegram ? 'Ativo' : 'Clique para configurar'}
+          onTap={() => setSheetField('telegram')}
+        />
       </ProfileSection>
 
       {/* Minhas trilhas */}

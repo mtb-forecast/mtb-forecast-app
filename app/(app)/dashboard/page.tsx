@@ -39,7 +39,7 @@ export default function DashboardPage() {
 
         // Step 1 — profile + favorites + frases em paralelo
         const [{ data: profileData }, { data: favIds }, { data: frases }] = await Promise.all([
-          supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao').eq('id', user.id).single(),
+          supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao, receber_email, telegram_username, telegram_chat_id, telegram_ativo').eq('id', user.id).single(),
           supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
           supabase.from('frases_motivacionais').select('frase').eq('ativo', true),
         ])
@@ -233,6 +233,49 @@ export default function DashboardPage() {
             >
               Completar perfil
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de notificações desativadas */}
+      {profile && !profile.receber_email && !(profile.telegram_chat_id && profile.telegram_ativo) && (
+        <div style={{ background: '#2a2e25', padding: '16px 28px' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>🔕</span>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#fff', margin: '0 0 4px' }}>
+                    Você não está recebendo notificações
+                  </p>
+                  <p style={{ fontSize: 12, color: '#a8b899', margin: 0, lineHeight: 1.6 }}>
+                    Ative o e-mail ou conecte o Telegram para saber quando suas trilhas estão liberadas — antes de acordar cedo à toa.
+                  </p>
+                  <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ color: '#4ADE80' }}>✓</span> Report diário de condições
+                    </span>
+                    <span style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ color: '#4ADE80' }}>✓</span> Alerta de trilha liberada
+                    </span>
+                    <span style={{ fontSize: 11, color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ color: '#4ADE80' }}>✓</span> Horário personalizável
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Link
+                href="/perfil"
+                style={{
+                  fontSize: 13, fontWeight: 600, color: '#2a2e25',
+                  background: '#a8b899', border: 'none',
+                  borderRadius: 4, padding: '8px 18px',
+                  whiteSpace: 'nowrap', textDecoration: 'none', flexShrink: 0,
+                }}
+              >
+                Ativar notificações →
+              </Link>
+            </div>
           </div>
         </div>
       )}

@@ -165,7 +165,7 @@ function CadastroContent() {
         telegram_username: form.telegram || null,
         regiao: form.regiao,
         is_admin: false,
-        plano: 'gratuito',
+        plano: 'plano_a',
       })
     }
 

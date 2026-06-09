@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
     const sub = event.data.object as Stripe.Subscription
     const priceId = sub.items.data[0]?.price?.id
-    const planoId = priceId ? (PRICE_TO_PLANO[priceId] ?? 'gratuito') : 'gratuito'
+    const planoId = priceId ? (PRICE_TO_PLANO[priceId] ?? 'plano_a') : 'plano_a'
     const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id
 
     const userId = await getCustomerUserId(customerId)
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     if (userId) {
       await supabase
         .from('profiles')
-        .update({ plano: 'gratuito' })
+        .update({ plano: 'plano_a' })
         .eq('id', userId)
     }
   }

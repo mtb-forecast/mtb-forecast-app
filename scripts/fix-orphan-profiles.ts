@@ -82,7 +82,7 @@ async function main() {
     const { error: upsertError } = await admin.from('profiles').upsert({
       id: user.id,
       email: user.email ?? '',
-      plano: 'gratuito',
+      plano: 'plano_a',
       is_admin: false,
     })
 
