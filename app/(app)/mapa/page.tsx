@@ -11,7 +11,23 @@ type TrilhaMapData = {
   name: string
   lat: number
   lon: number
+  polyline?: string | null
   condicoes?: Pick<Condicao, 'veredicto' | 'veredicto_12h' | 'acumulo_48h' | 'ultima_chuva_h'>[]
+}
+
+function decodePolyline(encoded: string): [number, number][] {
+  const coords: [number, number][] = []
+  let index = 0, lat = 0, lng = 0
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1)
+    shift = 0; result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1)
+    coords.push([lat / 1e5, lng / 1e5])
+  }
+  return coords
 }
 
 type PumpTrackMapData = {
@@ -74,6 +90,8 @@ export default function MapaPage() {
   const tileLayerRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leafletLibRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activePolylineRef = useRef<any>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
   const [satellite, setSatellite] = useState(false)
@@ -88,7 +106,7 @@ export default function MapaPage() {
           supabase
             .from('trilhas')
             .select(`
-              id, name, lat, lon,
+              id, name, lat, lon, polyline,
               condicoes(veredicto, veredicto_12h, acumulo_48h, ultima_chuva_h)
             `)
             .eq('aprovada', true)
@@ -268,9 +286,28 @@ export default function MapaPage() {
 
       const popup = L.popup({ maxWidth: 220, minWidth: 180 }).setContent(popupContent)
 
-      L.marker([trilha.lat, trilha.lon], { icon: pinIcon })
+      const marker = L.marker([trilha.lat, trilha.lon], { icon: pinIcon })
         .addTo(map)
         .bindPopup(popup)
+
+      if (trilha.polyline) {
+        marker.on('popupopen', () => {
+          if (activePolylineRef.current) map.removeLayer(activePolylineRef.current)
+          const coords = decodePolyline(trilha.polyline!)
+          activePolylineRef.current = L.polyline(coords, {
+            color: cor,
+            weight: 4,
+            opacity: 0.85,
+            smoothFactor: 1,
+          }).addTo(map)
+        })
+        marker.on('popupclose', () => {
+          if (activePolylineRef.current) {
+            map.removeLayer(activePolylineRef.current)
+            activePolylineRef.current = null
+          }
+        })
+      }
     })
 
     // ── Pump Tracks ────────────────────────────────────────────────────
