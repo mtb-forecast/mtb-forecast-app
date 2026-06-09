@@ -128,12 +128,15 @@ export type Profile = {
   telefone?: string
   telefone_whatsapp?: boolean
   telegram_username?: string
+  telegram_chat_id?: string | null
+  telegram_ativo?: boolean
   instagram?: string
   regiao?: string
   is_admin: boolean
   plano?: string
   stripe_customer_id?: string
   avatar_url?: string | null
+  receber_email?: boolean
 }
 
 export type TrilhaComCondicao = Trilha & {
