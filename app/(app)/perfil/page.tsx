@@ -438,7 +438,7 @@ export default function PerfilPage() {
         <InfoRow
           icon="ti-heart" label="Favoritas"
           value={`${trilhasFavoritas.length} trilha${trilhasFavoritas.length !== 1 ? 's' : ''}`}
-          onTap={() => { window.location.href = '/trilhas' }}
+          onTap={() => { window.location.href = '/dashboard' }}
         />
         <Divider />
         <InfoRow
