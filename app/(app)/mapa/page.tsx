@@ -27,7 +27,7 @@ type PumpTrackMapData = {
 }
 
 function getVeredictoColor(veredicto: string | undefined): string {
-  if (!veredicto) return '#999'
+  if (!veredicto || veredicto.includes('Favorite esta trilha')) return '#999'
   if (veredicto.includes('DROP LIBERADO') && !veredicto.includes('alerta')) return '#16a34a'
   if (veredicto.includes('ATENÇÃO') || veredicto.includes('alerta')) return '#d97706'
   return '#dc2626'
