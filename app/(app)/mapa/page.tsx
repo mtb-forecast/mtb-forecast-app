@@ -265,29 +265,27 @@ export default function MapaPage() {
         .bindPopup(popup)
 
       if (trilha.polyline) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let myPolyline: any = null
         marker.on('popupopen', () => {
           if (activePolylineRef.current) map.removeLayer(activePolylineRef.current)
           const coords = decodePolyline(trilha.polyline!)
-          myPolyline = L.polyline(coords, {
+          activePolylineRef.current = L.polyline(coords, {
             color: cor,
             weight: 4,
             opacity: 0.85,
             smoothFactor: 1,
           }).addTo(map)
-          activePolylineRef.current = myPolyline
-        })
-        marker.on('popupclose', () => {
-          // só remove se ainda for esta polyline (Leaflet dispara popupclose do anterior
-          // depois do popupopen do novo, então checamos identidade antes de remover)
-          if (myPolyline && activePolylineRef.current === myPolyline) {
-            map.removeLayer(myPolyline)
-            activePolylineRef.current = null
-          }
-          myPolyline = null
         })
       }
+    })
+
+    // Remove polyline quando popup fecha sem abrir outro
+    map.on('popupclose', () => {
+      setTimeout(() => {
+        if (!map.isPopupOpen() && activePolylineRef.current) {
+          map.removeLayer(activePolylineRef.current)
+          activePolylineRef.current = null
+        }
+      }, 0)
     })
 
     // ── Pump Tracks ────────────────────────────────────────────────────
