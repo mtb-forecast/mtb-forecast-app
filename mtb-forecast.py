@@ -1647,6 +1647,18 @@ def enviar_telegram(chat_id: int, mensagem: str) -> bool:
         return False
 
 
+def _emoji_tempo(clouds_pct, rain_mm, pop_pct) -> str:
+    if rain_mm >= 10 or (rain_mm >= 5 and pop_pct >= 70):
+        return "⛈"
+    if rain_mm >= 2 or pop_pct >= 60:
+        return "🌧"
+    if clouds_pct is not None and clouds_pct >= 70:
+        return "☁️"
+    if clouds_pct is not None and clouds_pct >= 30:
+        return "⛅"
+    return "🌤"
+
+
 def _buscar_usuarios_telegram() -> list:
     """
     Busca usuários com telegram_ativo=true e telegram_chat_id preenchido.
