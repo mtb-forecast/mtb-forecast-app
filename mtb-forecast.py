@@ -3975,6 +3975,12 @@ def _carregar_resultados_supabase() -> list:
                 "cor":     _COR_ADH.get(row.get("aderencia_futura_status", adh_status), "#64748b"),
                 "emoji":   _EMO_ADH.get(row.get("aderencia_futura_status", adh_status), "⚪"),
             },
+            "previsao_24h": [],
+            "fds": {
+                "d1": {"disponivel": False},
+                "d2": {"disponivel": False},
+                "d3": {"disponivel": False},
+            },
         })
 
     print(f"  [Email-only] {len(resultados)} trilha(s) carregada(s) do Supabase")
