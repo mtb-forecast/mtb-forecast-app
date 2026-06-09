@@ -145,6 +145,7 @@ function EditSheet({
         margin: '0 auto', zIndex: 99,
         background: T.card, border: `1px solid ${T.border}`, borderBottom: 'none',
         borderRadius: '24px 24px 0 0', padding: '0 20px 40px',
+        maxHeight: '88vh', overflowY: 'auto',
         transition: 'transform 0.28s cubic-bezier(0.32,0.72,0,1)',
         transform: open ? 'translateY(0)' : 'translateY(110%)',
       }}>
@@ -833,7 +834,7 @@ export default function PerfilPage() {
             <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Apelido</label>
             <input style={inp} type="text" value={apelido} onChange={e => setApelido(e.target.value)} placeholder="Como te chamam" />
           </div>
-          <SheetSaveBtn onClick={() => setSheetField(null)} />
+          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
         </div>
       </EditSheet>
     )
@@ -849,7 +850,7 @@ export default function PerfilPage() {
             <Toggle checked={telefoneWhatsapp} onChange={v => setTelefoneWhatsapp(v)} />
             <span style={{ fontSize: 14, color: T.text }}>Este número tem WhatsApp</span>
           </div>
-          <SheetSaveBtn onClick={() => setSheetField(null)} />
+          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
         </div>
       </EditSheet>
     )
@@ -865,7 +866,7 @@ export default function PerfilPage() {
           <p style={{ fontSize: 12, color: T.muted, marginTop: 10, lineHeight: 1.6 }}>
             A região define quais dados meteorológicos são usados nas previsões do seu dashboard.
           </p>
-          <SheetSaveBtn onClick={() => setSheetField(null)} />
+          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
         </div>
       </EditSheet>
     )
@@ -928,7 +929,7 @@ export default function PerfilPage() {
             </div>
           </div>
 
-          <SheetSaveBtn onClick={() => setSheetField(null)} />
+          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
         </div>
       </EditSheet>
     )
@@ -943,7 +944,7 @@ export default function PerfilPage() {
           <p style={{ fontSize: 12, color: T.muted, marginTop: 10, lineHeight: 1.6 }}>
             Seu handle aparece no card de perfil e ajuda outros riders a te encontrar.
           </p>
-          <SheetSaveBtn onClick={() => setSheetField(null)} />
+          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
         </div>
       </EditSheet>
     )
@@ -1140,9 +1141,9 @@ export default function PerfilPage() {
       <div style={{
         position: 'fixed', bottom: 80, left: 0, right: 0,
         display: 'flex', justifyContent: 'center',
-        padding: '0 16px', zIndex: 30, pointerEvents: isDirty ? 'auto' : 'none',
-        opacity: isDirty ? 1 : 0,
-        transform: isDirty ? 'translateY(0)' : 'translateY(20px)',
+        padding: '0 16px', zIndex: 30, pointerEvents: (isDirty && !sheetField) ? 'auto' : 'none',
+        opacity: (isDirty && !sheetField) ? 1 : 0,
+        transform: (isDirty && !sheetField) ? 'translateY(0)' : 'translateY(20px)',
         transition: 'opacity 0.25s, transform 0.25s',
       }}>
         <button
