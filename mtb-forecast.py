@@ -2313,6 +2313,7 @@ def processar_segmentos_strava(datas: dict) -> None:
 
             dados = processar_trilha(trail, datas)
             dados = _aplicar_override_chuva_futura(dados)
+            dados = ajustar_por_observacoes(dados, trail)
 
             strava_segment_id = seg.get("strava_segment_id")
             gravar_condicoes_strava(strava_segment_id, dados)
@@ -2868,6 +2869,91 @@ def _aplicar_override_chuva_futura(resultado: dict) -> dict:
     motivo = vered.get("motivo") or ""
     if alerta not in motivo:
         vered["motivo"] = (motivo + ", " + alerta).lstrip(", ")
+
+    return resultado
+
+
+# Mapeamento condição reportada → delta de risco (positivo = piora)
+_CONDICAO_RISCO = {
+    "seco":  -1,
+    "grip":   0,
+    "boa":    0,
+    "baixa":  1,
+    "lama":   2,
+}
+
+def ajustar_por_observacoes(resultado: dict, trail: dict) -> dict:
+    """
+    Pós-processador isolado: não toca em veredicto().
+    Consulta observacoes_trilha das últimas 24h e ajusta o veredicto
+    se riders reportaram condições piores que o previsto.
+    Máximo de +2 no risco para não sobrescrever a física.
+    """
+    trilha_id = trail.get("supabase_id")
+    if not trilha_id or not SUPABASE_KEY:
+        return resultado
+
+    try:
+        desde = (datetime.now(BRT) - timedelta(hours=24)).isoformat()
+        url = (
+            f"{SUPABASE_URL}/rest/v1/observacoes_trilha"
+            f"?select=condicao_encontrada,veredicto_sistema,created_at"
+            f"&trilha_id=eq.{trilha_id}"
+            f"&condicao_encontrada=not.is.null"
+            f"&created_at=gte.{desde}"
+        )
+        req = urllib.request.Request(
+            url,
+            headers={
+                "apikey":        SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type":  "application/json",
+            }
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            obs = json.loads(r.read()) or []
+
+        if not obs:
+            return resultado
+
+        delta = 0
+        condicoes_negativas = []
+        for o in obs:
+            d = _CONDICAO_RISCO.get(o.get("condicao_encontrada", ""), 0)
+            if d > 0:
+                delta += d
+                condicoes_negativas.append(o["condicao_encontrada"])
+
+        delta = min(delta, 2)  # cap: máximo +2
+
+        if delta <= 0:
+            return resultado
+
+        vered = resultado.get("veredicto", {})
+        risco_atual = vered.get("risco", 0)
+        novo_risco  = risco_atual + delta
+
+        if novo_risco > 3 and vered.get("texto") != "MELHOR ESPERAR":
+            vered["texto"]  = "MELHOR ESPERAR"
+            vered["emoji"]  = "🛑"
+            vered["cor"]    = "#dc2626"
+            vered["bg"]     = "#fef2f2"
+        elif novo_risco > 1 and vered.get("texto") == "DROP LIBERADO":
+            vered["texto"]  = "DROP LIBERADO - Veja os alertas"
+            vered["emoji"]  = "⚠️"
+            vered["cor"]    = "#d97706"
+            vered["bg"]     = "#fffbeb"
+
+        vered["risco"] = novo_risco
+        tag = f"observacao_rider: +{delta} ({', '.join(set(condicoes_negativas))})"
+        motivo = vered.get("motivo") or ""
+        vered["motivo"] = (motivo + ", " + tag).lstrip(", ")
+        resultado["veredicto"] = vered
+
+        print(f"  [obs-ajuste] {trail['name']} — {len(condicoes_negativas)} relato(s) negativo(s), delta=+{delta}, novo_risco={novo_risco}")
+
+    except Exception as exc:
+        print(f"  [obs-ajuste] erro ignorado para {trail.get('name','?')}: {exc}")
 
     return resultado
 
@@ -3832,6 +3918,7 @@ def main() -> None:
             try:
                 dados = processar_trilha(trail, datas)
                 dados = _aplicar_override_chuva_futura(dados)
+                dados = ajustar_por_observacoes(dados, trail)
                 resultados.append(dados)
                 trilha_id = gravar_supabase(trail["name"], dados)
                 dados["trilha_id"] = trilha_id

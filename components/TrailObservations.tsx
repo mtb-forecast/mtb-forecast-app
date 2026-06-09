@@ -11,6 +11,14 @@ type Props = {
   stravaSegmentId?: number
 }
 
+const CONDICOES: { value: string; label: string; bg: string; color: string }[] = [
+  { value: 'seco',  label: 'Seco 🌵',           bg: '#e0f2fe', color: '#0369a1' },
+  { value: 'grip',  label: 'Grip Perfeito ⚡',   bg: '#dcfce7', color: '#166534' },
+  { value: 'boa',   label: 'Boa Aderência ✅',   bg: '#d1fae5', color: '#065f46' },
+  { value: 'baixa', label: 'Baixa Aderência ⚠️', bg: '#fef9c3', color: '#854d0e' },
+  { value: 'lama',  label: 'Lama / Barro 🛑',    bg: '#fee2e2', color: '#991b1b' },
+]
+
 const VEREDICTO_BADGE: Record<string, { bg: string; color: string }> = {
   'DROP LIBERADO': { bg: '#dcfce7', color: '#166534' },
   'DROP LIBERADO - Veja os alertas': { bg: '#fef9c3', color: '#854d0e' },
@@ -83,6 +91,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
   // New observation form
   const [estrelas, setEstrelas] = useState(0)
   const [texto, setTexto] = useState('')
+  const [condicaoEncontrada, setCondicaoEncontrada] = useState<string | null>(null)
   const [publishing, setPublishing] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -91,6 +100,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editEstrelas, setEditEstrelas] = useState(0)
   const [editTexto, setEditTexto] = useState('')
+  const [editCondicao, setEditCondicao] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
@@ -101,11 +111,11 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
     const obsQuery = stravaSegmentId
       ? supabase
           .from('observacoes_trilha')
-          .select(`id, strava_segment_id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+          .select(`id, strava_segment_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
           .eq('strava_segment_id', stravaSegmentId)
       : supabase
           .from('observacoes_trilha')
-          .select(`id, trilha_id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+          .select(`id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
           .eq('trilha_id', trilhaId)
 
     const [{ data: obs }, { data: favorito }] = await Promise.all([
@@ -146,17 +156,17 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
   }
 
   async function handlePublish() {
-    if (!userId || estrelas === 0 || !texto.trim() || texto.length > 150) return
+    if (!userId || !condicaoEncontrada || estrelas === 0 || !texto.trim() || texto.length > 150) return
     setPublishing(true)
     setPublishError(null)
     const insertPayload = stravaSegmentId
-      ? { strava_segment_id: stravaSegmentId, user_id: userId, estrelas, texto: texto.trim(), veredicto_sistema: veredictoAtual || null }
-      : { trilha_id: trilhaId, user_id: userId, estrelas, texto: texto.trim(), veredicto_sistema: veredictoAtual || null }
+      ? { strava_segment_id: stravaSegmentId, user_id: userId, estrelas, texto: texto.trim(), condicao_encontrada: condicaoEncontrada, veredicto_sistema: veredictoAtual || null }
+      : { trilha_id: trilhaId, user_id: userId, estrelas, texto: texto.trim(), condicao_encontrada: condicaoEncontrada, veredicto_sistema: veredictoAtual || null }
     const { data: newObs, error } = await supabase
       .from('observacoes_trilha')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .insert(insertPayload as any)
-      .select(`id, strava_segment_id, trilha_id, estrelas, texto, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+      .select(`id, strava_segment_id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
       .single()
 
     setPublishing(false)
@@ -169,6 +179,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
       setObservacoes(prev => [newObs as unknown as Observacao, ...prev])
       setEstrelas(0)
       setTexto('')
+      setCondicaoEncontrada(null)
       setPublishSuccess(true)
       setTimeout(() => setPublishSuccess(false), 3000)
     }
@@ -178,25 +189,26 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
     setEditingId(obs.id)
     setEditEstrelas(obs.estrelas)
     setEditTexto(obs.texto)
+    setEditCondicao(obs.condicao_encontrada ?? null)
   }
 
   async function handleSaveEdit(id: string) {
-    if (!editTexto.trim() || editTexto.length > 150 || editEstrelas === 0) return
+    if (!editTexto.trim() || editTexto.length > 150 || editEstrelas === 0 || !editCondicao) return
     setSaving(true)
     const { error } = await supabase
       .from('observacoes_trilha')
-      .update({ estrelas: editEstrelas, texto: editTexto.trim() })
+      .update({ estrelas: editEstrelas, texto: editTexto.trim(), condicao_encontrada: editCondicao })
       .eq('id', id)
     setSaving(false)
     if (!error) {
       setObservacoes(prev =>
-        prev.map(o => o.id === id ? { ...o, estrelas: editEstrelas, texto: editTexto.trim() } : o)
+        prev.map(o => o.id === id ? { ...o, estrelas: editEstrelas, texto: editTexto.trim(), condicao_encontrada: editCondicao } : o)
       )
       setEditingId(null)
     }
   }
 
-  const canPublish = estrelas > 0 && texto.trim().length > 0 && texto.length <= 150
+  const canPublish = !!condicaoEncontrada && estrelas > 0 && texto.trim().length > 0 && texto.length <= 150
 
   const media = observacoes.length > 0
     ? (observacoes.reduce((sum, o) => sum + o.estrelas, 0) / observacoes.length).toFixed(1)
@@ -270,6 +282,23 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                   {/* Text / edit textarea */}
                   {isEditing ? (
                     <div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                        {CONDICOES.map(c => (
+                          <button
+                            key={c.value}
+                            onClick={() => setEditCondicao(editCondicao === c.value ? null : c.value)}
+                            style={{
+                              fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 10, cursor: 'pointer',
+                              border: `1.5px solid ${editCondicao === c.value ? c.color : '#e5e5e5'}`,
+                              background: editCondicao === c.value ? c.bg : '#fff',
+                              color: editCondicao === c.value ? c.color : '#888',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
                       <textarea
                         value={editTexto}
                         onChange={e => setEditTexto(e.target.value)}
@@ -296,7 +325,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                           </button>
                           <button
                             onClick={() => handleSaveEdit(obs.id)}
-                            disabled={saving || !editTexto.trim() || editTexto.length > 150 || editEstrelas === 0}
+                            disabled={saving || !editTexto.trim() || editTexto.length > 150 || editEstrelas === 0 || !editCondicao}
                             style={{
                               fontSize: 12, fontWeight: 500, color: '#fff',
                               background: '#6d745f', border: 'none',
@@ -311,6 +340,14 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                     </div>
                   ) : (
                     <>
+                      {obs.condicao_encontrada && (() => {
+                        const c = CONDICOES.find(x => x.value === obs.condicao_encontrada)
+                        return c ? (
+                          <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 10, background: c.bg, color: c.color, marginBottom: 6 }}>
+                            {c.label}
+                          </span>
+                        ) : null
+                      })()}
                       <p style={{ fontSize: 12, color: '#444', lineHeight: 1.5, marginBottom: 6 }}>{obs.texto}</p>
                       {/* Footer */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -378,8 +415,29 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
           </>
         ) : (
           <>
-            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 10 }}>
-              Sua avaliação
+            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>
+              Condição da trilha
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+              {CONDICOES.map(c => (
+                <button
+                  key={c.value}
+                  onClick={() => setCondicaoEncontrada(condicaoEncontrada === c.value ? null : c.value)}
+                  style={{
+                    fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 10, cursor: 'pointer',
+                    border: `1.5px solid ${condicaoEncontrada === c.value ? c.color : '#e5e5e5'}`,
+                    background: condicaoEncontrada === c.value ? c.bg : '#fff',
+                    color: condicaoEncontrada === c.value ? c.color : '#888',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
+            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>
+              Sua experiência
             </p>
 
             {publishSuccess && (

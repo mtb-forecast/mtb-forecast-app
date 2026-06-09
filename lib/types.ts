@@ -176,6 +176,7 @@ export type Observacao = {
   user_id: string
   estrelas: number
   texto: string
+  condicao_encontrada?: string | null
   veredicto_sistema?: string
   created_at: string
   profiles?: {
