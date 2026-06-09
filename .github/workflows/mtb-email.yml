@@ -1,0 +1,43 @@
+name: MTB Email Reports
+
+on:
+  schedule:
+    - cron: "0 13 * * *"   # 10h BRT — todos os dias
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+
+    env:
+      ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+      SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SEND_EMAIL_SECRET:         ${{ secrets.SEND_EMAIL_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements-lock.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-lock.txt
+
+      - name: Send email reports
+        run: python mtb-forecast.py --email-only 2>&1 | tee debug_email_$(date +%Y-%m-%d).log
+
+      - name: Upload debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-email-${{ github.run_id }}
+          path: debug_email_*.log
+          retention-days: 7
