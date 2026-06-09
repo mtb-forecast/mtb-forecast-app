@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
 import { PLANOS } from '@/lib/stripe-config'
+import { REPORT_SCHEDULE } from '@/lib/schedule'
 
 type Tab = 'conta' | 'alertas' | 'plano' | 'integracoes'
 type SheetField = 'nome' | 'telefone' | 'regiao' | 'telegram' | 'instagram' | null
@@ -483,7 +484,12 @@ export default function PerfilPage() {
           <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: `1px solid ${T.border}` }}>
             <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.7 }}>
               <span style={{ color: T.text, fontWeight: 600 }}>Horários (BRT):</span><br />
-              Seg–Dom às <strong style={{ color: T.text }}>06h</strong> · Sex–Dom às <strong style={{ color: T.text }}>12h</strong> · Sex–Sáb às <strong style={{ color: T.text }}>20h</strong>
+              {REPORT_SCHEDULE.map((s, i) => (
+                <span key={s.hora}>
+                  {s.dias} às <strong style={{ color: T.text }}>{s.hora}</strong>
+                  {i < REPORT_SCHEDULE.length - 1 ? ' · ' : ''}
+                </span>
+              ))}
             </p>
           </div>
         )}
