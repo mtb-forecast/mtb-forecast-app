@@ -72,7 +72,7 @@ def _get(path: str) -> list:
 def _buscar_usuarios() -> list:
     return _get(
         "profiles"
-        "?select=id,email,apelido,nome,regiao,email_trilhas_favoritas,email_trilhas_strava"
+        "?select=id,email,apelido,nome,regiao"
         "&receber_email=eq.true"
     )
 
@@ -379,18 +379,14 @@ def main() -> None:
         apelido = u.get("apelido") or u.get("nome") or email.split("@")[0]
         trails: list = []
 
-        # Favoritos públicos
-        if u.get("email_trilhas_favoritas", True):
-            try:
-                fav_ids = _buscar_favoritos(uid)
-                if fav_ids:
-                    trails.extend(_buscar_condicoes(fav_ids))
-            except Exception as exc:
-                print(f"  [Email] Erro favoritos de {email}: {exc}")
+        try:
+            fav_ids = _buscar_favoritos(uid)
+            if fav_ids:
+                trails.extend(_buscar_condicoes(fav_ids))
+        except Exception as exc:
+            print(f"  [Email] Erro favoritos de {email}: {exc}")
 
-        # Strava
-        if u.get("email_trilhas_strava"):
-            trails.extend(_buscar_condicoes_strava(uid))
+        trails.extend(_buscar_condicoes_strava(uid))
 
         if not trails:
             print(f"  {email}: sem trilhas com dados hoje — pulando")

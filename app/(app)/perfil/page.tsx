@@ -235,7 +235,7 @@ export default function PerfilPage() {
         setRegiao(p.regiao || '')
         setTelegram(p.telegram_username || '')
         setInstagram(p.instagram || '')
-        setReceberEmail((p as Record<string,unknown>).receber_email as boolean ?? false)
+        setReceberEmail(p.receber_email ?? false)
         setAvatarUrl(p.avatar_url || null)
       }
       const [{ data: minhas }, { data: favIds }] = await Promise.all([

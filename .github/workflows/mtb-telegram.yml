@@ -1,4 +1,4 @@
-name: MTB Email Reports
+name: MTB Telegram Notifications
 
 on:
   workflow_dispatch:
@@ -7,15 +7,14 @@ permissions:
   contents: read
 
 jobs:
-  send-email:
+  send-telegram:
     runs-on: ubuntu-latest
 
     env:
-      ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
       SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
       SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-      SEND_EMAIL_SECRET:         ${{ secrets.SEND_EMAIL_SECRET }}
+      TELEGRAM_BOT_TOKEN:        ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,13 +28,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-lock.txt
 
-      - name: Send email reports
-        run: python mtb_email_html.py 2>&1 | tee debug_email_$(date +%Y-%m-%d).log
+      - name: Send Telegram notifications
+        run: python mtb_telegram.py 2>&1 | tee debug_telegram_$(date +%Y-%m-%d).log
 
       - name: Upload debug log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-email-${{ github.run_id }}
-          path: debug_email_*.log
+          name: debug-telegram-${{ github.run_id }}
+          path: debug_telegram_*.log
           retention-days: 7
