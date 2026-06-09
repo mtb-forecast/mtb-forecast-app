@@ -7,14 +7,6 @@ import { supabase, getClientUser } from '@/lib/supabase'
 
 const PLANO_ORDER = ['plano_a', 'plano_b', 'plano_c'] as const
 
-type PlanStat = { plano: string; total: number }
-
-const PLANO_BAR_COLOR: Record<string, string> = {
-  plano_a:  '#60a5fa',
-  plano_b:  '#2a2e25',
-  plano_c:  '#a8b899',
-}
-
 export default function PlanosPage() {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
@@ -25,9 +17,6 @@ export default function PlanosPage() {
   const [promoLoading, setPromoLoading] = useState(false)
   const [promoStatus, setPromoStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
-  const [stats, setStats] = useState<PlanStat[]>([])
-  const [statsLoading, setStatsLoading] = useState(false)
-
   useEffect(() => {
     async function loadProfile() {
       const user = await getClientUser()
@@ -37,19 +26,8 @@ export default function PlanosPage() {
         .select('is_admin')
         .eq('id', user.id)
         .single()
-      const admin = data?.is_admin ?? false
-      setIsAdmin(admin)
+      setIsAdmin(data?.is_admin ?? false)
       setProfileLoaded(true)
-
-      if (admin) {
-        setStatsLoading(true)
-        const res = await fetch('/api/admin/planos-stats')
-        if (res.ok) {
-          const json = await res.json()
-          setStats(json.stats ?? [])
-        }
-        setStatsLoading(false)
-      }
     }
     loadProfile()
   }, [])
@@ -100,8 +78,6 @@ export default function PlanosPage() {
       setPromoLoading(false)
     }
   }
-
-  const maxTotal = stats.length > 0 ? Math.max(...stats.map(s => s.total), 1) : 1
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
@@ -311,73 +287,6 @@ export default function PlanosPage() {
         )}
 
         {/* Distribuição de usuários — admin only */}
-        {profileLoaded && isAdmin && (
-          <div style={{
-            background: '#fff',
-            border: '0.5px solid #e5e5e5',
-            borderRadius: 8,
-            padding: 24,
-            marginTop: 32,
-          }}>
-            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 20 }}>
-              Distribuição de Usuários
-            </p>
-
-            {statsLoading ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#888', fontSize: 13 }}>
-                <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                Carregando...
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {PLANO_ORDER.map((planoId) => {
-                  const stat = stats.find(s => s.plano === planoId)
-                  const total = stat?.total ?? 0
-                  const pct = Math.round((total / maxTotal) * 100)
-                  const color = PLANO_BAR_COLOR[planoId] ?? '#e5e5e5'
-                  const labelColor = planoId === 'plano_c' ? '#2a2e25' : '#fff'
-
-                  return (
-                    <div key={planoId}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: '#555' }}>
-                          {PLANOS[planoId].nome}
-                        </span>
-                        <span style={{ fontSize: 12, color: '#888' }}>
-                          {total} {total === 1 ? 'usuário' : 'usuários'}
-                        </span>
-                      </div>
-                      <div style={{ background: '#f3f4f6', borderRadius: 4, height: 28, overflow: 'hidden' }}>
-                        <div style={{
-                          width: total === 0 ? '2%' : `${Math.max(pct, 4)}%`,
-                          height: '100%',
-                          background: color,
-                          borderRadius: 4,
-                          display: 'flex',
-                          alignItems: 'center',
-                          paddingLeft: 10,
-                          transition: 'width 0.4s ease',
-                          minWidth: total === 0 ? 0 : 32,
-                        }}>
-                          {total > 0 && (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: labelColor, whiteSpace: 'nowrap' }}>
-                              {total}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                <p style={{ fontSize: 12, color: '#bbb', marginTop: 8 }}>
-                  Total: {stats.reduce((s, r) => s + r.total, 0)} usuários cadastrados
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Seção de código promocional */}
         <div style={{
           background: '#fff',
