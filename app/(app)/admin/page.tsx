@@ -152,7 +152,7 @@ export default function AdminPage() {
       <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Painel Admin</h1>
+            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Revisar Trilhas</h1>
             <span style={{
               fontSize: 11, fontWeight: 600, letterSpacing: '1px',
               background: '#6d745f', color: '#fff',
