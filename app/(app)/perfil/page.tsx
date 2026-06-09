@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
 import { PLANOS } from '@/lib/stripe-config'
+import { REPORT_SCHEDULE } from '@/lib/schedule'
 
 type Tab = 'conta' | 'alertas' | 'plano' | 'integracoes'
 type SheetField = 'nome' | 'telefone' | 'regiao' | 'telegram' | 'instagram' | null
@@ -412,7 +413,13 @@ export default function PerfilPage() {
         <InfoRow
           icon="ti-brand-telegram" label="Telegram"
           value={telegram || ''}
-          sub={telegram ? 'Ativo' : 'Clique para configurar'}
+          sub={
+            !telegram
+              ? 'Clique para configurar'
+              : profile?.telegram_chat_id
+                ? '✓ Bot ativo — recebendo notificações'
+                : 'Username salvo — envie /start ao bot para ativar'
+          }
           onTap={() => setSheetField('telegram')}
         />
       </ProfileSection>
@@ -483,7 +490,12 @@ export default function PerfilPage() {
           <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: `1px solid ${T.border}` }}>
             <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.7 }}>
               <span style={{ color: T.text, fontWeight: 600 }}>Horários (BRT):</span><br />
-              Seg–Dom às <strong style={{ color: T.text }}>06h</strong> · Sex–Dom às <strong style={{ color: T.text }}>12h</strong> · Sex–Sáb às <strong style={{ color: T.text }}>20h</strong>
+              {REPORT_SCHEDULE.map((s, i) => (
+                <span key={s.hora}>
+                  {s.dias} às <strong style={{ color: T.text }}>{s.hora}</strong>
+                  {i < REPORT_SCHEDULE.length - 1 ? ' · ' : ''}
+                </span>
+              ))}
             </p>
           </div>
         )}
@@ -494,6 +506,127 @@ export default function PerfilPage() {
           Ative para receber um report com as condições das suas trilhas favoritas em cada janela de envio.
         </p>
       )}
+
+      {/* ── Telegram ── */}
+      {(() => {
+        const hasUsername = !!telegram
+        const isLinked    = !!profile?.telegram_chat_id
+        const isAtivo     = !!profile?.telegram_ativo
+
+        return (
+          <ProfileSection title="Telegram">
+            <div style={{ padding: '16px 0' }}>
+
+              {/* Status header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                  background: isAtivo ? 'rgba(38,165,228,0.12)' : !hasUsername ? '#eaece4' : 'rgba(251,191,36,0.12)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.2s',
+                }}>
+                  <i className="ti ti-brand-telegram" style={{ fontSize: 18, color: isAtivo ? '#26A5E4' : !hasUsername ? T.muted : '#f59e0b' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Notificações via Telegram</span>
+                    {isAtivo && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(74,222,128,0.15)', color: '#16a34a', borderRadius: 20, padding: '2px 8px' }}>ATIVO</span>
+                    )}
+                    {hasUsername && !isLinked && (
+                      <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(251,191,36,0.15)', color: '#d97706', borderRadius: 20, padding: '2px 8px' }}>PENDENTE</span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 12, color: T.muted }}>
+                    {isAtivo
+                      ? `${telegram} — recebendo alertas nos horários do report`
+                      : hasUsername
+                        ? `${telegram} salvo — bot ainda não iniciado`
+                        : 'Receba alertas das suas trilhas direto no Telegram'}
+                  </span>
+                </div>
+              </div>
+
+              {/* State: not configured */}
+              {!hasUsername && (
+                <div style={{ background: '#eaece4', borderRadius: 12, padding: '16px', border: `1px solid ${T.border}` }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: '0 0 8px' }}>Como configurar</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {[
+                      { step: '1', done: false, text: 'Salve seu @username do Telegram no perfil' },
+                      { step: '2', done: false, text: 'Abra o bot @mtbforecaster_bot e envie /start' },
+                    ].map(s => (
+                      <div key={s.step} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        <span style={{ width: 20, height: 20, borderRadius: '50%', background: T.primary, color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{s.step}</span>
+                        <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{s.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSheetField('telegram')}
+                    style={{
+                      marginTop: 14, width: '100%', background: T.primary, color: '#fff',
+                      border: 'none', borderRadius: 12, padding: '12px', fontSize: 13, fontWeight: 700,
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}>
+                    <i className="ti ti-brand-telegram" style={{ fontSize: 16 }} />
+                    Adicionar meu @username
+                  </button>
+                </div>
+              )}
+
+              {/* State: username saved, bot not started */}
+              {hasUsername && !isLinked && (
+                <div style={{ background: 'rgba(251,191,36,0.08)', borderRadius: 12, padding: '16px', border: '1px solid rgba(251,191,36,0.3)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: '0 0 10px' }}>Falta só um passo!</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✓</span>
+                      <span style={{ fontSize: 13, color: T.muted }}><strong style={{ color: T.text }}>{telegram}</strong> salvo no perfil</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#f59e0b', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>2</span>
+                      <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>
+                        Abra o Telegram e envie <strong style={{ color: T.text }}>/start</strong> para <strong style={{ color: T.text }}>@mtbforecaster_bot</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <a
+                    href="https://t.me/mtbforecaster_bot?start=activate"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      background: '#26A5E4', color: '#fff', borderRadius: 12,
+                      padding: '12px', fontSize: 13, fontWeight: 700,
+                      textDecoration: 'none', width: '100%', boxSizing: 'border-box',
+                    }}>
+                    <i className="ti ti-brand-telegram" style={{ fontSize: 16 }} />
+                    Abrir @mtbforecaster_bot no Telegram
+                  </a>
+                </div>
+              )}
+
+              {/* State: active */}
+              {isAtivo && (
+                <div style={{ background: 'rgba(74,222,128,0.08)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(74,222,128,0.25)' }}>
+                  <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.7 }}>
+                    <span style={{ color: '#16a34a', fontWeight: 700 }}>✓ Tudo certo!</span> Você vai receber notificações nos horários do report:<br />
+                    {REPORT_SCHEDULE.map((s, i) => (
+                      <span key={s.hora}>
+                        {s.dias} às <strong style={{ color: T.text }}>{s.hora}</strong>
+                        {i < REPORT_SCHEDULE.length - 1 ? ' · ' : ''}
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
+
+            </div>
+          </ProfileSection>
+        )
+      })()}
     </div>
   )
 
@@ -675,17 +808,63 @@ export default function PerfilPage() {
     )
 
     if (sheetField === 'telegram') return (
-      <EditSheet open title="Telegram" onClose={() => setSheetField(null)}>
+      <EditSheet open title="Configurar Telegram" onClose={() => setSheetField(null)}>
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Username</label>
-          <input style={inp} type="text" value={telegram}
-            onChange={e => { const v = e.target.value; setTelegram(v && !v.startsWith('@') ? '@' + v : v) }}
-            placeholder="@seu_username" autoFocus />
-          <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px', marginTop: 12, border: `1px solid ${T.border}` }}>
-            <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.7 }}>
-              Abra o Telegram e inicie uma conversa com <strong style={{ color: T.text }}>@mtbforecaster_bot</strong> enviando <strong style={{ color: T.text }}>/start</strong> para ativar as notificações.
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Passo 1 */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ width: 22, height: 22, borderRadius: '50%', background: telegram ? '#16a34a' : T.primary, color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {telegram ? '✓' : '1'}
+                </span>
+                <label style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>Seu @username do Telegram</label>
+              </div>
+              <input style={inp} type="text" value={telegram}
+                onChange={e => { const v = e.target.value; setTelegram(v && !v.startsWith('@') ? '@' + v : v) }}
+                placeholder="@seu_username" autoFocus />
+              <p style={{ fontSize: 11, color: T.muted, marginTop: 6, lineHeight: 1.5 }}>
+                Encontre em Configurações → Nome de usuário no app do Telegram.
+              </p>
+            </div>
+
+            {/* Passo 2 */}
+            <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px 16px', border: `1px solid ${T.border}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ width: 22, height: 22, borderRadius: '50%', background: profile?.telegram_chat_id ? '#16a34a' : '#f59e0b', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {profile?.telegram_chat_id ? '✓' : '2'}
+                </span>
+                <span style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>
+                  {profile?.telegram_chat_id ? 'Bot vinculado!' : 'Inicie o bot no Telegram'}
+                </span>
+              </div>
+              {profile?.telegram_chat_id ? (
+                <p style={{ fontSize: 12, color: '#16a34a', margin: 0, fontWeight: 600 }}>
+                  ✓ Tudo configurado — você já recebe notificações pelo Telegram.
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: 12, color: T.muted, margin: '0 0 10px', lineHeight: 1.6 }}>
+                    Após salvar seu username, abra o Telegram e envie <strong style={{ color: T.text }}>/start</strong> para <strong style={{ color: T.text }}>@mtbforecaster_bot</strong>.
+                  </p>
+                  <a
+                    href="https://t.me/mtbforecaster_bot?start=activate"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      background: '#26A5E4', color: '#fff', borderRadius: 10,
+                      padding: '10px 14px', fontSize: 13, fontWeight: 600,
+                      textDecoration: 'none',
+                    }}>
+                    <i className="ti ti-brand-telegram" style={{ fontSize: 15 }} />
+                    Abrir @mtbforecaster_bot
+                  </a>
+                </>
+              )}
+            </div>
           </div>
+
           <SheetSaveBtn onClick={() => setSheetField(null)} />
         </div>
       </EditSheet>
@@ -811,7 +990,7 @@ export default function PerfilPage() {
             {[
               { label: 'Favoritas',    value: trilhasFavoritas.length, href: '/trilhas' },
               { label: 'Cadastradas',  value: minhasTrilhas.length,    href: '/perfil/minhas-trilhas' },
-              { label: 'Alertas ativos', value: receberEmail ? 1 : 0, href: undefined },
+              { label: 'Alertas ativos', value: (receberEmail ? 1 : 0) + (profile?.telegram_ativo ? 1 : 0), href: undefined },
               { label: 'Segmentos',    value: 0,                       href: undefined },
             ].map(s => {
               const inner = (

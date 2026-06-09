@@ -1,3 +1,5 @@
+import { HORARIOS_RESUMO } from './schedule'
+
 export const PLANOS = {
   plano_a: {
     id: 'plano_a',
@@ -9,7 +11,7 @@ export const PLANOS = {
     features: [
       'Notificação via Telegram',
       'Monitoramento de trilhas públicas',
-      'Escolha o horário do report (06h, 12h, 15h ou 22h)',
+      `Reports: ${HORARIOS_RESUMO}`,
       'Receba o email do report diário',
     ],
   },
@@ -24,7 +26,7 @@ export const PLANOS = {
       'Notificação Telegram + WhatsApp',
       'Monitoramento de trilhas públicas',
       'Integração com Strava (segmentos favoritos)',
-      'Até 4 horários de notificação (06h, 12h, 15h, 22h)',
+      `Reports: ${HORARIOS_RESUMO}`,
       'Alertas de avaliações recentes nas trilhas favoritas',
     ],
   },
@@ -39,14 +41,14 @@ export const PLANOS = {
       'Notificação Telegram + WhatsApp',
       'Monitoramento de trilhas públicas',
       'Integração com Strava (segmentos favoritos)',
-      'Até 4 horários de notificação (06h, 12h, 15h, 22h)',
+      `Reports: ${HORARIOS_RESUMO}`,
       'Alertas de avaliações recentes nas trilhas favoritas',
       '10% da assinatura vai para TrailBuilders da sua região',
     ],
   },
-} as const
+}
 
-export type PlanoId = keyof typeof PLANOS
+export type PlanoId = 'plano_a' | 'plano_b' | 'plano_c'
 
 export const PRICE_TO_PLANO: Record<string, PlanoId> = {
   'price_1TXXkp9nHSRThrcwIklizBNU': 'plano_a',
