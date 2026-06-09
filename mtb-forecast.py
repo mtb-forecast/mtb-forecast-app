@@ -3850,8 +3850,145 @@ def _enviar_emails_usuarios(resultados_global: list, hoje: str, datas: dict) -> 
         enviar_email_usuario(usuario, resultados_favoritos, resultados_strava, hoje, datas)
 
 
+def _carregar_resultados_supabase() -> list:
+    """
+    Lê condições de hoje da tabela condicoes (join com trilhas).
+    Reconstrói resultados_global sem recalcular nada — usado pelo modo --email-only.
+    """
+    if not SUPABASE_KEY:
+        print("  [Email-only] SUPABASE_KEY ausente")
+        return []
+
+    _COR_ADH  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
+    _EMO_ADH  = {"SECO": "🟡", "GRIP PERFEITO": "🟢", "BOA ADERÊNCIA": "🟠", "BAIXA ADERÊNCIA": "🔴"}
+    _COR_VERD = {"DROP LIBERADO": "#16a34a", "DROP LIBERADO - Veja os alertas": "#ca8a04", "MELHOR ESPERAR": "#dc2626"}
+    _EMO_VERD = {"DROP LIBERADO": "✅", "DROP LIBERADO - Veja os alertas": "⚠️", "MELHOR ESPERAR": "🛑"}
+    _BG_VERD  = {"DROP LIBERADO": "#f0fdf4", "DROP LIBERADO - Veja os alertas": "#fefce8", "MELHOR ESPERAR": "#fef2f2"}
+
+    hoje_brt = datetime.now(BRT).strftime("%Y-%m-%d")
+    url = (
+        f"{SUPABASE_URL}/rest/v1/condicoes"
+        f"?select=*,trilhas(name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma)"
+        f"&aderencia_status=neq.SEM%20FAVORITO"
+        f"&gerado_em=gte.{hoje_brt}T00:00:00"
+        f"&order=gerado_em.desc"
+    )
+    try:
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=15) as r:
+            rows = json.loads(r.read())
+    except Exception as exc:
+        print(f"  [Email-only] Erro ao carregar condicoes: {exc}")
+        return []
+
+    resultados = []
+    vistos: set = set()
+    for row in rows:
+        tid = row.get("trilha_id")
+        if not tid or tid in vistos:
+            continue
+        vistos.add(tid)
+
+        t = row.get("trilhas") or {}
+        adh_status   = row.get("aderencia_status", "SECO")
+        verd_texto   = row.get("veredicto", "DROP LIBERADO")
+        verd12_texto = row.get("veredicto_12h", "DROP LIBERADO")
+
+        resultados.append({
+            "trilha_id":    tid,
+            "name":         t.get("name", ""),
+            "lat":          float(t.get("lat") or 0),
+            "lon":          float(t.get("lon") or 0),
+            "regiao":       t.get("regiao", ""),
+            "trail_type":   t.get("trail_type", ""),
+            "solo_type":    t.get("solo_type", ""),
+            "solo_type_raw": t.get("solo_type", ""),
+            "exposicao":    t.get("exposicao", ""),
+            "altitude_m":   int(t.get("altitude_m") or 900),
+            "desnivel_m":   t.get("desnivel_m"),
+            "extensao_km":  t.get("extensao_km"),
+            "bioma":        t.get("bioma") or "Desconhecido",
+            "aderencia": {
+                "status":          adh_status,
+                "score":           row.get("aderencia_score", 0),
+                "desc":            row.get("aderencia_desc", ""),
+                "solo_descansado": row.get("solo_descansado", True),
+                "cor":             _COR_ADH.get(adh_status, "#64748b"),
+                "emoji":           _EMO_ADH.get(adh_status, "⚪"),
+            },
+            "veredicto": {
+                "texto":          verd_texto,
+                "cor":            _COR_VERD.get(verd_texto, "#64748b"),
+                "emoji":          _EMO_VERD.get(verd_texto, ""),
+                "bg":             _BG_VERD.get(verd_texto, "#f8fafc"),
+                "texto_dinamico": row.get("texto_dinamico", ""),
+            },
+            "veredicto_12h": {
+                "veredicto": {"texto": verd12_texto},
+                "rain": row.get("rain_12h", 0),
+                "wind": row.get("wind_12h", 0),
+                "pop":  row.get("pop_12h", 0),
+            },
+            "rain":           row.get("rain_mm", 0),
+            "wind":           row.get("wind_ms", 0),
+            "pico_3h":        row.get("pico_3h", 0),
+            "acumulo_48h":    row.get("acumulo_48h", 0),
+            "acumulo_ef":     row.get("acumulo_ef", 0),
+            "ultima_chuva_h": row.get("ultima_chuva_h"),
+            "gust_max_kmh":   row.get("gust_max_kmh", 0),
+            "janela":         row.get("janela", ""),
+            "horarios_chuva": row.get("horarios_chuva"),
+            "pop":            row.get("pop_48h", 0),
+            "temp_max":       row.get("temp_max"),
+            "temp_min":       row.get("temp_min"),
+            "clay_pct":       row.get("clay_pct"),
+            "sand_pct":       row.get("sand_pct"),
+            "texture_class":  row.get("texture_class"),
+            "inclinacao":     row.get("inclinacao"),
+            "thresh_desc":    row.get("thresh_desc", 0),
+            "meia_vida_h":    row.get("meia_vida_h"),
+            "resumo_secagem_frase": row.get("frase_secagem", ""),
+            "fonte":          row.get("fonte", ""),
+            "enso": {
+                "fase": row.get("enso_fase", ""),
+                "oni":  row.get("enso_oni"),
+            },
+            "vento_hist": {
+                "nivel_vento":    row.get("alerta_vento_nivel"),
+                "vento_max_kmh":  row.get("alerta_vento_kmh"),
+                "rajada_max_kmh": row.get("alerta_rajada_kmh"),
+                "fonte":          None,
+            },
+            "aderencia_futura": {
+                "status":  row.get("aderencia_futura_status", adh_status),
+                "label":   row.get("aderencia_futura_label", ""),
+                "rain_mm": row.get("aderencia_futura_rain", 0),
+            },
+        })
+
+    print(f"  [Email-only] {len(resultados)} trilha(s) carregada(s) do Supabase")
+    return resultados
+
+
 def main() -> None:
+    import sys
     global TRAILS
+
+    if "--email-only" in sys.argv:
+        print(f"\n[MTB Email-only] {datetime.now(BRT).strftime('%d/%m/%Y')} — lendo veredictos do Supabase...")
+        hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
+        datas = proximos_dias()
+        resultados_global = _carregar_resultados_supabase()
+        if resultados_global:
+            print("\n[MTB Email-only] Enviando reports por email...")
+            _enviar_emails_usuarios(resultados_global, hoje, datas)
+        else:
+            print("  [Email-only] Nenhum resultado encontrado para hoje — nada a enviar.")
+        return
+
     TRAILS = _carregar_trilhas_supabase()
 
     _validar_env()
