@@ -3046,6 +3046,44 @@ def main() -> None:
     print("\n[MTB V8.0] Concluído.")
     _disparar_workflows_notificacao()
 
+def _carregar_trilhas_supabase() -> list:
+    """Carrega trilhas aprovadas do Supabase. Levanta RuntimeError se falhar."""
+    if not SUPABASE_KEY:
+        raise RuntimeError("[Trilhas] SUPABASE_KEY ausente — impossível carregar trilhas.")
+    url = (
+        f"{SUPABASE_URL}/rest/v1/trilhas"
+        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
+        f"&aprovada=eq.true"
+        f"&order=name.asc"
+    )
+    req = urllib.request.Request(url, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    })
+    with urllib.request.urlopen(req, timeout=15) as r:
+        dados = json.loads(r.read())
+    if not dados:
+        raise RuntimeError("[Trilhas] Nenhuma trilha aprovada encontrada no Supabase.")
+    trilhas = []
+    for row in dados:
+        trilhas.append({
+            "supabase_id": row["id"],
+            "name":        row["name"],
+            "lat":         float(row["lat"]),
+            "lon":         float(row["lon"]),
+            "solo_type":   row["solo_type"],
+            "exposicao":   row["exposicao"],
+            "altitude_m":  int(row["altitude_m"] or 900),
+            "trail_type":  row["trail_type"],
+            "regiao":      row["regiao"],
+            "desnivel_m":  row.get("desnivel_m"),
+            "extensao_km": row.get("extensao_km"),
+            "bioma":       row.get("bioma") or "Desconhecido",
+        })
+    print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
+    return trilhas
+
+
 def _carregar_pumptracks_supabase() -> list:
     """Busca todos os pump tracks cadastrados no Supabase."""
     if not SUPABASE_KEY:
