@@ -2895,6 +2895,42 @@ Regras de estilo:
             time.sleep(2 ** attempt)
 
 
+def _disparar_workflows_notificacao() -> None:
+    """Dispara mtb-email.yml e mtb-telegram.yml via GitHub Actions API."""
+    token = os.getenv("GITHUB_TOKEN")
+    repo  = os.getenv("GITHUB_REPOSITORY")
+    ref   = os.getenv("GITHUB_REF_NAME", "develop")
+
+    if not token or not repo:
+        print("  [GitHub] GITHUB_TOKEN ou GITHUB_REPOSITORY ausentes — workflows não disparados")
+        return
+
+    print(f"\n[MTB] Disparando workflows de notificação (ref={ref})...")
+    for workflow in ("mtb-email.yml", "mtb-telegram.yml"):
+        url     = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches"
+        payload = json.dumps({"ref": ref}).encode("utf-8")
+        req     = urllib.request.Request(
+            url,
+            data=payload,
+            method="POST",
+            headers={
+                "Authorization":        f"Bearer {token}",
+                "Accept":               "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "Content-Type":         "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                # 204 No Content = sucesso
+                print(f"  [GitHub] {workflow} disparado (HTTP {r.status})")
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            print(f"  [GitHub] Erro ao disparar {workflow}: HTTP {exc.code} — {body}")
+        except Exception as exc:
+            print(f"  [GitHub] Erro ao disparar {workflow}: {exc}")
+
+
 def main() -> None:
     import sys
     global TRAILS
@@ -3008,6 +3044,7 @@ def main() -> None:
     processar_segmentos_strava(datas)
 
     print("\n[MTB V8.0] Concluído.")
+    _disparar_workflows_notificacao()
 
 def _carregar_pumptracks_supabase() -> list:
     """Busca todos os pump tracks cadastrados no Supabase."""
