@@ -45,12 +45,6 @@ export default function TrilhaDetalhe() {
   const [isFavorito, setIsFavorito] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
-  const [isTrilhaPessoal, setIsTrilhaPessoal] = useState(false)
-  const [polyline, setPolyline] = useState<string | null>(null)
-  const [elevationProfileUrl, setElevationProfileUrl] = useState<string | null>(null)
-  const [stravaUrl, setStravaUrl] = useState<string | null>(null)
-  const [stravaSegmentId, setStravaSegmentId] = useState<number | null>(null)
-
   useEffect(() => {
     async function load() {
       const user = await getClientUser()
@@ -79,50 +73,13 @@ export default function TrilhaDetalhe() {
         return
       }
 
-      const { data: pt } = await supabase
-        .from('trilhas_pessoais')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (!pt) { router.replace('/trilhas'); return }
-
-      const { data: condicaoStrava } = await supabase
-        .from('condicoes_strava')
-        .select('*')
-        .eq('strava_segment_id', pt.strava_segment_id)
-        .order('gerado_em', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      setTrilha({
-        id: pt.id,
-        name: pt.name,
-        lat: pt.lat,
-        lon: pt.lon,
-        solo_type: pt.solo_type,
-        exposicao: pt.exposicao,
-        altitude_m: pt.altitude_m ?? 0,
-        trail_type: pt.trail_type,
-        desnivel_m: pt.desnivel_m ?? undefined,
-        extensao_km: pt.extensao_km ?? undefined,
-        regiao: pt.regiao,
-        bioma: pt.bioma ?? undefined,
-      })
-      setC(condicaoStrava as Condicao ?? null)
-      setIsTrilhaPessoal(true)
-      setPolyline(pt.polyline ?? null)
-      setElevationProfileUrl(pt.strava_elevation_profile ?? null)
-      setStravaUrl(pt.strava_url ?? null)
-      setStravaSegmentId(pt.strava_segment_id ?? null)
-      setLoading(false)
+      router.replace('/trilhas'); return
     }
     load()
   }, [id, router])
 
   async function toggleFavorito() {
-    if (!userId || isTrilhaPessoal) return
+    if (!userId) return
     if (isFavorito) {
       await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', id)
       setIsFavorito(false)
@@ -145,7 +102,7 @@ export default function TrilhaDetalhe() {
 
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
   const vcfg   = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
-  const borderCor = isTrilhaPessoal ? '#FC4C02' : (vcfg?.cor ?? '#e5e5e5')
+  const borderCor = vcfg?.cor ?? '#e5e5e5'
 
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
   const isMatAtlantica = trilha.bioma === 'Mata Atlântica'
@@ -213,38 +170,22 @@ export default function TrilhaDetalhe() {
                 </svg>
                 Compartilhar
               </button>
-              {isTrilhaPessoal ? (
-                <a
-                  href={stravaUrl ?? '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: 13, color: '#FC4C02', fontWeight: 500, background: 'rgba(252,76,2,0.12)', padding: '6px 12px', borderRadius: 4 }}
-                >
-                  Ver no Strava ↗
-                </a>
-              ) : (
-                <button
-                  onClick={toggleFavorito}
-                  style={{
-                    background: 'none', border: '1px solid', cursor: 'pointer',
-                    borderColor: isFavorito ? '#a8b899' : '#8a9280',
-                    color: isFavorito ? '#a8b899' : '#8a9280',
-                    fontSize: 18, padding: '4px 10px', borderRadius: 4,
-                  }}
-                >
-                  {isFavorito ? '★' : '☆'}
-                </button>
-              )}
+              <button
+                onClick={toggleFavorito}
+                style={{
+                  background: 'none', border: '1px solid', cursor: 'pointer',
+                  borderColor: isFavorito ? '#a8b899' : '#8a9280',
+                  color: isFavorito ? '#a8b899' : '#8a9280',
+                  fontSize: 18, padding: '4px 10px', borderRadius: 4,
+                }}
+              >
+                {isFavorito ? '★' : '☆'}
+              </button>
             </div>
           </div>
 
           {/* a) Tags */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
-            {isTrilhaPessoal && (
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#FC4C02', background: 'rgba(252,76,2,0.15)', borderRadius: 999, padding: '2px 10px' }}>
-                Strava
-              </span>
-            )}
             <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
               {trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
             </span>
@@ -300,12 +241,12 @@ export default function TrilhaDetalhe() {
 
         {/* Mapa */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderLeft: `3px solid ${borderCor}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-          {(isTrilhaPessoal ? polyline : trilha.polyline) ? (
+          {trilha.polyline ? (
             <>
-              <StravaMap polyline={(isTrilhaPessoal ? polyline : trilha.polyline)!} />
+              <StravaMap polyline={trilha.polyline} />
               <div style={{ padding: '0 0 0 0' }}>
                 <ElevationProfile
-                  elevationProfileUrl={elevationProfileUrl}
+                  elevationProfileUrl={null}
                   desnivel_m={trilha.desnivel_m}
                   extensao_km={trilha.extensao_km}
                   altitude_m={trilha.altitude_m}
@@ -324,17 +265,9 @@ export default function TrilhaDetalhe() {
             />
           )}
           <div style={{ padding: '8px 14px', borderTop: '0.5px solid #e5e5e5' }}>
-            {(isTrilhaPessoal ? polyline : trilha.polyline) ? (
-              stravaUrl ? (
-                <a href={stravaUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
-                  Ver no Strava ↗
-                </a>
-              ) : null
-            ) : (
-              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
-                Ver no mapa ↗
-              </a>
-            )}
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
+              Ver no mapa ↗
+            </a>
           </div>
         </div>
 
@@ -397,8 +330,7 @@ export default function TrilhaDetalhe() {
         <TrailObservations
           trilhaId={trilha.id}
           veredictoAtual={veredictoText || ''}
-          isOwner={isTrilhaPessoal}
-          stravaSegmentId={stravaSegmentId ?? undefined}
+          isOwner={false}
         />
 
         {/* ── Fontes ─────────────────────────────────────────────────── */}
