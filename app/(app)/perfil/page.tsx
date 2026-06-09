@@ -458,6 +458,11 @@ export default function PerfilPage() {
               icon="ti-brand-strava" label="Importar Strava" value="Segmentos e rotas"
               onTap={() => { window.location.href = '/admin/importar-strava' }}
             />
+            <Divider />
+            <InfoRow
+              icon="ti-checklist" label="Revisar Trilhas" value="Aprovar pendentes"
+              onTap={() => { window.location.href = '/admin' }}
+            />
           </>
         )}
       </ProfileSection>
