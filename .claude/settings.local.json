@@ -148,7 +148,16 @@
       "mcp__claude_ai_Vercel__list_deployments",
       "Bash(gh pr create --title 'feat: redesign TrilhaCard + project.json Vercel' --body ' *)",
       "mcp__claude_ai_Supabase__list_projects",
-      "Bash(xargs grep -l \"record\\\\|gravar\\\\|gps\\\\|track\\\\|route\")"
+      "Bash(xargs grep -l \"record\\\\|gravar\\\\|gps\\\\|track\\\\|route\")",
+      "Bash(xargs grep -l \"observacoes\\\\|comments\\\\|feedback\")",
+      "Bash(xargs grep -l \"observacoes\\\\|condicoes\\\\|trilhas\")",
+      "Bash(find c:\\\\\\\\ClaudeCode\\\\\\\\mtb-forecast-app\\\\\\\\app -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\))",
+      "Bash(ls -la c:\\\\\\\\ClaudeCode\\\\\\\\mtb-forecast-app\\\\\\\\)",
+      "PowerShell(cd \"c:\\\\ClaudeCode\\\\mtb-forecast-app\"; git add app/\\(app\\)/admin/page.tsx; git status)",
+      "mcp__claude_ai_Vercel__list_teams",
+      "Bash(gh pr create --base main --head develop --title 'fix: map colors all trails with verdicts, not just user favorites' --body ' *)",
+      "Bash(git cherry-pick *)",
+      "Bash(xargs grep -l \"CREATE TABLE.*profiles\\\\|ALTER TABLE profiles\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
