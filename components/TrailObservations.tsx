@@ -12,11 +12,11 @@ type Props = {
 }
 
 const CONDICOES: { value: string; label: string; bg: string; color: string }[] = [
-  { value: 'seco',  label: 'Seco 🌵',           bg: '#e0f2fe', color: '#0369a1' },
-  { value: 'grip',  label: 'Grip Perfeito ⚡',   bg: '#dcfce7', color: '#166534' },
-  { value: 'boa',   label: 'Boa Aderência ✅',   bg: '#d1fae5', color: '#065f46' },
-  { value: 'baixa', label: 'Baixa Aderência ⚠️', bg: '#fef9c3', color: '#854d0e' },
-  { value: 'lama',  label: 'Lama / Barro 🛑',    bg: '#fee2e2', color: '#991b1b' },
+  { value: 'seco',  label: 'Seco',           bg: '#e0f2fe', color: '#0369a1' },
+  { value: 'grip',  label: 'Grip Perfeito',  bg: '#dcfce7', color: '#166534' },
+  { value: 'boa',   label: 'Boa Aderência',  bg: '#d1fae5', color: '#065f46' },
+  { value: 'baixa', label: 'Baixa Aderência', bg: '#fef9c3', color: '#854d0e' },
+  { value: 'lama',  label: 'Lama / Barro',   bg: '#fee2e2', color: '#991b1b' },
 ]
 
 const VEREDICTO_BADGE: Record<string, { bg: string; color: string }> = {
@@ -96,12 +96,6 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
   const [publishSuccess, setPublishSuccess] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
 
-  // Edit state
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editEstrelas, setEditEstrelas] = useState(0)
-  const [editTexto, setEditTexto] = useState('')
-  const [editCondicao, setEditCondicao] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -185,29 +179,6 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
     }
   }
 
-  function startEdit(obs: Observacao) {
-    setEditingId(obs.id)
-    setEditEstrelas(obs.estrelas)
-    setEditTexto(obs.texto)
-    setEditCondicao(obs.condicao_encontrada ?? null)
-  }
-
-  async function handleSaveEdit(id: string) {
-    if (!editTexto.trim() || editTexto.length > 150 || editEstrelas === 0 || !editCondicao) return
-    setSaving(true)
-    const { error } = await supabase
-      .from('observacoes_trilha')
-      .update({ estrelas: editEstrelas, texto: editTexto.trim(), condicao_encontrada: editCondicao })
-      .eq('id', id)
-    setSaving(false)
-    if (!error) {
-      setObservacoes(prev =>
-        prev.map(o => o.id === id ? { ...o, estrelas: editEstrelas, texto: editTexto.trim(), condicao_encontrada: editCondicao } : o)
-      )
-      setEditingId(null)
-    }
-  }
-
   const canPublish = !!condicaoEncontrada && estrelas > 0 && texto.trim().length > 0 && texto.length <= 150
 
   const media = observacoes.length > 0
@@ -242,9 +213,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
           {observacoes.map(obs => {
             const ageMs = Date.now() - new Date(obs.created_at).getTime()
             const isRecent = ageMs < 24 * 60 * 60 * 1000
-            const isOwn = obs.user_id === userId
             const vBadge = obs.veredicto_sistema ? (VEREDICTO_BADGE[obs.veredicto_sistema] ?? null) : null
-            const isEditing = editingId === obs.id
 
             return (
               <div key={obs.id} style={{ position: 'relative', marginBottom: 12 }}>
@@ -262,7 +231,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                 <div style={{ background: '#f4f5f0', borderRadius: 6, padding: '10px 12px' }}>
 
                   {/* Top row: avatar + name + stars */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: isEditing ? 8 : 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <div style={{
                       width: 24, height: 24, borderRadius: '50%',
                       background: '#6d745f', color: '#fff',
@@ -273,101 +242,26 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
                       {getInitials(obs)}
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25' }}>{getDisplayName(obs)}</span>
-                    {isEditing
-                      ? <StarSelector value={editEstrelas} onChange={setEditEstrelas} />
-                      : <Stars count={obs.estrelas} />
-                    }
+                    <Stars count={obs.estrelas} />
                   </div>
 
-                  {/* Text / edit textarea */}
-                  {isEditing ? (
-                    <div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                        {CONDICOES.map(c => (
-                          <button
-                            key={c.value}
-                            onClick={() => setEditCondicao(editCondicao === c.value ? null : c.value)}
-                            style={{
-                              fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 10, cursor: 'pointer',
-                              border: `1.5px solid ${editCondicao === c.value ? c.color : '#e5e5e5'}`,
-                              background: editCondicao === c.value ? c.bg : '#fff',
-                              color: editCondicao === c.value ? c.color : '#888',
-                              transition: 'all 0.15s',
-                            }}
-                          >
-                            {c.label}
-                          </button>
-                        ))}
-                      </div>
-                      <textarea
-                        value={editTexto}
-                        onChange={e => setEditTexto(e.target.value)}
-                        maxLength={150}
-                        style={{
-                          width: '100%', border: '1px solid #e5e5e5', borderRadius: 4,
-                          padding: '8px 10px', fontSize: 12, minHeight: 64,
-                          resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-                          outline: 'none',
-                        }}
-                        onFocus={e => (e.target.style.borderColor = '#6d745f')}
-                        onBlur={e => (e.target.style.borderColor = '#e5e5e5')}
-                      />
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                        <span style={{ fontSize: 11, color: editTexto.length > 130 ? '#ef4444' : '#888' }}>
-                          {editTexto.length}/150
-                        </span>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            style={{ fontSize: 12, color: '#888', background: 'none', border: 'none', cursor: 'pointer' }}
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            onClick={() => handleSaveEdit(obs.id)}
-                            disabled={saving || !editTexto.trim() || editTexto.length > 150 || editEstrelas === 0 || !editCondicao}
-                            style={{
-                              fontSize: 12, fontWeight: 500, color: '#fff',
-                              background: '#6d745f', border: 'none',
-                              borderRadius: 4, padding: '4px 12px', cursor: saving ? 'not-allowed' : 'pointer',
-                              opacity: saving ? 0.7 : 1,
-                            }}
-                          >
-                            {saving ? 'Salvando...' : 'Salvar'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {obs.condicao_encontrada && (() => {
-                        const c = CONDICOES.find(x => x.value === obs.condicao_encontrada)
-                        return c ? (
-                          <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 10, background: c.bg, color: c.color, marginBottom: 6 }}>
-                            {c.label}
-                          </span>
-                        ) : null
-                      })()}
-                      <p style={{ fontSize: 12, color: '#444', lineHeight: 1.5, marginBottom: 6 }}>{obs.texto}</p>
-                      {/* Footer */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: '#aaa' }}>{formatDate(obs.created_at)}</span>
-                        {vBadge && obs.veredicto_sistema && (
-                          <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 2, background: vBadge.bg, color: vBadge.color }}>
-                            {obs.veredicto_sistema}
-                          </span>
-                        )}
-                        {isOwn && isRecent && (
-                          <button
-                            onClick={() => startEdit(obs)}
-                            style={{ fontSize: 11, color: '#888', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', textDecoration: 'underline' }}
-                          >
-                            Editar
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  {obs.condicao_encontrada && (() => {
+                    const c = CONDICOES.find(x => x.value === obs.condicao_encontrada)
+                    return c ? (
+                      <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 10, background: c.bg, color: c.color, marginBottom: 6 }}>
+                        {c.label}
+                      </span>
+                    ) : null
+                  })()}
+                  <p style={{ fontSize: 12, color: '#444', lineHeight: 1.5, marginBottom: 6 }}>{obs.texto}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: '#aaa' }}>{formatDate(obs.created_at)}</span>
+                    {vBadge && obs.veredicto_sistema && (
+                      <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 2, background: vBadge.bg, color: vBadge.color }}>
+                        {obs.veredicto_sistema}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )
@@ -475,8 +369,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner, s
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ fontSize: 11, color: '#aaa' }}>Você pode editar por 24h após publicar</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 10 }}>
               <button
                 onClick={handlePublish}
                 disabled={!canPublish || publishing}
