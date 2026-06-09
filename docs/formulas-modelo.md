@@ -730,6 +730,54 @@ chuva_proximas_12h = any(b["rain_mm"] > 3.0 for b in blocos[:2])
 
 ---
 
+### Ajuste pós-modelo: relatos de condição dos riders
+
+Função `ajustar_por_observacoes(resultado, trail)` — executada **depois** de `_aplicar_override_chuva_futura()`, antes de `gravar_supabase()`. Completamente isolada de `veredicto()`.
+
+#### Propósito
+
+Cobrir cenários de **microclima não captados pela API meteorológica** — ex: chuva localizada rápida que o modelo previu como seco, mas riders confirmaram lama. O motor físico permanece intacto; esta função apenas ajusta o resultado final.
+
+#### Fonte de dados
+
+Consulta `observacoes_trilha` via Supabase REST API:
+- Filtro: `trilha_id = trail["supabase_id"]` + `condicao_encontrada IS NOT NULL` + `created_at >= agora − 24h`
+- Janela de 24h sempre relativa ao horário exato do report (07h ou 13h BRT)
+
+#### Mapeamento de risco
+
+| condicao_encontrada | delta_risco |
+|---|---|
+| `seco` | −1 |
+| `grip` | 0 |
+| `boa` | 0 |
+| `baixa` | +1 |
+| `lama` | +2 |
+
+**Cap:** `delta = min(delta_acumulado, 2)` — máximo +2 por execução.
+
+#### Lógica de re-classificação
+
+```python
+novo_risco = vered["risco"] + delta
+
+se novo_risco > 3 e veredicto != "MELHOR ESPERAR":
+    → "MELHOR ESPERAR" 🛑
+
+se novo_risco > 1 e veredicto == "DROP LIBERADO":
+    → "DROP LIBERADO - Veja os alertas" ⚠️
+```
+
+#### Campos modificados
+
+- `resultado["veredicto"]["risco"]` → incrementado por `delta`
+- `resultado["veredicto"]["texto"]` / `emoji` / `cor` / `bg` → re-classificados se necessário
+- `resultado["veredicto"]["motivo"]` → acrescenta `"observacao_rider: +N (condicao)"`
+
+Retorna `resultado` inalterado se não há observações com `condicao_encontrada` nas últimas 24h.
+
+---
+
 ## 9. ENSO (El Niño / La Niña)
 
 ### Fonte

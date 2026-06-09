@@ -2,7 +2,7 @@
 
 > Documento de referência gerado a partir de `mtb-forecast.py`, migrations SQL e código Next.js.
 > Cobre todas as **31 tabelas** do sistema, seus campos, valores válidos e onde cada uma é consumida.
-> Atualizado em 2026-06 com Grupo 6 (Pump Tracks) e coluna `historico_atualizado_em`.
+> Atualizado em 2026-06 com Grupo 6 (Pump Tracks), coluna `historico_atualizado_em` e campo `condicao_encontrada` em `observacoes_trilha`.
 
 ---
 
@@ -959,15 +959,29 @@ Avaliações de riders sobre condições reais da trilha. Pode referenciar trilh
 | `trilha_id` | uuid FK | Referência para `trilhas.id` (null se Strava) |
 | `strava_segment_id` | bigint | ID do segmento Strava (null se trilha pública) |
 | `user_id` | uuid FK | Referência para `profiles.id` |
-| `estrelas` | integer | Avaliação de 1 a 5 |
-| `texto` | text | Comentário (máx. 150 caracteres) |
-| `veredicto_sistema` | text | Veredicto do sistema no momento da avaliação |
+| `condicao_encontrada` | text | Condição objetiva da trilha no momento do ride: `seco` · `grip` · `boa` · `baixa` · `lama`. Campo obrigatório no formulário. CHECK constraint garante apenas esses valores. **Usado pelo agente Python** para ajuste de veredicto |
+| `estrelas` | integer | Nota da experiência do ride (1–5). **Não usada pelo algoritmo** — apenas exibição |
+| `texto` | text | Comentário livre (máx. 150 caracteres) |
+| `veredicto_sistema` | text | Snapshot do veredicto no momento da publicação — usado para calcular divergência |
 | `created_at` | timestamptz | Timestamp de criação |
 
-**Regra:** rider pode avaliar apenas trilhas favoritas ou que é `isOwner` (no caso Strava).
+**Regra:** rider pode avaliar apenas trilhas favoritas ou que é `isOwner` (no caso Strava). Avaliações são imutáveis após publicação.
+
+**Mapeamento de risco (`ajustar_por_observacoes`):**
+
+| condicao_encontrada | delta_risco |
+|---|---|
+| `seco` | −1 (confirma ou melhora) |
+| `grip` | 0 (neutro) |
+| `boa` | 0 (neutro) |
+| `baixa` | +1 (piora leve) |
+| `lama` | +2 (piora forte) |
+
+Cap: máximo +2 por execução do agente (evita que poucos relatos sobrescrevam a física).
 
 **Usado em:**
-- `components/TrailObservations.tsx` → CRUD completo (list, insert, update)
+- `components/TrailObservations.tsx` → list e insert (sem update — imutável)
+- `mtb-forecast.py` → `ajustar_por_observacoes()` — consulta observações das últimas 24h por `trilha_id` para ajuste pós-modelo do veredicto
 - `app/(app)/dashboard/page.tsx` → avaliações do usuário
 - Join com `profiles` para exibir `apelido`, `nome`, `email`
 
@@ -1135,7 +1149,7 @@ DELETE: authenticated, auth.uid() = user_id
 
 | Arquivo | Tabelas acessadas |
 |---|---|
-| `mtb-forecast.py` | `configuracoes_sistema`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `biomas`, `trail_type_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais`, `trilhas_pumptrack`, `condicoes_pumptrack` |
+| `mtb-forecast.py` | `configuracoes_sistema`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `biomas`, `trail_type_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais`, `trilhas_pumptrack`, `condicoes_pumptrack`, **`observacoes_trilha`** (leitura em `ajustar_por_observacoes`) |
 | `app/(app)/dashboard/page.tsx` | `profiles`, `favoritos`, `trilhas` + `condicoes`, `trilhas_pessoais`, `condicoes_strava`, `observacoes_trilha` |
 | `app/(app)/trilhas/[id]/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `profiles`, `trilhas_pessoais`, `condicoes_strava` |
 | `app/(app)/trilhas/page.tsx` | `trilhas`, `favoritos`, `profiles`, `localidades`, `trilhas_pumptrack` + `condicoes_pumptrack` |
