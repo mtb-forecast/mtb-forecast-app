@@ -3,13 +3,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Barlow_Condensed } from 'next/font/google'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, Profile } from '@/lib/types'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
-
-const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 const RANKING_VEREDICTO: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -31,6 +28,7 @@ export default function DashboardPage() {
   const [favoritas, setFavoritas] = useState<TrilhaComCondicao[]>([])
   const [avaliacoesPorTrilha, setAvaliacoesPorTrilha] = useState<Record<string, { count: number; media: number }>>({})
   const [loading, setLoading] = useState(true)
+  const [frase, setFrase] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -39,11 +37,20 @@ export default function DashboardPage() {
         if (!user) { window.location.href = '/login'; return }
         setUserEmail(user.email ?? null)
 
-        // Step 1 — profile + favorites in parallel
-        const [{ data: profileData }, { data: favIds }] = await Promise.all([
+        // Step 1 — profile + favorites + frases em paralelo
+        const [{ data: profileData }, { data: favIds }, { data: frases }] = await Promise.all([
           supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao').eq('id', user.id).single(),
           supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+          supabase.from('frases_motivacionais').select('frase').eq('ativo', true),
         ])
+
+        if (frases && frases.length > 0) {
+          const now = new Date()
+          const dayOfYear = Math.floor(
+            (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000
+          )
+          setFrase(frases[dayOfYear % frases.length].frase)
+        }
 
         setProfile(profileData)
 
@@ -152,7 +159,6 @@ export default function DashboardPage() {
       <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h1 style={{
-            fontFamily: barlow.style.fontFamily,
             fontSize: 42, fontWeight: 800,
             textTransform: 'uppercase', lineHeight: 1.05,
             margin: 0,
@@ -167,6 +173,18 @@ export default function DashboardPage() {
               <span style={{ color: '#FFFFFF' }}>Dashboard.</span>
             )}
           </h1>
+
+          {/* Frase do dia */}
+          {frase && (
+            <p style={{
+              marginTop: 10, marginBottom: 0,
+              fontSize: 13, fontStyle: 'italic',
+              color: 'rgba(168,184,153,0.85)',
+              lineHeight: 1.5, maxWidth: 480,
+            }}>
+              "{frase}"
+            </p>
+          )}
 
           {/* Summary strip */}
           {summary ? (

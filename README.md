@@ -264,7 +264,7 @@ Página completa da condição da trilha, espelhando o card do e-mail do agente.
 | Pico 3h | só quando ≥ 5mm |
 | Janela limpa | melhor janela calculada pelo agente |
 | Alertas | rajada futura · vento histórico |
-| Avaliações dos riders | timeline vertical com estrelas, texto 150 chars, edição em 24h |
+| Avaliações dos riders | timeline vertical com picker de condição (seco/grip/boa/baixa/lama), estrelas de experiência e texto 150 chars |
 | Próximos 3 dias | 3 cards D+1/D+2/D+3 com emoji + veredicto + chuva/vento/temp |
 | Fontes | OpenWeather / ENSO (ONI NOAA) / vento ERA5 |
 
@@ -417,11 +417,11 @@ Timeline vertical de avaliações de riders.
 
 **Gate:** usuário precisa ter favoritado a trilha para publicar.
 
-**Publicar:** `supabase.from('observacoes_trilha').insert({ trilha_id, user_id, estrelas, texto, veredicto_sistema })` — registra o veredicto do sistema no momento da avaliação.
+**Publicar:** `supabase.from('observacoes_trilha').insert({ trilha_id, user_id, condicao_encontrada, estrelas, texto, veredicto_sistema })` — registra a condição objetiva e o veredicto do sistema no momento da avaliação. Avaliações são imutáveis após publicação.
 
-**Edição (24h):** textarea pré-preenchida + `supabase.from('observacoes_trilha').update()`.
+**Picker de condição (`condicao_encontrada`):** campo obrigatório — 5 pills coloridos separados das estrelas. Valores: `seco` · `grip` · `boa` · `baixa` · `lama`. Separa condição objetiva da trilha (usada pelo agente Python) da experiência subjetiva do ride (estrelas, apenas exibição).
 
-**Visual:** dot amarelo `#FFE000` para avaliações < 24h; dot cinza para antigas; linha vertical contínua.
+**Visual:** dot verde `#a8b899` para avaliações < 24h; dot cinza para antigas; linha vertical contínua. Badge colorido de condição exibido acima do texto de cada avaliação.
 
 ---
 
@@ -763,7 +763,7 @@ Estratégia de escrita: DELETE + INSERT por `trilha_id` (evita conflito sem UNIQ
 
 ### Grupo 5 — Conteúdo e moderação (2 tabelas)
 
-**`observacoes_trilha`** — avaliações de riders com `strava_segment_id` (sem FK rígida), `estrelas`, `texto` (150 chars), `veredicto_sistema` (captura do veredicto no momento da avaliação), `created_at`. Editável pelo autor em 24h.
+**`observacoes_trilha`** — avaliações de riders com `strava_segment_id` (sem FK rígida), `condicao_encontrada` (seco/grip/boa/baixa/lama — campo objetivo, obrigatório), `estrelas` (experiência subjetiva), `texto` (150 chars), `veredicto_sistema` (snapshot do veredicto na publicação), `created_at`. Imutável após publicação.
 
 **`admin_aprovacoes`** — fila de aprovação dual para edição das tabelas mestras.
 
@@ -895,6 +895,18 @@ GitHub Actions (schedule por dia da semana + workflow_dispatch manual)
      SECO/GRIP PERFEITO → BOA ADERÊNCIA + DROP LIBERADO - Veja os alertas
      DROP LIBERADO limpo → DROP LIBERADO - Veja os alertas
      BAIXA ADERÊNCIA → intocado
+        │
+        ▼
+7b. ajustar_por_observacoes()   ← pós-modelo, isolado, não toca veredicto()
+    Consulta observacoes_trilha das últimas 24h com condicao_encontrada preenchido
+    Para cada observação com condicao_encontrada em {baixa: +1, lama: +2}:
+      acumula delta (cap: máximo +2)
+    SE delta > 0:
+      atualiza vered["risco"] += delta
+      re-classifica texto/emoji se ultrapassar limiares
+      registra no motivo: "observacao_rider: +N (condicao)"
+    Loga: "[obs-ajuste] N relato(s) negativo(s), delta=+N, novo_risco=N"
+    Retorna resultado inalterado se sem observações (zero impacto)
         │
         ▼
 8. gravar_supabase()
@@ -1116,6 +1128,8 @@ Pontos de risco acumulados (pesos na tabela `veredicto_pesos`, limiares em `vere
 | ≥ 4 | MELHOR ESPERAR |
 
 **Ranking em `/trilhas`:** veredicto 12h → desempate por `aderencia_score` ASC (menor score = melhor grip).
+
+**Ajuste por relatos de riders (`ajustar_por_observacoes`):** pós-processador aplicado após `_aplicar_override_chuva_futura`. Consulta `observacoes_trilha` das últimas 24h e adiciona até +2 pontos de risco quando riders relataram `baixa` (+1) ou `lama` (+2). Cap de +2 garante que o ajuste nunca sobrescreve sozinho uma física sólida. O motivo fica registrado em `motivo_veredicto` para auditoria.
 
 ---
 
@@ -1425,6 +1439,12 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 ## Notas de versão
 
 ### Estado atual (branch develop)
+
+**Relatos de condição objetiva por riders (`condicao_encontrada`):**
+- Campo `condicao_encontrada` adicionado em `observacoes_trilha` (migration `add_condicao_encontrada_observacoes.sql`). Valores: `seco` · `grip` · `boa` · `baixa` · `lama`.
+- Formulário `TrailObservations` separado em duas seções: "Condição da Trilha" (picker obrigatório, objetivo) e "Sua Experiência" (estrelas, subjetivo). Avaliações são imutáveis após publicação.
+- Função `ajustar_por_observacoes(resultado, trail)` — pós-processador Python isolado após `_aplicar_override_chuva_futura`. Consulta observações das últimas 24h via REST Supabase, acumula delta de risco (baixa=+1, lama=+2, cap=+2) e re-classifica o veredicto se necessário. Motor `veredicto()` não é tocado. Cobre cenários de microclima não captados pela API meteorológica.
+- Registra causa no `motivo_veredicto`: `"observacao_rider: +2 (lama)"`.
 
 **Override de veredicto por chuva prevista (`_aplicar_override_chuva_futura`):**
 - Função pós-modelo, isolada e removível sem impacto no algoritmo principal.

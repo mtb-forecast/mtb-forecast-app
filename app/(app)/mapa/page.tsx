@@ -79,7 +79,7 @@ export default function MapaPage() {
         const user = await getClientUser()
         if (!user) { window.location.href = '/login'; return }
 
-        const [{ data: trilhasData, error }, { data: favData }, { data: ptData }, L] = await Promise.all([
+        const [{ data: trilhasData, error }, , { data: ptData }, L] = await Promise.all([
           supabase
             .from('trilhas')
             .select(`
@@ -91,7 +91,7 @@ export default function MapaPage() {
             .not('lon', 'is', null)
             .order('name', { ascending: true })
             .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
-          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+          Promise.resolve({ data: [] }),
           supabase
             .from('trilhas_pumptrack')
             .select(`
@@ -105,12 +105,11 @@ export default function MapaPage() {
 
         if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
 
-        const favoritedIds = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
         const trilhas: TrilhaMapData[] = trilhasData || []
         const pumptracks: PumpTrackMapData[] = ptData || []
 
         setLoading(false)
-        buildMap(trilhas, pumptracks, L, favoritedIds)
+        buildMap(trilhas, pumptracks, L)
       } catch {
         setErro('Erro ao carregar o mapa. Tente recarregar a página.')
         setLoading(false)
@@ -122,7 +121,7 @@ export default function MapaPage() {
   }, [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], L: any, favoritedIds: Set<string>) {
+  function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], L: any) {
     if (!mapRef.current || leafletRef.current) return
 
     const defaultCenter: [number, number] = [-23.5505, -46.6333]
@@ -167,9 +166,8 @@ export default function MapaPage() {
 
     trilhas.forEach((trilha) => {
       const condicao = trilha.condicoes?.[0]
-      const hasFavorito = favoritedIds.has(trilha.id)
-      const inactive = !hasFavorito || !condicao
-      const veredicto = inactive ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
+      const veredicto = condicao?.veredicto_12h || condicao?.veredicto
+      const inactive = !veredicto || veredicto.includes('Favorite esta trilha')
       const cor = getVeredictoColor(veredicto)
       const label = getVeredictoLabel(veredicto)
 
@@ -368,7 +366,7 @@ export default function MapaPage() {
           { cor: '#16a34a', label: 'DROP LIBERADO',  shape: 'pin' },
           { cor: '#d97706', label: 'ATENÇÃO',         shape: 'pin' },
           { cor: '#dc2626', label: 'MELHOR ESPERAR', shape: 'pin' },
-          { cor: '#999',    label: 'Favoritar Trilha', shape: 'pin' },
+          { cor: '#999',    label: 'Sem condições',    shape: 'pin' },
         ].map(({ cor, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
             <div style={{
