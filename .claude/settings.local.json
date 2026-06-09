@@ -145,7 +145,10 @@
       "Bash(Select-Object Name)",
       "Bash(xargs grep -l \"storage\\\\|bucket\")",
       "Bash(mkdir -p \"c:/ClaudeCode/mtb-forecast-app/app/\\(app\\)/pump-track/[id]\")",
-      "mcp__claude_ai_Vercel__list_deployments"
+      "mcp__claude_ai_Vercel__list_deployments",
+      "Bash(gh pr create --title 'feat: redesign TrilhaCard + project.json Vercel' --body ' *)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(xargs grep -l \"record\\\\|gravar\\\\|gps\\\\|track\\\\|route\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

@@ -210,7 +210,7 @@ export default function CadastrarTrilhaPage() {
     let localidadeId: string | null = null
     if (geoResult) localidadeId = await getOrCreateLocalidade(geoResult)
 
-    const { error } = await supabase.from('trilhas_pendentes').insert({
+    const { error } = await supabase.from('trilhas').insert({
       name: nome.trim(), regiao,
       lat: parseFloat(lat), lon: parseFloat(lon),
       altitude_m: parseInt(altitude),
@@ -220,10 +220,11 @@ export default function CadastrarTrilhaPage() {
       extensao_km: extensao ? parseFloat(extensao) : null,
       link_referencia: linkRef.trim() || null,
       observacoes: observacoes.trim() || null,
-      user_id: user.id, status: 'pendente',
+      aprovada: true,
+      created_by: user.id,
       localidade_id: localidadeId,
     })
-    if (error) { setErro('Erro ao enviar. Tente novamente.'); return false }
+    if (error) { setErro('Erro ao publicar trilha. Tente novamente.'); return false }
     return true
   }
 
@@ -305,22 +306,22 @@ export default function CadastrarTrilhaPage() {
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 48, textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>{isPt ? '🟣' : '✅'}</div>
             <h2 style={{ fontSize: 20, fontWeight: 600, color: '#2a2e25', marginBottom: 8 }}>
-              {isPt ? 'Pump track publicado!' : 'Trilha enviada!'}
+              {isPt ? 'Pump track publicado!' : 'Trilha publicada!'}
             </h2>
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>
               {isPt
                 ? 'Seu pump track já está publicado no catálogo e disponível para todos os riders!'
-                : 'Sua trilha foi enviada para revisão. Você pode acompanhar o status no seu perfil.'}
+                : 'Sua trilha já está disponível no catálogo para todos os riders!'}
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href={isPt ? '/trilhas' : '/perfil'} style={{
+              <Link href="/trilhas" style={{
                 background: isPt ? '#7C3AED' : '#6d745f',
                 color: '#fff',
                 border: 'none',
                 borderRadius: 4, padding: '10px 24px',
                 fontSize: 13, fontWeight: 500, textDecoration: 'none',
               }}>
-                {isPt ? 'Ver pump tracks' : 'Ver minhas trilhas'}
+                {isPt ? 'Ver pump tracks' : 'Ver trilhas'}
               </Link>
               <button onClick={resetForm} style={{
                 background: '#fff', color: '#111',
@@ -348,7 +349,7 @@ export default function CadastrarTrilhaPage() {
       <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Cadastrar local</h1>
-          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>Trilha MTB ou pump track — envie para revisão</p>
+          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>Trilha MTB ou pump track — publique direto no catálogo</p>
         </div>
       </div>
       <div style={{ background: tipo === 'pumptrack' ? '#7C3AED' : '#a8b899', height: 3, transition: 'background 0.2s' }} />
@@ -640,7 +641,7 @@ export default function CadastrarTrilhaPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}>
               {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
-              {saving ? 'Enviando…' : tipo === 'pumptrack' ? 'Publicar pump track' : 'Enviar trilha para revisão'}
+              {saving ? 'Publicando…' : tipo === 'pumptrack' ? 'Publicar pump track' : 'Publicar no catálogo'}
             </button>
           )}
 

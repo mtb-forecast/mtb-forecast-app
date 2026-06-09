@@ -190,8 +190,6 @@ export default function PerfilPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [sheetField, setSheetField] = useState<SheetField>(null)
-  const [adminOpen, setAdminOpen] = useState(false)
-
   // Form state
   const [nome, setNome] = useState('')
   const [apelido, setApelido] = useState('')
@@ -454,6 +452,14 @@ export default function PerfilPage() {
         <Link href="/trilhas/cadastrar" style={{ textDecoration: 'none', color: 'inherit' }}>
           <InfoRow icon="ti-plus" label="Cadastrar nova trilha" value="Publicar no catálogo" />
         </Link>
+        {profile?.is_admin && (
+          <>
+            <Divider />
+            <Link href="/admin/importar-strava" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <InfoRow icon="ti-brand-strava" label="Importar Strava" value="Segmentos e rotas" />
+            </Link>
+          </>
+        )}
       </ProfileSection>
     </div>
   )
@@ -877,49 +883,6 @@ export default function PerfilPage() {
         {/* ── TAB CONTENT ── */}
         <div style={{ padding: '16px 16px 120px' }}>
           {tabContent[tab]}
-
-          {/* ── ADMIN ACCORDION ── */}
-          {profile?.is_admin && (
-            <div style={{ background: T.card, borderRadius: 20, border: `1px solid ${T.border}`, overflow: 'hidden', marginTop: 8 }}>
-              <button
-                type="button"
-                onClick={() => setAdminOpen(o => !o)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 14,
-                  padding: '16px 20px', background: 'transparent', border: 'none',
-                  cursor: 'pointer', textAlign: 'left',
-                }}
-              >
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <i className="ti ti-shield" style={{ fontSize: 18, color: T.primary }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Ferramentas administrativas</div>
-                </div>
-                <i className={`ti ti-chevron-${adminOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: T.muted, transition: 'transform 0.2s' }} />
-              </button>
-
-              {adminOpen && (
-                <div style={{ borderTop: `1px solid ${T.border}`, padding: '8px 20px 16px', animation: 'slideUp 0.18s ease' }}>
-                  {[
-                    { href: '/admin', icon: 'ti-layout-dashboard', label: 'Painel' },
-                    { href: '/admin/tabelas', icon: 'ti-table', label: 'Tabelas' },
-                    { href: '/admin/importar-strava', icon: 'ti-brand-strava', label: 'Strava' },
-                  ].map((item, i) => (
-                    <Link key={item.href} href={item.href} style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 0', textDecoration: 'none', color: T.text,
-                      borderBottom: i < 2 ? `1px solid ${T.border}` : 'none',
-                    }}>
-                      <i className={`ti ${item.icon}`} style={{ fontSize: 16, color: T.primary, width: 20, textAlign: 'center' }} />
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>{item.label}</span>
-                      <i className="ti ti-chevron-right" style={{ fontSize: 13, color: T.dim, marginLeft: 'auto' }} />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* ── LOGOUT ── */}
           <button
