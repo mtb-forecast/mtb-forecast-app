@@ -144,19 +144,20 @@ function ImportarStravaContent() {
       const data: StravaSegment[] = await res.json()
       setHasToken(true)
 
-      // Filtrar segmentos que já foram importados (qualquer status em trilhas_pendentes)
+      // Filtrar segmentos já importados: verifica trilhas_pendentes (qualquer status) e trilhas (aprovadas)
       let disponiveis = data
       if (data.length > 0) {
-        const { data: existentes } = await supabase
-          .from('trilhas_pendentes')
-          .select('strava_segment_id')
-          .not('strava_segment_id', 'is', null)
-          .in('strava_segment_id', data.map(s => s.strava_segment_id))
+        const ids = data.map(s => s.strava_segment_id)
+        const [{ data: pendentes }, { data: aprovadas }] = await Promise.all([
+          supabase.from('trilhas_pendentes').select('strava_segment_id').not('strava_segment_id', 'is', null).in('strava_segment_id', ids),
+          supabase.from('trilhas').select('strava_segment_id').not('strava_segment_id', 'is', null).in('strava_segment_id', ids),
+        ])
 
-        if (existentes && existentes.length > 0) {
-          const importados = new Set(existentes.map((r: { strava_segment_id: number }) => r.strava_segment_id))
-          disponiveis = data.filter(s => !importados.has(s.strava_segment_id))
-        }
+        const usados = new Set([
+          ...((pendentes ?? []).map((r: { strava_segment_id: number }) => r.strava_segment_id)),
+          ...((aprovadas ?? []).map((r: { strava_segment_id: number }) => r.strava_segment_id)),
+        ])
+        if (usados.size > 0) disponiveis = data.filter(s => !usados.has(s.strava_segment_id))
       }
 
       setSegments(disponiveis)

@@ -104,10 +104,11 @@ export default function AdminPage() {
       bioma:         p.bioma ?? null,
       desnivel_m:    p.desnivel_m ?? null,
       extensao_km:   p.extensao_km ?? null,
-      polyline:      p.polyline ?? null,
-      aprovada:      true,
-      localidade_id: localidadeId,
-      created_by:    p.user_id ?? null,
+      polyline:          p.polyline ?? null,
+      aprovada:          true,
+      localidade_id:     localidadeId,
+      created_by:        p.user_id ?? null,
+      strava_segment_id: p.strava_segment_id ?? null,
     })
 
     if (insertError) {

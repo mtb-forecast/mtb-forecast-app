@@ -24,6 +24,7 @@ export type TrilhaPendente = {
   observacoes?: string | null
   polyline?: string | null
   localidade_id?: string | null
+  strava_segment_id?: number | null
   user_id: string
   status: string
   motivo_rejeicao?: string | null
