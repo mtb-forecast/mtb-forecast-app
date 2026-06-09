@@ -1,4 +1,4 @@
-import { HORARIOS_RESUMO, HORARIOS_LABEL } from './schedule'
+import { HORARIOS_RESUMO } from './schedule'
 
 export const PLANOS = {
   plano_a: {
@@ -26,7 +26,7 @@ export const PLANOS = {
       'Notificação Telegram + WhatsApp',
       'Monitoramento de trilhas públicas',
       'Integração com Strava (segmentos favoritos)',
-      `Até 4 horários de notificação (${HORARIOS_LABEL})`,
+      `Reports: ${HORARIOS_RESUMO}`,
       'Alertas de avaliações recentes nas trilhas favoritas',
     ],
   },
@@ -41,7 +41,7 @@ export const PLANOS = {
       'Notificação Telegram + WhatsApp',
       'Monitoramento de trilhas públicas',
       'Integração com Strava (segmentos favoritos)',
-      `Até 4 horários de notificação (${HORARIOS_LABEL})`,
+      `Reports: ${HORARIOS_RESUMO}`,
       'Alertas de avaliações recentes nas trilhas favoritas',
       '10% da assinatura vai para TrailBuilders da sua região',
     ],
