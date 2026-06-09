@@ -3966,6 +3966,8 @@ def _carregar_resultados_supabase() -> list:
                 "status":  row.get("aderencia_futura_status", adh_status),
                 "label":   row.get("aderencia_futura_label", ""),
                 "rain_mm": row.get("aderencia_futura_rain", 0),
+                "cor":     _COR_ADH.get(row.get("aderencia_futura_status", adh_status), "#64748b"),
+                "emoji":   _EMO_ADH.get(row.get("aderencia_futura_status", adh_status), "⚪"),
             },
         })
 
