@@ -64,8 +64,6 @@ function ImportarStravaContent() {
   const [importError, setImportError] = useState<Record<number, string>>({})
   // IDs cujo detalhe já foi tentado buscar (para exibir placeholder "sem mapa")
   const [enriched, setEnriched] = useState<Set<number>>(new Set())
-  // IDs sendo reimportados (para mostrar "Atualizando..." vs "Importando...")
-  const [reimportando, setReimportando] = useState<Set<number>>(new Set())
 
   const erroParam = searchParams.get('erro')
 
@@ -145,35 +143,32 @@ function ImportarStravaContent() {
 
       const data: StravaSegment[] = await res.json()
       setHasToken(true)
-      setSegments(data)
 
-      // Verificar quais segmentos já foram importados (trilhas_pendentes)
+      // Filtrar segmentos já importados: verifica trilhas_pendentes (qualquer status) e trilhas (aprovadas)
+      let disponiveis = data
       if (data.length > 0) {
-        const { data: existentes } = await supabase
-          .from('trilhas_pendentes')
-          .select('strava_segment_id')
-          .not('strava_segment_id', 'is', null)
-          .in('strava_segment_id', data.map(s => s.strava_segment_id))
+        const ids = data.map(s => s.strava_segment_id)
+        const [{ data: pendentes }, { data: aprovadas }] = await Promise.all([
+          supabase.from('trilhas_pendentes').select('strava_segment_id').not('strava_segment_id', 'is', null).in('strava_segment_id', ids),
+          supabase.from('trilhas').select('strava_segment_id').not('strava_segment_id', 'is', null).in('strava_segment_id', ids),
+        ])
 
-        if (existentes && existentes.length > 0) {
-          const jaImportados: Record<number, ImportStatus> = {}
-          for (const row of existentes) {
-            if (row.strava_segment_id) jaImportados[row.strava_segment_id] = 'success'
-          }
-          setImportStatus(jaImportados)
-        }
+        const usados = new Set([
+          ...((pendentes ?? []).map((r: { strava_segment_id: number }) => r.strava_segment_id)),
+          ...((aprovadas ?? []).map((r: { strava_segment_id: number }) => r.strava_segment_id)),
+        ])
+        if (usados.size > 0) disponiveis = data.filter(s => !usados.has(s.strava_segment_id))
       }
 
+      setSegments(disponiveis)
       setLoading(false)
-      enrichSegments(data) // busca polylines em background sem bloquear a UI
+      enrichSegments(disponiveis) // busca polylines em background sem bloquear a UI
     }
     init()
   }, [router])
 
   async function importarSegmento(seg: StravaSegment) {
     if (!userId) return
-    const isReimport = importStatus[seg.strava_segment_id] === 'success'
-    if (isReimport) setReimportando(prev => { const n = new Set(prev); n.add(seg.strava_segment_id); return n })
     setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'loading' }))
     setImportError(e => ({ ...e, [seg.strava_segment_id]: '' }))
 
@@ -240,20 +235,13 @@ function ImportarStravaContent() {
       dbError = error
     }
 
-    setReimportando(prev => { const n = new Set(prev); n.delete(seg.strava_segment_id); return n })
-
     if (dbError) {
       console.warn('Erro ao importar segmento:', dbError.message)
       setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'error' }))
       setImportError(e => ({ ...e, [seg.strava_segment_id]: dbError!.message }))
     } else {
-      setImportStatus(s => ({ ...s, [seg.strava_segment_id]: 'success' }))
-      // Atualizar polyline no estado local para exibir mapa imediatamente
-      if (polyline) {
-        setSegments(prev => prev.map(s =>
-          s.strava_segment_id === seg.strava_segment_id ? { ...s, polyline } : s
-        ))
-      }
+      // Remove o card da lista após importar com sucesso
+      setSegments(prev => prev.filter(s => s.strava_segment_id !== seg.strava_segment_id))
     }
   }
 
@@ -292,7 +280,7 @@ function ImportarStravaContent() {
           </div>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
             {hasToken
-              ? `${segments.length} segmento${segments.length !== 1 ? 's' : ''} favorito${segments.length !== 1 ? 's' : ''} no Strava`
+              ? `${segments.length} segmento${segments.length !== 1 ? 's' : ''} ainda não importado${segments.length !== 1 ? 's' : ''}`
               : 'Conecte seu Strava para importar segmentos favoritos como trilhas pendentes'}
           </p>
         </div>
@@ -356,9 +344,9 @@ function ImportarStravaContent() {
         {/* Sem segmentos */}
         {hasToken && segments.length === 0 && !fetchError && (
           <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 40, textAlign: 'center' }}>
-            <p style={{ fontSize: 13, color: '#888' }}>Nenhum segmento favorito encontrado na sua conta Strava.</p>
+            <p style={{ fontSize: 13, color: '#888' }}>Todos os segmentos favoritos já foram importados.</p>
             <p style={{ fontSize: 12, color: '#bbb', marginTop: 8 }}>
-              Marque segmentos como favoritos no Strava para importá-los aqui.
+              Marque novos segmentos como favoritos no Strava para importá-los aqui.
             </p>
           </div>
         )}
@@ -367,7 +355,7 @@ function ImportarStravaContent() {
         {hasToken && segments.length > 0 && (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 500, color: '#2a2e25' }}>Segmentos favoritos no Strava</h2>
+              <h2 style={{ fontSize: 16, fontWeight: 500, color: '#2a2e25' }}>Segmentos não importados</h2>
               <span style={{
                 fontSize: 11, fontWeight: 600,
                 background: '#f4f5f0', color: '#888',
@@ -381,9 +369,7 @@ function ImportarStravaContent() {
               {segments.map(seg => {
                 const status = importStatus[seg.strava_segment_id] ?? 'idle'
                 const errMsg = importError[seg.strava_segment_id]
-                const jaImportado = status === 'success'
                 const isLoading = status === 'loading'
-                const isReimport = reimportando.has(seg.strava_segment_id)
                 const tentouPolyline = enriched.has(seg.strava_segment_id)
 
                 return (
@@ -391,7 +377,7 @@ function ImportarStravaContent() {
                     key={seg.strava_segment_id}
                     style={{
                       background: '#fff',
-                      border: jaImportado ? '1px solid #86efac' : '0.5px solid #e5e5e5',
+                      border: '0.5px solid #e5e5e5',
                       borderRadius: 8, overflow: 'hidden',
                     }}
                   >
@@ -431,9 +417,9 @@ function ImportarStravaContent() {
                           onClick={() => importarSegmento(seg)}
                           disabled={isLoading}
                           style={{
-                            background: jaImportado ? '#dcfce7' : '#6d745f',
-                            color: jaImportado ? '#166534' : '#fff',
-                            border: jaImportado ? '1.5px solid #86efac' : 'none',
+                            background: '#6d745f',
+                            color: '#fff',
+                            border: 'none',
                             borderRadius: 4,
                             padding: '8px 20px', fontSize: 13, fontWeight: 500,
                             cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -444,14 +430,12 @@ function ImportarStravaContent() {
                           {isLoading && (
                             <span style={{
                               display: 'inline-block', width: 10, height: 10,
-                              border: `2px solid ${jaImportado ? '#86efac' : 'rgba(255,255,255,0.5)'}`,
+                              border: '2px solid rgba(255,255,255,0.5)',
                               borderTopColor: 'transparent',
                               borderRadius: '50%', animation: 'spin 0.7s linear infinite',
                             }} />
                           )}
-                          {isLoading
-                            ? isReimport ? 'Atualizando...' : 'Importando...'
-                            : jaImportado ? '↺ Reimportar' : 'Importar'}
+                          {isLoading ? 'Importando...' : 'Importar'}
                         </button>
                       </div>
 
