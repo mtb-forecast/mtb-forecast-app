@@ -12,8 +12,7 @@ export const REPORT_SCHEDULE = [
 ] as const
 
 // "06h, 12h e 20h"
-export const HORARIOS_LABEL = REPORT_SCHEDULE
-  .map(s => s.hora)
+export const HORARIOS_LABEL = (REPORT_SCHEDULE.map(s => s.hora) as string[])
   .reduce((acc, h, i, arr) => i === arr.length - 1 ? `${acc} e ${h}` : `${acc}, ${h}`)
 
 // "Seg–Dom às 06h · Sex–Dom às 12h · Sex–Sáb às 20h"
