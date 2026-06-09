@@ -91,7 +91,7 @@ export default function MapaPage() {
             .not('lon', 'is', null)
             .order('name', { ascending: true })
             .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
-          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+          supabase.from('favoritos').select('trilha_id'),
           supabase
             .from('trilhas_pumptrack')
             .select(`
@@ -105,12 +105,12 @@ export default function MapaPage() {
 
         if (error) { setErro('Erro ao carregar trilhas.'); setLoading(false); return }
 
-        const favoritedIds = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
+        const trilhasComFavorito = new Set((favData || []).map((f: { trilha_id: string }) => f.trilha_id))
         const trilhas: TrilhaMapData[] = trilhasData || []
         const pumptracks: PumpTrackMapData[] = ptData || []
 
         setLoading(false)
-        buildMap(trilhas, pumptracks, L, favoritedIds)
+        buildMap(trilhas, pumptracks, L, trilhasComFavorito)
       } catch {
         setErro('Erro ao carregar o mapa. Tente recarregar a página.')
         setLoading(false)
@@ -122,7 +122,7 @@ export default function MapaPage() {
   }, [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], L: any, favoritedIds: Set<string>) {
+  function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], L: any, trilhasComFavorito: Set<string>) {
     if (!mapRef.current || leafletRef.current) return
 
     const defaultCenter: [number, number] = [-23.5505, -46.6333]
@@ -167,7 +167,7 @@ export default function MapaPage() {
 
     trilhas.forEach((trilha) => {
       const condicao = trilha.condicoes?.[0]
-      const hasFavorito = favoritedIds.has(trilha.id)
+      const hasFavorito = trilhasComFavorito.has(trilha.id)
       const inactive = !hasFavorito || !condicao
       const veredicto = inactive ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
       const cor = getVeredictoColor(veredicto)
@@ -368,7 +368,7 @@ export default function MapaPage() {
           { cor: '#16a34a', label: 'DROP LIBERADO',  shape: 'pin' },
           { cor: '#d97706', label: 'ATENÇÃO',         shape: 'pin' },
           { cor: '#dc2626', label: 'MELHOR ESPERAR', shape: 'pin' },
-          { cor: '#999',    label: 'Favoritar Trilha', shape: 'pin' },
+          { cor: '#999',    label: 'Sem condições',    shape: 'pin' },
         ].map(({ cor, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
             <div style={{
