@@ -1,8 +1,6 @@
 name: MTB Email Reports
 
 on:
-  schedule:
-    - cron: "0 13 * * *"   # 10h BRT — todos os dias
   workflow_dispatch:
 
 permissions:

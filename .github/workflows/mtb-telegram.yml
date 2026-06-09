@@ -1,8 +1,6 @@
 name: MTB Telegram Notifications
 
 on:
-  schedule:
-    - cron: "0 12 * * *"   # 09h BRT — todos os dias
   workflow_dispatch:
 
 permissions:
