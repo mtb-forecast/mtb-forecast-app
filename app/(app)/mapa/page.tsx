@@ -70,8 +70,13 @@ export default function MapaPage() {
   const mapRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leafletRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tileLayerRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leafletLibRef = useRef<any>(null)
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [satellite, setSatellite] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -121,8 +126,33 @@ export default function MapaPage() {
   }, [])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function toggleSatellite() {
+    const map = leafletRef.current
+    const L = leafletLibRef.current
+    if (!map || !L) return
+
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current)
+
+    const nextSatellite = !satellite
+    const layer = nextSatellite
+      ? L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles © Esri',
+          maxZoom: 19,
+        })
+      : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxZoom: 19,
+        })
+
+    layer.addTo(map)
+    tileLayerRef.current = layer
+    setSatellite(nextSatellite)
+  }
+
   function buildMap(trilhas: TrilhaMapData[], pumptracks: PumpTrackMapData[], L: any) {
     if (!mapRef.current || leafletRef.current) return
+
+    leafletLibRef.current = L
 
     const defaultCenter: [number, number] = [-23.5505, -46.6333]
     const defaultZoom = 9
@@ -134,10 +164,12 @@ export default function MapaPage() {
     })
     leafletRef.current = map
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
-    }).addTo(map)
+    })
+    baseLayer.addTo(map)
+    tileLayerRef.current = baseLayer
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -353,6 +385,26 @@ export default function MapaPage() {
         ref={mapRef}
         style={{ width: '100%', height: '100%', zIndex: 0 }}
       />
+
+      {/* Botão satélite */}
+      <button
+        onClick={toggleSatellite}
+        style={{
+          position: 'absolute', top: 80, right: 16, zIndex: 400,
+          background: satellite ? '#2a2e25' : 'rgba(255,255,255,0.95)',
+          color: satellite ? '#fff' : '#2a2e25',
+          border: '1px solid rgba(0,0,0,0.15)',
+          borderRadius: 8,
+          padding: '8px 12px',
+          fontSize: 12, fontWeight: 600,
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}
+      >
+        <span style={{ fontSize: 14 }}>🛰️</span>
+        {satellite ? 'Mapa' : 'Satélite'}
+      </button>
 
       {/* Legenda */}
       <div style={{
