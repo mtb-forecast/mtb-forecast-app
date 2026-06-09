@@ -106,48 +106,6 @@ def _buscar_condicoes(trilha_ids: list) -> list:
     return resultado
 
 
-def _buscar_condicoes_strava(user_id: str) -> list:
-    """Busca segmentos Strava do usuário com condições de condicoes_strava."""
-    try:
-        trilhas = _get(
-            f"trilhas_pessoais?select=name,strava_segment_id,regiao&user_id=eq.{user_id}"
-        )
-        resultado = []
-        for t in trilhas:
-            seg = t.get("strava_segment_id")
-            if not seg:
-                continue
-            conds = _get(
-                "condicoes_strava"
-                f"?select=aderencia_status,veredicto,veredicto_12h,rain_mm,wind_ms,janela,ultima_chuva_h,frase_secagem"
-                f"&strava_segment_id=eq.{seg}&limit=1"
-            )
-            if conds:
-                c = conds[0]
-                resultado.append({
-                    "trilha_id":      None,
-                    "strava":         True,
-                    "aderencia_status": c.get("aderencia_status", ""),
-                    "veredicto":      c.get("veredicto", ""),
-                    "veredicto_12h":  c.get("veredicto_12h", ""),
-                    "rain_mm":        c.get("rain_mm", 0),
-                    "wind_ms":        c.get("wind_ms", 0),
-                    "janela":         c.get("janela", ""),
-                    "ultima_chuva_h": c.get("ultima_chuva_h"),
-                    "texto_dinamico": "",
-                    "frase_secagem":  c.get("frase_secagem", ""),
-                    "trilhas": {
-                        "name":       t["name"],
-                        "regiao":     t.get("regiao", ""),
-                        "trail_type": "natural",
-                        "desnivel_m": None,
-                        "extensao_km": None,
-                    },
-                })
-        return resultado
-    except Exception as exc:
-        print(f"  [Email] Erro ao buscar Strava de {user_id}: {exc}")
-        return []
 
 # ─── HTML helpers ─────────────────────────────────────────────────────────────
 
@@ -385,8 +343,6 @@ def main() -> None:
                 trails.extend(_buscar_condicoes(fav_ids))
         except Exception as exc:
             print(f"  [Email] Erro favoritos de {email}: {exc}")
-
-        trails.extend(_buscar_condicoes_strava(uid))
 
         if not trails:
             print(f"  {email}: sem trilhas com dados hoje — pulando")

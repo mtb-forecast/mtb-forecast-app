@@ -94,40 +94,6 @@ def _buscar_condicoes(trilha_ids: list) -> list:
     return resultado
 
 
-def _buscar_strava(user_id: str) -> list:
-    """Segmentos Strava do usuário com condições mais recentes."""
-    try:
-        trilhas = _get(
-            f"trilhas_pessoais?select=name,strava_segment_id&user_id=eq.{user_id}"
-        )
-        resultado = []
-        for t in trilhas:
-            seg = t.get("strava_segment_id")
-            if not seg:
-                continue
-            conds = _get(
-                "condicoes_strava"
-                f"?select=aderencia_status,veredicto,veredicto_12h,rain_mm,wind_ms,gust_max_kmh,janela"
-                f"&strava_segment_id=eq.{seg}&limit=1"
-            )
-            if conds:
-                c = conds[0]
-                resultado.append({
-                    "name":           t["name"],
-                    "strava":         True,
-                    "aderencia_status": c.get("aderencia_status", ""),
-                    "veredicto":      c.get("veredicto", ""),
-                    "veredicto_12h":  c.get("veredicto_12h", ""),
-                    "rain_mm":        c.get("rain_mm", 0),
-                    "wind_ms":        c.get("wind_ms", 0),
-                    "gust_max_kmh":   c.get("gust_max_kmh", 0),
-                    "janela":         c.get("janela", ""),
-                    "trilhas":        {"name": t["name"]},
-                })
-        return resultado
-    except Exception as exc:
-        print(f"  [Telegram] Erro ao buscar Strava de {user_id}: {exc}")
-        return []
 
 # ─── Telegram ─────────────────────────────────────────────────────────────────
 
@@ -258,9 +224,6 @@ def main() -> None:
                 trails.extend(_buscar_condicoes(fav_ids))
         except Exception as exc:
             print(f"  [Telegram] Erro favoritos de {nome}: {exc}")
-
-        # Strava
-        trails.extend(_buscar_strava(uid))
 
         if not trails:
             print(f"  {nome}: sem trilhas com dados hoje — pulando")
