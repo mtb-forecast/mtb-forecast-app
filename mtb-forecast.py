@@ -2883,6 +2883,13 @@ def main() -> None:
     # 4. Carrega dados completos apenas das trilhas favoritas
     TRAILS = _carregar_trilhas_supabase(ids=ids_favoritas)
 
+    # 5. Filtra por estado se MTB_ESTADO estiver definido (execução manual por UF)
+    estado_filtro = (os.getenv("MTB_ESTADO") or "").strip().upper()
+    if estado_filtro:
+        antes = len(TRAILS)
+        TRAILS = [t for t in TRAILS if (t.get("regiao") or "").upper() == estado_filtro]
+        print(f"[MTBForecaster] Filtro de estado: {estado_filtro} → {len(TRAILS)}/{antes} trilha(s)")
+
     print("[MTBForecaster] Carregando configurações do Supabase...")
     _carregar_configuracoes()
     _carregar_tabela_solo()
