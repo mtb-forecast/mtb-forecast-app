@@ -1290,12 +1290,9 @@ def _carregar_aderencia_descricoes() -> dict:
         return {}
 
 
-def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
-                             bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
-    """
-    V8.0: Usa exclusivamente tabela mestra do Supabase.
-    OpenLandMap e SoilGrids removidos — instáveis e lentos.
-    """
+def _resolver_solo(lat: float, lon: float, solo_type: str = "misto",
+                   bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
+    """Resolve clay_pct/sand_pct/texture_class via tabela mestra do Supabase."""
     key = (round(lat, 4), round(lon, 4))
     if key in _CACHE_SOLO:
         return _CACHE_SOLO[key]
@@ -2833,7 +2830,7 @@ def main() -> None:
 
     print("[MTBForecaster] Buscando dados de solo via tabela mestra...")
     for trail in TRAILS:
-        dados_solo = buscar_solo_openlandmap(
+        dados_solo = _resolver_solo(
             trail["lat"], trail["lon"],
             solo_type=trail.get("solo_type", "misto"),
             bioma=trail.get("bioma", "Desconhecido"),
