@@ -2799,7 +2799,7 @@ def main() -> None:
     # 4. Carrega dados completos apenas das trilhas favoritas
     TRAILS = _carregar_trilhas_supabase(ids=ids_favoritas)
 
-    print("[MTB V8.0] Carregando configurações do Supabase...")
+    print("[MTB] Carregando configurações do Supabase...")
     _carregar_configuracoes()
     _carregar_tabela_solo()
     _carregar_threshold_sazonal()
@@ -2818,11 +2818,11 @@ def main() -> None:
 
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
-    print(f"[MTB V8.0] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
+    print(f"[MTB] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
 
     # 5. Grava "SEM FAVORITO" em lote para todas as trilhas sem favorito (2 chamadas API)
     if sem_favorito:
-        print(f"\n[MTB V8.0] Gravando {len(sem_favorito)} trilha(s) sem favorito em lote...")
+        print(f"\n[MTB] Gravando {len(sem_favorito)} trilha(s) sem favorito em lote...")
         gravar_sem_favorito_bulk(sem_favorito)
 
     resultados_global: list = []
@@ -2831,7 +2831,7 @@ def main() -> None:
     for trail in TRAILS:
         trails_por_regiao.setdefault(trail["regiao"], []).append(trail)
 
-    print("[MTB V8.0] Buscando dados de solo via tabela mestra...")
+    print("[MTB] Buscando dados de solo via tabela mestra...")
     for trail in TRAILS:
         dados_solo = buscar_solo_openlandmap(
             trail["lat"], trail["lon"],
@@ -2849,7 +2849,7 @@ def main() -> None:
 
     for regiao, trails in sorted(trails_por_regiao.items()):
 
-        print(f"\n[MTB V8.0] Processando região {regiao} ({len(trails)} trilha(s))...")
+        print(f"\n[MTB] Processando região {regiao} ({len(trails)} trilha(s))...")
         resultados, falhas = [], []
 
         for trail in trails:
@@ -2894,7 +2894,7 @@ def main() -> None:
     print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
     _processar_pumptracks()
 
-    print("\n[MTB V8.0] Concluído.")
+    print("\n[MTB] Concluído.")
     _disparar_workflows_notificacao()
 
 def _carregar_trilhas_supabase(ids: set | None = None) -> list:
