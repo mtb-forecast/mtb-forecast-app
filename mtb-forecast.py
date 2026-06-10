@@ -276,20 +276,29 @@ def proximos_dias() -> dict:
 # ---------------------------------------------------------------------------
 
 def fetch_onecall(trail: dict) -> dict | None:
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OW_ONECALL:
+        return _CACHE_OW_ONECALL[lk]
     url = (
         "https://api.openweathermap.org/data/3.0/onecall"
         f"?lat={trail['lat']}&lon={trail['lon']}"
         f"&appid={OPENWEATHER_KEY}&units=metric&lang=pt_br"
         "&exclude=current,minutely,daily,alerts"
     )
+    resultado = None
     for attempt in range(3):
         try:
             with urllib.request.urlopen(url, timeout=20) as r:
-                return json.loads(r.read().decode("utf-8"))
+                resultado = json.loads(r.read().decode("utf-8"))
+            break
         except (urllib.error.URLError, OSError):
             if attempt == 2:
-                return None
-            time.sleep(2 ** attempt)
+                resultado = None
+            else:
+                time.sleep(2 ** attempt)
+    if lk and resultado is not None:
+        _CACHE_OW_ONECALL[lk] = resultado
+    return resultado
 
 
 def resumo_onecall(data: dict) -> dict | None:
@@ -338,38 +347,43 @@ def fetch_onecall_historico(trail: dict) -> dict:
 
     # FIX #2: deduplicar entradas por timestamp antes de acumular
     # Três chamadas timemachine podem retornar horas sobrepostas
-    entradas_por_dt: dict = {}
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OW_TIMEMACHINE:
+        entradas_por_dt: dict = _CACHE_OW_TIMEMACHINE[lk]
+    else:
+        entradas_por_dt: dict = {}
+        for horas_offset in (48, 24, 0):
+            ts = int((agora - timedelta(hours=horas_offset)).timestamp())
+            url = (
+                "https://api.openweathermap.org/data/3.0/onecall/timemachine"
+                f"?lat={trail['lat']}&lon={trail['lon']}"
+                f"&dt={ts}&appid={OPENWEATHER_KEY}&units=metric"
+            )
+            data = None
+            for attempt in range(3):
+                try:
+                    with urllib.request.urlopen(url, timeout=20) as r:
+                        data = json.loads(r.read().decode("utf-8"))
+                    break
+                except (urllib.error.URLError, OSError):
+                    if attempt == 2:
+                        data = None
+                    else:
+                        time.sleep(2 ** attempt)
 
-    for horas_offset in (48, 24, 0):
-        ts = int((agora - timedelta(hours=horas_offset)).timestamp())
-        url = (
-            "https://api.openweathermap.org/data/3.0/onecall/timemachine"
-            f"?lat={trail['lat']}&lon={trail['lon']}"
-            f"&dt={ts}&appid={OPENWEATHER_KEY}&units=metric"
-        )
-        data = None
-        for attempt in range(3):
-            try:
-                with urllib.request.urlopen(url, timeout=20) as r:
-                    data = json.loads(r.read().decode("utf-8"))
-                break
-            except (urllib.error.URLError, OSError):
-                if attempt == 2:
-                    data = None
-                else:
-                    time.sleep(2 ** attempt)
-
-        if not data:
-            continue
-
-        for entry in data.get("data", []):
-            dt_ts = entry["dt"]
-            dt_entry = datetime.fromtimestamp(dt_ts, tz=BRT)
-            if dt_entry > agora:
+            if not data:
                 continue
-            # Mantém apenas a primeira ocorrência de cada timestamp
-            if dt_ts not in entradas_por_dt:
-                entradas_por_dt[dt_ts] = entry
+
+            for entry in data.get("data", []):
+                dt_ts = entry["dt"]
+                dt_entry = datetime.fromtimestamp(dt_ts, tz=BRT)
+                if dt_entry > agora:
+                    continue
+                if dt_ts not in entradas_por_dt:
+                    entradas_por_dt[dt_ts] = entry
+
+        if lk:
+            _CACHE_OW_TIMEMACHINE[lk] = entradas_por_dt
 
     # Processar entradas deduplicadas — apenas clima (temp/vento/nuvens/umidade)
     # Precipitação histórica vem exclusivamente de fetch_historico_chuva_om (Open-Meteo archive)
@@ -433,27 +447,33 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
     fim       = agora.strftime("%Y-%m-%d")
     agora_str = agora.strftime("%Y-%m-%dT%H:00")
 
-    for attempt in range(3):
-        try:
-            url = (
-                "https://api.open-meteo.com/v1/forecast"
-                f"?latitude={trail['lat']}&longitude={trail['lon']}"
-                "&past_days=2&forecast_days=0"
-                "&hourly=precipitation"
-                "&timezone=America%2FSao_Paulo"
-            )
-            with _om_urlopen(url) as r:
-                data = json.loads(r.read())
-            break
-        except Exception as exc:
-            if attempt == 2:
-                print(f"  [OM hist] Falha após 3 tentativas: {exc}")
-                return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
-            print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando...")
-            time.sleep(2 ** attempt)
-
-    times   = data.get("hourly", {}).get("time", [])
-    precips = data.get("hourly", {}).get("precipitation", [])
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OM_CHUVA_RAW:
+        times, precips = _CACHE_OM_CHUVA_RAW[lk]
+    else:
+        data = None
+        for attempt in range(3):
+            try:
+                url = (
+                    "https://api.open-meteo.com/v1/forecast"
+                    f"?latitude={trail['lat']}&longitude={trail['lon']}"
+                    "&past_days=2&forecast_days=0"
+                    "&hourly=precipitation"
+                    "&timezone=America%2FSao_Paulo"
+                )
+                with _om_urlopen(url) as r:
+                    data = json.loads(r.read())
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    print(f"  [OM hist] Falha após 3 tentativas: {exc}")
+                    return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
+                print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando...")
+                time.sleep(2 ** attempt)
+        times   = data.get("hourly", {}).get("time", [])
+        precips = data.get("hourly", {}).get("precipitation", [])
+        if lk:
+            _CACHE_OM_CHUVA_RAW[lk] = (times, precips)
 
     # chuva_pct: fração da precipitação que efetivamente chega ao solo (interceptação de dossel)
     mes        = datetime.now(BRT).month
@@ -486,20 +506,29 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
 
 
 def fetch_openmeteo(trail: dict) -> dict | None:
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OM_FORECAST:
+        return _CACHE_OM_FORECAST[lk]
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={trail['lat']}&longitude={trail['lon']}"
         "&hourly=precipitation,windspeed_10m,windgusts_10m,precipitation_probability,temperature_2m"
         "&forecast_days=4&timezone=America%2FSao_Paulo"
     )
+    resultado = None
     for attempt in range(3):
         try:
             with _om_urlopen(url) as r:
-                return json.loads(r.read().decode("utf-8"))
+                resultado = json.loads(r.read().decode("utf-8"))
+            break
         except (urllib.error.URLError, OSError):
             if attempt == 2:
-                return None
-            time.sleep(2 ** attempt)
+                resultado = None
+            else:
+                time.sleep(2 ** attempt)
+    if lk and resultado is not None:
+        _CACHE_OM_FORECAST[lk] = resultado
+    return resultado
 
 # ---------------------------------------------------------------------------
 # Modelo de secagem do solo — V5.21
@@ -590,19 +619,25 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     # Open-Meteo /archive: única fonte de rajadas (windgusts_10m não disponível no timemachine OW)
     om_rajada_max = None
     om_vento_max  = None
+    lk = trail.get("local_key")
     try:
-        url_om = (
-            "https://api.open-meteo.com/v1/forecast"
-            f"?latitude={trail['lat']}&longitude={trail['lon']}"
-            "&past_days=2&forecast_days=0"
-            "&hourly=windspeed_10m,windgusts_10m"
-            "&timezone=America%2FSao_Paulo"
-        )
-        with _om_urlopen(url_om) as r:
-            data_om = json.loads(r.read().decode("utf-8"))
-        times  = data_om.get("hourly", {}).get("time", [])
-        speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
-        gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
+        if lk and lk in _CACHE_OM_VENTO_RAW:
+            times, speeds, gusts = _CACHE_OM_VENTO_RAW[lk]
+        else:
+            url_om = (
+                "https://api.open-meteo.com/v1/forecast"
+                f"?latitude={trail['lat']}&longitude={trail['lon']}"
+                "&past_days=2&forecast_days=0"
+                "&hourly=windspeed_10m,windgusts_10m"
+                "&timezone=America%2FSao_Paulo"
+            )
+            with _om_urlopen(url_om) as r:
+                data_om = json.loads(r.read().decode("utf-8"))
+            times  = data_om.get("hourly", {}).get("time", [])
+            speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
+            gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
+            if lk:
+                _CACHE_OM_VENTO_RAW[lk] = (times, speeds, gusts)
         passados = [i for i, t in enumerate(times) if t <= agora_str]
         if passados:
             om_vento_max  = max((speeds[i] for i in passados if speeds[i] is not None), default=None)
@@ -677,6 +712,11 @@ def resumo_openmeteo(data: dict) -> dict:
 
 _CACHE_SOLO: dict = {}
 _CACHE_TABELA_SOLO: list = []
+_CACHE_OW_ONECALL: dict = {}      # local_key → raw JSON forecast
+_CACHE_OW_TIMEMACHINE: dict = {}  # local_key → entradas_por_dt (3 chamadas timemachine)
+_CACHE_OM_FORECAST: dict = {}     # local_key → raw JSON forecast
+_CACHE_OM_CHUVA_RAW: dict = {}    # local_key → (times, precips)
+_CACHE_OM_VENTO_RAW: dict = {}    # local_key → (times, speeds, gusts)
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
 _CACHE_CONFIG: dict = {}
@@ -1290,12 +1330,9 @@ def _carregar_aderencia_descricoes() -> dict:
         return {}
 
 
-def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
-                             bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
-    """
-    V8.0: Usa exclusivamente tabela mestra do Supabase.
-    OpenLandMap e SoilGrids removidos — instáveis e lentos.
-    """
+def _resolver_solo(lat: float, lon: float, solo_type: str = "misto",
+                   bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
+    """Resolve clay_pct/sand_pct/texture_class via tabela mestra do Supabase."""
     key = (round(lat, 4), round(lon, 4))
     if key in _CACHE_SOLO:
         return _CACHE_SOLO[key]
@@ -2831,9 +2868,19 @@ def main() -> None:
     for trail in TRAILS:
         trails_por_regiao.setdefault(trail["regiao"], []).append(trail)
 
+    grupos: dict[str, int] = {}
+    for trail in TRAILS:
+        lk = trail.get("local_key")
+        if lk:
+            grupos[lk] = grupos.get(lk, 0) + 1
+    sem_grupo = sum(1 for t in TRAILS if not t.get("local_key"))
+    if grupos:
+        resumo = ", ".join(f"{k}({v})" for k, v in sorted(grupos.items()))
+        print(f"[MTBForecaster] Grupos de clima: {resumo}" + (f" | {sem_grupo} sem grupo" if sem_grupo else ""))
+
     print("[MTBForecaster] Buscando dados de solo via tabela mestra...")
     for trail in TRAILS:
-        dados_solo = buscar_solo_openlandmap(
+        dados_solo = _resolver_solo(
             trail["lat"], trail["lon"],
             solo_type=trail.get("solo_type", "misto"),
             bioma=trail.get("bioma", "Desconhecido"),
@@ -2911,7 +2958,7 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
 
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
-        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
+        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,cidade,localidade"
         f"&aprovada=eq.true"
         f"{filtro_ids}"
         f"&order=name.asc"
@@ -2939,6 +2986,9 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
             "desnivel_m":  row.get("desnivel_m"),
             "extensao_km": row.get("extensao_km"),
             "bioma":       row.get("bioma") or "Desconhecido",
+            "cidade":      row.get("cidade"),
+            "localidade":  row.get("localidade"),
+            "local_key":   row.get("localidade") or row.get("cidade") or None,
         })
     print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
     return trilhas
