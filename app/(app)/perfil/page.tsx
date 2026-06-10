@@ -8,7 +8,7 @@ import { PLANOS } from '@/lib/stripe-config'
 import { REPORT_SCHEDULE } from '@/lib/schedule'
 
 type Tab = 'conta' | 'alertas' | 'plano' | 'integracoes'
-type SheetField = 'nome' | 'telefone' | 'regiao' | 'telegram' | 'instagram' | null
+type SheetField = 'telegram' | null
 type TrilhaPendente = {
   id: string; name: string; regiao: string
   status: string; motivo_rejeicao?: string | null; created_at: string
@@ -195,11 +195,14 @@ export default function PerfilPage() {
   // Form state
   const [nome, setNome] = useState('')
   const [apelido, setApelido] = useState('')
+  const [dataNascimento, setDataNascimento] = useState('')
+  const [cidade, setCidade] = useState('')
   const [telefone, setTelefone] = useState('')
   const [telefoneWhatsapp, setTelefoneWhatsapp] = useState(true)
   const [regiao, setRegiao] = useState('')
   const [telegram, setTelegram] = useState('')
   const [instagram, setInstagram] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
 
   // Counters
   const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaPendente[]>([])
@@ -232,6 +235,8 @@ export default function PerfilPage() {
         setProfile(p)
         setNome(p.nome || '')
         setApelido(p.apelido || '')
+        setDataNascimento(p.data_nascimento || '')
+        setCidade(p.cidade || '')
         setTelefone(p.telefone || '')
         setTelefoneWhatsapp(p.telefone_whatsapp ?? true)
         setRegiao(p.regiao || '')
@@ -264,6 +269,8 @@ export default function PerfilPage() {
   const isDirty = !!(profile && (
     nome !== (profile.nome || '') ||
     apelido !== (profile.apelido || '') ||
+    dataNascimento !== (profile.data_nascimento || '') ||
+    cidade !== (profile.cidade || '') ||
     telefone !== (profile.telefone || '') ||
     telefoneWhatsapp !== (profile.telefone_whatsapp ?? true) ||
     regiao !== (profile.regiao || '') ||
@@ -274,15 +281,30 @@ export default function PerfilPage() {
   // ── Actions ─────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!profile) return
+    setFormError(null)
+    const missing: string[] = []
+    if (!nome.trim())         missing.push('Nome completo')
+    if (!apelido.trim())      missing.push('Apelido')
+    if (!dataNascimento)      missing.push('Data de nascimento')
+    if (!regiao)              missing.push('Estado')
+    if (!cidade.trim())       missing.push('Cidade')
+    if (!telefone.trim())     missing.push('Telefone')
+    if (missing.length) { setFormError(`Preencha os campos obrigatórios: ${missing.join(', ')}.`); return }
+
     setSaving(true)
     const { error } = await supabase.from('profiles').update({
-      nome, apelido, telefone, telefone_whatsapp: telefoneWhatsapp,
+      nome, apelido, data_nascimento: dataNascimento || null, cidade,
+      telefone, telefone_whatsapp: telefoneWhatsapp,
       regiao, telegram_username: telegram || null,
       instagram: instagram || null,
     }).eq('id', profile.id)
     setSaving(false)
     if (!error) {
-      setProfile(prev => prev ? { ...prev, nome, apelido, telefone, telefone_whatsapp: telefoneWhatsapp, regiao, telegram_username: telegram || undefined, instagram: instagram || undefined } : prev)
+      setProfile(prev => prev ? {
+        ...prev, nome, apelido, data_nascimento: dataNascimento || null, cidade,
+        telefone, telefone_whatsapp: telefoneWhatsapp, regiao,
+        telegram_username: telegram || undefined, instagram: instagram || undefined,
+      } : prev)
       setSaveOk(true); setTimeout(() => setSaveOk(false), 3000)
     }
   }
@@ -332,100 +354,138 @@ export default function PerfilPage() {
     </div>
   )
 
+  // ── Field label helper ────────────────────────────────────────────────────────
+  const isIncomplete = !profile?.nome || !profile?.data_nascimento || !profile?.cidade || !profile?.regiao || !profile?.telefone || !profile?.apelido
+
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 6 }
+  const req = <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>
+  const inpForm: React.CSSProperties = { ...inp, fontSize: 14 }
+  const selForm: React.CSSProperties = { ...sel, fontSize: 14 }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // TAB: CONTA
   // ─────────────────────────────────────────────────────────────────────────────
   const tabConta = (
     <div>
-      {/* Perfil */}
-      <ProfileSection title="Perfil">
-        <InfoRow
-          icon="ti-user" label="Nome completo"
-          value={nome || profile?.nome || ''}
-          onTap={() => setSheetField('nome')}
-        />
-        <Divider />
-        <InfoRow
-          icon="ti-at" label="Apelido"
-          value={apelido ? `@${apelido}` : ''}
-          onTap={() => setSheetField('nome')}
-        />
-      </ProfileSection>
 
-      {/* Região */}
-      <div style={{
-        background: `linear-gradient(135deg, #eaece4 0%, #f4f5f0 100%)`,
-        borderRadius: 20, border: `1px solid rgba(109,116,95,0.2)`,
-        padding: '18px 20px', marginBottom: 12,
-        display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
-      }}
-        onClick={() => setSheetField('regiao')}
-      >
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(109,116,95,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <i className="ti ti-map-pin" style={{ fontSize: 20, color: T.primary }} />
+      {/* Banner perfil incompleto */}
+      {isIncomplete && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 14, padding: '12px 16px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: '#d97706', flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 13, color: '#92400e', margin: 0, lineHeight: 1.5 }}>
+            Complete seu perfil — alguns dados obrigatórios estão faltando.
+          </p>
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: 'rgba(109,116,95,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>
-            Região principal
+      )}
+
+      {/* ── Formulário de dados pessoais ── */}
+      <div style={{ background: T.card, borderRadius: 20, border: `1px solid ${T.border}`, padding: '20px', marginBottom: 12 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 18px' }}>Dados pessoais</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Nome completo */}
+          <div>
+            <label style={lbl}>Nome completo{req}</label>
+            <input style={inpForm} type="text" value={nome}
+              onChange={e => setNome(e.target.value)}
+              placeholder="Seu nome completo" />
           </div>
-          <div style={{ fontSize: 16, color: regiao ? T.text : T.muted, fontWeight: 700 }}>
-            {regiao ? estadoLabel(regiao) : 'Não definida'}
+
+          {/* Apelido + Data nascimento */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Apelido{req}</label>
+              <input style={inpForm} type="text" value={apelido}
+                onChange={e => setApelido(e.target.value)}
+                placeholder="Como te chamam" />
+            </div>
+            <div>
+              <label style={lbl}>Data de nascimento{req}</label>
+              <input style={inpForm} type="date" value={dataNascimento}
+                onChange={e => setDataNascimento(e.target.value)} />
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Impacta diretamente as suas previsões</div>
+
+          {/* Estado + Cidade */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Estado{req}</label>
+              <select style={selForm} value={regiao} onChange={e => setRegiao(e.target.value)}>
+                <option value="">Selecione</option>
+                {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Cidade{req}</label>
+              <input style={inpForm} type="text" value={cidade}
+                onChange={e => setCidade(e.target.value)}
+                placeholder="Sua cidade" />
+            </div>
+          </div>
+
+          {/* E-mail (bloqueado) */}
+          <div>
+            <label style={lbl}>
+              E-mail
+              <i className="ti ti-lock" style={{ fontSize: 11, marginLeft: 5, color: T.dim }} />
+            </label>
+            <input style={{ ...inpForm, color: T.dim, cursor: 'not-allowed' }}
+              type="email" value={profile?.email || ''} disabled />
+          </div>
+
+          {/* Telefone + WhatsApp */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'end' }}>
+            <div>
+              <label style={lbl}>Telefone / WhatsApp{req}</label>
+              <input style={inpForm} type="tel" value={telefone}
+                onChange={e => setTelefone(formatPhone(e.target.value))}
+                placeholder="+55 (11) 99999-9999" />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 13 }}>
+              <Toggle checked={telefoneWhatsapp} onChange={v => setTelefoneWhatsapp(v)} />
+              <span style={{ fontSize: 13, color: T.muted, whiteSpace: 'nowrap' }}>WhatsApp</span>
+            </div>
+          </div>
+
+          {/* Instagram (opcional) */}
+          <div>
+            <label style={lbl}>Instagram <span style={{ fontWeight: 400, color: T.dim }}>(opcional)</span></label>
+            <input style={inpForm} type="text" value={instagram}
+              onChange={e => { const v = e.target.value; setInstagram(v && !v.startsWith('@') ? '@' + v : v) }}
+              placeholder="@seu_perfil" />
+          </div>
+
         </div>
-        <i className="ti ti-chevron-right" style={{ fontSize: 14, color: T.dim, flexShrink: 0 }} />
+
+        {/* Erro de validação */}
+        {formError && (
+          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginTop: 16 }}>
+            {formError}
+          </div>
+        )}
+
+        {/* Botão salvar */}
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            marginTop: 20, width: '100%',
+            background: saveOk ? '#16a34a' : saving ? T.border : T.primary,
+            color: saving ? T.muted : '#fff',
+            border: 'none', borderRadius: 14, padding: '14px',
+            fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
+            transition: 'background 0.2s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          {saving && <Spinner size={14} />}
+          {saveOk ? '✓ Salvo!' : saving ? 'Salvando…' : 'Salvar dados'}
+        </button>
       </div>
 
-      {/* Contato */}
-      <ProfileSection title="Contato">
-        <InfoRow icon="ti-mail" label="E-mail" value={profile?.email || ''} locked />
-        <Divider />
-        <InfoRow
-          icon="ti-device-mobile" label="Celular"
-          value={telefone}
-          sub={telefone && telefoneWhatsapp ? '✓ WhatsApp' : undefined}
-          onTap={() => setSheetField('telefone')}
-        />
-        <Divider />
-        <InfoRow
-          icon="ti-brand-instagram" label="Instagram"
-          value={instagram ? (instagram.startsWith('@') ? instagram : `@${instagram}`) : ''}
-          onTap={() => setSheetField('instagram')}
-        />
-      </ProfileSection>
-
-      {/* Comunicação */}
-      <ProfileSection title="Comunicação">
-        {/* WhatsApp */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0' }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <i className="ti ti-brand-whatsapp" style={{ fontSize: 20, color: '#25D366' }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, color: T.text, fontWeight: 600 }}>WhatsApp</div>
-            <div style={{ fontSize: 12, color: T.muted }}>Usar o telefone para notificações</div>
-          </div>
-          <Toggle checked={telefoneWhatsapp} onChange={v => setTelefoneWhatsapp(v)} />
-        </div>
-
-        <Divider />
-
-        {/* Telegram */}
-        <InfoRow
-          icon="ti-brand-telegram" label="Telegram"
-          value={telegram || ''}
-          sub={
-            !telegram
-              ? 'Clique para configurar'
-              : profile?.telegram_chat_id
-                ? '✓ Bot ativo — recebendo notificações'
-                : 'Username salvo — envie /start ao bot para ativar'
-          }
-          onTap={() => setSheetField('telegram')}
-        />
-      </ProfileSection>
-
-      {/* Minhas trilhas */}
+      {/* ── Trilhas ── */}
       <ProfileSection title="Trilhas">
         <InfoRow
           icon="ti-heart" label="Favoritas"
@@ -823,54 +883,6 @@ export default function PerfilPage() {
   function renderSheet() {
     if (!sheetField) return null
 
-    if (sheetField === 'nome') return (
-      <EditSheet open title="Nome e apelido" onClose={() => setSheetField(null)}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Nome completo</label>
-            <input style={inp} type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome completo" autoFocus />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Apelido</label>
-            <input style={inp} type="text" value={apelido} onChange={e => setApelido(e.target.value)} placeholder="Como te chamam" />
-          </div>
-          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
-        </div>
-      </EditSheet>
-    )
-
-    if (sheetField === 'telefone') return (
-      <EditSheet open title="Telefone" onClose={() => setSheetField(null)}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Número</label>
-            <input style={inp} type="tel" value={telefone} onChange={e => setTelefone(formatPhone(e.target.value))} placeholder="+55 (11) 99999-9999" autoFocus />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
-            <Toggle checked={telefoneWhatsapp} onChange={v => setTelefoneWhatsapp(v)} />
-            <span style={{ fontSize: 14, color: T.text }}>Este número tem WhatsApp</span>
-          </div>
-          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
-        </div>
-      </EditSheet>
-    )
-
-    if (sheetField === 'regiao') return (
-      <EditSheet open title="Região principal" onClose={() => setSheetField(null)}>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Estado</label>
-          <select style={sel} value={regiao} onChange={e => setRegiao(e.target.value)}>
-            <option value="">Selecione seu estado</option>
-            {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-          </select>
-          <p style={{ fontSize: 12, color: T.muted, marginTop: 10, lineHeight: 1.6 }}>
-            A região define quais dados meteorológicos são usados nas previsões do seu dashboard.
-          </p>
-          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
-        </div>
-      </EditSheet>
-    )
-
     if (sheetField === 'telegram') return (
       <EditSheet open title="Configurar Telegram" onClose={() => setSheetField(null)}>
         <div>
@@ -929,21 +941,6 @@ export default function PerfilPage() {
             </div>
           </div>
 
-          <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
-        </div>
-      </EditSheet>
-    )
-
-    if (sheetField === 'instagram') return (
-      <EditSheet open title="Instagram" onClose={() => setSheetField(null)}>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, color: T.muted, marginBottom: 6, fontWeight: 600 }}>Perfil do Instagram</label>
-          <input style={inp} type="text" value={instagram}
-            onChange={e => { const v = e.target.value; setInstagram(v && !v.startsWith('@') ? '@' + v : v) }}
-            placeholder="@seu_perfil" autoFocus />
-          <p style={{ fontSize: 12, color: T.muted, marginTop: 10, lineHeight: 1.6 }}>
-            Seu handle aparece no card de perfil e ajuda outros riders a te encontrar.
-          </p>
           <SheetSaveBtn onClick={async () => { await handleSave(); setSheetField(null) }} loading={saving} />
         </div>
       </EditSheet>

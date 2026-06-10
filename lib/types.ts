@@ -125,6 +125,8 @@ export type Profile = {
   email: string
   nome?: string
   apelido?: string
+  data_nascimento?: string | null
+  cidade?: string
   telefone?: string
   telefone_whatsapp?: boolean
   telegram_username?: string
