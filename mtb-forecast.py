@@ -642,8 +642,8 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
         if passados:
             om_vento_max  = max((speeds[i] for i in passados if speeds[i] is not None), default=None)
             om_rajada_max = max((gusts[i]  for i in passados if i < len(gusts) and gusts[i] is not None), default=None)
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"  [OM vento] Falha ao buscar vento histórico: {exc}")
 
     # Vento sustentado: média entre OW (timemachine, já coletado) e OM (archive)
     # OW fornece m/s → já convertido para km/h em fetch_onecall_historico
@@ -2958,7 +2958,7 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
 
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
-        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,cidade,localidade"
+        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,localidades(cidade,localidade)"
         f"&aprovada=eq.true"
         f"{filtro_ids}"
         f"&order=name.asc"
@@ -2973,6 +2973,10 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
         raise RuntimeError("[Trilhas] Nenhuma trilha aprovada encontrada no Supabase.")
     trilhas = []
     for row in dados:
+        loc = row.get("localidades") or {}
+        if isinstance(loc, list):
+            loc = loc[0] if loc else {}
+        local_key = loc.get("localidade") or loc.get("cidade") or None
         trilhas.append({
             "supabase_id": row["id"],
             "name":        row["name"],
@@ -2986,9 +2990,9 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
             "desnivel_m":  row.get("desnivel_m"),
             "extensao_km": row.get("extensao_km"),
             "bioma":       row.get("bioma") or "Desconhecido",
-            "cidade":      row.get("cidade"),
-            "localidade":  row.get("localidade"),
-            "local_key":   row.get("localidade") or row.get("cidade") or None,
+            "cidade":      loc.get("cidade"),
+            "localidade":  loc.get("localidade"),
+            "local_key":   local_key,
         })
     print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
     return trilhas
