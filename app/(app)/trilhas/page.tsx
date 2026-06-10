@@ -47,8 +47,6 @@ function TrilhasContent() {
   const [localidadeSelecionada, setLocalidadeSelecionada] = useState('')
 
   const [estados, setEstados] = useState<string[]>([])
-  const [cidades, setCidades] = useState<string[]>([])
-  const [localidadesOpts, setLocalidadesOpts] = useState<string[]>([])
 
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
@@ -128,43 +126,42 @@ function TrilhasContent() {
     init()
   }, [router])
 
-  // Carrega cidades quando estado muda — inclui cidades de pump tracks
+  // Reseta seleções em cascata quando filtros pai mudam
   useEffect(() => {
     setCidadeSelecionada('')
     setLocalidadeSelecionada('')
-    setLocalidadesOpts([])
-    if (!estadoSelecionado) { setCidades([]); return }
-    Promise.all([
-      supabase.from('localidades').select('cidade').eq('estado', estadoSelecionado).order('cidade'),
-      supabase.from('trilhas_pumptrack').select('cidade').eq('uf', estadoSelecionado),
-    ]).then(([{ data: locData }, { data: ptData }]) => {
-      const locCidades = locData ? locData.map((r: { cidade: string }) => r.cidade).filter(Boolean) : []
-      const ptCidades = ptData ? ptData.map((r: { cidade: string | null }) => r.cidade).filter(Boolean) : []
-      const distinct = [...new Set([...locCidades, ...ptCidades as string[]])].sort() as string[]
-      setCidades(distinct)
-    })
   }, [estadoSelecionado])
 
-  // Carrega localidades quando cidade muda
   useEffect(() => {
     setLocalidadeSelecionada('')
-    if (!estadoSelecionado || !cidadeSelecionada) { setLocalidadesOpts([]); return }
-    supabase
-      .from('localidades')
-      .select('localidade')
-      .eq('estado', estadoSelecionado)
-      .eq('cidade', cidadeSelecionada)
-      .not('localidade', 'is', null)
-      .order('localidade')
-      .then(({ data }) => {
-        if (data) {
-          const distinct = [...new Set(
-            data.map((r: { localidade: string | null }) => r.localidade).filter(Boolean)
-          )] as string[]
-          setLocalidadesOpts(distinct)
-        }
-      })
-  }, [estadoSelecionado, cidadeSelecionada])
+  }, [cidadeSelecionada])
+
+  // Cidades disponíveis — derivadas das trilhas já carregadas (evita mostrar cidades sem trilhas)
+  const cidades = useMemo(() => {
+    if (!estadoSelecionado) return []
+    const set = new Set<string>()
+    for (const t of trilhasAll) {
+      const estado = t.localidades?.estado || t.regiao
+      if (estado === estadoSelecionado && t.localidades?.cidade) set.add(t.localidades.cidade)
+    }
+    for (const pt of pumptracksAll) {
+      if (pt.uf === estadoSelecionado && pt.cidade) set.add(pt.cidade)
+    }
+    return [...set].sort()
+  }, [trilhasAll, pumptracksAll, estadoSelecionado])
+
+  // Localidades disponíveis — derivadas das trilhas da cidade selecionada
+  const localidadesOpts = useMemo(() => {
+    if (!estadoSelecionado || !cidadeSelecionada) return []
+    const set = new Set<string>()
+    for (const t of trilhasAll) {
+      const estado = t.localidades?.estado || t.regiao
+      if (estado === estadoSelecionado && t.localidades?.cidade === cidadeSelecionada && t.localidades?.localidade) {
+        set.add(t.localidades.localidade)
+      }
+    }
+    return [...set].sort()
+  }, [trilhasAll, estadoSelecionado, cidadeSelecionada])
 
   function handleEstadoChange(estado: string) {
     setEstadoSelecionado(estado)
