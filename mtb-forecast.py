@@ -1701,6 +1701,52 @@ def gravar_sem_favorito(trilha_name: str) -> bool:
         return False
 
 
+def gravar_sem_favorito_bulk(trilhas: list) -> None:
+    """
+    Grava em lote registros 'SEM FAVORITO' em condicoes.
+    Usa DELETE bulk + INSERT bulk: 2 chamadas API no total, independente da quantidade.
+    """
+    if not SUPABASE_KEY or not trilhas:
+        return
+    gerado_em = datetime.now(BRT).isoformat()
+    ids_str   = ",".join(t["id"] for t in trilhas)
+
+    url_del = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=in.({ids_str})"
+    req_del = urllib.request.Request(url_del, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    })
+    req_del.get_method = lambda: "DELETE"
+    try:
+        with urllib.request.urlopen(req_del, timeout=15):
+            pass
+    except Exception:
+        pass
+
+    payload = json.dumps([{
+        "trilha_id":        t["id"],
+        "gerado_em":        gerado_em,
+        "aderencia_status": "SEM FAVORITO",
+        "veredicto":        "Favorite esta trilha para gerar as condições",
+        "veredicto_12h":    "Favorite esta trilha para gerar as condições",
+    } for t in trilhas]).encode("utf-8")
+
+    url_ins = f"{SUPABASE_URL}/rest/v1/condicoes"
+    req_ins = urllib.request.Request(url_ins, data=payload, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type":  "application/json",
+        "Prefer":        "return=minimal",
+    })
+    req_ins.get_method = lambda: "POST"
+    try:
+        with urllib.request.urlopen(req_ins, timeout=15):
+            pass
+        print(f"  [SEM FAVORITO] {len(trilhas)} trilha(s) gravadas em lote (2 chamadas API)")
+    except Exception as exc:
+        print(f"  [Supabase] [ERRO] gravar_sem_favorito_bulk: {exc}")
+
+
 def gravar_supabase(trilha_name: str, resultado: dict):
     """
     Grava condições da trilha no Supabase após processar.
@@ -2733,9 +2779,26 @@ def main() -> None:
     import sys
     global TRAILS
 
-    TRAILS = _carregar_trilhas_supabase()
-
     _validar_env()
+
+    # 1. Carrega IDs com favorito (query leve: só trilha_id)
+    ids_com_favorito = _carregar_ids_com_favorito()
+
+    # 2. Carrega id+name de todas as trilhas aprovadas (query leve)
+    todos_ids = _carregar_ids_trilhas_supabase()
+
+    # 3. Separa favoritas e sem favorito
+    if ids_com_favorito is not None:
+        sem_favorito  = [t for t in todos_ids if t["id"] not in ids_com_favorito]
+        ids_favoritas = {t["id"] for t in todos_ids if t["id"] in ids_com_favorito}
+    else:
+        # Erro na carga de favoritos — processa todas como fallback seguro
+        sem_favorito  = []
+        ids_favoritas = None
+
+    # 4. Carrega dados completos apenas das trilhas favoritas
+    TRAILS = _carregar_trilhas_supabase(ids=ids_favoritas)
+
     print("[MTB V8.0] Carregando configurações do Supabase...")
     _carregar_configuracoes()
     _carregar_tabela_solo()
@@ -2757,21 +2820,19 @@ def main() -> None:
     datas = proximos_dias()
     print(f"[MTB V8.0] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
 
+    # 5. Grava "SEM FAVORITO" em lote para todas as trilhas sem favorito (2 chamadas API)
+    if sem_favorito:
+        print(f"\n[MTB V8.0] Gravando {len(sem_favorito)} trilha(s) sem favorito em lote...")
+        gravar_sem_favorito_bulk(sem_favorito)
+
     resultados_global: list = []
 
     trails_por_regiao: dict[str, list] = {}
     for trail in TRAILS:
         trails_por_regiao.setdefault(trail["regiao"], []).append(trail)
 
-    ids_com_favorito = _carregar_ids_com_favorito()
-    # None = erro na carga → processa tudo como fallback seguro
-    def _tem_favorito(trail: dict) -> bool:
-        return ids_com_favorito is None or trail.get("supabase_id") in ids_com_favorito
-
     print("[MTB V8.0] Buscando dados de solo via tabela mestra...")
     for trail in TRAILS:
-        if not _tem_favorito(trail):
-            continue
         dados_solo = buscar_solo_openlandmap(
             trail["lat"], trail["lon"],
             solo_type=trail.get("solo_type", "misto"),
@@ -2792,10 +2853,6 @@ def main() -> None:
         resultados, falhas = [], []
 
         for trail in trails:
-            if not _tem_favorito(trail):
-                gravar_sem_favorito(trail["name"])
-                print(f"  [SEM FAVORITO] {trail['name']} — sem favoritos, condições não geradas")
-                continue
             try:
                 dados = processar_trilha(trail, datas)
                 dados = _aplicar_override_chuva_futura(dados)
@@ -2840,14 +2897,23 @@ def main() -> None:
     print("\n[MTB V8.0] Concluído.")
     _disparar_workflows_notificacao()
 
-def _carregar_trilhas_supabase() -> list:
-    """Carrega trilhas aprovadas do Supabase. Levanta RuntimeError se falhar."""
+def _carregar_trilhas_supabase(ids: set | None = None) -> list:
+    """
+    Carrega trilhas aprovadas do Supabase.
+    Se ids fornecido, carrega apenas as trilhas cujo id está no conjunto (filtro favoritas).
+    """
     if not SUPABASE_KEY:
         raise RuntimeError("[Trilhas] SUPABASE_KEY ausente — impossível carregar trilhas.")
+
+    filtro_ids = ""
+    if ids:
+        filtro_ids = f"&id=in.({','.join(ids)})"
+
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
         f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
         f"&aprovada=eq.true"
+        f"{filtro_ids}"
         f"&order=name.asc"
     )
     req = urllib.request.Request(url, headers={
@@ -2876,6 +2942,24 @@ def _carregar_trilhas_supabase() -> list:
         })
     print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
     return trilhas
+
+
+def _carregar_ids_trilhas_supabase() -> list:
+    """Query leve: retorna lista de {id, name} de todas as trilhas aprovadas."""
+    if not SUPABASE_KEY:
+        raise RuntimeError("[Trilhas] SUPABASE_KEY ausente — impossível carregar trilhas.")
+    url = (
+        f"{SUPABASE_URL}/rest/v1/trilhas"
+        f"?select=id,name"
+        f"&aprovada=eq.true"
+        f"&order=name.asc"
+    )
+    req = urllib.request.Request(url, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    })
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read())
 
 
 def _carregar_pumptracks_supabase() -> list:
