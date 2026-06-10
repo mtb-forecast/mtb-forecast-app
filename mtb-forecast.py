@@ -109,9 +109,10 @@ def _om_urlopen(url: str, timeout: int = 60):
 
 TRAILS = []
 
-OPENWEATHER_KEY = os.getenv("OPENWEATHER_API_KEY")
-ANTHROPIC_KEY   = os.getenv("ANTHROPIC_API_KEY")
-DEBUG_MODEL     = os.getenv("DEBUG_MODEL", "false").lower() == "true"
+OPENWEATHER_KEY  = os.getenv("OPENWEATHER_API_KEY")
+ANTHROPIC_KEY    = os.getenv("ANTHROPIC_API_KEY")
+DEBUG_MODEL      = os.getenv("DEBUG_MODEL", "false").lower() == "true"
+WEATHERAPI_KEY   = os.getenv("WEATHERAPI_KEY", "")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
@@ -605,6 +606,41 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
     return round(max(mv_min, min(mv_max, meia_vida)), 1)
 
 
+def _fetch_vento_weatherapi(trail: dict, agora: "datetime") -> tuple[float | None, float | None]:
+    """
+    Fallback de vento histórico via weatherapi.com quando Open-Meteo falha.
+    Retorna (vento_max_kmh, rajada_max_kmh) das últimas 48h ou (None, None) se indisponível.
+    """
+    if not WEATHERAPI_KEY:
+        print("  [WeatherAPI] WEATHERAPI_KEY ausente — fallback indisponível")
+        return None, None
+    vento_max  = None
+    rajada_max = None
+    try:
+        for delta_dias in range(2):
+            dia = (agora - timedelta(days=delta_dias)).strftime("%Y-%m-%d")
+            url = (
+                f"https://api.weatherapi.com/v1/history.json"
+                f"?key={WEATHERAPI_KEY}"
+                f"&q={trail['lat']},{trail['lon']}"
+                f"&dt={dia}"
+            )
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=15) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            for hora in data.get("forecast", {}).get("forecastday", [{}])[0].get("hour", []):
+                v = hora.get("wind_kph")
+                g = hora.get("gust_kph")
+                if v is not None:
+                    vento_max  = max(vento_max,  v) if vento_max  is not None else v
+                if g is not None:
+                    rajada_max = max(rajada_max, g) if rajada_max is not None else g
+        print(f"  [WeatherAPI] vento={vento_max} km/h rajada={rajada_max} km/h")
+    except Exception as exc:
+        print(f"  [WeatherAPI] Falha no fallback: {exc}")
+    return vento_max, rajada_max
+
+
 def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) -> dict:
     """
     Busca rajadas históricas (Open-Meteo /archive — ERA5 observado).
@@ -616,7 +652,7 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     fim       = agora.strftime("%Y-%m-%d")
     agora_str = agora.strftime("%Y-%m-%dT%H:00")
 
-    # Open-Meteo /archive: única fonte de rajadas (windgusts_10m não disponível no timemachine OW)
+    # Open-Meteo /forecast com past_days=2: fonte de vento sustentado + rajadas históricas
     om_rajada_max = None
     om_vento_max  = None
     lk = trail.get("local_key")
@@ -631,8 +667,17 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
                 "&hourly=windspeed_10m,windgusts_10m"
                 "&timezone=America%2FSao_Paulo"
             )
-            with _om_urlopen(url_om) as r:
-                data_om = json.loads(r.read().decode("utf-8"))
+            data_om = None
+            for tentativa in range(3):
+                try:
+                    with _om_urlopen(url_om) as r:
+                        data_om = json.loads(r.read().decode("utf-8"))
+                    break
+                except Exception as exc_om:
+                    if tentativa == 2:
+                        raise
+                    print(f"  [OM vento] Tentativa {tentativa + 1} falhou: {exc_om} — aguardando {2 ** tentativa}s")
+                    time.sleep(2 ** tentativa)
             times  = data_om.get("hourly", {}).get("time", [])
             speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
             gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
@@ -643,7 +688,9 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
             om_vento_max  = max((speeds[i] for i in passados if speeds[i] is not None), default=None)
             om_rajada_max = max((gusts[i]  for i in passados if i < len(gusts) and gusts[i] is not None), default=None)
     except Exception as exc:
-        print(f"  [OM vento] Falha ao buscar vento histórico: {exc}")
+        print(f"  [OM vento] Falha após 3 tentativas: {exc} — tentando WeatherAPI")
+        om_vento_max, om_rajada_max = _fetch_vento_weatherapi(trail, agora)
+
 
     # Vento sustentado: média entre OW (timemachine, já coletado) e OM (archive)
     # OW fornece m/s → já convertido para km/h em fetch_onecall_historico
