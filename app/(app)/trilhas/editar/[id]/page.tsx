@@ -170,6 +170,21 @@ export default function EditarTrilhaPage() {
     else setErro('Não foi possível extrair as coordenadas.')
   }
 
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  async function getOrCreateLocalidade(geo: GeoResult): Promise<string | null> {
+    let query = supabase.from('localidades').select('id')
+      .eq('estado', geo.estado).eq('cidade', geo.cidade)
+    if (geo.localidade) query = query.eq('localidade', geo.localidade)
+    else query = query.is('localidade', null)
+    const { data: existing } = await query.maybeSingle()
+    if (existing) return (existing as { id: string }).id
+    const { data: inserted } = await supabase
+      .from('localidades')
+      .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
+      .select('id').single()
+    return inserted ? (inserted as { id: string }).id : null
+  }
+
   // ── Save ────────────────────────────────────────────────────────────────────
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -182,6 +197,10 @@ export default function EditarTrilhaPage() {
     if (!trailType)    return setErro('Tipo de trilha obrigatório.')
 
     setSaving(true); setErro(null)
+
+    let localidadeId: string | null = null
+    if (geoResult) localidadeId = await getOrCreateLocalidade(geoResult)
+
     const { error } = await supabase.from('trilhas_pendentes').update({
       name: nome.trim(), regiao,
       lat: parseFloat(lat), lon: parseFloat(lon),
@@ -192,6 +211,7 @@ export default function EditarTrilhaPage() {
       extensao_km: extensao ? parseFloat(extensao) : null,
       link_referencia: linkRef.trim() || null,
       observacoes: observacoes.trim() || null,
+      ...(localidadeId ? { localidade_id: localidadeId } : {}),
     }).eq('id', id)
 
     setSaving(false)
