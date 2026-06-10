@@ -13,6 +13,8 @@ export default function AdminPage() {
   const [pendentes, setPendentes] = useState<TrilhaPendente[]>([])
   const [loading, setLoading] = useState(true)
   const [aprovacaoMsg, setAprovacaoMsg] = useState<string | null>(null)
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillMsg, setBackfillMsg] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -131,6 +133,22 @@ export default function AdminPage() {
     setTimeout(() => setAprovacaoMsg(null), 3000)
   }
 
+  async function corrigirLocalidades() {
+    setBackfilling(true)
+    setBackfillMsg(null)
+    try {
+      const res = await fetch('/api/admin/backfill-localidades', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erro desconhecido')
+      setBackfillMsg(`✓ ${data.atualizadas} trilha(s) corrigida(s) de ${data.total} — sem geo: ${data.sem_geo}, erros: ${data.erros}`)
+    } catch (e: unknown) {
+      setBackfillMsg(`Erro: ${e instanceof Error ? e.message : 'falha na requisição'}`)
+    } finally {
+      setBackfilling(false)
+      setTimeout(() => setBackfillMsg(null), 8000)
+    }
+  }
+
   async function rejeitar(id: string, motivo: string) {
     await supabase.from('trilhas_pendentes').update({ status: 'rejeitada', motivo_rejeicao: motivo }).eq('id', id)
     setPendentes(prev => prev.filter(t => t.id !== id))
@@ -188,7 +206,34 @@ export default function AdminPage() {
             <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Segmentos favoritos → pendentes</p>
             <p style={{ fontSize: 12, color: '#FC4C02', fontWeight: 500, marginTop: 12 }}>Importar →</p>
           </Link>
+          <button
+            onClick={corrigirLocalidades}
+            disabled={backfilling}
+            style={{
+              background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8,
+              padding: '16px 24px', flex: 1, minWidth: 140,
+              textAlign: 'left', cursor: backfilling ? 'wait' : 'pointer',
+              display: 'flex', flexDirection: 'column', opacity: backfilling ? 0.6 : 1,
+            }}
+          >
+            <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Corrigir Localidades</p>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Geocodifica trilhas sem cidade/estado</p>
+            <p style={{ fontSize: 12, color: '#6d745f', fontWeight: 500, marginTop: 12 }}>
+              {backfilling ? 'Processando…' : 'Executar →'}
+            </p>
+          </button>
         </div>
+
+        {backfillMsg && (
+          <div style={{
+            background: backfillMsg.startsWith('Erro') ? '#fee2e2' : '#dcfce7',
+            border: `1px solid ${backfillMsg.startsWith('Erro') ? '#fca5a5' : '#86efac'}`,
+            color: backfillMsg.startsWith('Erro') ? '#991b1b' : '#166534',
+            borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontSize: 13,
+          }}>
+            {backfillMsg}
+          </div>
+        )}
 
         {aprovacaoMsg && (
           <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#166534', borderRadius: 4, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
