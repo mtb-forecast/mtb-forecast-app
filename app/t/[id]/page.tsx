@@ -1,51 +1,19 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import { Trilha } from '@/lib/types'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import type { Trilha } from '@/lib/types'
 
-export default function TrilhaPreviewPage() {
-  const params = useParams()
-  const id = params.id as string
+export default async function TrilhaPreviewPage({ params }: { params: { id: string } }) {
+  const sb = createSupabaseServerClient()
+  const { data } = await sb
+    .from('trilhas')
+    .select('*')
+    .eq('id', params.id)
+    .maybeSingle()
 
-  const [trilha, setTrilha] = useState<Trilha | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
+  if (!data) notFound()
 
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from('trilhas')
-        .select('*')
-        .eq('id', id)
-        .maybeSingle()
-      if (!data) { setNotFound(true); setLoading(false); return }
-      setTrilha(data as Trilha)
-      setLoading(false)
-    }
-    load()
-  }, [id])
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
-    )
-  }
-
-  if (notFound || !trilha) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-        <p style={{ color: '#888', fontSize: 14 }}>Trilha não encontrada</p>
-        <Link href="/trilhas" style={{ color: '#6d745f', fontSize: 13 }}>Ver todas as trilhas</Link>
-      </div>
-    )
-  }
-
+  const trilha = data as Trilha
   const mapsUrl = `https://www.google.com/maps?q=${trilha.lat},${trilha.lon}`
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
 
@@ -58,7 +26,7 @@ export default function TrilhaPreviewPage() {
           MTB FORECASTER
         </Link>
         <Link
-          href={`/cadastro?ref=whatsapp&trilha=${id}`}
+          href={`/cadastro?ref=whatsapp&trilha=${params.id}`}
           style={{
             background: '#6d745f', color: '#fff',
             border: 'none', borderRadius: 4,
@@ -139,7 +107,7 @@ export default function TrilhaPreviewPage() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <Link
-              href={`/cadastro?ref=whatsapp&trilha=${id}`}
+              href={`/cadastro?ref=whatsapp&trilha=${params.id}`}
               style={{
                 background: '#6d745f', color: '#fff',
                 border: 'none', borderRadius: 4,
@@ -153,7 +121,7 @@ export default function TrilhaPreviewPage() {
           </div>
           <div style={{ marginTop: 16 }}>
             <Link
-              href={`/login?redirect=/trilhas/${id}`}
+              href={`/login?redirect=/trilhas/${params.id}`}
               style={{ fontSize: 13, color: '#888', textDecoration: 'none' }}
             >
               Já tenho conta — Entrar
