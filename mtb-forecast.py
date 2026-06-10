@@ -2849,7 +2849,7 @@ def main() -> None:
 
     for regiao, trails in sorted(trails_por_regiao.items()):
 
-        print(f"\n[MTB V7.0] Processando região {regiao} ({len(trails)} trilha(s))...")
+        print(f"\n[MTB V8.0] Processando região {regiao} ({len(trails)} trilha(s))...")
         resultados, falhas = [], []
 
         for trail in trails:
