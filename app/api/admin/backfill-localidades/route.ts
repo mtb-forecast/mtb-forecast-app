@@ -48,19 +48,23 @@ async function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms))
 }
 
+type LocalidadeInsert = { pais: string; estado: string; cidade: string; localidade: string | null }
+
 async function getOrCreateLocalidade(
-  supabase: ReturnType<typeof createClient>,
-  geo: { pais: string; estado: string; cidade: string; localidade: string | null }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any,
+  geo: LocalidadeInsert
 ): Promise<string | null> {
-  let query = supabase.from('localidades').select('id')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = sb.from('localidades').select('id')
     .eq('estado', geo.estado).eq('cidade', geo.cidade)
   if (geo.localidade) query = query.eq('localidade', geo.localidade)
   else query = query.is('localidade', null)
   const { data: existing } = await query.maybeSingle()
   if (existing) return (existing as { id: string }).id
-  const { data: inserted } = await supabase
+  const { data: inserted } = await sb
     .from('localidades')
-    .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
+    .insert(geo as Record<string, unknown>)
     .select('id').single()
   return inserted ? (inserted as { id: string }).id : null
 }
