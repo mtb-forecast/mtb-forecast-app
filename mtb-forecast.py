@@ -276,20 +276,29 @@ def proximos_dias() -> dict:
 # ---------------------------------------------------------------------------
 
 def fetch_onecall(trail: dict) -> dict | None:
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OW_ONECALL:
+        return _CACHE_OW_ONECALL[lk]
     url = (
         "https://api.openweathermap.org/data/3.0/onecall"
         f"?lat={trail['lat']}&lon={trail['lon']}"
         f"&appid={OPENWEATHER_KEY}&units=metric&lang=pt_br"
         "&exclude=current,minutely,daily,alerts"
     )
+    resultado = None
     for attempt in range(3):
         try:
             with urllib.request.urlopen(url, timeout=20) as r:
-                return json.loads(r.read().decode("utf-8"))
+                resultado = json.loads(r.read().decode("utf-8"))
+            break
         except (urllib.error.URLError, OSError):
             if attempt == 2:
-                return None
-            time.sleep(2 ** attempt)
+                resultado = None
+            else:
+                time.sleep(2 ** attempt)
+    if lk and resultado is not None:
+        _CACHE_OW_ONECALL[lk] = resultado
+    return resultado
 
 
 def resumo_onecall(data: dict) -> dict | None:
@@ -338,38 +347,43 @@ def fetch_onecall_historico(trail: dict) -> dict:
 
     # FIX #2: deduplicar entradas por timestamp antes de acumular
     # Três chamadas timemachine podem retornar horas sobrepostas
-    entradas_por_dt: dict = {}
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OW_TIMEMACHINE:
+        entradas_por_dt: dict = _CACHE_OW_TIMEMACHINE[lk]
+    else:
+        entradas_por_dt: dict = {}
+        for horas_offset in (48, 24, 0):
+            ts = int((agora - timedelta(hours=horas_offset)).timestamp())
+            url = (
+                "https://api.openweathermap.org/data/3.0/onecall/timemachine"
+                f"?lat={trail['lat']}&lon={trail['lon']}"
+                f"&dt={ts}&appid={OPENWEATHER_KEY}&units=metric"
+            )
+            data = None
+            for attempt in range(3):
+                try:
+                    with urllib.request.urlopen(url, timeout=20) as r:
+                        data = json.loads(r.read().decode("utf-8"))
+                    break
+                except (urllib.error.URLError, OSError):
+                    if attempt == 2:
+                        data = None
+                    else:
+                        time.sleep(2 ** attempt)
 
-    for horas_offset in (48, 24, 0):
-        ts = int((agora - timedelta(hours=horas_offset)).timestamp())
-        url = (
-            "https://api.openweathermap.org/data/3.0/onecall/timemachine"
-            f"?lat={trail['lat']}&lon={trail['lon']}"
-            f"&dt={ts}&appid={OPENWEATHER_KEY}&units=metric"
-        )
-        data = None
-        for attempt in range(3):
-            try:
-                with urllib.request.urlopen(url, timeout=20) as r:
-                    data = json.loads(r.read().decode("utf-8"))
-                break
-            except (urllib.error.URLError, OSError):
-                if attempt == 2:
-                    data = None
-                else:
-                    time.sleep(2 ** attempt)
-
-        if not data:
-            continue
-
-        for entry in data.get("data", []):
-            dt_ts = entry["dt"]
-            dt_entry = datetime.fromtimestamp(dt_ts, tz=BRT)
-            if dt_entry > agora:
+            if not data:
                 continue
-            # Mantém apenas a primeira ocorrência de cada timestamp
-            if dt_ts not in entradas_por_dt:
-                entradas_por_dt[dt_ts] = entry
+
+            for entry in data.get("data", []):
+                dt_ts = entry["dt"]
+                dt_entry = datetime.fromtimestamp(dt_ts, tz=BRT)
+                if dt_entry > agora:
+                    continue
+                if dt_ts not in entradas_por_dt:
+                    entradas_por_dt[dt_ts] = entry
+
+        if lk:
+            _CACHE_OW_TIMEMACHINE[lk] = entradas_por_dt
 
     # Processar entradas deduplicadas — apenas clima (temp/vento/nuvens/umidade)
     # Precipitação histórica vem exclusivamente de fetch_historico_chuva_om (Open-Meteo archive)
@@ -433,27 +447,33 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
     fim       = agora.strftime("%Y-%m-%d")
     agora_str = agora.strftime("%Y-%m-%dT%H:00")
 
-    for attempt in range(3):
-        try:
-            url = (
-                "https://api.open-meteo.com/v1/forecast"
-                f"?latitude={trail['lat']}&longitude={trail['lon']}"
-                "&past_days=2&forecast_days=0"
-                "&hourly=precipitation"
-                "&timezone=America%2FSao_Paulo"
-            )
-            with _om_urlopen(url) as r:
-                data = json.loads(r.read())
-            break
-        except Exception as exc:
-            if attempt == 2:
-                print(f"  [OM hist] Falha após 3 tentativas: {exc}")
-                return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
-            print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando...")
-            time.sleep(2 ** attempt)
-
-    times   = data.get("hourly", {}).get("time", [])
-    precips = data.get("hourly", {}).get("precipitation", [])
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OM_CHUVA_RAW:
+        times, precips = _CACHE_OM_CHUVA_RAW[lk]
+    else:
+        data = None
+        for attempt in range(3):
+            try:
+                url = (
+                    "https://api.open-meteo.com/v1/forecast"
+                    f"?latitude={trail['lat']}&longitude={trail['lon']}"
+                    "&past_days=2&forecast_days=0"
+                    "&hourly=precipitation"
+                    "&timezone=America%2FSao_Paulo"
+                )
+                with _om_urlopen(url) as r:
+                    data = json.loads(r.read())
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    print(f"  [OM hist] Falha após 3 tentativas: {exc}")
+                    return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
+                print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando...")
+                time.sleep(2 ** attempt)
+        times   = data.get("hourly", {}).get("time", [])
+        precips = data.get("hourly", {}).get("precipitation", [])
+        if lk:
+            _CACHE_OM_CHUVA_RAW[lk] = (times, precips)
 
     # chuva_pct: fração da precipitação que efetivamente chega ao solo (interceptação de dossel)
     mes        = datetime.now(BRT).month
@@ -486,20 +506,29 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
 
 
 def fetch_openmeteo(trail: dict) -> dict | None:
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OM_FORECAST:
+        return _CACHE_OM_FORECAST[lk]
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={trail['lat']}&longitude={trail['lon']}"
         "&hourly=precipitation,windspeed_10m,windgusts_10m,precipitation_probability,temperature_2m"
         "&forecast_days=4&timezone=America%2FSao_Paulo"
     )
+    resultado = None
     for attempt in range(3):
         try:
             with _om_urlopen(url) as r:
-                return json.loads(r.read().decode("utf-8"))
+                resultado = json.loads(r.read().decode("utf-8"))
+            break
         except (urllib.error.URLError, OSError):
             if attempt == 2:
-                return None
-            time.sleep(2 ** attempt)
+                resultado = None
+            else:
+                time.sleep(2 ** attempt)
+    if lk and resultado is not None:
+        _CACHE_OM_FORECAST[lk] = resultado
+    return resultado
 
 # ---------------------------------------------------------------------------
 # Modelo de secagem do solo — V5.21
@@ -590,25 +619,31 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     # Open-Meteo /archive: única fonte de rajadas (windgusts_10m não disponível no timemachine OW)
     om_rajada_max = None
     om_vento_max  = None
+    lk = trail.get("local_key")
     try:
-        url_om = (
-            "https://api.open-meteo.com/v1/forecast"
-            f"?latitude={trail['lat']}&longitude={trail['lon']}"
-            "&past_days=2&forecast_days=0"
-            "&hourly=windspeed_10m,windgusts_10m"
-            "&timezone=America%2FSao_Paulo"
-        )
-        with _om_urlopen(url_om) as r:
-            data_om = json.loads(r.read().decode("utf-8"))
-        times  = data_om.get("hourly", {}).get("time", [])
-        speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
-        gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
+        if lk and lk in _CACHE_OM_VENTO_RAW:
+            times, speeds, gusts = _CACHE_OM_VENTO_RAW[lk]
+        else:
+            url_om = (
+                "https://api.open-meteo.com/v1/forecast"
+                f"?latitude={trail['lat']}&longitude={trail['lon']}"
+                "&past_days=2&forecast_days=0"
+                "&hourly=windspeed_10m,windgusts_10m"
+                "&timezone=America%2FSao_Paulo"
+            )
+            with _om_urlopen(url_om) as r:
+                data_om = json.loads(r.read().decode("utf-8"))
+            times  = data_om.get("hourly", {}).get("time", [])
+            speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
+            gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
+            if lk:
+                _CACHE_OM_VENTO_RAW[lk] = (times, speeds, gusts)
         passados = [i for i, t in enumerate(times) if t <= agora_str]
         if passados:
             om_vento_max  = max((speeds[i] for i in passados if speeds[i] is not None), default=None)
             om_rajada_max = max((gusts[i]  for i in passados if i < len(gusts) and gusts[i] is not None), default=None)
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"  [OM vento] Falha ao buscar vento histórico: {exc}")
 
     # Vento sustentado: média entre OW (timemachine, já coletado) e OM (archive)
     # OW fornece m/s → já convertido para km/h em fetch_onecall_historico
@@ -677,6 +712,11 @@ def resumo_openmeteo(data: dict) -> dict:
 
 _CACHE_SOLO: dict = {}
 _CACHE_TABELA_SOLO: list = []
+_CACHE_OW_ONECALL: dict = {}      # local_key → raw JSON forecast
+_CACHE_OW_TIMEMACHINE: dict = {}  # local_key → entradas_por_dt (3 chamadas timemachine)
+_CACHE_OM_FORECAST: dict = {}     # local_key → raw JSON forecast
+_CACHE_OM_CHUVA_RAW: dict = {}    # local_key → (times, precips)
+_CACHE_OM_VENTO_RAW: dict = {}    # local_key → (times, speeds, gusts)
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
 _CACHE_CONFIG: dict = {}
@@ -1290,12 +1330,9 @@ def _carregar_aderencia_descricoes() -> dict:
         return {}
 
 
-def buscar_solo_openlandmap(lat: float, lon: float, solo_type: str = "misto",
-                             bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
-    """
-    V8.0: Usa exclusivamente tabela mestra do Supabase.
-    OpenLandMap e SoilGrids removidos — instáveis e lentos.
-    """
+def _resolver_solo(lat: float, lon: float, solo_type: str = "misto",
+                   bioma: str = "Desconhecido", regiao: str = "SP") -> dict | None:
+    """Resolve clay_pct/sand_pct/texture_class via tabela mestra do Supabase."""
     key = (round(lat, 4), round(lon, 4))
     if key in _CACHE_SOLO:
         return _CACHE_SOLO[key]
@@ -1699,6 +1736,52 @@ def gravar_sem_favorito(trilha_name: str) -> bool:
     except Exception as exc:
         print(f"  [Supabase] [ERRO] gravar_sem_favorito '{trilha_name}': {exc}")
         return False
+
+
+def gravar_sem_favorito_bulk(trilhas: list) -> None:
+    """
+    Grava em lote registros 'SEM FAVORITO' em condicoes.
+    Usa DELETE bulk + INSERT bulk: 2 chamadas API no total, independente da quantidade.
+    """
+    if not SUPABASE_KEY or not trilhas:
+        return
+    gerado_em = datetime.now(BRT).isoformat()
+    ids_str   = ",".join(t["id"] for t in trilhas)
+
+    url_del = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=in.({ids_str})"
+    req_del = urllib.request.Request(url_del, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    })
+    req_del.get_method = lambda: "DELETE"
+    try:
+        with urllib.request.urlopen(req_del, timeout=15):
+            pass
+    except Exception:
+        pass
+
+    payload = json.dumps([{
+        "trilha_id":        t["id"],
+        "gerado_em":        gerado_em,
+        "aderencia_status": "SEM FAVORITO",
+        "veredicto":        "Favorite esta trilha para gerar as condições",
+        "veredicto_12h":    "Favorite esta trilha para gerar as condições",
+    } for t in trilhas]).encode("utf-8")
+
+    url_ins = f"{SUPABASE_URL}/rest/v1/condicoes"
+    req_ins = urllib.request.Request(url_ins, data=payload, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type":  "application/json",
+        "Prefer":        "return=minimal",
+    })
+    req_ins.get_method = lambda: "POST"
+    try:
+        with urllib.request.urlopen(req_ins, timeout=15):
+            pass
+        print(f"  [SEM FAVORITO] {len(trilhas)} trilha(s) gravadas em lote (2 chamadas API)")
+    except Exception as exc:
+        print(f"  [Supabase] [ERRO] gravar_sem_favorito_bulk: {exc}")
 
 
 def gravar_supabase(trilha_name: str, resultado: dict):
@@ -2703,7 +2786,7 @@ def _disparar_workflows_notificacao() -> None:
         print("  [GitHub] GITHUB_TOKEN ou GITHUB_REPOSITORY ausentes — workflows não disparados")
         return
 
-    print(f"\n[MTB] Disparando workflows de notificação (ref={ref})...")
+    print(f"\n[MTBForecaster] Disparando workflows de notificação (ref={ref})...")
     for workflow in ("mtb-email.yml", "mtb-telegram.yml"):
         url     = f"https://api.github.com/repos/{repo}/actions/workflows/{workflow}/dispatches"
         payload = json.dumps({"ref": ref}).encode("utf-8")
@@ -2733,10 +2816,27 @@ def main() -> None:
     import sys
     global TRAILS
 
-    TRAILS = _carregar_trilhas_supabase()
-
     _validar_env()
-    print("[MTB V8.0] Carregando configurações do Supabase...")
+
+    # 1. Carrega IDs com favorito (query leve: só trilha_id)
+    ids_com_favorito = _carregar_ids_com_favorito()
+
+    # 2. Carrega id+name de todas as trilhas aprovadas (query leve)
+    todos_ids = _carregar_ids_trilhas_supabase()
+
+    # 3. Separa favoritas e sem favorito
+    if ids_com_favorito is not None:
+        sem_favorito  = [t for t in todos_ids if t["id"] not in ids_com_favorito]
+        ids_favoritas = {t["id"] for t in todos_ids if t["id"] in ids_com_favorito}
+    else:
+        # Erro na carga de favoritos — processa todas como fallback seguro
+        sem_favorito  = []
+        ids_favoritas = None
+
+    # 4. Carrega dados completos apenas das trilhas favoritas
+    TRAILS = _carregar_trilhas_supabase(ids=ids_favoritas)
+
+    print("[MTBForecaster] Carregando configurações do Supabase...")
     _carregar_configuracoes()
     _carregar_tabela_solo()
     _carregar_threshold_sazonal()
@@ -2755,7 +2855,12 @@ def main() -> None:
 
     hoje  = datetime.now(BRT).strftime("%d/%m/%Y")
     datas = proximos_dias()
-    print(f"[MTB V8.0] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
+    print(f"[MTBForecaster] {hoje} — D+1: {datas['d1_label']} | D+2: {datas['d2_label']} | D+3: {datas['d3_label']}")
+
+    # 5. Grava "SEM FAVORITO" em lote para todas as trilhas sem favorito (2 chamadas API)
+    if sem_favorito:
+        print(f"\n[MTBForecaster] Gravando {len(sem_favorito)} trilha(s) sem favorito em lote...")
+        gravar_sem_favorito_bulk(sem_favorito)
 
     resultados_global: list = []
 
@@ -2763,16 +2868,19 @@ def main() -> None:
     for trail in TRAILS:
         trails_por_regiao.setdefault(trail["regiao"], []).append(trail)
 
-    ids_com_favorito = _carregar_ids_com_favorito()
-    # None = erro na carga → processa tudo como fallback seguro
-    def _tem_favorito(trail: dict) -> bool:
-        return ids_com_favorito is None or trail.get("supabase_id") in ids_com_favorito
-
-    print("[MTB V8.0] Buscando dados de solo via tabela mestra...")
+    grupos: dict[str, int] = {}
     for trail in TRAILS:
-        if not _tem_favorito(trail):
-            continue
-        dados_solo = buscar_solo_openlandmap(
+        lk = trail.get("local_key")
+        if lk:
+            grupos[lk] = grupos.get(lk, 0) + 1
+    sem_grupo = sum(1 for t in TRAILS if not t.get("local_key"))
+    if grupos:
+        resumo = ", ".join(f"{k}({v})" for k, v in sorted(grupos.items()))
+        print(f"[MTBForecaster] Grupos de clima: {resumo}" + (f" | {sem_grupo} sem grupo" if sem_grupo else ""))
+
+    print("[MTBForecaster] Buscando dados de solo via tabela mestra...")
+    for trail in TRAILS:
+        dados_solo = _resolver_solo(
             trail["lat"], trail["lon"],
             solo_type=trail.get("solo_type", "misto"),
             bioma=trail.get("bioma", "Desconhecido"),
@@ -2788,14 +2896,10 @@ def main() -> None:
 
     for regiao, trails in sorted(trails_por_regiao.items()):
 
-        print(f"\n[MTB V7.0] Processando região {regiao} ({len(trails)} trilha(s))...")
+        print(f"\n[MTBForecaster] Processando região {regiao} ({len(trails)} trilha(s))...")
         resultados, falhas = [], []
 
         for trail in trails:
-            if not _tem_favorito(trail):
-                gravar_sem_favorito(trail["name"])
-                print(f"  [SEM FAVORITO] {trail['name']} — sem favoritos, condições não geradas")
-                continue
             try:
                 dados = processar_trilha(trail, datas)
                 dados = _aplicar_override_chuva_futura(dados)
@@ -2837,29 +2941,46 @@ def main() -> None:
     print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
     _processar_pumptracks()
 
-    print("\n[MTB V8.0] Concluído.")
+    print("\n[MTBForecaster] Concluído.")
     _disparar_workflows_notificacao()
 
-def _carregar_trilhas_supabase() -> list:
-    """Carrega trilhas aprovadas do Supabase. Levanta RuntimeError se falhar."""
+def _carregar_trilhas_supabase(ids: set | None = None) -> list:
+    """
+    Carrega trilhas aprovadas do Supabase.
+    Se ids fornecido, carrega apenas as trilhas cujo id está no conjunto (filtro favoritas).
+    """
     if not SUPABASE_KEY:
         raise RuntimeError("[Trilhas] SUPABASE_KEY ausente — impossível carregar trilhas.")
+
+    filtro_ids = ""
+    if ids:
+        filtro_ids = f"&id=in.({','.join(ids)})"
+
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
-        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma"
+        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,localidades!localidade_id(cidade,localidade)"
         f"&aprovada=eq.true"
+        f"{filtro_ids}"
         f"&order=name.asc"
     )
     req = urllib.request.Request(url, headers={
         "apikey":        SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
     })
-    with urllib.request.urlopen(req, timeout=15) as r:
-        dados = json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            dados = json.loads(r.read())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"[Trilhas] HTTP {exc.code} ao carregar trilhas: {body}") from exc
     if not dados:
         raise RuntimeError("[Trilhas] Nenhuma trilha aprovada encontrada no Supabase.")
     trilhas = []
     for row in dados:
+        loc = row.get("localidades") or {}
+        if isinstance(loc, list):
+            loc = loc[0] if loc else {}
+        local_key = loc.get("localidade") or loc.get("cidade") or None
         trilhas.append({
             "supabase_id": row["id"],
             "name":        row["name"],
@@ -2873,9 +2994,30 @@ def _carregar_trilhas_supabase() -> list:
             "desnivel_m":  row.get("desnivel_m"),
             "extensao_km": row.get("extensao_km"),
             "bioma":       row.get("bioma") or "Desconhecido",
+            "cidade":      loc.get("cidade"),
+            "localidade":  loc.get("localidade"),
+            "local_key":   local_key,
         })
     print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
     return trilhas
+
+
+def _carregar_ids_trilhas_supabase() -> list:
+    """Query leve: retorna lista de {id, name} de todas as trilhas aprovadas."""
+    if not SUPABASE_KEY:
+        raise RuntimeError("[Trilhas] SUPABASE_KEY ausente — impossível carregar trilhas.")
+    url = (
+        f"{SUPABASE_URL}/rest/v1/trilhas"
+        f"?select=id,name"
+        f"&aprovada=eq.true"
+        f"&order=name.asc"
+    )
+    req = urllib.request.Request(url, headers={
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    })
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read())
 
 
 def _carregar_pumptracks_supabase() -> list:

@@ -1,10 +1,7 @@
-'use client'
-
-import { useEffect, useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { supabase, getClientUser } from '@/lib/supabase'
-import { TrilhaComCondicao, Profile } from '@/lib/types'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { TrilhaComCondicao } from '@/lib/types'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
@@ -21,136 +18,105 @@ const RANKING_ADERENCIA: Record<string, number> = {
   'BAIXA ADERÊNCIA': 3,
 }
 
-export default function DashboardPage() {
-  const router = useRouter()
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [favoritas, setFavoritas] = useState<TrilhaComCondicao[]>([])
-  const [avaliacoesPorTrilha, setAvaliacoesPorTrilha] = useState<Record<string, { count: number; media: number }>>({})
-  const [loading, setLoading] = useState(true)
-  const [frase, setFrase] = useState<string | null>(null)
+export default async function DashboardPage() {
+  const supabase = createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const user = await getClientUser()
-        if (!user) { window.location.href = '/login'; return }
-        setUserEmail(user.email ?? null)
+  // Todas as queries rodam em paralelo no servidor
+  const [
+    { data: profileData },
+    { data: favIds },
+    { data: frases },
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, email, is_admin, nome, apelido, telefone, regiao, receber_email, telegram_username, telegram_chat_id, telegram_ativo')
+      .eq('id', user.id)
+      .single(),
+    supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
+    supabase.from('frases_motivacionais').select('frase').eq('ativo', true),
+  ])
 
-        // Step 1 — profile + favorites + frases em paralelo
-        const [{ data: profileData }, { data: favIds }, { data: frases }] = await Promise.all([
-          supabase.from('profiles').select('id, email, is_admin, nome, apelido, telefone, regiao, receber_email, telegram_username, telegram_chat_id, telegram_ativo').eq('id', user.id).single(),
-          supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-          supabase.from('frases_motivacionais').select('frase').eq('ativo', true),
-        ])
+  const frase = frases && frases.length > 0
+    ? (() => {
+        const now = new Date()
+        const dayOfYear = Math.floor(
+          (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000
+        )
+        return frases[dayOfYear % frases.length].frase
+      })()
+    : null
 
-        if (frases && frases.length > 0) {
-          const now = new Date()
-          const dayOfYear = Math.floor(
-            (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000
+  let favoritas: TrilhaComCondicao[] = []
+  let avaliacoesPorTrilha: Record<string, { count: number; media: number }> = {}
+
+  if (favIds && favIds.length > 0) {
+    const favTrilhaIds = favIds.map((f: { trilha_id: string }) => f.trilha_id)
+    const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+    const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
+      supabase
+        .from('trilhas')
+        .select(`
+          id, name, bioma, trail_type, regiao,
+          localidades(cidade, estado, localidade),
+          condicoes(
+            veredicto, veredicto_12h,
+            aderencia_status, aderencia_futura_status, aderencia_futura_label,
+            pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+            texto_dinamico, frase_secagem, janela, gerado_em
           )
-          setFrase(frases[dayOfYear % frases.length].frase)
-        }
+        `)
+        .in('id', favTrilhaIds)
+        .eq('aprovada', true)
+        .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
+      supabase
+        .from('observacoes_trilha')
+        .select('trilha_id, estrelas')
+        .gte('created_at', h48atras)
+        .in('trilha_id', favTrilhaIds),
+    ])
 
-        setProfile(profileData)
+    if (trilhasData) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped = (trilhasData as any[]).map((t) => {
+        const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+        return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
+      })
+      favoritas = [...mapped].sort((a, b) => {
+        const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
+        const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
+        if (vA !== vB) return vA - vB
+        const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
+        const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
+        return aA - aB
+      })
+    }
 
-        if (!favIds || favIds.length === 0) {
-          setLoading(false)
-          return
-        }
-
-        const favTrilhaIds = favIds.map((f: { trilha_id: string }) => f.trilha_id)
-        const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-
-        // Step 2 — trails + evaluations in parallel, both filtered by favorite IDs
-        const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
-          supabase
-            .from('trilhas')
-            .select(`
-              id, name, bioma, trail_type, regiao,
-              localidades(cidade, estado, localidade),
-              condicoes(
-                veredicto, veredicto_12h,
-                aderencia_status, aderencia_futura_status, aderencia_futura_label,
-                pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
-                texto_dinamico, frase_secagem, janela, gerado_em
-              )
-            `)
-            .in('id', favTrilhaIds)
-            .eq('aprovada', true)
-            .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
-          supabase
-            .from('observacoes_trilha')
-            .select('trilha_id, estrelas')
-            .gte('created_at', h48atras)
-            .in('trilha_id', favTrilhaIds),
-        ])
-
-        if (trilhasData) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mapped = (trilhasData as any[]).map((t) => {
-            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-            return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
-          })
-          const sorted = [...mapped].sort((a, b) => {
-            const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
-            const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
-            if (vA !== vB) return vA - vB
-            const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
-            const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
-            return aA - aB
-          })
-          setFavoritas(sorted)
-        }
-
-        const porTrilha: Record<string, { count: number; media: number }> = {}
-        for (const av of avaliacoes48h || []) {
-          if (av.trilha_id) {
-            if (!porTrilha[av.trilha_id]) porTrilha[av.trilha_id] = { count: 0, media: 0 }
-            porTrilha[av.trilha_id].count++
-            porTrilha[av.trilha_id].media += av.estrelas
-          }
-        }
-        Object.values(porTrilha).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
-        setAvaliacoesPorTrilha(porTrilha)
-      } catch (err) {
-        console.error('Erro ao carregar dashboard:', err)
-      } finally {
-        setLoading(false)
+    const porTrilha: Record<string, { count: number; media: number }> = {}
+    for (const av of avaliacoes48h || []) {
+      if (av.trilha_id) {
+        if (!porTrilha[av.trilha_id]) porTrilha[av.trilha_id] = { count: 0, media: 0 }
+        porTrilha[av.trilha_id].count++
+        porTrilha[av.trilha_id].media += av.estrelas
       }
     }
-    load()
-  }, [router])
-
-  const summary = useMemo(() => {
-    if (favoritas.length === 0) return null
-    let liberadas = 0, comAlerta = 0, aguardando = 0
-    for (const t of favoritas) {
-      const v = t.condicao?.veredicto_12h?.trim() || t.condicao?.veredicto?.trim() || ''
-      if (v === 'DROP LIBERADO') liberadas++
-      else if (v === 'DROP LIBERADO - Veja os alertas' || v === 'MELHOR ESPERAR') comAlerta++
-      else aguardando++
-    }
-    return { liberadas, comAlerta, aguardando }
-  }, [favoritas])
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: 32, height: 32, border: '2px solid #e5e5e5',
-            borderTopColor: '#6d745f', borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite', margin: '0 auto 12px',
-          }} />
-          <p style={{ color: '#888', fontSize: 14 }}>Carregando condições...</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
-    )
+    Object.values(porTrilha).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
+    avaliacoesPorTrilha = porTrilha
   }
 
-  const name = profile?.apelido || profile?.nome?.split(' ')[0] || userEmail?.split('@')[0]
+  const profile = profileData
+  const name = profile?.apelido || profile?.nome?.split(' ')[0] || user.email?.split('@')[0]
+
+  let liberadas = 0, comAlerta = 0, aguardando = 0
+  for (const t of favoritas) {
+    const v = t.condicao?.veredicto_12h?.trim() || t.condicao?.veredicto?.trim() || ''
+    if (v === 'DROP LIBERADO') liberadas++
+    else if (v === 'DROP LIBERADO - Veja os alertas' || v === 'MELHOR ESPERAR') comAlerta++
+    else aguardando++
+  }
+  const summary = favoritas.length > 0 ? { liberadas, comAlerta, aguardando } : null
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
@@ -174,7 +140,6 @@ export default function DashboardPage() {
             )}
           </h1>
 
-          {/* Frase do dia */}
           {frase && (
             <p style={{
               marginTop: 10, marginBottom: 0,
@@ -182,11 +147,10 @@ export default function DashboardPage() {
               color: 'rgba(168,184,153,0.85)',
               lineHeight: 1.5, maxWidth: 480,
             }}>
-              "{frase}"
+              &ldquo;{frase}&rdquo;
             </p>
           )}
 
-          {/* Summary strip */}
           {summary ? (
             <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
               {summary.liberadas > 0 && (
