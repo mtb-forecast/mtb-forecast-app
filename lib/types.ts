@@ -133,6 +133,8 @@ export type Profile = {
   telegram_chat_id?: string | null
   telegram_ativo?: boolean
   instagram?: string
+  facebook?: string
+  strava_id?: string
   regiao?: string
   is_admin: boolean
   plano?: string

@@ -202,6 +202,8 @@ export default function PerfilPage() {
   const [regiao, setRegiao] = useState('')
   const [telegram, setTelegram] = useState('')
   const [instagram, setInstagram] = useState('')
+  const [facebook, setFacebook] = useState('')
+  const [stravaId, setStravaId] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
   // Counters
@@ -242,6 +244,8 @@ export default function PerfilPage() {
         setRegiao(p.regiao || '')
         setTelegram(p.telegram_username || '')
         setInstagram(p.instagram || '')
+        setFacebook(p.facebook || '')
+        setStravaId(p.strava_id || '')
         setReceberEmail(p.receber_email ?? false)
         setAvatarUrl(p.avatar_url || null)
       }
@@ -275,7 +279,9 @@ export default function PerfilPage() {
     telefoneWhatsapp !== (profile.telefone_whatsapp ?? true) ||
     regiao !== (profile.regiao || '') ||
     telegram !== (profile.telegram_username || '') ||
-    instagram !== (profile.instagram || '')
+    instagram !== (profile.instagram || '') ||
+    facebook !== (profile.facebook || '') ||
+    stravaId !== (profile.strava_id || '')
   ))
 
   // ── Actions ─────────────────────────────────────────────────────────────────
@@ -296,7 +302,7 @@ export default function PerfilPage() {
       nome, apelido, data_nascimento: dataNascimento || null, cidade,
       telefone, telefone_whatsapp: telefoneWhatsapp,
       regiao, telegram_username: telegram || null,
-      instagram: instagram || null,
+      instagram: instagram || null, facebook: facebook || null, strava_id: stravaId || null,
     }).eq('id', profile.id)
     setSaving(false)
     if (!error) {
@@ -304,6 +310,7 @@ export default function PerfilPage() {
         ...prev, nome, apelido, data_nascimento: dataNascimento || null, cidade,
         telefone, telefone_whatsapp: telefoneWhatsapp, regiao,
         telegram_username: telegram || undefined, instagram: instagram || undefined,
+        facebook: facebook || undefined, strava_id: stravaId || undefined,
       } : prev)
       setSaveOk(true); setTimeout(() => setSaveOk(false), 3000)
     }
@@ -448,12 +455,95 @@ export default function PerfilPage() {
             </div>
           </div>
 
-          {/* Instagram (opcional) */}
-          <div>
-            <label style={lbl}>Instagram <span style={{ fontWeight: 400, color: T.dim }}>(opcional)</span></label>
-            <input style={inpForm} type="text" value={instagram}
-              onChange={e => { const v = e.target.value; setInstagram(v && !v.startsWith('@') ? '@' + v : v) }}
-              placeholder="@seu_perfil" />
+        </div>
+      </div>
+
+      {/* ── Redes sociais e integrações (opcional) ── */}
+      <div style={{ background: T.card, borderRadius: 20, border: `1px solid ${T.border}`, padding: '20px', marginBottom: 12 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 18px' }}>
+          Redes sociais <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 11 }}>— todos opcionais</span>
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Instagram */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
+            <div>
+              <label style={lbl}>
+                <i className="ti ti-brand-instagram" style={{ marginRight: 5, color: '#E1306C' }} />Instagram
+              </label>
+              <input style={inpForm} type="text" value={instagram}
+                onChange={e => { const v = e.target.value; setInstagram(v && !v.startsWith('@') ? '@' + v : v) }}
+                placeholder="@seu_perfil" />
+            </div>
+            {instagram && (
+              <a href={`https://instagram.com/${instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#E1306C', textDecoration: 'none', flexShrink: 0 }}>
+                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+              </a>
+            )}
+          </div>
+
+          {/* Telegram */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
+            <div>
+              <label style={lbl}>
+                <i className="ti ti-brand-telegram" style={{ marginRight: 5, color: '#26A5E4' }} />Telegram
+              </label>
+              <input style={inpForm} type="text" value={telegram}
+                onChange={e => { const v = e.target.value; setTelegram(v && !v.startsWith('@') ? '@' + v : v) }}
+                placeholder="@seu_username" />
+            </div>
+            {telegram ? (
+              <a href={`https://t.me/${telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#26A5E4', textDecoration: 'none', flexShrink: 0 }}>
+                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+              </a>
+            ) : (
+              <button type="button" onClick={() => setSheetField('telegram')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                <i className="ti ti-settings" style={{ fontSize: 16, color: T.muted }} />
+              </button>
+            )}
+          </div>
+
+          {/* Facebook */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
+            <div>
+              <label style={lbl}>
+                <i className="ti ti-brand-facebook" style={{ marginRight: 5, color: '#1877F2' }} />Facebook
+              </label>
+              <input style={inpForm} type="text" value={facebook}
+                onChange={e => setFacebook(e.target.value)}
+                placeholder="facebook.com/seuperfil ou @handle" />
+            </div>
+            {facebook && (
+              <a href={facebook.startsWith('http') ? facebook : `https://facebook.com/${facebook}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#1877F2', textDecoration: 'none', flexShrink: 0 }}>
+                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+              </a>
+            )}
+          </div>
+
+          {/* Strava ID */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
+            <div>
+              <label style={lbl}>
+                <i className="ti ti-brand-strava" style={{ marginRight: 5, color: '#FC4C02' }} />Strava ID
+              </label>
+              <input style={inpForm} type="text" value={stravaId}
+                onChange={e => setStravaId(e.target.value.replace(/\D/g, ''))}
+                placeholder="Ex: 12345678" />
+              <p style={{ fontSize: 11, color: T.dim, margin: '4px 0 0', lineHeight: 1.4 }}>
+                Encontre em strava.com/athletes/SEU_ID
+              </p>
+            </div>
+            {stravaId && (
+              <a href={`https://www.strava.com/athletes/${stravaId}`} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#FC4C02', textDecoration: 'none', flexShrink: 0, alignSelf: 'start', marginTop: 22 }}>
+                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+              </a>
+            )}
           </div>
 
         </div>
