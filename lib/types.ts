@@ -125,12 +125,16 @@ export type Profile = {
   email: string
   nome?: string
   apelido?: string
+  data_nascimento?: string | null
+  cidade?: string
   telefone?: string
   telefone_whatsapp?: boolean
   telegram_username?: string
   telegram_chat_id?: string | null
   telegram_ativo?: boolean
   instagram?: string
+  facebook?: string
+  strava_id?: string
   regiao?: string
   is_admin: boolean
   plano?: string
