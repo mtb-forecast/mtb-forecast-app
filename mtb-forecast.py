@@ -2958,7 +2958,7 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
 
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
-        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,localidades(cidade,localidade)"
+        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,localidades!localidade_id(cidade,localidade)"
         f"&aprovada=eq.true"
         f"{filtro_ids}"
         f"&order=name.asc"
@@ -2967,8 +2967,12 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
         "apikey":        SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
     })
-    with urllib.request.urlopen(req, timeout=15) as r:
-        dados = json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            dados = json.loads(r.read())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"[Trilhas] HTTP {exc.code} ao carregar trilhas: {body}") from exc
     if not dados:
         raise RuntimeError("[Trilhas] Nenhuma trilha aprovada encontrada no Supabase.")
     trilhas = []
