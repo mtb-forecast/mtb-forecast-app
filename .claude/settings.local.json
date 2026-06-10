@@ -157,7 +157,10 @@
       "mcp__claude_ai_Vercel__list_teams",
       "Bash(gh pr create --base main --head develop --title 'fix: map colors all trails with verdicts, not just user favorites' --body ' *)",
       "Bash(git cherry-pick *)",
-      "Bash(xargs grep -l \"CREATE TABLE.*profiles\\\\|ALTER TABLE profiles\")"
+      "Bash(xargs grep -l \"CREATE TABLE.*profiles\\\\|ALTER TABLE profiles\")",
+      "Bash(xargs -I {} basename {})",
+      "Bash(curl -s -I \"https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css\")",
+      "Bash(findstr \"tabler\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

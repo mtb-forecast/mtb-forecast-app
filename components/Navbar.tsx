@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase, getClientUser } from '@/lib/supabase'
 
@@ -116,7 +117,7 @@ export default function Navbar() {
                   flexShrink: 0,
                 }}>
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <Image src={avatarUrl} alt="Perfil" width={30} height={30} style={{ objectFit: 'cover', borderRadius: '50%' }} />
                   ) : (
                     <span style={{ fontSize: 13, color: '#aaa', fontWeight: 600 }}>{userInitial}</span>
                   )}
