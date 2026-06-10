@@ -182,6 +182,15 @@ function CondicaoCard({ condicao }: Props) {
   const d1 = new Date(hoje); d1.setDate(hoje.getDate() + 1)
   const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
   const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
+  const emojiTempo = (rain: number | null | undefined, pop: number | null | undefined): string => {
+    const r = rain ?? 0
+    const p = pop ?? 0
+    if (r >= 10 || (r >= 5 && p >= 70)) return '⛈'
+    if (r >= 2  || p >= 60)             return '🌧'
+    if (r >= 0.5 || p >= 35)            return '🌦'
+    if (p < 20)                         return '☀️'
+    return '🌤'
+  }
   const fdsDias = [
     { label: fmtDia(d1), v: condicao.fds_d1_veredicto, rain: condicao.fds_d1_rain, wind: condicao.fds_d1_wind, pop: condicao.fds_d1_pop, tmax: condicao.fds_d1_temp, tmin: condicao.fds_d1_temp_min },
     { label: fmtDia(d2), v: condicao.fds_d2_veredicto, rain: condicao.fds_d2_rain, wind: condicao.fds_d2_wind, pop: condicao.fds_d2_pop, tmax: condicao.fds_d2_temp, tmin: condicao.fds_d2_temp_min },
