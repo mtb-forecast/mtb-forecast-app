@@ -69,7 +69,7 @@ export default function StravaMap({ polyline }: { polyline: string }) {
   return (
     <div
       ref={ref}
-      style={{ height: 250, borderRadius: 8, overflow: 'hidden', position: 'relative', zIndex: 0 }}
+      style={{ height: 250, borderRadius: 8, overflow: 'hidden', position: 'relative', zIndex: 0, background: '#d4dcc9' }}
     />
   )
 }

@@ -21,8 +21,6 @@ const dmMono = DM_Mono({
   display: 'swap',
 })
 
-export const dynamic = 'force-dynamic'
-
 export const metadata: Metadata = {
   title: 'MTB Forecaster',
   description: 'Condições de trilhas e pump tracks em tempo real. Previsão do tempo, modelo de solo e veredicto para pedalar com segurança.',
