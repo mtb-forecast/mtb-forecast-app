@@ -2825,12 +2825,12 @@ Regras de estilo:
 
 def _disparar_workflows_notificacao() -> None:
     """Dispara mtb-email.yml e mtb-telegram.yml via GitHub Actions API."""
-    token = os.getenv("GITHUB_TOKEN")
+    token = os.getenv("GH_DISPATCH_TOKEN")
     repo  = os.getenv("GITHUB_REPOSITORY")
-    ref   = os.getenv("GITHUB_REF_NAME", "develop")
+    ref   = os.getenv("GITHUB_REF_NAME", "main")
 
     if not token or not repo:
-        print("  [GitHub] GITHUB_TOKEN ou GITHUB_REPOSITORY ausentes — workflows não disparados")
+        print("  [GitHub] GH_DISPATCH_TOKEN ou GITHUB_REPOSITORY ausentes — workflows não disparados")
         return
 
     print(f"\n[MTBForecaster] Disparando workflows de notificação (ref={ref})...")

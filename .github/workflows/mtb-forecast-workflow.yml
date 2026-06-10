@@ -25,7 +25,8 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       TELEGRAM_BOT_TOKEN:       ${{ secrets.TELEGRAM_BOT_TOKEN }}
       SEND_EMAIL_SECRET:        ${{ secrets.SEND_EMAIL_SECRET }}
-      GITHUB_TOKEN:             ${{ github.token }}
+      WEATHERAPI_KEY:           ${{ secrets.WEATHERAPI_KEY }}
+      GH_DISPATCH_TOKEN:        ${{ secrets.GH_DISPATCH_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
