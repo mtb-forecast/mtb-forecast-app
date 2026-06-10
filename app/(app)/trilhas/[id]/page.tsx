@@ -16,7 +16,10 @@ import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
 
-const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
+const StravaMap = dynamic(() => import('@/components/StravaMap'), {
+  ssr: false,
+  loading: () => <div style={{ height: 250, borderRadius: 8, background: '#d4dcc9' }} />,
+})
 
 type TrilhaDetalhada = Trilha & { condicoes?: Condicao[] }
 
