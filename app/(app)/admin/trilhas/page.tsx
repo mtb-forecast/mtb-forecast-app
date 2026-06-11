@@ -1,35 +1,40 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 
 const PER_PAGE = 25
 
+type Loc = { estado: string; cidade: string | null }
+
 type TrilhaRow = {
   id: string
   name: string
-  regiao: string
-  localidade: { estado: string; cidade: string | null } | null
+  regiao: string | null
+  localidade: Loc | Loc[] | null
   mantenedor: { nome: string; nome_primario: string | null } | null
+}
+
+function resolveLoc(raw: TrilhaRow['localidade']): Loc | null {
+  if (!raw) return null
+  if (Array.isArray(raw)) return (raw as Loc[])[0] ?? null
+  return raw as Loc
 }
 
 export default function AdminTrilhasPage() {
   const router = useRouter()
   const [ready, setReady]         = useState(false)
-  const [trilhas, setTrilhas]     = useState<TrilhaRow[]>([])
-  const [total, setTotal]         = useState(0)
+  const [todas, setTodas]         = useState<TrilhaRow[]>([])
   const [page, setPage]           = useState(0)
   const [busca, setBusca]         = useState('')
   const [estado, setEstado]       = useState('')
   const [cidade, setCidade]       = useState('')
   const [estados, setEstados]     = useState<string[]>([])
-  const [cidades, setCidades]     = useState<string[]>([])
-  const [searching, setSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ── Init (auth + estados) ──────────────────────────────────────────────────
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       const user = await getClientUser()
@@ -39,68 +44,60 @@ export default function AdminTrilhasPage() {
         .from('profiles').select('is_admin').eq('id', user.id).single()
       if (!profile?.is_admin) { router.replace('/dashboard'); return }
 
-      const { data: locs } = await supabase
-        .from('localidades').select('estado').order('estado')
-      const unique = [...new Set((locs ?? []).map((l: { estado: string }) => l.estado).filter(Boolean))].sort()
-      setEstados(unique as string[])
+      const { data } = await supabase
+        .from('trilhas')
+        .select('id, name, regiao, localidade:localidades(estado, cidade), mantenedor:mantenedores(nome,nome_primario)')
+        .eq('aprovada', true)
+        .order('name')
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = (data ?? []) as any[] as TrilhaRow[]
+      setTodas(rows)
+
+      const ests = [...new Set(
+        rows.map(t => resolveLoc(t.localidade)?.estado || t.regiao || '').filter(Boolean)
+      )].sort() as string[]
+      setEstados(ests)
+
       setReady(true)
     }
     init()
   }, [router])
 
-  // ── Fetch cidades quando estado muda ──────────────────────────────────────
-  useEffect(() => {
-    setCidade('')
-    setCidades([])
-    if (!estado) return
-    supabase
-      .from('localidades')
-      .select('cidade')
-      .eq('estado', estado)
-      .not('cidade', 'is', null)
-      .order('cidade')
-      .then(({ data }) => {
-        const unique = [...new Set((data ?? []).map((r: { cidade: string | null }) => r.cidade).filter(Boolean))].sort() as string[]
-        setCidades(unique)
-      })
-  }, [estado])
-
-  // ── Fetch trilhas ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!ready) return
-
-    async function load() {
-      setSearching(true)
-      let query = supabase
-        .from('trilhas')
-        .select('id, name, regiao, localidade:localidades(estado, cidade), mantenedor:mantenedores(id,nome,nome_primario)', { count: 'exact' })
-        .eq('aprovada', true)
-        .order('name')
-        .range(page * PER_PAGE, (page + 1) * PER_PAGE - 1)
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let q: any = query
-      if (busca.trim()) q = q.ilike('name', `%${busca.trim()}%`)
-      if (estado)       q = q.eq('localidades.estado', estado)
-      if (cidade)       q = q.eq('localidades.cidade', cidade)
-
-      const { data, count } = await q
-      setTrilhas((data ?? []) as TrilhaRow[])
-      setTotal(count ?? 0)
-      setSearching(false)
+  // ── Filtros derivados ──────────────────────────────────────────────────────
+  const cidades = useMemo(() => {
+    if (!estado) return []
+    const set = new Set<string>()
+    for (const t of todas) {
+      const loc = resolveLoc(t.localidade)
+      if ((loc?.estado || t.regiao) === estado && loc?.cidade) set.add(loc.cidade)
     }
-    load()
-  }, [ready, page, busca, estado, cidade])
+    return [...set].sort()
+  }, [todas, estado])
 
-  // reset page on filter change
+  // reset cidade quando estado muda
+  useEffect(() => { setCidade(''); setPage(0) }, [estado])
+  useEffect(() => { setPage(0) }, [cidade, busca])
+
+  const filtradas = useMemo(() => {
+    return todas.filter(t => {
+      const loc    = resolveLoc(t.localidade)
+      const tEstado = loc?.estado || t.regiao || ''
+      const tCidade = loc?.cidade || ''
+      if (estado && tEstado !== estado) return false
+      if (cidade && tCidade !== cidade) return false
+      if (busca.trim() && !t.name.toLowerCase().includes(busca.trim().toLowerCase())) return false
+      return true
+    })
+  }, [todas, estado, cidade, busca])
+
+  const totalPages = Math.ceil(filtradas.length / PER_PAGE)
+  const paginadas  = filtradas.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
+
   function handleBusca(v: string) {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => { setPage(0); setBusca(v) }, 350)
+    debounceRef.current = setTimeout(() => setBusca(v), 250)
   }
-  function handleEstado(v: string) { setPage(0); setEstado(v) }
-  function handleCidade(v: string) { setPage(0); setCidade(v) }
-
-  const totalPages = Math.ceil(total / PER_PAGE)
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (!ready) return (
@@ -109,6 +106,12 @@ export default function AdminTrilhasPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
+
+  const fieldBase: React.CSSProperties = {
+    appearance: 'none', WebkitAppearance: 'none',
+    background: '#fff', border: '1px solid #e5e5e5',
+    borderRadius: 8, fontSize: 14, outline: 'none', cursor: 'pointer',
+  }
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -128,7 +131,7 @@ export default function AdminTrilhasPage() {
             </span>
           </div>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
-            {total} trilha{total !== 1 ? 's' : ''} no catálogo
+            {filtradas.length} de {todas.length} trilha{todas.length !== 1 ? 's' : ''} no catálogo
           </p>
         </div>
       </div>
@@ -138,17 +141,13 @@ export default function AdminTrilhasPage() {
 
         {/* Filtros */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+
           {/* Estado */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <select
               value={estado}
-              onChange={e => handleEstado(e.target.value)}
-              style={{
-                appearance: 'none', WebkitAppearance: 'none',
-                background: '#fff', border: '1px solid #e5e5e5',
-                borderRadius: 8, padding: '10px 36px 10px 14px', fontSize: 14,
-                color: estado ? '#2a2e25' : '#888', outline: 'none', cursor: 'pointer', width: 180,
-              }}
+              onChange={e => setEstado(e.target.value)}
+              style={{ ...fieldBase, padding: '10px 36px 10px 14px', color: estado ? '#2a2e25' : '#888', width: 180 }}
             >
               <option value="">Estado (todos)</option>
               {estados.map(e => <option key={e} value={e}>{e}</option>)}
@@ -156,18 +155,13 @@ export default function AdminTrilhasPage() {
             <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888', pointerEvents: 'none' }} />
           </div>
 
-          {/* Cidade — aparece quando estado selecionado e há cidades */}
+          {/* Cidade — só aparece se há cidades para o estado */}
           {estado && cidades.length > 0 && (
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <select
                 value={cidade}
-                onChange={e => handleCidade(e.target.value)}
-                style={{
-                  appearance: 'none', WebkitAppearance: 'none',
-                  background: '#fff', border: '1px solid #e5e5e5',
-                  borderRadius: 8, padding: '10px 36px 10px 14px', fontSize: 14,
-                  color: cidade ? '#2a2e25' : '#888', outline: 'none', cursor: 'pointer', width: 200,
-                }}
+                onChange={e => setCidade(e.target.value)}
+                style={{ ...fieldBase, padding: '10px 36px 10px 14px', color: cidade ? '#2a2e25' : '#888', width: 210 }}
               >
                 <option value="">Todas as cidades</option>
                 {cidades.map(c => <option key={c} value={c}>{c}</option>)}
@@ -176,8 +170,8 @@ export default function AdminTrilhasPage() {
             </div>
           )}
 
-          {/* Busca por nome */}
-          <div style={{ position: 'relative', flex: '1 1 220px' }}>
+          {/* Busca */}
+          <div style={{ position: 'relative', flex: '1 1 200px' }}>
             <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888' }} />
             <input
               type="text"
@@ -194,8 +188,8 @@ export default function AdminTrilhasPage() {
         </div>
 
         {/* Lista */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 10, overflow: 'hidden', opacity: searching ? 0.6 : 1, transition: 'opacity 0.15s' }}>
-          {trilhas.length === 0 && !searching ? (
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
+          {paginadas.length === 0 ? (
             <div style={{ padding: '48px 32px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
               Nenhuma trilha encontrada.
             </div>
@@ -210,33 +204,35 @@ export default function AdminTrilhasPage() {
                 </tr>
               </thead>
               <tbody>
-                {trilhas.map((t, i) => (
-                  <tr key={t.id} style={{ borderBottom: i < trilhas.length - 1 ? '0.5px solid #f4f5f0' : 'none' }}>
-                    <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: '#2a2e25' }}>{t.name}</td>
-                    <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>
-                      {t.localidade
-                        ? `${t.localidade.estado}${t.localidade.cidade ? ` · ${t.localidade.cidade}` : ''}`
-                        : t.regiao || '—'}
-                    </td>
-                    <td style={{ padding: '14px 20px', fontSize: 13, color: t.mantenedor ? '#2a2e25' : '#d1d5db' }}>
-                      {t.mantenedor ? (t.mantenedor.nome_primario ?? t.mantenedor.nome) : '—'}
-                    </td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      <Link
-                        href={`/trilhas/editar-aprovada/${t.id}`}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          fontSize: 13, fontWeight: 600, color: '#6d745f',
-                          textDecoration: 'none', padding: '6px 12px',
-                          background: '#f4f5f0', borderRadius: 6, border: '0.5px solid #e5e5e5',
-                        }}
-                      >
-                        <i className="ti ti-pencil" style={{ fontSize: 13 }} />
-                        Editar
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {paginadas.map((t, i) => {
+                  const loc = resolveLoc(t.localidade)
+                  const localStr = loc
+                    ? `${loc.estado}${loc.cidade ? ` · ${loc.cidade}` : ''}`
+                    : t.regiao || '—'
+                  return (
+                    <tr key={t.id} style={{ borderBottom: i < paginadas.length - 1 ? '0.5px solid #f4f5f0' : 'none' }}>
+                      <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: '#2a2e25' }}>{t.name}</td>
+                      <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>{localStr}</td>
+                      <td style={{ padding: '14px 20px', fontSize: 13, color: t.mantenedor ? '#2a2e25' : '#d1d5db' }}>
+                        {t.mantenedor ? (t.mantenedor.nome_primario ?? t.mantenedor.nome) : '—'}
+                      </td>
+                      <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                        <Link
+                          href={`/trilhas/editar-aprovada/${t.id}`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            fontSize: 13, fontWeight: 600, color: '#6d745f',
+                            textDecoration: 'none', padding: '6px 12px',
+                            background: '#f4f5f0', borderRadius: 6, border: '0.5px solid #e5e5e5',
+                          }}
+                        >
+                          <i className="ti ti-pencil" style={{ fontSize: 13 }} />
+                          Editar
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
