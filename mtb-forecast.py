@@ -2212,28 +2212,26 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     #   3. histórico atualizado há menos de HISTORICO_MAX_HORAS horas
     HISTORICO_MAX_HORAS = 72  # força pipeline completo se histórico > 72h desatualizado
 
-    _ultimo = _buscar_ultima_condicao_supabase(trail) if rain == 0.0 else None
+    _ultimo = None  # shortcircuit desativado — pipeline completo sempre
     _usou_shortcircuit = False
 
-    if rain == 0.0 and _ultimo is not None:
-        # Verifica se o histórico real está dentro da janela de validade
-        _hist_at = _ultimo.get("historico_atualizado_em") or _ultimo.get("gerado_em")
-        _horas_hist = 0.0
-        if _hist_at:
-            try:
-                _dt = datetime.fromisoformat(_hist_at)
-                if _dt.tzinfo is None:
-                    _dt = _dt.replace(tzinfo=BRT)
-                _horas_hist = max(0.0, (datetime.now(BRT) - _dt).total_seconds() / 3600)
-            except Exception:
-                pass
-
-        if _horas_hist < HISTORICO_MAX_HORAS:
-            hist, acumulo_48h, acumulo_ef, ultima_chuva, vento_hist = \
-                _zero_rain_shortcircuit(trail, thresh_desc, _ultimo)
-            _usou_shortcircuit = True
-        else:
-            print(f"  [zero-rain] {trail['name']} — histórico com {_horas_hist:.0f}h, forçando atualização")
+    # if rain == 0.0 and _ultimo is not None:
+    #     _hist_at = _ultimo.get("historico_atualizado_em") or _ultimo.get("gerado_em")
+    #     _horas_hist = 0.0
+    #     if _hist_at:
+    #         try:
+    #             _dt = datetime.fromisoformat(_hist_at)
+    #             if _dt.tzinfo is None:
+    #                 _dt = _dt.replace(tzinfo=BRT)
+    #             _horas_hist = max(0.0, (datetime.now(BRT) - _dt).total_seconds() / 3600)
+    #         except Exception:
+    #             pass
+    #     if _horas_hist < HISTORICO_MAX_HORAS:
+    #         hist, acumulo_48h, acumulo_ef, ultima_chuva, vento_hist = \
+    #             _zero_rain_shortcircuit(trail, thresh_desc, _ultimo)
+    #         _usou_shortcircuit = True
+    #     else:
+    #         print(f"  [zero-rain] {trail['name']} — histórico com {_horas_hist:.0f}h, forçando atualização")
 
     if not _usou_shortcircuit:
         if rain == 0.0 and _ultimo is None:
