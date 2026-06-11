@@ -52,3 +52,52 @@ Limite One Call 3.0 free: 1.000/dia. 4 execuções/dia ≈ 284 — folga confort
 - Pendente: rodada de sábado 06h BRT pós-frente fria (volumes 10-20mm) — comparar
   `bruto` com boletim CGE/INMET de sexta. Após validar: remover DEBUG_MODEL do
   workflow.
+
+## Feature: Mantenedor (jun/2026)
+
+### O que está pronto
+- Tabela `mantenedores` com campos: nome, nome_primario, nome_secundario,
+  cor_primaria, cor_secundaria, icone, logo_url, site_url, ativo
+- FK mantenedor_id em trilhas, join nas queries
+- Tipo Mantenedor em lib/types.ts
+- Componente LogoMantenedor com estilos dinâmicos (texto + SVG, sem next/image)
+  · contexto='card': pill escuro #1e2018, ícone + nome_primario branco +
+    nome_secundario na cor_secundaria
+  · contexto='pagina': sem pill, direto sobre header escuro, com link ↗ site_url
+- Ícones disponíveis em lib/mantenedor-icones.tsx: 'veado' ou null
+  · Para adicionar novo ícone: criar função Icone<Nome> e registrar em resolverIcone()
+- Upload de logo: API route app/api/admin/upload-logo/route.ts (auth admin +
+  multipart + upload ao bucket 'logos' no Supabase Storage)
+  · UI do admin comprime canvas → WebP antes do upload
+  · Bucket 'logos' criado em produção via MCP
+- Interface admin: cadastro/edição com preview ao vivo, select de mantenedor
+  no formulário de trilhas
+
+### O que falta implementar
+1. LogoMantenedor ignorar logo_url — campo existe nos tipos e queries mas
+   componente nunca renderiza a imagem. Lógica correta:
+   · Se logo_url preenchido → renderizar <img> com objectFit contain
+     (usar <img> nativo, NÃO next/image — domínio Supabase não está em
+     remotePatterns e foi removido propositalmente)
+   · Se logo_url null → usar estilo CSS dinâmico atual (fallback)
+   · No contexto card: imagem dentro do pill escuro #1e2018, height 16px
+   · No contexto pagina: imagem direta sem pill, height 20px
+
+2. Página pública do mantenedor — não existe ainda
+   · Rota: app/(app)/mantenedores/[id]/page.tsx
+   · Buscar mantenedor por id + trilhas associadas com condicoes
+   · Layout: logo/nome do mantenedor no topo, grid de TrilhaCards abaixo
+   · Pública (sem auth)
+
+3. "Mantida por" clicável no card
+   · No TrilhaCard e DashboardTrailCard, o pill do mantenedor deve navegar
+     para /mantenedores/[mantenedor.id]
+   · Usar e.preventDefault() + router.push() ou Link separado dentro do
+     TrilhaCard (que já é um <Link> para a trilha)
+   · NÃO deixar o clique propagar para o Link pai da trilha
+
+### Regras
+- Mantenedor sempre opcional — null nunca quebra card ou página
+- Não alterar lógica de condições, veredicto, solo ou modelo meteorológico
+- next/image NÃO usar para logo_url — usar <img> nativo com
+  src={mantenedor.logo_url}
