@@ -136,8 +136,8 @@ export default function TrilhaDetalhe() {
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Page header grafite ─────────────────────────────────────────── */}
-      <div className="page-header" style={{ background: '#2a2e25', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div className="page-header" style={{ background: '#2a2e25', padding: '40px 0' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', boxSizing: 'border-box' }}>
 
           {/* Voltar */}
           <Link
@@ -227,7 +227,7 @@ export default function TrilhaDetalhe() {
           {/* c) Clima do dia */}
           {c?.temp_max != null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-              <span style={{ fontSize: 28 }}>{emojiTempo(c.rain_mm, c.pop_12h)}</span>
+              <span style={{ fontSize: 28, fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }}>{emojiTempo(c.rain_mm, c.pop_12h)}</span>
               <div>
                 <span style={{ fontSize: 16, fontWeight: 700, color: '#E5E7EB' }} className="font-mono">{c.temp_max}°</span>
                 {c.temp_min != null && (

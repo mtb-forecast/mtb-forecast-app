@@ -8,6 +8,7 @@ type Props = {
     cor_primaria: string
     cor_secundaria: string | null
     icone: string | null
+    site_url?: string | null
   }
   contexto: 'card' | 'pagina'
 }
@@ -60,13 +61,34 @@ export function LogoMantenedor({ mantenedor, contexto }: Props) {
   )
 
   if (contexto === 'pagina') {
+    const { site_url } = mantenedor
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         paddingTop: 12, borderTop: '0.5px solid #3a3f30',
+        flexWrap: 'wrap',
       }}>
         {label}
         {logoContent}
+        {site_url && (
+          <a
+            href={site_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 10, color: '#6d8a60',
+              textDecoration: 'none', letterSpacing: '0.3px',
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            site
+          </a>
+        )}
       </div>
     )
   }
