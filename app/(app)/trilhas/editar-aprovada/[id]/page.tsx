@@ -67,6 +67,7 @@ export default function EditarAprovadaPage() {
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
   const [erro, setErro]         = useState<string | null>(null)
+  const [isAdmin, setIsAdmin]   = useState(false)
 
   // Form fields
   const [nome, setNome]           = useState('')
@@ -104,10 +105,11 @@ export default function EditarAprovadaPage() {
 
       const { data: profile } = await supabase
         .from('profiles').select('is_admin').eq('id', user.id).single()
-      const isAdmin = !!profile?.is_admin
+      const admin = !!profile?.is_admin
+      setIsAdmin(admin)
 
       let trilhaQuery = supabase.from('trilhas').select('*').eq('id', id)
-      if (!isAdmin) trilhaQuery = trilhaQuery.eq('created_by', user.id)
+      if (!admin) trilhaQuery = trilhaQuery.eq('created_by', user.id)
 
       const [{ data: t }, sts, bio, exp, tty, { data: mants }] = await Promise.all([
         trilhaQuery.maybeSingle(),
@@ -209,7 +211,7 @@ export default function EditarAprovadaPage() {
     let localidadeId: string | null = null
     if (geoResult) localidadeId = await getOrCreateLocalidade(geoResult)
 
-    const { error } = await supabase.from('trilhas').update({
+    const payload = {
       name: nome.trim(), regiao,
       lat: parseFloat(lat), lon: parseFloat(lon),
       altitude_m: parseInt(altitude),
@@ -219,10 +221,23 @@ export default function EditarAprovadaPage() {
       extensao_km: extensao ? parseFloat(extensao) : null,
       mantenedor_id: mantenedorId || null,
       ...(localidadeId ? { localidade_id: localidadeId } : {}),
-    }).eq('id', id)
+    }
 
-    setSaving(false)
-    if (error) { setErro('Erro ao salvar. Tente novamente.'); return }
+    if (isAdmin) {
+      const res  = await fetch('/api/admin/editar-trilha', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...payload }),
+      })
+      const json = await res.json()
+      setSaving(false)
+      if (!res.ok) { setErro(json.error ?? 'Erro ao salvar.'); return }
+    } else {
+      const { error } = await supabase.from('trilhas').update(payload).eq('id', id)
+      setSaving(false)
+      if (error) { setErro('Erro ao salvar. Tente novamente.'); return }
+    }
+
     setSaved(true)
     setTimeout(() => router.push('/perfil/minhas-trilhas'), 1200)
   }
@@ -238,7 +253,6 @@ export default function EditarAprovadaPage() {
   if (notFound) return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 32 }}>
       <p style={{ fontSize: 16, color: '#2a2e25', fontWeight: 600 }}>Trilha não encontrada</p>
-      <p style={{ fontSize: 13, color: '#888' }}>Esta trilha não pertence à sua conta.</p>
       <Link href="/perfil/minhas-trilhas" style={{ fontSize: 13, color: '#6d745f', textDecoration: 'underline' }}>← Voltar</Link>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
@@ -266,7 +280,12 @@ export default function EditarAprovadaPage() {
             <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
             Minhas trilhas
           </Link>
-          <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Editar trilha</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Editar trilha</h1>
+            {isAdmin && (
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '1px', background: '#6d745f', color: '#fff', borderRadius: 2, padding: '3px 8px' }}>ADMIN</span>
+            )}
+          </div>
           <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{nome}</p>
         </div>
       </div>
