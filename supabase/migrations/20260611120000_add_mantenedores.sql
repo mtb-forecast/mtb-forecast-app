@@ -14,8 +14,15 @@ alter table mantenedores enable row level security;
 create policy "mantenedores_public_read"
   on mantenedores for select using (true);
 
--- FK em trilhas
-alter table trilhas
-  add column mantenedor_id uuid references mantenedores(id) on delete set null;
-
-create index idx_trilhas_mantenedor on trilhas(mantenedor_id);
+-- FK em trilhas (só executa se a tabela já existir — Preview Branch parte do zero)
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'trilhas'
+  ) then
+    alter table trilhas
+      add column if not exists mantenedor_id uuid references mantenedores(id) on delete set null;
+    create index if not exists idx_trilhas_mantenedor on trilhas(mantenedor_id);
+  end if;
+end $$;
