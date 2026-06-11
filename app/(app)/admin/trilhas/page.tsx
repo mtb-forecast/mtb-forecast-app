@@ -12,7 +12,7 @@ type TrilhaRow = {
   name: string
   regiao: string
   localidade: { estado: string; cidade: string | null } | null
-  mantenedor: { nome: string } | null
+  mantenedor: { nome: string; nome_primario: string | null } | null
 }
 
 export default function AdminTrilhasPage() {
@@ -54,7 +54,7 @@ export default function AdminTrilhasPage() {
       setSearching(true)
       let query = supabase
         .from('trilhas')
-        .select('id, name, regiao, localidade:localidades(estado, cidade), mantenedor:mantenedores(nome)', { count: 'exact' })
+        .select('id, name, regiao, localidade:localidades(estado, cidade), mantenedor:mantenedores(id,nome,nome_primario)', { count: 'exact' })
         .eq('aprovada', true)
         .order('name')
         .range(page * PER_PAGE, (page + 1) * PER_PAGE - 1)
@@ -171,7 +171,7 @@ export default function AdminTrilhasPage() {
                         : t.regiao || '—'}
                     </td>
                     <td style={{ padding: '14px 20px', fontSize: 13, color: t.mantenedor ? '#2a2e25' : '#d1d5db' }}>
-                      {t.mantenedor?.nome ?? '—'}
+                      {t.mantenedor ? (t.mantenedor.nome_primario ?? t.mantenedor.nome) : '—'}
                     </td>
                     <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                       <Link
