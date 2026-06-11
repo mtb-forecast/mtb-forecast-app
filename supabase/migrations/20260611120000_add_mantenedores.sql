@@ -15,7 +15,7 @@ create policy "mantenedores_public_read"
 create policy "mantenedores_admin_all"
   on mantenedores for all
   using (
-    exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+    exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
   );
 
 -- FK em trilhas
