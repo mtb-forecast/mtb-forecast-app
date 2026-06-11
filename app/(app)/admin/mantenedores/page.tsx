@@ -46,19 +46,15 @@ export default function MantenedoresAdminPage() {
     e.preventDefault()
     if (!newForm.nome.trim()) return
     setSaving(true)
-    const { data, error } = await supabase
-      .from('mantenedores')
-      .insert({
-        nome:     newForm.nome.trim(),
-        logo_url: newForm.logo_url.trim() || null,
-        site_url: newForm.site_url.trim() || null,
-        ativo:    newForm.ativo,
-      })
-      .select('*')
-      .single()
+    const res  = await fetch('/api/admin/mantenedores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newForm),
+    })
+    const json = await res.json()
     setSaving(false)
-    if (error) { flash('Erro ao criar: ' + error.message, false); return }
-    setMantenedores(prev => [...prev, data as Mantenedor].sort((a, b) => a.nome.localeCompare(b.nome)))
+    if (!res.ok) { flash('Erro ao criar: ' + (json.error ?? res.status), false); return }
+    setMantenedores(prev => [...prev, json as Mantenedor].sort((a, b) => a.nome.localeCompare(b.nome)))
     setNewForm(emptyForm)
     setShowNew(false)
     flash('Mantenedor criado!')
@@ -68,17 +64,14 @@ export default function MantenedoresAdminPage() {
     e.preventDefault()
     if (!editingId || !editForm.nome.trim()) return
     setSaving(true)
-    const { error } = await supabase
-      .from('mantenedores')
-      .update({
-        nome:     editForm.nome.trim(),
-        logo_url: editForm.logo_url.trim() || null,
-        site_url: editForm.site_url.trim() || null,
-        ativo:    editForm.ativo,
-      })
-      .eq('id', editingId)
+    const res  = await fetch('/api/admin/mantenedores', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: editingId, ...editForm }),
+    })
+    const json = await res.json()
     setSaving(false)
-    if (error) { flash('Erro ao salvar: ' + error.message, false); return }
+    if (!res.ok) { flash('Erro ao salvar: ' + (json.error ?? res.status), false); return }
     setMantenedores(prev =>
       prev.map(m => m.id === editingId
         ? { ...m, ...editForm, logo_url: editForm.logo_url || null, site_url: editForm.site_url || null }

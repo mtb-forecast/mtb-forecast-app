@@ -9,14 +9,10 @@ create table mantenedores (
 );
 
 -- Leitura pública (logo aparece para todos os usuários)
+-- Escrita via service role key (admin pages usam supabaseAdmin no servidor)
 alter table mantenedores enable row level security;
 create policy "mantenedores_public_read"
   on mantenedores for select using (true);
-create policy "mantenedores_admin_all"
-  on mantenedores for all
-  using (
-    exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
-  );
 
 -- FK em trilhas
 alter table trilhas
