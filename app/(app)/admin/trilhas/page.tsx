@@ -59,10 +59,12 @@ export default function AdminTrilhasPage() {
         .order('name')
         .range(page * PER_PAGE, (page + 1) * PER_PAGE - 1)
 
-      if (busca.trim()) query = query.ilike('name', `%${busca.trim()}%`)
-      if (estado)       query = (query as ReturnType<typeof query.eq>).eq('localidades.estado', estado)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = query
+      if (busca.trim()) q = q.ilike('name', `%${busca.trim()}%`)
+      if (estado)       q = q.eq('localidades.estado', estado)
 
-      const { data, count } = await query
+      const { data, count } = await q
       setTrilhas((data ?? []) as TrilhaRow[])
       setTotal(count ?? 0)
       setSearching(false)
