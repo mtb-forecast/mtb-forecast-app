@@ -23,7 +23,9 @@ export default function AdminTrilhasPage() {
   const [page, setPage]           = useState(0)
   const [busca, setBusca]         = useState('')
   const [estado, setEstado]       = useState('')
+  const [cidade, setCidade]       = useState('')
   const [estados, setEstados]     = useState<string[]>([])
+  const [cidades, setCidades]     = useState<string[]>([])
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -46,6 +48,23 @@ export default function AdminTrilhasPage() {
     init()
   }, [router])
 
+  // ── Fetch cidades quando estado muda ──────────────────────────────────────
+  useEffect(() => {
+    setCidade('')
+    setCidades([])
+    if (!estado) return
+    supabase
+      .from('localidades')
+      .select('cidade')
+      .eq('estado', estado)
+      .not('cidade', 'is', null)
+      .order('cidade')
+      .then(({ data }) => {
+        const unique = [...new Set((data ?? []).map((r: { cidade: string | null }) => r.cidade).filter(Boolean))].sort() as string[]
+        setCidades(unique)
+      })
+  }, [estado])
+
   // ── Fetch trilhas ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!ready) return
@@ -63,6 +82,7 @@ export default function AdminTrilhasPage() {
       let q: any = query
       if (busca.trim()) q = q.ilike('name', `%${busca.trim()}%`)
       if (estado)       q = q.eq('localidades.estado', estado)
+      if (cidade)       q = q.eq('localidades.cidade', cidade)
 
       const { data, count } = await q
       setTrilhas((data ?? []) as TrilhaRow[])
@@ -70,7 +90,7 @@ export default function AdminTrilhasPage() {
       setSearching(false)
     }
     load()
-  }, [ready, page, busca, estado])
+  }, [ready, page, busca, estado, cidade])
 
   // reset page on filter change
   function handleBusca(v: string) {
@@ -78,6 +98,7 @@ export default function AdminTrilhasPage() {
     debounceRef.current = setTimeout(() => { setPage(0); setBusca(v) }, 350)
   }
   function handleEstado(v: string) { setPage(0); setEstado(v) }
+  function handleCidade(v: string) { setPage(0); setCidade(v) }
 
   const totalPages = Math.ceil(total / PER_PAGE)
 
@@ -116,8 +137,47 @@ export default function AdminTrilhasPage() {
       <div style={{ padding: '24px 32px 80px', maxWidth: 900, margin: '0 auto' }}>
 
         {/* Filtros */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: '1 1 260px' }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* Estado */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <select
+              value={estado}
+              onChange={e => handleEstado(e.target.value)}
+              style={{
+                appearance: 'none', WebkitAppearance: 'none',
+                background: '#fff', border: '1px solid #e5e5e5',
+                borderRadius: 8, padding: '10px 36px 10px 14px', fontSize: 14,
+                color: estado ? '#2a2e25' : '#888', outline: 'none', cursor: 'pointer', width: 180,
+              }}
+            >
+              <option value="">Estado (todos)</option>
+              {estados.map(e => <option key={e} value={e}>{e}</option>)}
+            </select>
+            <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888', pointerEvents: 'none' }} />
+          </div>
+
+          {/* Cidade — aparece quando estado selecionado e há cidades */}
+          {estado && cidades.length > 0 && (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <select
+                value={cidade}
+                onChange={e => handleCidade(e.target.value)}
+                style={{
+                  appearance: 'none', WebkitAppearance: 'none',
+                  background: '#fff', border: '1px solid #e5e5e5',
+                  borderRadius: 8, padding: '10px 36px 10px 14px', fontSize: 14,
+                  color: cidade ? '#2a2e25' : '#888', outline: 'none', cursor: 'pointer', width: 200,
+                }}
+              >
+                <option value="">Todas as cidades</option>
+                {cidades.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888', pointerEvents: 'none' }} />
+            </div>
+          )}
+
+          {/* Busca por nome */}
+          <div style={{ position: 'relative', flex: '1 1 220px' }}>
             <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888' }} />
             <input
               type="text"
@@ -131,18 +191,6 @@ export default function AdminTrilhasPage() {
               }}
             />
           </div>
-          <select
-            value={estado}
-            onChange={e => handleEstado(e.target.value)}
-            style={{
-              flex: '0 0 160px', background: '#fff', border: '1px solid #e5e5e5',
-              borderRadius: 8, padding: '10px 12px', fontSize: 14,
-              color: estado ? '#2a2e25' : '#888', outline: 'none', cursor: 'pointer',
-            }}
-          >
-            <option value="">Estado (todos)</option>
-            {estados.map(e => <option key={e} value={e}>{e}</option>)}
-          </select>
         </div>
 
         {/* Lista */}
