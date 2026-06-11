@@ -56,7 +56,7 @@ export default function TrilhaDetalhe() {
       setUserId(user.id)
 
       const [{ data: td }, { data: fav }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade), mantenedor:mantenedores(id,nome,logo_url,site_url)`)
+        supabase.from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade), mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,icone,logo_url,site_url)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .order('bloco', { foreignTable: 'previsao_blocos' })

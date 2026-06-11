@@ -39,12 +39,22 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
 
   const body = await req.json()
-  const { nome, logo_url, site_url, ativo } = body
+  const { nome, nome_primario, nome_secundario, cor_primaria, cor_secundaria, icone, logo_url, site_url, ativo } = body
   if (!nome?.trim()) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 })
 
   const { data, error } = await serviceClient()
     .from('mantenedores')
-    .insert({ nome: nome.trim(), logo_url: logo_url || null, site_url: site_url || null, ativo: ativo ?? true })
+    .insert({
+      nome: nome.trim(),
+      nome_primario: nome_primario?.trim() || null,
+      nome_secundario: nome_secundario?.trim() || null,
+      cor_primaria: cor_primaria || '#ffffff',
+      cor_secundaria: cor_secundaria || null,
+      icone: icone || null,
+      logo_url: logo_url || null,
+      site_url: site_url || null,
+      ativo: ativo ?? true,
+    })
     .select('*')
     .single()
 
@@ -58,13 +68,23 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
 
   const body = await req.json()
-  const { id, nome, logo_url, site_url, ativo } = body
+  const { id, nome, nome_primario, nome_secundario, cor_primaria, cor_secundaria, icone, logo_url, site_url, ativo } = body
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 })
   if (!nome?.trim()) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 })
 
   const { error } = await serviceClient()
     .from('mantenedores')
-    .update({ nome: nome.trim(), logo_url: logo_url || null, site_url: site_url || null, ativo: ativo ?? true })
+    .update({
+      nome: nome.trim(),
+      nome_primario: nome_primario?.trim() || null,
+      nome_secundario: nome_secundario?.trim() || null,
+      cor_primaria: cor_primaria || '#ffffff',
+      cor_secundaria: cor_secundaria || null,
+      icone: icone || null,
+      logo_url: logo_url || null,
+      site_url: site_url || null,
+      ativo: ativo ?? true,
+    })
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
