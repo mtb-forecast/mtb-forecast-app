@@ -29,12 +29,15 @@ function verdictStyle(v: string | null): VerdictStyle {
   return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
 }
 
-function soloLabel(a: string | null | undefined): string | null {
+type SoloBadge = { label: string; bg: string; color: string; border: string }
+
+function soloLabel(a: string | null | undefined): SoloBadge | null {
   if (!a) return null
   const s = a.trim()
-  if (s === 'SECO' || s === 'GRIP PERFEITO') return 'SECO'
-  if (s === 'BOA ADERÊNCIA') return 'ÚMIDO'
-  if (s === 'BAIXA ADERÊNCIA') return 'SATURADO'
+  if (s === 'GRIP PERFEITO')  return { label: s, bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }
+  if (s === 'SECO')           return { label: s, bg: '#fef9c3', color: '#a16207', border: '#fde68a' }
+  if (s === 'BOA ADERÊNCIA')  return { label: s, bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }
+  if (s === 'BAIXA ADERÊNCIA')return { label: s, bg: '#fee2e2', color: '#b91c1c', border: '#fca5a5' }
   return null
 }
 
@@ -135,9 +138,9 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
                   display: 'inline-flex', alignItems: 'center',
                   fontSize: 10, fontWeight: 600,
                   padding: '3px 8px', borderRadius: 999, lineHeight: 1.4,
-                  background: '#eaece4', color: '#6d745f', border: '0.5px solid #d0d4c6',
+                  background: solo.bg, color: solo.color, border: `0.5px solid ${solo.border}`,
                 }}>
-                  {solo}
+                  {solo.label}
                 </span>
               )}
             </div>
