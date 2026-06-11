@@ -2,6 +2,7 @@ import { memo } from 'react'
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
+import { LogoMantenedor } from '@/components/LogoMantenedor'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,11 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
               <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#8a9480' }} />
             </div>
           </div>
+
+          {/* Mantenedor */}
+          {trilha.mantenedor && (
+            <LogoMantenedor mantenedor={trilha.mantenedor} contexto="card" />
+          )}
 
           {/* Verdict row */}
           {hasData && (

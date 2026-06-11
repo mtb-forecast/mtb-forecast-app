@@ -15,6 +15,7 @@ import { deveAlertarRajada, emojiTempo } from '@/lib/display'
 import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
+import { LogoMantenedor } from '@/components/LogoMantenedor'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), {
   ssr: false,
@@ -55,7 +56,7 @@ export default function TrilhaDetalhe() {
       setUserId(user.id)
 
       const [{ data: td }, { data: fav }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)`)
+        supabase.from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade), mantenedor:mantenedores(id,nome,logo_url,site_url)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .order('bloco', { foreignTable: 'previsao_blocos' })
@@ -206,6 +207,11 @@ export default function TrilhaDetalhe() {
               </span>
             )}
           </div>
+
+          {/* Mantenedor */}
+          {trilha.mantenedor && (
+            <LogoMantenedor mantenedor={trilha.mantenedor} contexto="pagina" />
+          )}
 
           {/* b) Dados físicos */}
           {(trilha.desnivel_m != null || trilha.extensao_km != null || (clay != null && c?.texture_class)) && (

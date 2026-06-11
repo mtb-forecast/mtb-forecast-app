@@ -2067,7 +2067,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
 def _buscar_ultima_condicao_supabase(trail: dict) -> dict | None:
     """
     Busca o registro mais recente de condicoes para a trilha usando supabase_id.
-    Usado pela otimização zero-rain para evitar chamadas históricas externas.
+    Usado como fallback quando fetch_historico_chuva_om falha por indisponibilidade de rede.
     """
     if not SUPABASE_KEY:
         return None
@@ -2094,62 +2094,9 @@ def _buscar_ultima_condicao_supabase(trail: dict) -> dict | None:
             rows = json.loads(r.read())
         return rows[0] if rows else None
     except Exception as exc:
-        print(f"  [zero-rain] Falha ao buscar condição anterior: {exc}")
+        print(f"  [OM hist] Falha ao buscar condição Supabase (fallback): {exc}")
         return None
 
-
-def _zero_rain_shortcircuit(trail: dict, thresh_desc: float, ultimo: dict) -> tuple:
-    """
-    Substitui fetch_onecall_historico + fetch_historico_chuva_om + fetch_vento_historico
-    quando o forecast 48h = 0.0mm E já existe um registro anterior no Supabase.
-    Economiza 3 chamadas OW timemachine + 2 OM archive por trilha.
-
-    Caso A: acumulo_ef já abaixo do threshold → solo seco, mantém valores armazenados.
-    Caso B: solo ainda secando → aplica decaimento exponencial sobre acumulo_ef gravado.
-
-    Recebe `ultimo` já buscado por _buscar_ultima_condicao_supabase (sem chamada duplicada).
-    Retorna (hist, acumulo_48h, acumulo_ef, ultima_chuva_h, vento_hist).
-    """
-    acumulo_ef_stored = float(ultimo.get("acumulo_ef") or 0.0)
-    meia_vida_stored  = float(ultimo.get("meia_vida_h") or 24.0)
-    gerado_em_str     = ultimo.get("gerado_em")
-
-    horas_desde = 0.0
-    if gerado_em_str:
-        try:
-            gerado_em_dt = datetime.fromisoformat(gerado_em_str)
-            if gerado_em_dt.tzinfo is None:
-                gerado_em_dt = gerado_em_dt.replace(tzinfo=BRT)
-            horas_desde = max(0.0, (datetime.now(BRT) - gerado_em_dt).total_seconds() / 3600)
-        except Exception:
-            pass
-
-    new_ef = round(
-        acumulo_ef_stored * (0.5 ** (horas_desde / meia_vida_stored)), 2
-    ) if meia_vida_stored > 0 else 0.0
-
-    ultima_chuva_stored = ultimo.get("ultima_chuva_h")
-    ultima_chuva = round(ultima_chuva_stored + horas_desde, 1) if ultima_chuva_stored is not None else None
-
-    caso = "A (solo seco)" if new_ef < thresh_desc else f"B (secando: ef={new_ef:.1f}mm / thresh={thresh_desc:.1f}mm)"
-    print(f"  [zero-rain] {trail['name']} — Caso {caso} | Δ{horas_desde:.1f}h | ef {acumulo_ef_stored:.1f}→{new_ef:.1f}mm")
-
-    hist = {
-        "meia_vida_h":      meia_vida_stored,
-        "temp_media_c":     None,
-        "vento_medio_ms":   None,
-        "nublado_pct":      None,
-        "umidade_pct":      None,
-        "vento_max_kmh_ow": None,
-    }
-    vento_hist = {
-        "vento_max_kmh":  float(ultimo.get("alerta_vento_kmh") or 0.0),
-        "rajada_max_kmh": ultimo.get("alerta_rajada_kmh"),
-        "nivel_vento":    int(ultimo.get("alerta_vento_nivel") or 0),
-        "alerta_arvores": int(ultimo.get("alerta_vento_nivel") or 0) >= 1,
-        "fonte":          "cache (zero-rain skip)",
-    }
-    return hist, float(ultimo.get("acumulo_48h") or 0.0), new_ef, ultima_chuva, vento_hist
 
 
 def processar_trilha(trail: dict, datas: dict) -> dict:
@@ -2189,80 +2136,47 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     enso = classificar_enso(oni)
     thresh_desc = threshold_solo_descansado(mes, enso, trail)
 
-    # ── OTIMIZAÇÃO ZERO-CHUVA ─────────────────────────────────────────────
-    # forecast 48h = 0mm → tenta pular 3 chamadas OW timemachine + 2 OM archive.
-    # Condições para o shortcircuit:
-    #   1. forecast = 0mm
-    #   2. existe registro anterior (baseline estabelecida)
-    #   3. histórico atualizado há menos de HISTORICO_MAX_HORAS horas
-    HISTORICO_MAX_HORAS = 72  # força pipeline completo se histórico > 72h desatualizado
+    hist         = fetch_onecall_historico(trail)
+    hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
 
-    _ultimo = None  # shortcircuit desativado — pipeline completo sempre
-    _usou_shortcircuit = False
+    # ── Blend OW day_summary + OM past_days ───────────────────────────────
+    # OW day_summary: total diário real (hoje + ontem), sem lag NWP
+    # OM past_days: série horária completa com decaimento exponencial por hora
+    # Fonte primária de efetivo = OM (granularidade horária)
+    # OW detecta lag: se OW > OM + 1mm, chuva não chegou ao OM ainda
 
-    # if rain == 0.0 and _ultimo is not None:
-    #     _hist_at = _ultimo.get("historico_atualizado_em") or _ultimo.get("gerado_em")
-    #     _horas_hist = 0.0
-    #     if _hist_at:
-    #         try:
-    #             _dt = datetime.fromisoformat(_hist_at)
-    #             if _dt.tzinfo is None:
-    #                 _dt = _dt.replace(tzinfo=BRT)
-    #             _horas_hist = max(0.0, (datetime.now(BRT) - _dt).total_seconds() / 3600)
-    #         except Exception:
-    #             pass
-    #     if _horas_hist < HISTORICO_MAX_HORAS:
-    #         hist, acumulo_48h, acumulo_ef, ultima_chuva, vento_hist = \
-    #             _zero_rain_shortcircuit(trail, thresh_desc, _ultimo)
-    #         _usou_shortcircuit = True
-    #     else:
-    #         print(f"  [zero-rain] {trail['name']} — histórico com {_horas_hist:.0f}h, forçando atualização")
+    day_sum  = fetch_ow_day_summary(trail)
+    bruto_ow_raw = day_sum["bruto_ow"]
 
-    if not _usou_shortcircuit:
-        if rain == 0.0 and _ultimo is None:
-            print(f"  [zero-rain] {trail['name']} — sem histórico, pipeline completo (baseline)")
-        hist         = fetch_onecall_historico(trail)
-        hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
+    # Aplicar chuva_pct (interceptação de dossel) ao OW — mesma escala do OM
+    mes_atual = datetime.now(BRT).month
+    chuva_pct_blend = _lookup_bioma(trail, mes_atual).get("chuva_pct", 1.0)
+    bruto_ow  = round(bruto_ow_raw * chuva_pct_blend, 1)
 
-        # ── Blend OW day_summary + OM past_days ───────────────────────────────
-        # OW day_summary: total diário real (hoje + ontem), sem lag NWP
-        # OM past_days: série horária completa com decaimento exponencial por hora
-        # Fonte primária de efetivo = OM (granularidade horária)
-        # OW detecta lag: se OW > OM + 1mm, chuva não chegou ao OM ainda
+    om_bruto = hist_om["bruto"]
+    om_ef    = hist_om["efetivo"]
+    om_uc    = hist_om["ultima_chuva_h"]
 
-        day_sum  = fetch_ow_day_summary(trail)
-        bruto_ow_raw = day_sum["bruto_ow"]
+    acumulo_48h = max(om_bruto, bruto_ow)
 
-        # Aplicar chuva_pct (interceptação de dossel) ao OW — mesma escala do OM
-        mes_atual = datetime.now(BRT).month
-        chuva_pct_blend = _lookup_bioma(trail, mes_atual).get("chuva_pct", 1.0)
-        bruto_ow  = round(bruto_ow_raw * chuva_pct_blend, 1)
+    LAG_THRESHOLD = 1.0   # mm de diferença para considerar lag do OM
+    lag_detectado = bruto_ow > om_bruto + LAG_THRESHOLD
 
-        om_bruto = hist_om["bruto"]
-        om_ef    = hist_om["efetivo"]
-        om_uc    = hist_om["ultima_chuva_h"]
+    if lag_detectado:
+        # Chuva vista pelo OW mas não pelo OM (lag NWP) — tratar como RECENTE
+        # Peso 0.9 = conservador: protege o rider de falso "solo seco"
+        acumulo_ef   = round(om_ef + (bruto_ow - om_bruto) * 0.9, 2)
+        print(f"  [chuva hist] lag OM detectado: OW={bruto_ow:.1f}mm OM={om_bruto:.1f}mm (chuva_pct={chuva_pct_blend:.2f}) → ef={acumulo_ef:.2f}mm")
+    else:
+        acumulo_ef = om_ef
 
-        acumulo_48h = max(om_bruto, bruto_ow)
+    if lag_detectado and om_uc is None:
+        ultima_chuva = 2.0
+        print(f"  [chuva hist] lag detectado e OM sem ultima_chuva — setando 2.0h (conservador)")
+    else:
+        ultima_chuva = om_uc
 
-        LAG_THRESHOLD = 1.0   # mm de diferença para considerar lag do OM
-        lag_detectado = bruto_ow > om_bruto + LAG_THRESHOLD
-
-        if lag_detectado:
-            # Chuva vista pelo OW mas não pelo OM (lag NWP) — tratar como RECENTE
-            # Peso 0.9 = conservador: protege o rider de falso "solo seco"
-            acumulo_ef   = round(om_ef + (bruto_ow - om_bruto) * 0.9, 2)
-            print(f"  [chuva hist] lag OM detectado: OW={bruto_ow:.1f}mm OM={om_bruto:.1f}mm (chuva_pct={chuva_pct_blend:.2f}) → ef={acumulo_ef:.2f}mm")
-        else:
-            acumulo_ef = om_ef
-
-        if lag_detectado and om_uc is None:
-            ultima_chuva = 2.0
-            print(f"  [chuva hist] lag detectado e OM sem ultima_chuva — setando 2.0h (conservador)")
-        else:
-            ultima_chuva = om_uc
-
-        # Passa vento sustentado já extraído do timemachine — elimina chamada OW redundante
-        vento_hist   = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
+    vento_hist   = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
 
     meia_vida_h = hist["meia_vida_h"]
 
@@ -2598,11 +2512,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "resumo_secagem_frase": narrativa,
         "resumo_secagem_cor":   cor_n,
         "resumo_secagem_bg":    bg_n,
-        # Pipeline completo = timestamp atual; shortcircuit = preserva valor anterior
-        "historico_atualizado_em": (
-            _ultimo.get("historico_atualizado_em") if _usou_shortcircuit and _ultimo
-            else datetime.now(BRT).isoformat()
-        ),
+        "historico_atualizado_em": datetime.now(BRT).isoformat(),
     }
 
 

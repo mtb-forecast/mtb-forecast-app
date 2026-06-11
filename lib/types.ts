@@ -7,6 +7,15 @@ export type PrevisaoBloco = {
   temp_med: number
 }
 
+export type Mantenedor = {
+  id: string
+  nome: string
+  logo_url: string | null
+  site_url: string | null
+  ativo: boolean
+  criado_em: string
+}
+
 export type Trilha = {
   id: string
   name: string
@@ -25,6 +34,7 @@ export type Trilha = {
   polyline?: string | null
   localidades?: { cidade: string; estado: string; localidade: string | null } | null
   previsao_blocos?: PrevisaoBloco[] | null
+  mantenedor?: Mantenedor | null
 }
 
 export type Condicao = {

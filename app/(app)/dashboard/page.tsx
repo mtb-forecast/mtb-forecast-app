@@ -61,6 +61,7 @@ export default async function DashboardPage() {
         .select(`
           id, name, bioma, trail_type, regiao,
           localidades(cidade, estado, localidade),
+          mantenedor:mantenedores(id,nome,logo_url,site_url),
           condicoes(
             veredicto, veredicto_12h,
             aderencia_status, aderencia_futura_status, aderencia_futura_label,
