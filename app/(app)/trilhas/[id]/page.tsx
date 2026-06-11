@@ -48,7 +48,6 @@ export default function TrilhaDetalhe() {
   const [loading, setLoading] = useState(true)
   const [isFavorito, setIsFavorito] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -56,16 +55,14 @@ export default function TrilhaDetalhe() {
       if (!user) { window.location.href = '/login'; return }
       setUserId(user.id)
 
-      const [{ data: td }, { data: fav }, { data: profile }] = await Promise.all([
+      const [{ data: td }, { data: fav }] = await Promise.all([
         supabase.from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade), mantenedor:mantenedores(id,nome,logo_url,site_url)`)
           .eq('id', id)
           .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
           .order('bloco', { foreignTable: 'previsao_blocos' })
           .maybeSingle(),
         supabase.from('favoritos').select('id').eq('user_id', user.id).eq('trilha_id', id).maybeSingle(),
-        supabase.from('profiles').select('is_admin').eq('id', user.id).single(),
       ])
-      if (profile?.is_admin) setIsAdmin(true)
 
       if (td) {
         const t = td as TrilhaDetalhada & { previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }
@@ -161,21 +158,6 @@ export default function TrilhaDetalhe() {
               {trilha.name}
             </h1>
             <div className="trilha-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              {isAdmin && (
-                <Link
-                  href={`/trilhas/editar-aprovada/${id}`}
-                  style={{
-                    background: '#6d745f', color: '#fff',
-                    border: 'none', borderRadius: 4,
-                    padding: '8px 14px', fontSize: 13, fontWeight: 600,
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    textDecoration: 'none',
-                  }}
-                >
-                  <i className="ti ti-pencil" style={{ fontSize: 14 }} />
-                  Editar
-                </Link>
-              )}
               <button
                 onClick={compartilharWhatsApp}
                 style={{
