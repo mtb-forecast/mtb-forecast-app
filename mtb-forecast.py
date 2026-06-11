@@ -468,9 +468,30 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
             except Exception as exc:
                 if attempt == 2:
                     print(f"  [OM hist] Falha após 3 tentativas: {exc}")
+                    # Fallback: reusar registro anterior do Supabase com decaimento
+                    fallback = _buscar_ultima_condicao_supabase(trail)
+                    if fallback:
+                        ef_prev   = float(fallback.get("acumulo_ef")   or 0.0)
+                        b48_prev  = float(fallback.get("acumulo_48h")  or 0.0)
+                        uc_prev   = fallback.get("ultima_chuva_h")
+                        ref_str   = fallback.get("historico_atualizado_em") or fallback.get("gerado_em")
+                        horas_delta = 0.0
+                        if ref_str:
+                            try:
+                                ref_dt = datetime.fromisoformat(ref_str)
+                                if ref_dt.tzinfo is None:
+                                    ref_dt = ref_dt.replace(tzinfo=BRT)
+                                horas_delta = max(0.0, (datetime.now(BRT) - ref_dt).total_seconds() / 3600)
+                            except Exception:
+                                pass
+                        new_ef = round(ef_prev * (0.5 ** (horas_delta / meia_vida)), 2) if meia_vida > 0 else 0.0
+                        uc_adj = round(uc_prev + horas_delta, 1) if uc_prev is not None else None
+                        print(f"  [OM hist] ⚠️  fallback Supabase: ef {ef_prev:.1f}→{new_ef:.1f}mm (Δ{horas_delta:.0f}h) — veredicto conservador")
+                        return {"bruto": b48_prev, "efetivo": new_ef, "ultima_chuva_h": uc_adj}
+                    print(f"  [OM hist] ⚠️  sem fallback disponível — usando 0mm (veredicto pode ser otimista)")
                     return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
-                print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando...")
-                time.sleep(2 ** attempt)
+                print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando em 5s...")
+                time.sleep(5)
         times   = data.get("hourly", {}).get("time", [])
         precips = data.get("hourly", {}).get("precipitation", [])
         if lk:
