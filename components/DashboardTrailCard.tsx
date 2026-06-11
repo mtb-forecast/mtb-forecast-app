@@ -4,6 +4,7 @@ import { memo } from 'react'
 import Link from 'next/link'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
+import { LogoMantenedor } from '@/components/LogoMantenedor'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,11 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
             </div>
             <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#8a9480', flexShrink: 0, marginTop: 1 }} />
           </div>
+
+          {/* Mantenedor */}
+          {trilha.mantenedor && (
+            <LogoMantenedor mantenedor={trilha.mantenedor} contexto="card" />
+          )}
 
           {/* Verdict row */}
           {hasData && (
