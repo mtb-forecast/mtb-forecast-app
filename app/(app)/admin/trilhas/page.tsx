@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 
@@ -23,14 +23,15 @@ function resolveLoc(raw: TrilhaRow['localidade']): Loc | null {
   return raw as Loc
 }
 
-export default function AdminTrilhasPage() {
-  const router = useRouter()
+function AdminTrilhasContent() {
+  const router     = useRouter()
+  const params     = useSearchParams()
   const [ready, setReady]         = useState(false)
   const [todas, setTodas]         = useState<TrilhaRow[]>([])
   const [page, setPage]           = useState(0)
   const [busca, setBusca]         = useState('')
-  const [estado, setEstado]       = useState('')
-  const [cidade, setCidade]       = useState('')
+  const [estado, setEstado]       = useState(params.get('estado') ?? '')
+  const [cidade, setCidade]       = useState(params.get('cidade') ?? '')
   const [estados, setEstados]     = useState<string[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -218,7 +219,7 @@ export default function AdminTrilhasPage() {
                       </td>
                       <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                         <Link
-                          href={`/trilhas/editar-aprovada/${t.id}`}
+                          href={`/trilhas/editar-aprovada/${t.id}?from=admin${estado ? `&estado=${encodeURIComponent(estado)}` : ''}${cidade ? `&cidade=${encodeURIComponent(cidade)}` : ''}`}
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 5,
                             fontSize: 13, fontWeight: 600, color: '#6d745f',
@@ -271,5 +272,13 @@ export default function AdminTrilhasPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AdminTrilhasPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f4f5f0' }} />}>
+      <AdminTrilhasContent />
+    </Suspense>
   )
 }

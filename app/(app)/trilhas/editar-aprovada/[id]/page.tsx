@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useEffect, useRef, useState, Suspense } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
@@ -58,9 +58,16 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function EditarAprovadaPage() {
-  const router = useRouter()
-  const { id } = useParams<{ id: string }>()
+function EditarAprovadaContent() {
+  const router      = useRouter()
+  const { id }      = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
+  const fromAdmin   = searchParams.get('from') === 'admin'
+  const adminEstado = searchParams.get('estado') ?? ''
+  const adminCidade = searchParams.get('cidade') ?? ''
+  const backUrl     = fromAdmin
+    ? `/admin/trilhas${adminEstado ? `?estado=${encodeURIComponent(adminEstado)}${adminCidade ? `&cidade=${encodeURIComponent(adminCidade)}` : ''}` : ''}`
+    : '/perfil/minhas-trilhas'
 
   const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -239,7 +246,7 @@ export default function EditarAprovadaPage() {
     }
 
     setSaved(true)
-    setTimeout(() => router.push('/perfil/minhas-trilhas'), 1200)
+    setTimeout(() => router.push(backUrl), 1200)
   }
 
   // ── Loading / Not found / Saved ─────────────────────────────────────────────
@@ -253,7 +260,7 @@ export default function EditarAprovadaPage() {
   if (notFound) return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 32 }}>
       <p style={{ fontSize: 16, color: '#2a2e25', fontWeight: 600 }}>Trilha não encontrada</p>
-      <Link href="/perfil/minhas-trilhas" style={{ fontSize: 13, color: '#6d745f', textDecoration: 'underline' }}>← Voltar</Link>
+      <Link href={backUrl} style={{ fontSize: 13, color: '#6d745f', textDecoration: 'underline' }}>← Voltar</Link>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -276,9 +283,9 @@ export default function EditarAprovadaPage() {
       {/* Header */}
       <div style={{ background: '#2a2e25', padding: '32px 20px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Link href="/perfil/minhas-trilhas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#888', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
+          <Link href={backUrl} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#888', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
             <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
-            Minhas trilhas
+            {fromAdmin ? 'Admin / Trilhas' : 'Minhas trilhas'}
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Editar trilha</h1>
@@ -422,7 +429,7 @@ export default function EditarAprovadaPage() {
 
           {/* ── Actions ── */}
           <div style={{ display: 'flex', gap: 10 }}>
-            <Link href="/perfil/minhas-trilhas" style={{
+            <Link href={backUrl} style={{
               flex: '0 0 auto', padding: '13px 20px', borderRadius: 10,
               background: '#fff', border: '1.5px solid #e5e5e5', color: '#555',
               fontSize: 14, fontWeight: 600, textDecoration: 'none',
@@ -446,5 +453,13 @@ export default function EditarAprovadaPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function EditarAprovadaPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f4f5f0' }} />}>
+      <EditarAprovadaContent />
+    </Suspense>
   )
 }
