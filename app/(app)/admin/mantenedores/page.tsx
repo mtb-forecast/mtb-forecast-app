@@ -261,9 +261,41 @@ export default function MantenedoresAdminPage() {
 
 type FormState = { nome: string; logo_url: string; site_url: string; ativo: boolean }
 
+async function compressToWebP(file: File, maxW = 600, maxH = 300, quality = 0.82): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new window.Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxW || height > maxH) {
+        const ratio = Math.min(maxW / width, maxH / height)
+        width  = Math.round(width * ratio)
+        height = Math.round(height * ratio)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width  = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => resolve(
+          blob
+            ? new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' })
+            : file
+        ),
+        'image/webp',
+        quality
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
 function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: FormState) => void }) {
-  const [uploading, setUploading] = useState(false)
-  const [uploadErr, setUploadErr] = useState<string | null>(null)
+  const [uploading, setUploading]   = useState(false)
+  const [uploadInfo, setUploadInfo] = useState<string | null>(null)
+  const [uploadErr, setUploadErr]   = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -271,8 +303,18 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
     if (!file) return
     setUploading(true)
     setUploadErr(null)
+    setUploadInfo(null)
+
+    const isSvg    = file.type === 'image/svg+xml'
+    const toUpload = isSvg ? file : await compressToWebP(file)
+
+    if (!isSvg) {
+      const pct = Math.round((1 - toUpload.size / file.size) * 100)
+      setUploadInfo(`${(file.size / 1024).toFixed(0)} KB → ${(toUpload.size / 1024).toFixed(0)} KB (−${pct}%)`)
+    }
+
     const fd = new FormData()
-    fd.append('file', file)
+    fd.append('file', toUpload)
     const res  = await fetch('/api/admin/upload-logo', { method: 'POST', body: fd })
     const json = await res.json()
     setUploading(false)
@@ -280,6 +322,7 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
       onChange({ ...form, logo_url: json.url })
     } else {
       setUploadErr(json.error ?? 'Erro no upload')
+      setUploadInfo(null)
     }
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -334,9 +377,8 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
             {uploading ? 'Enviando…' : 'Fazer upload'}
           </button>
         </div>
-        {uploadErr && (
-          <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{uploadErr}</p>
-        )}
+        {uploadErr  && <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{uploadErr}</p>}
+        {uploadInfo && <p style={{ fontSize: 12, color: '#6d745f', marginTop: 4 }}>{uploadInfo}</p>}
         {form.logo_url && !uploading && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ background: '#1e2018', borderRadius: 6, padding: '6px 10px', display: 'inline-flex', alignItems: 'center' }}>

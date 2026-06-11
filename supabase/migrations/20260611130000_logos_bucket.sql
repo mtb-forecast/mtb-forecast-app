@@ -4,7 +4,7 @@ values (
   'logos',
   'logos',
   true,
-  524288,
+  2097152,  -- 2 MB (raster comprimido p/ WebP no browser; SVG pode ser maior)
   array['image/png','image/jpeg','image/webp','image/svg+xml']
 )
 on conflict (id) do nothing;
