@@ -71,12 +71,12 @@ export default function MinhasTrilhasPage() {
       const [{ data: mtb }, { data: catalogo }, { data: pt }] = await Promise.all([
         supabase
           .from('trilhas_pendentes')
-          .select('id, name, regiao, status, motivo_rejeicao, created_at')
+          .select('id, name, regiao, status, motivo_rejeicao, created_at, localidade:localidades(estado, cidade)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('trilhas')
-          .select('id, name, regiao, created_at')
+          .select('id, name, regiao, created_at, localidade:localidades(estado, cidade)')
           .eq('created_by', user.id)
           .order('created_at', { ascending: false }),
         supabase
@@ -89,13 +89,15 @@ export default function MinhasTrilhasPage() {
       // IDs já em trilhas_pendentes — não duplicar
       const pendentesIds = new Set((mtb || []).map((t: { id: string }) => t.id))
 
+      type Loc = { estado: string; cidade: string | null } | null
+
       const mtbItems: TrilhaMTB[] = [
-        ...(mtb || []).map((t: { id: string; name: string; regiao: string; status: string; motivo_rejeicao?: string | null; created_at: string }) => ({
+        ...(mtb || []).map((t: { id: string; name: string; regiao: string; status: string; motivo_rejeicao?: string | null; created_at: string; localidade: Loc }) => ({
           kind: 'mtb' as const,
           id: t.id,
           name: t.name,
-          regiao: t.regiao || '',
-          cidade: null,
+          regiao: t.localidade?.estado || t.regiao || '',
+          cidade: t.localidade?.cidade || null,
           status: t.status,
           motivo_rejeicao: t.motivo_rejeicao,
           created_at: t.created_at,
@@ -103,12 +105,12 @@ export default function MinhasTrilhasPage() {
         })),
         ...(catalogo || [])
           .filter((t: { id: string }) => !pendentesIds.has(t.id))
-          .map((t: { id: string; name: string; regiao: string; created_at: string }) => ({
+          .map((t: { id: string; name: string; regiao: string; created_at: string; localidade: Loc }) => ({
             kind: 'mtb' as const,
             id: t.id,
             name: t.name,
-            regiao: t.regiao || '',
-            cidade: null,
+            regiao: t.localidade?.estado || t.regiao || '',
+            cidade: t.localidade?.cidade || null,
             status: 'aprovada',
             created_at: t.created_at,
             source: 'catalogo' as const,

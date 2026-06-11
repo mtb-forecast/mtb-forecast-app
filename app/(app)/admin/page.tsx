@@ -195,6 +195,18 @@ export default function AdminPage() {
             <p style={{ fontSize: 32, fontWeight: 700, color: '#2a2e25' }}>{pendentes.length}</p>
           </div>
           <Link
+            href="/admin/trilhas"
+            style={{
+              background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8,
+              padding: '16px 24px', flex: 1, minWidth: 140,
+              textDecoration: 'none', display: 'flex', flexDirection: 'column',
+            }}
+          >
+            <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>Trilhas</p>
+            <p style={{ fontSize: 13, color: '#888', marginBottom: 'auto' }}>Editar trilhas aprovadas do catálogo</p>
+            <p style={{ fontSize: 12, color: '#6d745f', fontWeight: 500, marginTop: 12 }}>Gerenciar →</p>
+          </Link>
+          <Link
             href="/admin/mantenedores"
             style={{
               background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8,
