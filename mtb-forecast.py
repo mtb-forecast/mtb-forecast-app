@@ -386,7 +386,8 @@ def fetch_onecall_historico(trail: dict) -> dict:
         if lk:
             _CACHE_OW_TIMEMACHINE[lk] = entradas_por_dt
 
-    # Processar entradas deduplicadas — clima (temp/vento/nuvens/umidade) + precipitação OW
+    # Processar entradas deduplicadas — apenas clima (temp/vento/nuvens/umidade)
+    # Precipitação OW vem de fetch_ow_day_summary (dia completo, não amostra de 3h)
     for dt_ts in sorted(entradas_por_dt):
         entry    = entradas_por_dt[dt_ts]
         temp     = entry.get("temp")
@@ -402,6 +403,8 @@ def fetch_onecall_historico(trail: dict) -> dict:
             amostras_cloud.append(clouds)
         if humidity is not None:
             amostras_humidity.append(humidity)
+
+    print(f"  [OW timemachine] {trail['name']}: {len(entradas_por_dt)} entradas deduplicadas")
 
     temp_media    = round(sum(amostras_temp)     / len(amostras_temp),     1) if amostras_temp     else None
     vento_medio   = round(sum(amostras_wind)     / len(amostras_wind),     1) if amostras_wind     else None
@@ -422,31 +425,6 @@ def fetch_onecall_historico(trail: dict) -> dict:
         humidity_pct=umidade_media,
     )
 
-    # ── Precipitação OW timemachine (mais atual que OM past_days) ─────────────
-    # OM past_days usa NWP com lag de 6-12h; OW timemachine é atualizado a cada ~1h.
-    # Extrai rain.1h das entradas já cacheadas — zero custo extra de API.
-    precip_bruto_ow = 0.0
-    precip_ef_ow    = 0.0
-    ultima_chuva_ow = None
-    chuva_pct_ow    = _lookup_bioma(trail, agora.month).get("chuva_pct", 1.0)
-
-    for dt_ts in sorted(entradas_por_dt):
-        entry  = entradas_por_dt[dt_ts]
-        r_raw  = (entry.get("rain") or {}).get("1h", 0.0) or 0.0
-        if r_raw <= 0.0:
-            continue
-        r           = r_raw * chuva_pct_ow
-        dt_entry    = datetime.fromtimestamp(dt_ts, tz=BRT)
-        horas_atras = max(0.0, (agora - dt_entry).total_seconds() / 3600)
-        precip_bruto_ow += r
-        peso             = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
-        precip_ef_ow    += r * peso
-        if r_raw >= 0.1 and (ultima_chuva_ow is None or horas_atras < ultima_chuva_ow):
-            ultima_chuva_ow = round(horas_atras, 1)
-
-    if precip_bruto_ow > 0:
-        print(f"  [OW precip] {trail['name']} — bruto={precip_bruto_ow:.1f}mm ef={precip_ef_ow:.2f}mm uc={ultima_chuva_ow}h")
-
     return {
         "bruto":            0.0,
         "efetivo":          0.0,
@@ -457,10 +435,6 @@ def fetch_onecall_historico(trail: dict) -> dict:
         "nublado_pct":      nublado_medio,
         "umidade_pct":      umidade_media,
         "vento_max_kmh_ow": vento_max_kmh_ow,
-        # Precipitação OW timemachine — complementa OM quando OM tem lag
-        "precip_bruto_ow":  round(precip_bruto_ow, 1),
-        "precip_ef_ow":     round(precip_ef_ow, 2),
-        "ultima_chuva_ow":  ultima_chuva_ow,
     }
 
 
@@ -552,6 +526,56 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         "efetivo":        round(efetivo, 1),
         "ultima_chuva_h": ultima_chuva_h,
     }
+
+
+def fetch_ow_day_summary(trail: dict) -> dict:
+    """
+    Precipitação diária via /data/3.0/onecall/day_summary (2 chamadas: hoje + ontem).
+    Mais confiável que timemachine para chuva total — retorna o dia inteiro em 1 chamada.
+    Retorna {"bruto_ow": mm_total, "hoje": mm_hoje, "ontem": mm_ontem}.
+    """
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OW_DAY_SUMMARY:
+        return _CACHE_OW_DAY_SUMMARY[lk]
+
+    if not OPENWEATHER_KEY:
+        return {"bruto_ow": 0.0, "hoje": 0.0, "ontem": 0.0}
+
+    agora  = datetime.now(BRT)
+    totais: dict[str, float] = {}
+
+    for delta in range(2):          # 0 = hoje, 1 = ontem
+        dia = (agora - timedelta(days=delta)).strftime("%Y-%m-%d")
+        url = (
+            f"https://api.openweathermap.org/data/3.0/onecall/day_summary"
+            f"?lat={trail['lat']}&lon={trail['lon']}&date={dia}"
+            f"&appid={OPENWEATHER_KEY}&units=metric"
+        )
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(url, timeout=20) as r:
+                    data = json.loads(r.read())
+                totais[dia] = float(data.get("precipitation", {}).get("total", 0.0) or 0.0)
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    totais[dia] = 0.0
+                    print(f"  [OW day_summary] Falha {dia} para {trail['name']}: {exc}")
+                else:
+                    time.sleep(2 ** attempt)
+
+    hoje_str  = agora.strftime("%Y-%m-%d")
+    ontem_str = (agora - timedelta(days=1)).strftime("%Y-%m-%d")
+    hoje_mm   = totais.get(hoje_str,  0.0)
+    ontem_mm  = totais.get(ontem_str, 0.0)
+    bruto_ow  = round(hoje_mm + ontem_mm, 1)
+
+    print(f"  [OW day_summary] {trail['name']}: hoje={hoje_mm:.1f}mm ontem={ontem_mm:.1f}mm → bruto={bruto_ow:.1f}mm")
+
+    resultado = {"bruto_ow": bruto_ow, "hoje": hoje_mm, "ontem": ontem_mm}
+    if lk:
+        _CACHE_OW_DAY_SUMMARY[lk] = resultado
+    return resultado
 
 
 def fetch_openmeteo(trail: dict) -> dict | None:
@@ -808,10 +832,11 @@ def resumo_openmeteo(data: dict) -> dict:
 _CACHE_SOLO: dict = {}
 _CACHE_TABELA_SOLO: list = []
 _CACHE_OW_ONECALL: dict = {}      # local_key → raw JSON forecast
-_CACHE_OW_TIMEMACHINE: dict = {}  # local_key → entradas_por_dt (3 chamadas timemachine)
-_CACHE_OM_FORECAST: dict = {}     # local_key → raw JSON forecast
-_CACHE_OM_CHUVA_RAW: dict = {}    # local_key → (times, precips)
-_CACHE_OM_VENTO_RAW: dict = {}    # local_key → (times, speeds, gusts)
+_CACHE_OW_TIMEMACHINE: dict = {}   # local_key → entradas_por_dt (3 chamadas timemachine)
+_CACHE_OW_DAY_SUMMARY: dict = {}   # local_key → {"bruto_ow", "hoje", "ontem"}
+_CACHE_OM_FORECAST: dict = {}      # local_key → raw JSON forecast
+_CACHE_OM_CHUVA_RAW: dict = {}     # local_key → (times, precips)
+_CACHE_OM_VENTO_RAW: dict = {}     # local_key → (times, speeds, gusts)
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
 _CACHE_CONFIG: dict = {}
@@ -2239,25 +2264,42 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         hist         = fetch_onecall_historico(trail)
         hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
 
-        # ── Blend OW timemachine + OM past_days ───────────────────────────
-        # OW: atualização ~1h (captura madrugada antes do NWP OM atualizar)
-        # OM: série horária completa (48 pontos), mais densa
-        # Estratégia: max(OW, OM) — conservador, nunca subestima chuva real
-        ow_bruto = hist.get("precip_bruto_ow", 0.0)
-        ow_ef    = hist.get("precip_ef_ow",    0.0)
-        ow_uc    = hist.get("ultima_chuva_ow")
+        # ── Blend OW day_summary + OM past_days ───────────────────────────────
+        # OW day_summary: total diário real (hoje + ontem), sem lag NWP
+        # OM past_days: série horária completa com decaimento exponencial por hora
+        # Fonte primária de efetivo = OM (granularidade horária)
+        # OW detecta lag: se OW > OM + 1mm, chuva não chegou ao OM ainda
+
+        day_sum  = fetch_ow_day_summary(trail)
+        bruto_ow_raw = day_sum["bruto_ow"]
+
+        # Aplicar chuva_pct (interceptação de dossel) ao OW — mesma escala do OM
+        mes_atual = datetime.now(BRT).month
+        chuva_pct_blend = _lookup_bioma(trail, mes_atual).get("chuva_pct", 1.0)
+        bruto_ow  = round(bruto_ow_raw * chuva_pct_blend, 1)
+
         om_bruto = hist_om["bruto"]
         om_ef    = hist_om["efetivo"]
         om_uc    = hist_om["ultima_chuva_h"]
 
-        acumulo_48h  = max(ow_bruto, om_bruto)
-        acumulo_ef   = max(ow_ef,    om_ef)
-        # ultima_chuva_h: menor valor = evento mais recente
-        _ucs         = [u for u in (ow_uc, om_uc) if u is not None]
-        ultima_chuva = min(_ucs) if _ucs else None
+        acumulo_48h = max(om_bruto, bruto_ow)
 
-        if ow_bruto > om_bruto * 1.2 and ow_bruto > 0.5:
-            print(f"  [chuva hist] OW={ow_bruto:.1f}mm > OM={om_bruto:.1f}mm — chuva recente capturada via timemachine")
+        LAG_THRESHOLD = 1.0   # mm de diferença para considerar lag do OM
+        lag_detectado = bruto_ow > om_bruto + LAG_THRESHOLD
+
+        if lag_detectado:
+            # Chuva vista pelo OW mas não pelo OM (lag NWP) — tratar como RECENTE
+            # Peso 0.9 = conservador: protege o rider de falso "solo seco"
+            acumulo_ef   = round(om_ef + (bruto_ow - om_bruto) * 0.9, 2)
+            print(f"  [chuva hist] lag OM detectado: OW={bruto_ow:.1f}mm OM={om_bruto:.1f}mm (chuva_pct={chuva_pct_blend:.2f}) → ef={acumulo_ef:.2f}mm")
+        else:
+            acumulo_ef = om_ef
+
+        if lag_detectado and om_uc is None:
+            ultima_chuva = 2.0
+            print(f"  [chuva hist] lag detectado e OM sem ultima_chuva — setando 2.0h (conservador)")
+        else:
+            ultima_chuva = om_uc
 
         # Passa vento sustentado já extraído do timemachine — elimina chamada OW redundante
         vento_hist   = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
@@ -2923,6 +2965,92 @@ def _disparar_workflows_notificacao() -> None:
             print(f"  [GitHub] Erro ao disparar {workflow}: {exc}")
 
 
+def prefetch_om_batch(trails: list) -> None:
+    """
+    Pré-busca dados Open-Meteo em BATCH para todos os grupos de clima antes do loop de trilhas.
+    Substitui 3×N chamadas individuais (forecast + chuva + vento) por 2 chamadas batch.
+    Popula _CACHE_OM_FORECAST, _CACHE_OM_CHUVA_RAW e _CACHE_OM_VENTO_RAW.
+    Se o batch falhar, os caches ficam vazios e as funções individuais rodam normalmente (fallback).
+    """
+    # Deduplica grupos por local_key (usa o primeiro trail do grupo como referência de coords)
+    grupos: dict[str, dict] = {}
+    for trail in trails:
+        lk = trail.get("local_key")
+        if lk and lk not in grupos:
+            grupos[lk] = trail
+
+    if not grupos:
+        return
+
+    keys  = list(grupos.keys())
+    n     = len(keys)
+    lat_s = ",".join(str(grupos[k]["lat"]) for k in keys)
+    lon_s = ",".join(str(grupos[k]["lon"]) for k in keys)
+
+    print(f"[OM batch] Pré-fetch de {n} grupo(s) de clima em 2 chamadas...")
+
+    def _parse(raw):
+        """Resposta com 1 coord = dict; com 2+ = lista. Normaliza para lista."""
+        return raw if isinstance(raw, list) else [raw]
+
+    # ── 1. Forecast (4 dias) — alimenta fetch_openmeteo ───────────────────────
+    url_fc = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat_s}&longitude={lon_s}"
+        "&hourly=precipitation,windspeed_10m,windgusts_10m,precipitation_probability,temperature_2m"
+        "&forecast_days=4&timezone=America%2FSao_Paulo"
+    )
+    try:
+        for attempt in range(3):
+            try:
+                with _om_urlopen(url_fc, timeout=120) as r:
+                    fc_items = _parse(json.loads(r.read()))
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    raise
+                wait = 5 * (attempt + 1)
+                print(f"  [OM batch forecast] Tentativa {attempt+1} falhou: {exc} — aguardando {wait}s")
+                time.sleep(wait)
+        for lk, item in zip(keys, fc_items):
+            _CACHE_OM_FORECAST[lk] = item
+        print(f"  [OM batch forecast] OK — {len(fc_items)} grupo(s) em cache")
+    except Exception as exc:
+        print(f"  [OM batch forecast] Falha: {exc} — chamadas individuais como fallback")
+
+    # ── 2. Histórico past_days=2 — alimenta fetch_historico_chuva_om + fetch_vento_historico
+    url_hist = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat_s}&longitude={lon_s}"
+        "&past_days=2&forecast_days=0"
+        "&hourly=precipitation,windspeed_10m,windgusts_10m"
+        "&timezone=America%2FSao_Paulo"
+    )
+    try:
+        for attempt in range(3):
+            try:
+                with _om_urlopen(url_hist, timeout=120) as r:
+                    hist_items = _parse(json.loads(r.read()))
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    raise
+                wait = 5 * (attempt + 1)
+                print(f"  [OM batch histórico] Tentativa {attempt+1} falhou: {exc} — aguardando {wait}s")
+                time.sleep(wait)
+        for lk, item in zip(keys, hist_items):
+            h = item.get("hourly", {})
+            times  = h.get("time", [])
+            precips = h.get("precipitation", [])
+            speeds  = h.get("windspeed_10m", [])
+            gusts   = h.get("windgusts_10m", [])
+            _CACHE_OM_CHUVA_RAW[lk] = (times, precips)
+            _CACHE_OM_VENTO_RAW[lk] = (times, speeds, gusts)
+        print(f"  [OM batch histórico] OK — {len(hist_items)} grupo(s) em cache (chuva + vento)")
+    except Exception as exc:
+        print(f"  [OM batch histórico] Falha: {exc} — chamadas individuais como fallback")
+
+
 def main() -> None:
     import sys
     global TRAILS
@@ -2995,6 +3123,8 @@ def main() -> None:
     if grupos:
         resumo = ", ".join(f"{k}({v})" for k, v in sorted(grupos.items()))
         print(f"[MTBForecaster] Grupos de clima: {resumo}" + (f" | {sem_grupo} sem grupo" if sem_grupo else ""))
+
+    prefetch_om_batch(TRAILS)
 
     print("[MTBForecaster] Buscando dados de solo via tabela mestra...")
     for trail in TRAILS:
