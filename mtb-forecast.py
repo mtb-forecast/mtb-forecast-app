@@ -386,8 +386,7 @@ def fetch_onecall_historico(trail: dict) -> dict:
         if lk:
             _CACHE_OW_TIMEMACHINE[lk] = entradas_por_dt
 
-    # Processar entradas deduplicadas — apenas clima (temp/vento/nuvens/umidade)
-    # Precipitação histórica vem exclusivamente de fetch_historico_chuva_om (Open-Meteo archive)
+    # Processar entradas deduplicadas — clima (temp/vento/nuvens/umidade) + precipitação OW
     for dt_ts in sorted(entradas_por_dt):
         entry    = entradas_por_dt[dt_ts]
         temp     = entry.get("temp")
@@ -423,7 +422,31 @@ def fetch_onecall_historico(trail: dict) -> dict:
         humidity_pct=umidade_media,
     )
 
-    # bruto, efetivo e ultima_chuva_h agora vêm de fetch_historico_chuva_om
+    # ── Precipitação OW timemachine (mais atual que OM past_days) ─────────────
+    # OM past_days usa NWP com lag de 6-12h; OW timemachine é atualizado a cada ~1h.
+    # Extrai rain.1h das entradas já cacheadas — zero custo extra de API.
+    precip_bruto_ow = 0.0
+    precip_ef_ow    = 0.0
+    ultima_chuva_ow = None
+    chuva_pct_ow    = _lookup_bioma(trail, agora.month).get("chuva_pct", 1.0)
+
+    for dt_ts in sorted(entradas_por_dt):
+        entry  = entradas_por_dt[dt_ts]
+        r_raw  = (entry.get("rain") or {}).get("1h", 0.0) or 0.0
+        if r_raw <= 0.0:
+            continue
+        r           = r_raw * chuva_pct_ow
+        dt_entry    = datetime.fromtimestamp(dt_ts, tz=BRT)
+        horas_atras = max(0.0, (agora - dt_entry).total_seconds() / 3600)
+        precip_bruto_ow += r
+        peso             = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
+        precip_ef_ow    += r * peso
+        if r_raw >= 0.1 and (ultima_chuva_ow is None or horas_atras < ultima_chuva_ow):
+            ultima_chuva_ow = round(horas_atras, 1)
+
+    if precip_bruto_ow > 0:
+        print(f"  [OW precip] {trail['name']} — bruto={precip_bruto_ow:.1f}mm ef={precip_ef_ow:.2f}mm uc={ultima_chuva_ow}h")
+
     return {
         "bruto":            0.0,
         "efetivo":          0.0,
@@ -434,6 +457,10 @@ def fetch_onecall_historico(trail: dict) -> dict:
         "nublado_pct":      nublado_medio,
         "umidade_pct":      umidade_media,
         "vento_max_kmh_ow": vento_max_kmh_ow,
+        # Precipitação OW timemachine — complementa OM quando OM tem lag
+        "precip_bruto_ow":  round(precip_bruto_ow, 1),
+        "precip_ef_ow":     round(precip_ef_ow, 2),
+        "ultima_chuva_ow":  ultima_chuva_ow,
     }
 
 
@@ -468,9 +495,30 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
             except Exception as exc:
                 if attempt == 2:
                     print(f"  [OM hist] Falha após 3 tentativas: {exc}")
+                    # Fallback: reusar registro anterior do Supabase com decaimento
+                    fallback = _buscar_ultima_condicao_supabase(trail)
+                    if fallback:
+                        ef_prev   = float(fallback.get("acumulo_ef")   or 0.0)
+                        b48_prev  = float(fallback.get("acumulo_48h")  or 0.0)
+                        uc_prev   = fallback.get("ultima_chuva_h")
+                        ref_str   = fallback.get("historico_atualizado_em") or fallback.get("gerado_em")
+                        horas_delta = 0.0
+                        if ref_str:
+                            try:
+                                ref_dt = datetime.fromisoformat(ref_str)
+                                if ref_dt.tzinfo is None:
+                                    ref_dt = ref_dt.replace(tzinfo=BRT)
+                                horas_delta = max(0.0, (datetime.now(BRT) - ref_dt).total_seconds() / 3600)
+                            except Exception:
+                                pass
+                        new_ef = round(ef_prev * (0.5 ** (horas_delta / meia_vida)), 2) if meia_vida > 0 else 0.0
+                        uc_adj = round(uc_prev + horas_delta, 1) if uc_prev is not None else None
+                        print(f"  [OM hist] ⚠️  fallback Supabase: ef {ef_prev:.1f}→{new_ef:.1f}mm (Δ{horas_delta:.0f}h) — veredicto conservador")
+                        return {"bruto": b48_prev, "efetivo": new_ef, "ultima_chuva_h": uc_adj}
+                    print(f"  [OM hist] ⚠️  sem fallback disponível — usando 0mm (veredicto pode ser otimista)")
                     return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
-                print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando...")
-                time.sleep(2 ** attempt)
+                print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando em 5s...")
+                time.sleep(5)
         times   = data.get("hourly", {}).get("time", [])
         precips = data.get("hourly", {}).get("precipitation", [])
         if lk:
@@ -2192,9 +2240,27 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             print(f"  [zero-rain] {trail['name']} — sem histórico, pipeline completo (baseline)")
         hist         = fetch_onecall_historico(trail)
         hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
-        acumulo_48h  = hist_om["bruto"]
-        acumulo_ef   = hist_om["efetivo"]
-        ultima_chuva = hist_om["ultima_chuva_h"]
+
+        # ── Blend OW timemachine + OM past_days ───────────────────────────
+        # OW: atualização ~1h (captura madrugada antes do NWP OM atualizar)
+        # OM: série horária completa (48 pontos), mais densa
+        # Estratégia: max(OW, OM) — conservador, nunca subestima chuva real
+        ow_bruto = hist.get("precip_bruto_ow", 0.0)
+        ow_ef    = hist.get("precip_ef_ow",    0.0)
+        ow_uc    = hist.get("ultima_chuva_ow")
+        om_bruto = hist_om["bruto"]
+        om_ef    = hist_om["efetivo"]
+        om_uc    = hist_om["ultima_chuva_h"]
+
+        acumulo_48h  = max(ow_bruto, om_bruto)
+        acumulo_ef   = max(ow_ef,    om_ef)
+        # ultima_chuva_h: menor valor = evento mais recente
+        _ucs         = [u for u in (ow_uc, om_uc) if u is not None]
+        ultima_chuva = min(_ucs) if _ucs else None
+
+        if ow_bruto > om_bruto * 1.2 and ow_bruto > 0.5:
+            print(f"  [chuva hist] OW={ow_bruto:.1f}mm > OM={om_bruto:.1f}mm — chuva recente capturada via timemachine")
+
         # Passa vento sustentado já extraído do timemachine — elimina chamada OW redundante
         vento_hist   = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
 
