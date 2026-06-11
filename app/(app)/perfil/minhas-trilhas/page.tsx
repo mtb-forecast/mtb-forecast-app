@@ -89,32 +89,45 @@ export default function MinhasTrilhasPage() {
       // IDs já em trilhas_pendentes — não duplicar
       const pendentesIds = new Set((mtb || []).map((t: { id: string }) => t.id))
 
-      type Loc = { estado: string; cidade: string | null } | null
+      type LocRaw = { estado: string; cidade: string | null }
+      // Supabase pode retornar o join como objeto OU array dependendo da versão
+      function resolveLoc(raw: unknown): LocRaw | null {
+        if (!raw) return null
+        if (Array.isArray(raw)) return (raw as LocRaw[])[0] ?? null
+        return raw as LocRaw
+      }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mtbItems: TrilhaMTB[] = [
-        ...(mtb || []).map((t: { id: string; name: string; regiao: string; status: string; motivo_rejeicao?: string | null; created_at: string; localidade: Loc }) => ({
-          kind: 'mtb' as const,
-          id: t.id,
-          name: t.name,
-          regiao: t.localidade?.estado || t.regiao || '',
-          cidade: t.localidade?.cidade || null,
-          status: t.status,
-          motivo_rejeicao: t.motivo_rejeicao,
-          created_at: t.created_at,
-          source: 'pendentes' as const,
-        })),
-        ...(catalogo || [])
-          .filter((t: { id: string }) => !pendentesIds.has(t.id))
-          .map((t: { id: string; name: string; regiao: string; created_at: string; localidade: Loc }) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(mtb || []).map((t: any) => {
+          const loc = resolveLoc(t.localidade)
+          return {
             kind: 'mtb' as const,
-            id: t.id,
-            name: t.name,
-            regiao: t.localidade?.estado || t.regiao || '',
-            cidade: t.localidade?.cidade || null,
+            id: t.id as string,
+            name: t.name as string,
+            regiao: loc?.estado || (t.regiao as string) || '',
+            cidade: loc?.cidade ?? null,
+            status: t.status as string,
+            motivo_rejeicao: t.motivo_rejeicao as string | null | undefined,
+            created_at: t.created_at as string,
+            source: 'pendentes' as const,
+          }
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(catalogo || []).filter((t: any) => !pendentesIds.has(t.id)).map((t: any) => {
+          const loc = resolveLoc(t.localidade)
+          return {
+            kind: 'mtb' as const,
+            id: t.id as string,
+            name: t.name as string,
+            regiao: loc?.estado || (t.regiao as string) || '',
+            cidade: loc?.cidade ?? null,
             status: 'aprovada',
-            created_at: t.created_at,
+            created_at: t.created_at as string,
             source: 'catalogo' as const,
-          })),
+          }
+        }),
       ]
 
       const ptItems: PumpTrack[] = (pt || []).map((p: { id: string; nome: string; uf: string | null; cidade: string | null; status_validacao: string | null; created_at: string }) => ({
