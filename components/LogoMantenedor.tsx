@@ -19,13 +19,19 @@ export function LogoMantenedor({ mantenedor, contexto }: Props) {
   )
 
   const logo = mantenedor.logo_url ? (
-    <Image
-      src={mantenedor.logo_url}
-      alt={mantenedor.nome}
-      height={contexto === 'card' ? 16 : 18}
-      width={contexto === 'card' ? 80 : 90}
-      style={{ objectFit: 'contain', objectPosition: 'left center' }}
-    />
+    <div style={{
+      position: 'relative',
+      width: contexto === 'card' ? 100 : 120,
+      height: contexto === 'card' ? 16 : 20,
+      flexShrink: 0,
+    }}>
+      <Image
+        src={mantenedor.logo_url}
+        alt={mantenedor.nome}
+        fill
+        style={{ objectFit: 'contain', objectPosition: 'left center' }}
+      />
+    </div>
   ) : (
     <span style={{
       fontSize: contexto === 'card' ? 10 : 11,
