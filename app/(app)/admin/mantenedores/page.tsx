@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -262,6 +262,28 @@ export default function MantenedoresAdminPage() {
 type FormState = { nome: string; logo_url: string; site_url: string; ativo: boolean }
 
 function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: FormState) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const [uploadErr, setUploadErr] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadErr(null)
+    const fd = new FormData()
+    fd.append('file', file)
+    const res  = await fetch('/api/admin/upload-logo', { method: 'POST', body: fd })
+    const json = await res.json()
+    setUploading(false)
+    if (res.ok) {
+      onChange({ ...form, logo_url: json.url })
+    } else {
+      setUploadErr(json.error ?? 'Erro no upload')
+    }
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
   const inputS: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box',
     background: '#fff', border: '1.5px solid #e5e5e5',
@@ -281,12 +303,52 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
           placeholder="Ex: Parque Estadual da Serra do Mar" />
       </div>
       <div>
-        {label('Logo URL')}
-        <input style={inputS} value={form.logo_url} onChange={e => onChange({ ...form, logo_url: e.target.value })}
-          placeholder="https://..." type="url" />
-        {form.logo_url && (
-          <div style={{ marginTop: 8, background: '#1e2018', borderRadius: 6, padding: '6px 10px', display: 'inline-flex', alignItems: 'center' }}>
-            <Image src={form.logo_url} alt="preview" width={80} height={20} style={{ objectFit: 'contain' }} />
+        {label('Logo')}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          style={{ display: 'none' }}
+          onChange={handleFile}
+        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            style={{ ...inputS, flex: 1 }}
+            value={form.logo_url}
+            onChange={e => onChange({ ...form, logo_url: e.target.value })}
+            placeholder="https://... ou use o botão para fazer upload"
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            style={{
+              flexShrink: 0, padding: '10px 16px', borderRadius: 8,
+              background: uploading ? '#e5e7eb' : '#f4f5f0',
+              border: '1.5px solid #e5e5e5',
+              color: uploading ? '#9ca3af' : '#2a2e25',
+              fontSize: 13, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {uploading ? 'Enviando…' : 'Fazer upload'}
+          </button>
+        </div>
+        {uploadErr && (
+          <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{uploadErr}</p>
+        )}
+        {form.logo_url && !uploading && (
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ background: '#1e2018', borderRadius: 6, padding: '6px 10px', display: 'inline-flex', alignItems: 'center' }}>
+              <Image src={form.logo_url} alt="preview" width={80} height={20} style={{ objectFit: 'contain' }} />
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange({ ...form, logo_url: '' })}
+              style={{ fontSize: 12, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              Remover
+            </button>
           </div>
         )}
       </div>
