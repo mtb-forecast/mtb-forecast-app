@@ -78,9 +78,11 @@ export default function EditarAprovadaPage() {
   const [soloType, setSoloType]   = useState('')
   const [exposicao, setExposicao] = useState('')
   const [trailType, setTrailType] = useState('')
-  const [bioma, setBioma]         = useState('')
-  const [desnivel, setDesnivel]   = useState('')
-  const [extensao, setExtensao]   = useState('')
+  const [bioma, setBioma]               = useState('')
+  const [desnivel, setDesnivel]         = useState('')
+  const [extensao, setExtensao]         = useState('')
+  const [mantenedorId, setMantenedorId] = useState<string>('')
+  const [mantenedores, setMantenedores] = useState<{ id: string; nome: string }[]>([])
 
   // Geocoding
   const [geoResult, setGeoResult]   = useState<GeoResult | null>(null)
@@ -100,9 +102,17 @@ export default function EditarAprovadaPage() {
       const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
 
-      const [{ data: t }, sts, bio, exp, tty] = await Promise.all([
-        supabase.from('trilhas').select('*').eq('id', id).eq('created_by', user.id).maybeSingle(),
+      const { data: profile } = await supabase
+        .from('profiles').select('is_admin').eq('id', user.id).single()
+      const isAdmin = !!profile?.is_admin
+
+      let trilhaQuery = supabase.from('trilhas').select('*').eq('id', id)
+      if (!isAdmin) trilhaQuery = trilhaQuery.eq('created_by', user.id)
+
+      const [{ data: t }, sts, bio, exp, tty, { data: mants }] = await Promise.all([
+        trilhaQuery.maybeSingle(),
         getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes(),
+        supabase.from('mantenedores').select('id, nome').eq('ativo', true).order('nome'),
       ])
 
       if (!t) { setNotFound(true); setLoading(false); return }
@@ -118,6 +128,8 @@ export default function EditarAprovadaPage() {
       setBioma(t.bioma || '')
       setDesnivel(t.desnivel_m ? String(t.desnivel_m) : '')
       setExtensao(t.extensao_km ? String(t.extensao_km) : '')
+      setMantenedorId(t.mantenedor_id || '')
+      setMantenedores((mants as { id: string; nome: string }[]) ?? [])
 
       setSoloTypes(sts)
       setBiomas(bio)
@@ -205,6 +217,7 @@ export default function EditarAprovadaPage() {
       bioma: bioma || null,
       desnivel_m: desnivel ? parseFloat(desnivel) : null,
       extensao_km: extensao ? parseFloat(extensao) : null,
+      mantenedor_id: mantenedorId || null,
       ...(localidadeId ? { localidade_id: localidadeId } : {}),
     }).eq('id', id)
 
@@ -364,6 +377,14 @@ export default function EditarAprovadaPage() {
                 {biomas.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </Field>
+            {mantenedores.length > 0 && (
+              <Field label="Mantenedor">
+                <select value={mantenedorId} onChange={e => setMantenedorId(e.target.value)} style={selectStyle}>
+                  <option value="">Nenhum</option>
+                  {mantenedores.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+              </Field>
+            )}
           </SectionCard>
 
           {/* ── Métricas ── */}
