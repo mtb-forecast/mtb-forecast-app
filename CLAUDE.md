@@ -34,10 +34,11 @@ Histórico de chuva divergia da realidade. Causa raiz tripla, confirmada em log 
 ### Regras invioláveis
 - NUNCA reintroduzir timemachine como fonte de precipitação.
 - NUNCA comparar acumulados de fontes sem normalizar `chuva_pct` em ambas.
-- O zero-rain shortcircuit está DESATIVADO (comentado). Se for reativado um dia,
-  exigir condição extra: verificar a chuva PREVISTA na execução anterior para a
-  janela que passou — senão chuva de madrugada com céu limpo de manhã escapa do
-  modelo (forecast=0 pulava todo o pipeline histórico).
+- O zero-rain shortcircuit foi REMOVIDO em jun/2026 (ver git history).
+  Não recriar otimizações que pulem o histórico com base em forecast=0 —
+  forecast zero não prova ausência de chuva passada. Com o batch OM a economia
+  de chamadas é irrelevante. Se quota de API um dia exigir cortes, a condição
+  segura olha o day_summary GRAVADO da execução anterior, nunca o forecast.
 - `precipitation` (= rain + showers + snow) é o campo canônico no OM; nunca usar
   só `rain` (perde pancadas convectivas) nem somar rain + precipitation (dupla
   contagem).
