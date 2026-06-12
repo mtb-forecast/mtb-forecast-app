@@ -626,6 +626,16 @@ def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
     if humidity_pct is not None:
         _aplicar(humidity_pct, "umidade")
 
+    # Combo garoa: umidade alta + nebulosidade alta simultaneamente
+    # Captura dias frios/nublados com garoa persistente que não acumulam mm significativos
+    if humidity_pct is not None and humidity_pct >= 85 and cloud_pct is not None and cloud_pct >= 70:
+        combo_garoa = next(
+            (r["multiplicador"] for r in registros if r["variavel"] == "umidade_nebulosidade_combo"),
+            None,
+        )
+        if combo_garoa is not None:
+            meia_vida *= combo_garoa
+
     # FIX #5: exposicao removida daqui — já está na tabela meia_vida_secagem (Supabase)
     # Manter aqui causava double counting (terra fechada=36h já embute o efeito)
 
