@@ -1,21 +1,29 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
-import type { Trilha } from '@/lib/types'
+import { createClient } from '@supabase/supabase-js'
+
+// Página pública — sem cookies, sem auth → pode ser cacheada via ISR
+export const revalidate = 3600
+
+function createAnonClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 
 export default async function TrilhaPreviewPage({ params }: { params: { id: string } }) {
-  const sb = createSupabaseServerClient()
+  const sb = createAnonClient()
   const { data } = await sb
     .from('trilhas')
-    .select('*')
+    .select('id, name, trail_type, regiao, bioma, lat, lon, desnivel_m, extensao_km, solo_type')
     .eq('id', params.id)
     .maybeSingle()
 
   if (!data) notFound()
 
-  const trilha = data as Trilha
-  const mapsUrl = `https://www.google.com/maps?q=${trilha.lat},${trilha.lon}`
-  const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
+  const mapsUrl = `https://www.google.com/maps?q=${data.lat},${data.lon}`
+  const isQuadrilatero = data.solo_type === 'ferro' || data.solo_type === 'misto_mg'
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
@@ -40,24 +48,24 @@ export default async function TrilhaPreviewPage({ params }: { params: { id: stri
       <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* Conteúdo */}
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 32px 48px' }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 28px 48px' }}>
 
         {/* Header da trilha */}
         <div style={{ background: '#2a2e25', borderRadius: 8, padding: '24px 28px', marginBottom: 16 }}>
           <h1 className="font-wheat" style={{ color: '#fff', fontSize: 24, lineHeight: 1.2, marginBottom: 12 }}>
-            {trilha.name}
+            {data.name}
           </h1>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
             <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
-              {trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
+              {data.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
             </span>
             <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
-              {trilha.regiao}
+              {data.regiao}
             </span>
-            {trilha.bioma && (
+            {data.bioma && (
               <span style={{ fontSize: 11, color: '#888', background: 'rgba(255,255,255,0.08)', border: '0.5px solid #333', borderRadius: 2, padding: '2px 6px' }}>
-                {trilha.bioma}
+                {data.bioma}
               </span>
             )}
             {isQuadrilatero && (
@@ -67,13 +75,13 @@ export default async function TrilhaPreviewPage({ params }: { params: { id: stri
             )}
           </div>
 
-          {(trilha.desnivel_m != null || trilha.extensao_km != null) && (
+          {(data.desnivel_m != null || data.extensao_km != null) && (
             <div style={{ fontSize: 12, color: '#888', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {trilha.desnivel_m != null && (
-                <span>⛰ <b style={{ color: '#ccc' }}>{trilha.desnivel_m}m</b> desnível</span>
+              {data.desnivel_m != null && (
+                <span>⛰ <b style={{ color: '#ccc' }}>{data.desnivel_m}m</b> desnível</span>
               )}
-              {trilha.extensao_km != null && (
-                <span>📏 <b style={{ color: '#ccc' }}>{trilha.extensao_km}km</b></span>
+              {data.extensao_km != null && (
+                <span>📏 <b style={{ color: '#ccc' }}>{data.extensao_km}km</b></span>
               )}
             </div>
           )}
@@ -82,7 +90,7 @@ export default async function TrilhaPreviewPage({ params }: { params: { id: stri
         {/* Mapa */}
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
           <iframe
-            src={`https://maps.google.com/maps?q=${trilha.lat},${trilha.lon}&z=15&output=embed&t=k`}
+            src={`https://maps.google.com/maps?q=${data.lat},${data.lon}&z=15&output=embed&t=k`}
             width="100%"
             height="220"
             style={{ border: 'none', display: 'block' }}
