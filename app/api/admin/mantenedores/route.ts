@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
 
   const body = await req.json()
-  const { nome, nome_primario, nome_secundario, cor_primaria, cor_secundaria, icone, logo_url, site_url, ativo } = body
+  const { nome, nome_primario, nome_secundario, cor_primaria, cor_secundaria, logo_url, site_url, ativo } = body
   if (!nome?.trim()) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 })
 
   const { data, error } = await serviceClient()
@@ -50,7 +50,6 @@ export async function POST(req: NextRequest) {
       nome_secundario: nome_secundario?.trim() || null,
       cor_primaria: cor_primaria || '#ffffff',
       cor_secundaria: cor_secundaria || null,
-      icone: icone || null,
       logo_url: logo_url || null,
       site_url: site_url || null,
       ativo: ativo ?? true,
@@ -68,7 +67,7 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 403 })
 
   const body = await req.json()
-  const { id, nome, nome_primario, nome_secundario, cor_primaria, cor_secundaria, icone, logo_url, site_url, ativo } = body
+  const { id, nome, nome_primario, nome_secundario, cor_primaria, cor_secundaria, logo_url, site_url, ativo } = body
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 })
   if (!nome?.trim()) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 })
 
@@ -80,7 +79,6 @@ export async function PATCH(req: NextRequest) {
       nome_secundario: nome_secundario?.trim() || null,
       cor_primaria: cor_primaria || '#ffffff',
       cor_secundaria: cor_secundaria || null,
-      icone: icone || null,
       logo_url: logo_url || null,
       site_url: site_url || null,
       ativo: ativo ?? true,

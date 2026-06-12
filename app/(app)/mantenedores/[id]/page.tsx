@@ -29,7 +29,7 @@ export default async function MantenedorPage({ params }: { params: { id: string 
   const [{ data: mantenedor }, { data: trilhasRaw }] = await Promise.all([
     supabase
       .from('mantenedores')
-      .select('id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,icone,logo_url,site_url,ativo')
+      .select('id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url,ativo')
       .eq('id', params.id)
       .eq('ativo', true)
       .single(),
@@ -38,7 +38,7 @@ export default async function MantenedorPage({ params }: { params: { id: string 
       .select(`
         id, name, bioma, trail_type, regiao,
         localidades(cidade, estado, localidade),
-        mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,icone,logo_url,site_url),
+        mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
         condicoes(
           veredicto, veredicto_12h,
           aderencia_status, aderencia_futura_status, aderencia_futura_label,

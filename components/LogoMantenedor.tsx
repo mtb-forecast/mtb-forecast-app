@@ -1,5 +1,3 @@
-import { resolverIcone } from '@/lib/mantenedor-icones'
-
 type Props = {
   mantenedor: {
     nome: string
@@ -7,7 +5,6 @@ type Props = {
     nome_secundario: string | null
     cor_primaria: string
     cor_secundaria: string | null
-    icone: string | null
     site_url?: string | null
   }
   contexto: 'card' | 'pagina'
@@ -15,11 +12,8 @@ type Props = {
 
 export function LogoMantenedor({ mantenedor, contexto }: Props) {
   const isCard    = contexto === 'card'
-  const iconSize  = isCard ? 12 : 16
-  const corIcone  = mantenedor.cor_secundaria ?? mantenedor.cor_primaria
   const primario  = mantenedor.nome_primario ?? mantenedor.nome
   const secundario = mantenedor.nome_secundario
-  const iconeEl   = resolverIcone(mantenedor.icone, corIcone, iconSize)
 
   const label = (
     <span style={{
@@ -38,7 +32,6 @@ export function LogoMantenedor({ mantenedor, contexto }: Props) {
       display: 'inline-flex', alignItems: 'center',
       gap: isCard ? 4 : 6,
     }}>
-      {iconeEl}
       <span style={{
         fontSize: isCard ? 9 : 10,
         fontWeight: 700,

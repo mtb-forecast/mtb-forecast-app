@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
-import { resolverIcone } from '@/lib/mantenedor-icones'
 import TrilhaCard from '@/components/TrilhaCard'
 import type { Mantenedor, TrilhaComCondicao } from '@/lib/types'
 
@@ -38,8 +37,6 @@ export default function MantenedorContent({ mantenedor, trilhas }: Props) {
 
   const primario   = mantenedor.nome_primario ?? mantenedor.nome
   const secundario = mantenedor.nome_secundario
-  const corIcone   = mantenedor.cor_secundaria ?? mantenedor.cor_primaria
-  const iconeEl    = resolverIcone(mantenedor.icone, corIcone, 28)
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
@@ -52,17 +49,15 @@ export default function MantenedorContent({ mantenedor, trilhas }: Props) {
             ← Trilhas
           </Link>
 
-          {/* Logo ou ícone SVG à esquerda do nome */}
+          {/* Logo à esquerda do nome */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
-            {mantenedor.logo_url ? (
+            {mantenedor.logo_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={mantenedor.logo_url}
                 alt={mantenedor.nome}
                 style={{ height: 48, maxWidth: 140, objectFit: 'contain', display: 'block' }}
               />
-            ) : (
-              iconeEl
             )}
             <span style={{ fontSize: 30, fontWeight: 800, color: mantenedor.cor_primaria, letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: 1 }}>
               {primario}

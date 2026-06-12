@@ -14,7 +14,6 @@ export type Mantenedor = {
   nome_secundario: string | null
   cor_primaria: string
   cor_secundaria: string | null
-  icone: string | null
   logo_url: string | null
   site_url: string | null
   ativo: boolean

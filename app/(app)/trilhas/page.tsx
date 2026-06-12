@@ -69,7 +69,7 @@ function TrilhasContent() {
               .select(`
                 id, name, bioma, trail_type, regiao,
                 localidades(cidade, estado, localidade),
-                mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,icone,logo_url,site_url),
+                mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
                 condicoes(
                   veredicto, veredicto_12h,
                   aderencia_status, aderencia_futura_status, aderencia_futura_label,
