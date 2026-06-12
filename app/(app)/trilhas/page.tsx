@@ -302,26 +302,6 @@ function TrilhasContent() {
           style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
         >
 
-          {/* Select 1 — Estado */}
-          <div style={{ position: 'relative', flexShrink: 0 }}>
-            <select
-              value={estadoSelecionado}
-              onChange={e => handleEstadoChange(e.target.value)}
-              className="trilhas-select"
-              style={{
-                ...fieldBase,
-                appearance: 'none', WebkitAppearance: 'none',
-                padding: '10px 40px 10px 14px',
-                color: estadoSelecionado ? '#2a2e25' : '#9CA3AF',
-                cursor: 'pointer', width: 200,
-              }}
-            >
-              <option value="">Estado</option>
-              {estados.map(e => <option key={e} value={e}>{e}</option>)}
-            </select>
-            <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
-          </div>
-
           {/* Select — Mantenedor / Bike Park */}
           {mantenedoresList.length > 0 && (
             <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -346,6 +326,26 @@ function TrilhasContent() {
               <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
             </div>
           )}
+
+          {/* Select 1 — Estado */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <select
+              value={estadoSelecionado}
+              onChange={e => handleEstadoChange(e.target.value)}
+              className="trilhas-select"
+              style={{
+                ...fieldBase,
+                appearance: 'none', WebkitAppearance: 'none',
+                padding: '10px 40px 10px 14px',
+                color: estadoSelecionado ? '#2a2e25' : '#9CA3AF',
+                cursor: 'pointer', width: 200,
+              }}
+            >
+              <option value="">Estado</option>
+              {estados.map(e => <option key={e} value={e}>{e}</option>)}
+            </select>
+            <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+          </div>
 
           {/* Select 2 — Cidade */}
           {estadoSelecionado && cidades.length > 0 && (
