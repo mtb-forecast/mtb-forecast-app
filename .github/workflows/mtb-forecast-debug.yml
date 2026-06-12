@@ -3,12 +3,30 @@ name: Agent MTB Forecaster — Debug Trilhas
 on:
   workflow_dispatch:
     inputs:
-      trilhas:
-        description: "Nomes das trilhas separados por vírgula"
+      estado:
+        description: "Estado (filtra primeiro)"
         required: false
-        default: "Reserva Natural Park - Sao Paulo - SP,Downhill Saracura - Mairipora - SP,DH42 - Mairipora - SP"
+        default: "TODOS"
+        type: choice
+        options:
+          - TODOS
+          - ES
+          - MG
+          - PR
+          - RJ
+          - RS
+          - SC
+          - SP
+      cidade:
+        description: "Cidade — busca parcial, ex: mairipora, florianopolis (vazio = todas)"
+        required: false
+        default: ""
+      trilha:
+        description: "Nome da trilha — busca parcial, ex: reserva, dh42 (vazio = todas da cidade/estado)"
+        required: false
+        default: ""
       debug_model:
-        description: "Ativar DEBUG_MODEL (imprime detalhes do modelo de solo)"
+        description: "Ativar DEBUG_MODEL"
         required: false
         default: "true"
         type: choice
@@ -22,16 +40,19 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      # GH_DISPATCH_TOKEN, TELEGRAM_BOT_TOKEN e SEND_EMAIL_SECRET ausentes
+      # intencionalmente — nenhuma notificação será disparada
       OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
       SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
       SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-      TELEGRAM_BOT_TOKEN:        ${{ secrets.TELEGRAM_BOT_TOKEN }}
       WEATHERAPI_KEY:            ${{ secrets.WEATHERAPI_KEY }}
       WINDY_API_KEY:             ${{ secrets.WINDY_API_KEY }}
       DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
-      TRILHAS_DEBUG:             ${{ github.event.inputs.trilhas }}
+      MTB_ESTADO:                ${{ github.event.inputs.estado == 'TODOS' && '' || github.event.inputs.estado }}
+      CIDADE_DEBUG:              ${{ github.event.inputs.cidade }}
+      TRILHA_DEBUG:              ${{ github.event.inputs.trilha }}
 
     steps:
       - uses: actions/checkout@v4
