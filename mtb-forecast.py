@@ -3245,13 +3245,21 @@ def main() -> None:
         TRAILS = [t for t in TRAILS if (t.get("regiao") or "").upper() == estado_filtro]
         print(f"[MTBForecaster] Filtro de estado: {estado_filtro} → {len(TRAILS)}/{antes} trilha(s)")
 
-    # 5b. Filtra por nome se TRILHAS_DEBUG estiver definido (debug de trilhas específicas)
-    trilhas_debug_env = os.getenv("TRILHAS_DEBUG", "").strip()
-    if trilhas_debug_env:
-        nomes_debug = {n.strip() for n in trilhas_debug_env.split(",")}
+    # 5b. Filtros de debug — CIDADE_DEBUG e TRILHA_DEBUG (busca parcial, case-insensitive)
+    cidade_debug = os.getenv("CIDADE_DEBUG", "").strip().lower()
+    if cidade_debug:
         antes = len(TRAILS)
-        TRAILS = [t for t in TRAILS if t["name"] in nomes_debug]
-        print(f"[MTBForecaster] Filtro DEBUG: {len(TRAILS)}/{antes} trilha(s) → {[t['name'] for t in TRAILS]}")
+        TRAILS = [
+            t for t in TRAILS
+            if cidade_debug in (((t.get("localidades") or {}).get("cidade") or "") + " " + t["name"]).lower()
+        ]
+        print(f"[MTBForecaster] Filtro cidade '{cidade_debug}': {len(TRAILS)}/{antes} → {[t['name'] for t in TRAILS]}")
+
+    trilha_debug = os.getenv("TRILHA_DEBUG", "").strip().lower()
+    if trilha_debug:
+        antes = len(TRAILS)
+        TRAILS = [t for t in TRAILS if trilha_debug in t["name"].lower()]
+        print(f"[MTBForecaster] Filtro trilha '{trilha_debug}': {len(TRAILS)}/{antes} → {[t['name'] for t in TRAILS]}")
 
     print("[MTBForecaster] Carregando configurações do Supabase...")
     _carregar_configuracoes()
