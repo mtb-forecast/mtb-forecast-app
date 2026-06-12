@@ -86,3 +86,13 @@ input, select, textarea, button { font-family: inherit; }
 @media (max-width: 640px) {
   .page-header-inner { padding-left: 16px !important; padding-right: 16px !important; }
 }
+
+/* Spinner global — evita @keyframes inline em múltiplos componentes */
+@keyframes spin { to { transform: rotate(360deg) } }
+.spin-indicator {
+  width: 28px; height: 28px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #6d745f;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}

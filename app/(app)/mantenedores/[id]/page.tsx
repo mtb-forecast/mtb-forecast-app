@@ -4,6 +4,9 @@ import type { Metadata } from 'next'
 import type { Mantenedor, TrilhaComCondicao } from '@/lib/types'
 import MantenedorContent from './MantenedorContent'
 
+// Conteúdo muda quando admin edita trilhas — sem cache para garantir dados frescos
+export const dynamic = 'force-dynamic'
+
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
