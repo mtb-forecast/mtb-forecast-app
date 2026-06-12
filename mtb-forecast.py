@@ -113,6 +113,7 @@ OPENWEATHER_KEY  = os.getenv("OPENWEATHER_API_KEY")
 ANTHROPIC_KEY    = os.getenv("ANTHROPIC_API_KEY")
 DEBUG_MODEL      = os.getenv("DEBUG_MODEL", "false").lower() == "true"
 WEATHERAPI_KEY   = os.getenv("WEATHERAPI_KEY", "")
+WINDY_API_KEY    = os.getenv("WINDY_API_KEY", "")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
@@ -333,6 +334,88 @@ def _fetch_weatherapi_precip_dia(trail: dict, date_str: str) -> float:
                 return 0.0
             time.sleep(2 ** attempt)
     return 0.0
+
+
+# ---------------------------------------------------------------------------
+# Windy Point Forecast API — fallback 4 (500 chamadas/dia, modelo GFS)
+# POST https://api.windy.com/api/point-forecast/v2
+# Temperatura retornada em Kelvin; precipitação em acumulado 3h (mm).
+# ---------------------------------------------------------------------------
+
+def _fetch_windy_forecast(trail: dict) -> dict | None:
+    """Busca Windy Point Forecast (GFS) e retorna dict no formato de resumo_openmeteo."""
+    if not WINDY_API_KEY:
+        return None
+    url     = "https://api.windy.com/api/point-forecast/v2"
+    payload = json.dumps({
+        "lat":        trail["lat"],
+        "lon":        trail["lon"],
+        "model":      "gfs",
+        "parameters": ["wind", "windGust", "temp", "past3hprecip"],
+        "levels":     ["surface"],
+        "key":        WINDY_API_KEY,
+    }).encode("utf-8")
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(
+                url, data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=20) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            break
+        except Exception as exc:
+            if attempt == 2:
+                print(f"  [Windy] Falha para {trail['name']}: {exc}")
+                return None
+            time.sleep(2 ** attempt)
+
+    agora_ms  = datetime.now(BRT).timestamp() * 1000
+    limite_ms = agora_ms + 48 * 3600 * 1000
+
+    ts         = data.get("ts", [])
+    precip_raw = data.get("past3hprecip-surface", [])
+    wu_raw     = data.get("wind_u-surface", [])
+    wv_raw     = data.get("wind_v-surface", [])
+    gust_raw   = data.get("windGust-surface", [])
+    temp_raw   = data.get("temp-surface", [])  # Kelvin
+
+    precip_48, wind_48, gust_48, temp_24 = [], [], [], []
+    for i, t_ms in enumerate(ts):
+        if t_ms < agora_ms or t_ms > limite_ms:
+            continue
+        p  = float(precip_raw[i]) if i < len(precip_raw) else 0.0
+        wu = float(wu_raw[i])     if i < len(wu_raw)     else 0.0
+        wv = float(wv_raw[i])     if i < len(wv_raw)     else 0.0
+        g  = float(gust_raw[i])   if i < len(gust_raw)   else 0.0
+        tk = float(temp_raw[i])   if i < len(temp_raw)   else 298.15
+        precip_48.append(max(p, 0.0))
+        wind_48.append((wu ** 2 + wv ** 2) ** 0.5)
+        gust_48.append(g)
+        if len(temp_24) < 8:          # 8 × 3h = 24h
+            temp_24.append(tk - 273.15)
+
+    if not precip_48:
+        return None
+
+    # past3hprecip já é acumulado por intervalo → pico_3h = max direto
+    rain_mm = round(sum(precip_48[:8]), 1)   # 24h
+    pico_3h = round(max(precip_48, default=0.0), 1)
+    wind_max = round(max(wind_48, default=0.0), 1)
+    gust_max = round(max(gust_48, default=0.0), 1)
+    tmax = round(max(temp_24, default=25))
+    tmin = round(min(temp_24, default=tmax))
+
+    print(f"  [Windy] {trail['name']}: rain={rain_mm}mm pico={pico_3h}mm (fallback OW+OM+WeatherAPI)")
+    return {
+        "rain":     rain_mm,
+        "wind":     wind_max,
+        "pop":      0,       # GFS não retorna probabilidade de precipitação
+        "pico_3h":  pico_3h,
+        "gust_max": gust_max,
+        "tmax":     tmax,
+        "tmin":     tmin,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2224,14 +2307,25 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             tmin        = wapi.get("tmin")
             fonte       = "WeatherAPI (fallback OW+OM)"
         else:
-            rain        = 0.0
-            wind        = 0.0
-            pop         = 0
-            pico_3h     = 0.0
-            gust_max_ms = 0.0
-            tmax        = 25
-            tmin        = None
-            fonte       = "sem dados"
+            windy = _fetch_windy_forecast(trail)
+            if windy:
+                rain        = windy["rain"]
+                wind        = windy["wind"]
+                pop         = windy["pop"]
+                pico_3h     = windy["pico_3h"]
+                gust_max_ms = windy.get("gust_max", 0.0)
+                tmax        = windy.get("tmax", 25)
+                tmin        = windy.get("tmin")
+                fonte       = "Windy (fallback OW+OM+WeatherAPI)"
+            else:
+                rain        = 0.0
+                wind        = 0.0
+                pop         = 0
+                pico_3h     = 0.0
+                gust_max_ms = 0.0
+                tmax        = 25
+                tmin        = None
+                fonte       = "sem dados"
 
     gust_max_kmh = round(gust_max_ms * 3.6, 1)
 
@@ -3355,12 +3449,21 @@ def _processar_pumptracks():
                     tmax_pt = wapi.get("tmax", 25)
                     tmin_pt = wapi.get("tmin")
                 else:
-                    rain    = 0.0
-                    wind    = 0.0
-                    pop     = 0
-                    pico_3h = 0.0
-                    tmax_pt = 25
-                    tmin_pt = None
+                    windy = _fetch_windy_forecast(trail_proxy)
+                    if windy:
+                        rain    = windy["rain"]
+                        wind    = windy["wind"]
+                        pop     = windy["pop"]
+                        pico_3h = windy["pico_3h"]
+                        tmax_pt = windy.get("tmax", 25)
+                        tmin_pt = windy.get("tmin")
+                    else:
+                        rain    = 0.0
+                        wind    = 0.0
+                        pop     = 0
+                        pico_3h = 0.0
+                        tmax_pt = 25
+                        tmin_pt = None
 
             dados = {
                 "rain": rain, "wind": wind, "pop": pop,
