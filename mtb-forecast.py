@@ -2574,19 +2574,34 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         }
 
     def calcular_janela_oc() -> str:
-        blocos = []
-        inicio = None
+        blocos       = []
+        inicio       = None
+        chuva_acum   = 0.0   # chuva futura acumulada desde agora (sem decaimento — igual a calcular_aderencia_futura_oc)
+        agora_local  = datetime.now(BRT)
+
         for h in hourly_oc:
             p   = _precip_hora(h)
             pp  = (h.get("pop", 0) or 0) * 100
             w   = h.get("wind_speed", 0) or 0
             dt  = datetime.fromtimestamp(h["dt"], tz=BRT)
-            ok  = pp < 30 and p < 1.0 and w < 15
+
+            # Projeta aderência nesta hora usando a mesma fórmula dos alertas
+            horas_ate = max(0.0, (dt - agora_local).total_seconds() / 3600)
+            ef_proj   = (
+                acumulo_ef * (0.5 ** (horas_ate / meia_vida_h)) if meia_vida_h > 0 else 0.0
+            ) + chuva_acum
+            adh    = calcular_aderencia(p, trail, ef_proj, p, mes, enso)
+            solo_ok = adh["status"] in ("SECO", "GRIP PERFEITO")
+
+            ok = pp < 30 and p < 1.0 and w < 15 and solo_ok
             if ok and inicio is None:
                 inicio = dt
             elif not ok and inicio is not None:
                 blocos.append((inicio, dt))
                 inicio = None
+
+            chuva_acum += p
+
         if inicio and hourly_oc:
             blocos.append((inicio, datetime.fromtimestamp(hourly_oc[-1]["dt"], tz=BRT)))
         if not blocos:
