@@ -15,9 +15,10 @@ function fmtUltimaChuva(h: number): string {
 
 function topBarColor(v: string | null): string {
   if (!v) return '#d0d4c6'
-  if (v.includes('LIBERADO')) return '#2a6b1e'
-  if (v.includes('ESPERAR') || v.includes('AGUARDAR') || v.includes('ALERTA')) return '#8a5e00'
-  if (v.includes('EVITAR') || v.includes('FECHADA')) return '#8a1a1a'
+  const u = v.toUpperCase()
+  if (u.includes('EVITAR') || u.includes('FECHADA')) return '#8a1a1a'
+  if (u.includes('ESPERAR') || u.includes('AGUARDAR') || u.includes('ALERTA')) return '#8a5e00'
+  if (u.includes('LIBERADO')) return '#2a6b1e'
   return '#d0d4c6'
 }
 
@@ -25,9 +26,10 @@ type VerdictStyle = { icon: string; bg: string; text: string; border: string }
 
 function verdictStyle(v: string | null): VerdictStyle {
   if (!v) return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
-  if (v.includes('LIBERADO')) return { icon: 'ti-circle-check', bg: '#d6edcc', text: '#2a6b1e', border: '#a8d99a' }
-  if (v.includes('ESPERAR') || v.includes('AGUARDAR') || v.includes('ALERTA')) return { icon: 'ti-alert-triangle', bg: '#fdf0cc', text: '#8a5e00', border: '#e8d080' }
-  if (v.includes('EVITAR') || v.includes('FECHADA')) return { icon: 'ti-circle-x', bg: '#fcd8d8', text: '#8a1a1a', border: '#e8a0a0' }
+  const u = v.toUpperCase()
+  if (u.includes('EVITAR') || u.includes('FECHADA')) return { icon: 'ti-circle-x', bg: '#fcd8d8', text: '#8a1a1a', border: '#e8a0a0' }
+  if (u.includes('ESPERAR') || u.includes('AGUARDAR') || u.includes('ALERTA')) return { icon: 'ti-alert-triangle', bg: '#fdf0cc', text: '#8a5e00', border: '#e8d080' }
+  if (u.includes('LIBERADO')) return { icon: 'ti-circle-check', bg: '#d6edcc', text: '#2a6b1e', border: '#a8d99a' }
   return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
 }
 
