@@ -13,7 +13,6 @@ const emptyForm = {
   nome_secundario: '',
   cor_primaria: '#ffffff',
   cor_secundaria: '',
-  icone: '',
   logo_url: '',
   site_url: '',
   ativo: true,
@@ -59,7 +58,6 @@ export default function MantenedoresAdminPage() {
       nome_secundario:form.nome_secundario.trim() || null,
       cor_primaria:   form.cor_primaria || '#ffffff',
       cor_secundaria: form.cor_secundaria || null,
-      icone:          form.icone || null,
       logo_url:       form.logo_url.trim() || null,
       site_url:       form.site_url.trim() || null,
       ativo:          form.ativo,
@@ -212,7 +210,6 @@ export default function MantenedoresAdminPage() {
                     nome_secundario:m.nome_secundario ?? '',
                     cor_primaria:   m.cor_primaria ?? '#ffffff',
                     cor_secundaria: m.cor_secundaria ?? '',
-                    icone:          m.icone ?? '',
                     logo_url:       m.logo_url ?? '',
                     site_url:       m.site_url ?? '',
                     ativo:          m.ativo,
@@ -234,7 +231,6 @@ export default function MantenedoresAdminPage() {
                       nome_secundario: m.nome_secundario ?? null,
                       cor_primaria: m.cor_primaria ?? '#ffffff',
                       cor_secundaria: m.cor_secundaria ?? null,
-                      icone: m.icone ?? null,
                     }}
                     contexto="card"
                   />
@@ -376,7 +372,6 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
     nome_secundario:form.nome_secundario || null,
     cor_primaria:   form.cor_primaria || '#ffffff',
     cor_secundaria: form.cor_secundaria || null,
-    icone:          form.icone || null,
   }
 
   return (
@@ -452,18 +447,7 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
         </div>
       </div>
 
-      {/* Ícone */}
-      <div>
-        {lbl('Ícone')}
-        <select value={form.icone}
-          onChange={e => onChange({ ...form, icone: e.target.value })}
-          style={{ ...inputS, cursor: 'pointer' }}>
-          <option value="">Nenhum</option>
-          <option value="veado">Veado</option>
-        </select>
-      </div>
-
-      {/* Logo URL (legado / fallback) */}
+      {/* Logo */}
       <div>
         {lbl('Logo URL (opcional)')}
         <input
