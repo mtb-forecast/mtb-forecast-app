@@ -104,7 +104,8 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
                   onClick={e => { e.preventDefault(); onToggleFavorito(trilha.id) }}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 16, lineHeight: 1, padding: 0,
+                    fontSize: 16, lineHeight: 1,
+                    padding: '8px', margin: '-8px -4px -8px 0',
                     color: isFavorito ? '#a8b899' : '#d0d4c6',
                     transition: 'color 0.15s',
                   }}

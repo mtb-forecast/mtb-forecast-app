@@ -137,7 +137,7 @@ export default function TrilhaDetalhe() {
 
       {/* ── Page header grafite ─────────────────────────────────────────── */}
       <div className="page-header" style={{ background: '#2a2e25', padding: '40px 0' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', boxSizing: 'border-box' }}>
+        <div className="page-header-inner" style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', boxSizing: 'border-box' }}>
 
           {/* Voltar */}
           <Link

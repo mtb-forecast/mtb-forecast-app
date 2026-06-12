@@ -439,7 +439,7 @@ function CondicaoCard({ condicao }: Props) {
             <div style={DIV} />
             <div>
               <div style={{ ...SEC, marginBottom: 10 }}>Próximos 3 dias</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <div className="fds-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                 {fdsDias.map(({ label, v, rain, wind, pop, tmax, tmin }) => {
                   const vcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
                   return (

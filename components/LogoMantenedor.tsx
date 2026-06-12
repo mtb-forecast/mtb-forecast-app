@@ -1,3 +1,5 @@
+import { memo } from 'react'
+
 type Props = {
   mantenedor: {
     nome: string
@@ -10,14 +12,14 @@ type Props = {
   contexto: 'card' | 'pagina'
 }
 
-export function LogoMantenedor({ mantenedor, contexto }: Props) {
+function LogoMantenedorInner({ mantenedor, contexto }: Props) {
   const isCard    = contexto === 'card'
   const primario  = mantenedor.nome_primario ?? mantenedor.nome
   const secundario = mantenedor.nome_secundario
 
   const label = (
     <span style={{
-      fontSize: 9,
+      fontSize: 10,
       color: isCard ? '#8a9480' : '#6d745f',
       textTransform: 'uppercase',
       letterSpacing: '0.5px',
@@ -103,3 +105,5 @@ export function LogoMantenedor({ mantenedor, contexto }: Props) {
     </div>
   )
 }
+
+export const LogoMantenedor = memo(LogoMantenedorInner)

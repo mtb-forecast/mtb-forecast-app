@@ -39,7 +39,9 @@ function TrilhasContent() {
   const [mounted, setMounted] = useState(false)
   const [trilhasAll, setTrilhasAll] = useState<TrilhaComCondicao[]>([])
   const [pumptracksAll, setPumptracksAll] = useState<PumpTrack[]>([])
+  const [pumptracksCount, setPumptracksCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingTrilhas, setLoadingTrilhas] = useState(false)
   const [search, setSearch] = useState('')
 
   const [estadoSelecionado, setEstadoSelecionado] = useState(estadoInicial)
@@ -53,7 +55,7 @@ function TrilhasContent() {
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
   useEffect(() => { setMounted(true) }, [])
 
-  // Carrega todas as trilhas + estados na montagem
+  // Init leve: auth + estados + count de pumptracks + mantenedores
   useEffect(() => {
     async function init() {
       try {
@@ -61,43 +63,77 @@ function TrilhasContent() {
         if (!user) { window.location.href = '/login'; return }
         setUserId(user.id)
 
-        const [{ data: favData }, { data: trilhasData }, { data: estadosData }, { data: ptData }, { data: mantData }] =
+        const [{ data: favData }, { data: estadosData }, { data: ptCountData }, { data: mantData }] =
           await Promise.all([
             supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-            supabase
-              .from('trilhas')
-              .select(`
-                id, name, bioma, trail_type, regiao,
-                localidades(cidade, estado, localidade),
-                mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
-                condicoes(
-                  veredicto, veredicto_12h,
-                  aderencia_status, aderencia_futura_status, aderencia_futura_label,
-                  pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
-                  texto_dinamico, frase_secagem, janela, gerado_em
-                )
-              `)
-              .eq('aprovada', true)
-              .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-              .order('name'),
             supabase.from('localidades').select('estado').order('estado'),
-            supabase
-              .from('trilhas_pumptrack')
-              .select(`
-                id, nome, cidade, uf, endereco, latitude, longitude,
-                tipo_superficie, comprimento_estimado, iluminacao, estacionamento,
-                fonte, google_maps_url, instagram, status_validacao,
-                condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_48h)
-              `)
-              .order('nome'),
-            supabase
-              .from('mantenedores')
-              .select('id, nome, nome_primario, nome_secundario')
-              .eq('ativo', true)
-              .order('nome'),
+            supabase.from('trilhas_pumptrack').select('id, uf'),
+            supabase.from('mantenedores').select('id, nome, nome_primario, nome_secundario').eq('ativo', true).order('nome'),
           ])
 
         if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ptRows = (ptCountData as any[] | null) ?? []
+        setPumptracksCount(ptRows.length)
+
+        const trailStates = (estadosData || []).map((r: { estado: string }) => r.estado).filter(Boolean)
+        const ptStates = ptRows.map((pt: { uf: string }) => pt.uf).filter(Boolean)
+        setEstados([...new Set([...trailStates, ...ptStates])].sort() as string[])
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (mantData) setMantenedoresList(mantData as any[])
+      } catch (err) {
+        console.error('Erro ao carregar dados iniciais:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    init()
+  }, [])
+
+  // Fetch pesado: trilhas + pumptracks do estado selecionado
+  useEffect(() => {
+    if (!estadoSelecionado || !userId) {
+      setTrilhasAll([])
+      setPumptracksAll([])
+      return
+    }
+    let cancelled = false
+    setLoadingTrilhas(true)
+
+    async function fetchTrilhas() {
+      try {
+        const [{ data: trilhasData }, { data: ptData }] = await Promise.all([
+          supabase
+            .from('trilhas')
+            .select(`
+              id, name, bioma, trail_type, regiao,
+              localidades(cidade, estado, localidade),
+              mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
+              condicoes(
+                veredicto, veredicto_12h,
+                aderencia_status, aderencia_futura_status, aderencia_futura_label,
+                pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+                texto_dinamico, frase_secagem, janela, gerado_em
+              )
+            `)
+            .eq('aprovada', true)
+            .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+            .order('name'),
+          supabase
+            .from('trilhas_pumptrack')
+            .select(`
+              id, nome, cidade, uf, endereco, latitude, longitude,
+              tipo_superficie, comprimento_estimado, iluminacao, estacionamento,
+              fonte, google_maps_url, instagram, status_validacao,
+              condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_48h)
+            `)
+            .eq('uf', estadoSelecionado)
+            .order('nome'),
+        ])
+
+        if (cancelled) return
 
         if (trilhasData) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -116,25 +152,15 @@ function TrilhasContent() {
           })
           setPumptracksAll(mapped)
         }
-
-        if (estadosData || ptData) {
-          const trailStates = (estadosData || []).map((r: { estado: string }) => r.estado).filter(Boolean)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const ptStates = ptData ? (ptData as any[]).map((pt) => pt.uf).filter(Boolean) : []
-          const distinct = [...new Set([...trailStates, ...ptStates])].sort() as string[]
-          setEstados(distinct)
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (mantData) setMantenedoresList(mantData as any[])
       } catch (err) {
-        console.error('Erro ao carregar trilhas:', err)
+        if (!cancelled) console.error('Erro ao carregar trilhas:', err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoadingTrilhas(false)
       }
     }
-    init()
-  }, [router])
+    fetchTrilhas()
+    return () => { cancelled = true }
+  }, [estadoSelecionado, userId])
 
   // Reseta seleções em cascata quando filtros pai mudam
   useEffect(() => {
@@ -455,7 +481,7 @@ function TrilhasContent() {
                   Pump Tracks no mapa
                 </p>
                 <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 12px' }}>
-                  {pumptracksAll.length} pump tracks cadastrados com previsão do tempo e navegação via Waze. Selecione seu estado para ver os locais próximos.
+                  {pumptracksCount} pump tracks cadastrados com previsão do tempo e navegação via Waze. Selecione seu estado para ver os locais próximos.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {['Asfalto', 'Terra', 'Homologado', 'Waze'].map(tag => (
@@ -518,15 +544,15 @@ function TrilhasContent() {
           </>
         )}
 
-        {/* Loading inicial */}
-        {loading && estadoSelecionado && (
+        {/* Loading trilhas */}
+        {loadingTrilhas && estadoSelecionado && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
             <div style={{ width: 32, height: 32, border: '2px solid #E5E7EB', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         )}
 
         {/* Lista de trilhas */}
-        {!loading && estadoSelecionado && (
+        {!loadingTrilhas && estadoSelecionado && (
           <>
             {/* Trilhas MTB — ou estado vazio se não houver nenhuma NEM pump track */}
             {filtered.length === 0 && pumptracks.length === 0 ? (
