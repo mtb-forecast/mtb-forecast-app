@@ -406,11 +406,15 @@ def _fetch_windy_forecast(trail: dict) -> dict | None:
     tmax = round(max(temp_24, default=25))
     tmin = round(min(temp_24, default=tmax))
 
-    print(f"  [Windy] {trail['name']}: rain={rain_mm}mm pico={pico_3h}mm (fallback OW+OM+WeatherAPI)")
+    # GFS não retorna pop → estima a partir do pico_3h:
+    # 0mm→0%  | >0 e <1mm→20%(mínimo)  | ~5mm→75%  | cap 90%
+    pop_est = min(90, max(20, round(pico_3h * 15))) if pico_3h > 0 else 0
+
+    print(f"  [Windy] {trail['name']}: rain={rain_mm}mm pico={pico_3h}mm pop~{pop_est}% (fallback OW+OM+WeatherAPI)")
     return {
         "rain":     rain_mm,
         "wind":     wind_max,
-        "pop":      0,       # GFS não retorna probabilidade de precipitação
+        "pop":      pop_est,
         "pico_3h":  pico_3h,
         "gust_max": gust_max,
         "tmax":     tmax,
