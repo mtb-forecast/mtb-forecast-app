@@ -220,33 +220,52 @@ def classificar_enso(oni: float) -> dict:
     return {"fase": "ENSO Neutro", "fase_raw": "neutro", "oni": oni, "mult": 1.00, "emoji": "⚪"}
 
 
-def _enso_mult_regional(enso: dict, regiao: str) -> float:
-    """Retorna multiplicador ENSO para a região. Fallback: enso['mult'] global."""
-    if not regiao:
+# Mapeamento UF → macro-região geográfica brasileira
+_UF_MACRO_REGIAO: dict[str, str] = {
+    "SP": "SUDESTE", "MG": "SUDESTE", "RJ": "SUDESTE", "ES": "SUDESTE",
+    "PR": "SUL",     "SC": "SUL",     "RS": "SUL",
+    "MS": "CENTRO-OESTE", "MT": "CENTRO-OESTE", "GO": "CENTRO-OESTE", "DF": "CENTRO-OESTE",
+    "BA": "NORDESTE", "SE": "NORDESTE", "AL": "NORDESTE", "PE": "NORDESTE",
+    "PB": "NORDESTE", "RN": "NORDESTE", "CE": "NORDESTE", "PI": "NORDESTE", "MA": "NORDESTE",
+    "PA": "NORTE",    "AM": "NORTE",    "AC": "NORTE",    "RO": "NORTE",
+    "RR": "NORTE",    "AP": "NORTE",    "TO": "NORTE",
+}
+
+
+def _macro_regiao(uf: str) -> str:
+    """Converte UF (ex: 'SC') para macro-região (ex: 'SUL'). Retorna 'DEFAULT' se desconhecida."""
+    return _UF_MACRO_REGIAO.get((uf or "").upper().strip(), "DEFAULT")
+
+
+def _enso_mult_regional(enso: dict, uf: str) -> float:
+    """Retorna multiplicador ENSO para a macro-região da UF. Fallback: enso['mult'] global."""
+    if not uf:
         return enso["mult"]
     tabela = _carregar_enso_regional_mult()
-    fase_raw = enso.get("fase_raw", "neutro")
-    return tabela.get((fase_raw, regiao), enso["mult"])
+    fase_raw  = enso.get("fase_raw", "neutro")
+    macro_reg = _macro_regiao(uf)
+    return tabela.get((fase_raw, macro_reg), enso["mult"])
 
 
 def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float:
     """Threshold dinâmico: sazonalidade × ENSO regional × microclima de bioma."""
-    regiao = ((trail or {}).get("regiao") or "").upper()
+    uf = ((trail or {}).get("regiao") or "").upper()
     tabela_sb = _carregar_threshold_sazonal()
-    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", {}))
+    # threshold_sazonal ainda usa UF (SP, SC…) como chave — mantém granularidade fina
+    tabela = tabela_sb.get(uf, tabela_sb.get("DEFAULT", {}))
     base, _ = tabela.get(mes, (5.0, 10.0))
-    valor = base * _enso_mult_regional(enso, regiao)
+    valor = base * _enso_mult_regional(enso, uf)
     if trail is not None:
         valor *= fator_microclima(trail)
     return round(valor, 1)
 
 
 def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> float:
-    regiao = ((trail or {}).get("regiao") or "").upper()
+    uf = ((trail or {}).get("regiao") or "").upper()
     tabela_sb = _carregar_threshold_sazonal()
-    tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", {}))
+    tabela = tabela_sb.get(uf, tabela_sb.get("DEFAULT", {}))
     _, sat = tabela.get(mes, (5.0, 10.0))
-    valor = sat * _enso_mult_regional(enso, regiao)
+    valor = sat * _enso_mult_regional(enso, uf)
     if trail is not None:
         valor *= fator_microclima(trail)
     return round(valor, 1)
@@ -740,13 +759,13 @@ def fator_microclima(trail: dict) -> float:
 
 
 def _meia_vida(trail: dict) -> float:
-    solo = trail.get("solo_type", "terra")
-    expo = trail.get("exposicao", "fechada")
-    reg  = (trail.get("regiao") or "").upper().strip() or None
+    solo  = trail.get("solo_type", "terra")
+    expo  = trail.get("exposicao", "fechada")
+    macro = _macro_regiao(trail.get("regiao") or "")   # 'SUL', 'SUDESTE', etc.
     tabela_mv = _carregar_meia_vida()
     return float(
-        tabela_mv.get((solo, expo, reg)) or
-        tabela_mv.get((solo, expo, None)) or
+        tabela_mv.get((solo, expo, macro)) or
+        tabela_mv.get((solo, expo, "DEFAULT")) or
         24
     )
 
