@@ -1,0 +1,57 @@
+name: Agent MTB Forecaster — Debug Trilhas
+
+on:
+  workflow_dispatch:
+    inputs:
+      trilhas:
+        description: "Nomes das trilhas separados por vírgula"
+        required: false
+        default: "Reserva Natural Park - Sao Paulo - SP,Downhill Saracura - Mairipora - SP,DH42 - Mairipora - SP"
+      debug_model:
+        description: "Ativar DEBUG_MODEL (imprime detalhes do modelo de solo)"
+        required: false
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    env:
+      OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
+      ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+      SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      TELEGRAM_BOT_TOKEN:        ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      WEATHERAPI_KEY:            ${{ secrets.WEATHERAPI_KEY }}
+      WINDY_API_KEY:             ${{ secrets.WINDY_API_KEY }}
+      DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
+      TRILHAS_DEBUG:             ${{ github.event.inputs.trilhas }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements-lock.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-lock.txt
+
+      - name: Run Agent — Debug
+        run: python mtb-forecast.py 2>&1 | tee debug_$(date +%Y-%m-%d_%H%M).log
+
+      - name: Upload debug log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-log-${{ github.run_id }}
+          path: debug_*.log
+          retention-days: 7
