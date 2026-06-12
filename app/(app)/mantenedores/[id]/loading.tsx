@@ -1,15 +1,20 @@
 export default function MantenedorLoading() {
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
-      <div style={{ background: '#2a2e25', padding: '40px 0' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', boxSizing: 'border-box' }}>
-          <div style={{ height: 13, width: 60, background: '#3a4035', borderRadius: 4, marginBottom: 24 }} />
-          <div style={{ height: 32, width: 240, background: '#3a4035', borderRadius: 6, marginBottom: 12 }} />
-          <div style={{ height: 13, width: 140, background: '#3a4035', borderRadius: 4, opacity: 0.5 }} />
+      <div style={{ background: '#2a2e25', padding: '32px 0 28px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 28px', boxSizing: 'border-box' }}>
+          <div style={{ height: 13, width: 60, background: '#3a4035', borderRadius: 4, marginBottom: 20 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+            <div>
+              <div style={{ height: 32, width: 240, background: '#3a4035', borderRadius: 6, marginBottom: 12 }} />
+              <div style={{ height: 13, width: 140, background: '#3a4035', borderRadius: 4, opacity: 0.5 }} />
+            </div>
+            <div style={{ width: 120, height: 72, background: '#3a4035', borderRadius: 10, flexShrink: 0 }} />
+          </div>
         </div>
       </div>
       <div style={{ background: '#a8b899', height: 3 }} />
-      <div style={{ padding: '32px 32px 64px', maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ height: 11, width: 55, background: '#e5e7eb', borderRadius: 4, marginBottom: 16 }} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
