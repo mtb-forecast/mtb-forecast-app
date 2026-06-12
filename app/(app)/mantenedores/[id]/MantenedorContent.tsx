@@ -52,63 +52,47 @@ export default function MantenedorContent({ mantenedor, trilhas }: Props) {
             ← Trilhas
           </Link>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
-            {/* ── Esquerda: texto ── */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                {iconeEl}
-                <span style={{ fontSize: 30, fontWeight: 800, color: mantenedor.cor_primaria, letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: 1 }}>
-                  {primario}
-                </span>
-                {secundario && (
-                  <span style={{ fontSize: 24, fontWeight: 700, color: mantenedor.cor_secundaria ?? mantenedor.cor_primaria, letterSpacing: '0.3px', lineHeight: 1 }}>
-                    {secundario}
-                  </span>
-                )}
-              </div>
-
-              {mantenedor.site_url && (
-                <a
-                  href={mantenedor.site_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6d8a60', textDecoration: 'none', marginBottom: 14 }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
-                  </svg>
-                  {mantenedor.site_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                </a>
-              )}
-
-              <p style={{ color: '#888', fontSize: 14, margin: 0 }}>
-                {trilhas.length} trilha{trilhas.length !== 1 ? 's' : ''} mantida{trilhas.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-
-            {/* ── Direita: logo ── */}
-            <div style={{ flexShrink: 0 }}>
-              {mantenedor.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={mantenedor.logo_url}
-                  alt={mantenedor.nome}
-                  style={{ height: 72, maxWidth: 180, objectFit: 'contain', display: 'block' }}
-                />
-              ) : (
-                <div style={{
-                  width: 120, height: 72, borderRadius: 10,
-                  background: `${mantenedor.cor_primaria}18`,
-                  border: `1.5px solid ${mantenedor.cor_primaria}40`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {resolverIcone(mantenedor.icone, corIcone, 38)}
-                </div>
-              )}
-            </div>
+          {/* Logo ou ícone SVG à esquerda do nome */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+            {mantenedor.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={mantenedor.logo_url}
+                alt={mantenedor.nome}
+                style={{ height: 48, maxWidth: 140, objectFit: 'contain', display: 'block' }}
+              />
+            ) : (
+              iconeEl
+            )}
+            <span style={{ fontSize: 30, fontWeight: 800, color: mantenedor.cor_primaria, letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: 1 }}>
+              {primario}
+            </span>
+            {secundario && (
+              <span style={{ fontSize: 24, fontWeight: 700, color: mantenedor.cor_secundaria ?? mantenedor.cor_primaria, letterSpacing: '0.3px', lineHeight: 1 }}>
+                {secundario}
+              </span>
+            )}
           </div>
+
+          {mantenedor.site_url && (
+            <a
+              href={mantenedor.site_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#6d8a60', textDecoration: 'none', marginBottom: 14 }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              {mantenedor.site_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+            </a>
+          )}
+
+          <p style={{ color: '#888', fontSize: 14, margin: 0 }}>
+            {trilhas.length} trilha{trilhas.length !== 1 ? 's' : ''} mantida{trilhas.length !== 1 ? 's' : ''}
+          </p>
         </div>
       </div>
       <div style={{ background: '#a8b899', height: 3 }} />
