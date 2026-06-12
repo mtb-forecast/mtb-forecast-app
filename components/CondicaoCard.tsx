@@ -164,20 +164,20 @@ function CondicaoCard({ condicao }: Props) {
     : zone === 75 ? 'Boa Aderência ✓'
     : 'Monitorar chuva'
 
-  // Badge do estado do solo — Python define se é "seco"; drift define o tempo restante
+  // Badge do estado do solo — Python é a fonte de verdade; drift calcula o tempo restante
   const badgeSolo = (() => {
     if (temChuvaFutura) return fmtHAposChuva(horasParaGrip)
-    // Condição futura pior que a atual (calculada pelo Python) — não exibir "Solo seco"
     const futPior = !!(
       condicao.aderencia_futura_status &&
       condicao.aderencia_futura_label &&
       condicao.aderencia_futura_status !== condicao.aderencia_status
     )
     if (futPior && isGripOk) return `piora ${condicao.aderencia_futura_label}`
-    if (trilhaSecaEmAgora === 0 && isGripOk) return 'Solo seco'
-    if (trilhaSecaEmAgora === 0 && aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
     if (trilhaSecaEmAgora > 0) return `seca em ~${trilhaSecaEmAgora}h`
-    return 'Solo seco'
+    // Solo abaixo do threshold: só "Solo seco" se Python confirmou SECO ou moisture negligível
+    if (aderenciaStr === 'SECO' || acumuloAgora < 0.3) return 'Solo seco'
+    if (aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
+    return 'Em grip'
   })()
 
   // Próximos 3 dias
@@ -209,7 +209,7 @@ function CondicaoCard({ condicao }: Props) {
     condicao.aderencia_futura_status !== condicao.aderencia_status)
 
   // Alertas 24h
-  const isAlertaVeredicto = veredictoDisplay === 'DROP LIBERADO - Veja os alertas'
+  const isAlertaVeredicto = veredictoDisplay.toUpperCase().includes('ALERTA')
   const nivelVento   = condicao.alerta_vento_nivel ?? 0
   const temRajada    = condicao.gust_max_kmh != null && condicao.gust_max_kmh >= DISPLAY_THR.rajada.fechada
   const chuvasPrev   = condicao.previsao_24h?.filter(b => b.rain_mm > 1) ?? []
