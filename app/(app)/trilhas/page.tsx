@@ -47,6 +47,7 @@ function TrilhasContent() {
   const [localidadeSelecionada, setLocalidadeSelecionada] = useState('')
 
   const [estados, setEstados] = useState<string[]>([])
+  const [mantenedoresList, setMantenedoresList] = useState<{ id: string; nome: string; nome_primario: string | null; nome_secundario: string | null }[]>([])
 
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
@@ -60,7 +61,7 @@ function TrilhasContent() {
         if (!user) { window.location.href = '/login'; return }
         setUserId(user.id)
 
-        const [{ data: favData }, { data: trilhasData }, { data: estadosData }, { data: ptData }] =
+        const [{ data: favData }, { data: trilhasData }, { data: estadosData }, { data: ptData }, { data: mantData }] =
           await Promise.all([
             supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
             supabase
@@ -88,6 +89,11 @@ function TrilhasContent() {
                 fonte, google_maps_url, instagram, status_validacao,
                 condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_48h)
               `)
+              .order('nome'),
+            supabase
+              .from('mantenedores')
+              .select('id, nome, nome_primario, nome_secundario')
+              .eq('ativo', true)
               .order('nome'),
           ])
 
@@ -118,6 +124,9 @@ function TrilhasContent() {
           const distinct = [...new Set([...trailStates, ...ptStates])].sort() as string[]
           setEstados(distinct)
         }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (mantData) setMantenedoresList(mantData as any[])
       } catch (err) {
         console.error('Erro ao carregar trilhas:', err)
       } finally {
@@ -312,6 +321,31 @@ function TrilhasContent() {
             </select>
             <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
           </div>
+
+          {/* Select — Mantenedor / Bike Park */}
+          {mantenedoresList.length > 0 && (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <select
+                value=""
+                onChange={e => { if (e.target.value) router.push(`/mantenedores/${e.target.value}`) }}
+                className="trilhas-select"
+                style={{
+                  ...fieldBase,
+                  appearance: 'none', WebkitAppearance: 'none',
+                  padding: '10px 40px 10px 14px',
+                  color: '#9CA3AF',
+                  cursor: 'pointer', width: 220,
+                }}
+              >
+                <option value="">Mantenedores / Bike Park</option>
+                {mantenedoresList.map(m => {
+                  const label = [m.nome_primario || m.nome, m.nome_secundario].filter(Boolean).join(' ')
+                  return <option key={m.id} value={m.id}>{label}</option>
+                })}
+              </select>
+              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+            </div>
+          )}
 
           {/* Select 2 — Cidade */}
           {estadoSelecionado && cidades.length > 0 && (
