@@ -55,49 +55,48 @@ Limite One Call 3.0 free: 1.000/dia. 4 execuções/dia ≈ 284 — folga confort
 
 ## Feature: Mantenedor (jun/2026)
 
-### O que está pronto
-- Tabela `mantenedores` com campos: nome, nome_primario, nome_secundario,
-  cor_primaria, cor_secundaria, icone, logo_url, site_url, ativo
+### Estado atual (tudo implementado)
+- Tabela `mantenedores`: nome, nome_primario, nome_secundario,
+  cor_primaria, cor_secundaria, logo_url, site_url, ativo
+  (`icone` foi REMOVIDO do código e do banco em 11/06/2026)
 - FK mantenedor_id em trilhas, join nas queries
-- Tipo Mantenedor em lib/types.ts
-- Componente LogoMantenedor com estilos dinâmicos (texto + SVG, sem next/image)
-  · contexto='card': pill escuro #1e2018, ícone + nome_primario branco +
-    nome_secundario na cor_secundaria
-  · contexto='pagina': sem pill, direto sobre header escuro, com link ↗ site_url
-- Ícones disponíveis em lib/mantenedor-icones.tsx: 'veado' ou null
-  · Para adicionar novo ícone: criar função Icone<Nome> e registrar em resolverIcone()
-- Upload de logo: API route app/api/admin/upload-logo/route.ts (auth admin +
-  multipart + upload ao bucket 'logos' no Supabase Storage)
+- Tipo Mantenedor em lib/types.ts (sem icone)
+- Componente LogoMantenedor: exibe nome com cores dinâmicas
+  · contexto='card': pill escuro #1e2018, nome_primario + nome_secundario
+  · contexto='pagina': sem pill, sobre header escuro, com link ↗ site_url
+- logo_url: `<img>` nativo (NÃO next/image — domínio Supabase fora de remotePatterns)
+  · Na hero da página /mantenedores/[id]: exibe à esquerda do nome se preenchido
+  · Se null: nome aparece sem elemento gráfico ao lado
+- Upload de logo: API route app/api/admin/upload-logo/route.ts
   · UI do admin comprime canvas → WebP antes do upload
-  · Bucket 'logos' criado em produção via MCP
-- Interface admin: cadastro/edição com preview ao vivo, select de mantenedor
-  no formulário de trilhas
-
-### O que falta implementar
-1. LogoMantenedor ignorar logo_url — campo existe nos tipos e queries mas
-   componente nunca renderiza a imagem. Lógica correta:
-   · Se logo_url preenchido → renderizar <img> com objectFit contain
-     (usar <img> nativo, NÃO next/image — domínio Supabase não está em
-     remotePatterns e foi removido propositalmente)
-   · Se logo_url null → usar estilo CSS dinâmico atual (fallback)
-   · No contexto card: imagem dentro do pill escuro #1e2018, height 16px
-   · No contexto pagina: imagem direta sem pill, height 20px
-
-2. Página pública do mantenedor — não existe ainda
-   · Rota: app/(app)/mantenedores/[id]/page.tsx
-   · Buscar mantenedor por id + trilhas associadas com condicoes
-   · Layout: logo/nome do mantenedor no topo, grid de TrilhaCards abaixo
-   · Pública (sem auth)
-
-3. "Mantida por" clicável no card
-   · No TrilhaCard e DashboardTrailCard, o pill do mantenedor deve navegar
-     para /mantenedores/[mantenedor.id]
-   · Usar e.preventDefault() + router.push() ou Link separado dentro do
-     TrilhaCard (que já é um <Link> para a trilha)
-   · NÃO deixar o clique propagar para o Link pai da trilha
+  · Bucket 'logos' no Supabase Storage
+- Página pública /mantenedores/[id]: hero + grid de TrilhaCards (pública, sem auth)
+- Select "Mantenedores / Bike Park" em /trilhas → navega para /mantenedores/[id]
+- Card de dicas de mantenedores na área de onboarding de /trilhas
+- Interface admin: cadastro/edição com preview ao vivo
 
 ### Regras
 - Mantenedor sempre opcional — null nunca quebra card ou página
 - Não alterar lógica de condições, veredicto, solo ou modelo meteorológico
-- next/image NÃO usar para logo_url — usar <img> nativo com
-  src={mantenedor.logo_url}
+- NUNCA usar next/image para logo_url — usar `<img>` nativo
+
+## Modelo de secagem — garoa e dias frios/nublados (11/06/2026)
+
+### Multiplicadores em `meia_vida_clima_mult` (Supabase)
+- `umidade` ≥ 95% → 1.25 (era 1.15)
+- `umidade` 85–95% → 1.18 (era 1.08)
+- `nebulosidade` ≥ 90% → 1.20 (era 1.12)
+- `umidade_nebulosidade_combo` → 1.10 *(nova linha — combo garoa)*
+
+### Lógica em `_ajustar_meia_vida_clima()`
+Após aplicar umidade individualmente, verifica combo simultâneo:
+- condição: `humidity_pct >= 85` **e** `cloud_pct >= 70`
+- busca linha `umidade_nebulosidade_combo` e aplica `meia_vida *= combo_garoa`
+- se a linha não existir na tabela, passa sem efeito (seguro)
+
+Efeito máximo empilhado em dia de garoa fria: base × 1.25 × 1.20 × 1.10 ≈ **× 1.65**
+
+### Motivação
+Dias com garoa persistente não acumulam mm significativos mas mantêm solo úmido.
+Os multiplicadores individuais de umidade e nebulosidade já existiam; o combo
+captura a interação — céu fechado + ar saturado = secagem muito mais lenta.
