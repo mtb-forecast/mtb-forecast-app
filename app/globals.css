@@ -82,3 +82,7 @@ input, select, textarea, button { font-family: inherit; }
   .obs-textarea        { min-height: 60px !important; }
   .star-selector-star  { font-size: 20px !important; }
 }
+
+@media (max-width: 640px) {
+  .page-header-inner { padding-left: 16px !important; padding-right: 16px !important; }
+}
