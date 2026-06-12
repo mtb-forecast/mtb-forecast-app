@@ -22,12 +22,14 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      # Somente o necessário para buscar dados e gravar condições
+      # GH_DISPATCH_TOKEN, TELEGRAM_BOT_TOKEN e SEND_EMAIL_SECRET são
+      # intencionalmente ausentes — sem eles nenhuma notificação é disparada
       OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
       SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
       SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-      TELEGRAM_BOT_TOKEN:        ${{ secrets.TELEGRAM_BOT_TOKEN }}
       WEATHERAPI_KEY:            ${{ secrets.WEATHERAPI_KEY }}
       WINDY_API_KEY:             ${{ secrets.WINDY_API_KEY }}
       DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
