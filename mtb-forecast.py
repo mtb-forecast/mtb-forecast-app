@@ -3245,6 +3245,14 @@ def main() -> None:
         TRAILS = [t for t in TRAILS if (t.get("regiao") or "").upper() == estado_filtro]
         print(f"[MTBForecaster] Filtro de estado: {estado_filtro} → {len(TRAILS)}/{antes} trilha(s)")
 
+    # 5b. Filtra por nome se TRILHAS_DEBUG estiver definido (debug de trilhas específicas)
+    trilhas_debug_env = os.getenv("TRILHAS_DEBUG", "").strip()
+    if trilhas_debug_env:
+        nomes_debug = {n.strip() for n in trilhas_debug_env.split(",")}
+        antes = len(TRAILS)
+        TRAILS = [t for t in TRAILS if t["name"] in nomes_debug]
+        print(f"[MTBForecaster] Filtro DEBUG: {len(TRAILS)}/{antes} trilha(s) → {[t['name'] for t in TRAILS]}")
+
     print("[MTBForecaster] Carregando configurações do Supabase...")
     _carregar_configuracoes()
     _carregar_tabela_solo()
