@@ -466,6 +466,53 @@ function TrilhasContent() {
                   ))}
                 </div>
               </div>
+
+              {/* Card Mantenedores / Bike Park — destaque verde, full width */}
+              {mantenedoresList.length > 0 && (
+                <div style={{
+                  gridColumn: '1 / -1',
+                  background: '#FFFFFF', borderRadius: 12,
+                  border: '0.5px solid #c8d4be', padding: 20,
+                  position: 'relative', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                    background: 'linear-gradient(90deg, #4a6741, #a8b899)',
+                  }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <i className="ti ti-shield-check" style={{ fontSize: 22, color: '#6d745f' }} />
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: 0 }}>
+                      Mantenedores & Bike Parks
+                    </p>
+                    <span style={{
+                      background: '#dcfce7', color: '#15803d',
+                      fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
+                      letterSpacing: '0.06em', textTransform: 'uppercase',
+                    }}>
+                      {mantenedoresList.length} ativo{mantenedoresList.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 12px' }}>
+                    Trilhas monitoradas e mantidas por marcas e parques parceiros. Clique para ver todas as trilhas de cada mantenedor.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {mantenedoresList.map(m => (
+                      <Link
+                        key={m.id}
+                        href={`/mantenedores/${m.id}`}
+                        style={{
+                          fontSize: 12, fontWeight: 600,
+                          color: '#4a6741', background: '#f0f3ec',
+                          border: '0.5px solid #c8d4be', borderRadius: 999,
+                          padding: '4px 12px', textDecoration: 'none',
+                        }}
+                      >
+                        {[m.nome_primario || m.nome, m.nome_secundario].filter(Boolean).join(' ')} →
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
           </>
