@@ -273,6 +273,69 @@ def proximos_dias() -> dict:
     }
 
 # ---------------------------------------------------------------------------
+# WeatherAPI.com — fallback para OW onecall e day_summary
+# ---------------------------------------------------------------------------
+
+def _fetch_weatherapi_forecast_as_ow(trail: dict) -> dict | None:
+    """Busca WeatherAPI forecast.json e normaliza para formato OW hourly (48h)."""
+    if not WEATHERAPI_KEY:
+        return None
+    url = (
+        f"https://api.weatherapi.com/v1/forecast.json"
+        f"?key={WEATHERAPI_KEY}&q={trail['lat']},{trail['lon']}&days=2&aqi=no"
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            hourly = []
+            for day in data.get("forecast", {}).get("forecastday", []):
+                for h in day.get("hour", []):
+                    hourly.append({
+                        "temp":       h.get("temp_c", 0.0),
+                        "rain":       {"1h": h.get("precip_mm", 0.0)},
+                        "wind_speed": round(h.get("wind_kph", 0.0) / 3.6, 2),
+                        "wind_gust":  round(h.get("gust_kph", 0.0) / 3.6, 2),
+                        "pop":        h.get("chance_of_rain", 0) / 100.0,
+                    })
+            return {"hourly": hourly}
+        except Exception as exc:
+            if attempt == 2:
+                print(f"  [WeatherAPI forecast] Falha para {trail['name']}: {exc}")
+                return None
+            time.sleep(2 ** attempt)
+    return None
+
+
+def _fetch_weatherapi_precip_dia(trail: dict, date_str: str) -> float:
+    """Retorna precipitação total (mm) do dia via WeatherAPI history.json."""
+    if not WEATHERAPI_KEY:
+        return 0.0
+    url = (
+        f"https://api.weatherapi.com/v1/history.json"
+        f"?key={WEATHERAPI_KEY}&q={trail['lat']},{trail['lon']}&dt={date_str}&aqi=no"
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            mm = float(
+                data.get("forecast", {})
+                    .get("forecastday", [{}])[0]
+                    .get("day", {})
+                    .get("totalprecip_mm", 0.0) or 0.0
+            )
+            print(f"  [WeatherAPI history] {trail['name']} {date_str}: {mm:.1f}mm (fallback OW)")
+            return mm
+        except Exception as exc:
+            if attempt == 2:
+                print(f"  [WeatherAPI history] Falha {date_str} para {trail['name']}: {exc}")
+                return 0.0
+            time.sleep(2 ** attempt)
+    return 0.0
+
+
+# ---------------------------------------------------------------------------
 # One Call API 3.0 — V5.23
 # ---------------------------------------------------------------------------
 
@@ -297,6 +360,8 @@ def fetch_onecall(trail: dict) -> dict | None:
                 resultado = None
             else:
                 time.sleep(2 ** attempt)
+    if resultado is None and WEATHERAPI_KEY:
+        resultado = _fetch_weatherapi_forecast_as_ow(trail)
     if lk and resultado is not None:
         _CACHE_OW_ONECALL[lk] = resultado
     return resultado
@@ -498,14 +563,18 @@ def fetch_ow_day_summary(trail: dict) -> dict:
     if lk and lk in _CACHE_OW_DAY_SUMMARY:
         return _CACHE_OW_DAY_SUMMARY[lk]
 
-    if not OPENWEATHER_KEY:
+    if not OPENWEATHER_KEY and not WEATHERAPI_KEY:
         return {"bruto_ow": 0.0, "hoje": 0.0, "ontem": 0.0}
 
     agora  = datetime.now(BRT)
     totais: dict[str, float] = {}
+    ow_falhou: set[str] = set()
 
     for delta in range(2):          # 0 = hoje, 1 = ontem
         dia = (agora - timedelta(days=delta)).strftime("%Y-%m-%d")
+        if not OPENWEATHER_KEY:
+            ow_falhou.add(dia)
+            continue
         url = (
             f"https://api.openweathermap.org/data/3.0/onecall/day_summary"
             f"?lat={trail['lat']}&lon={trail['lon']}&date={dia}"
@@ -520,9 +589,13 @@ def fetch_ow_day_summary(trail: dict) -> dict:
             except Exception as exc:
                 if attempt == 2:
                     totais[dia] = 0.0
+                    ow_falhou.add(dia)
                     print(f"  [OW day_summary] Falha {dia} para {trail['name']}: {exc}")
                 else:
                     time.sleep(2 ** attempt)
+
+    for dia in ow_falhou:
+        totais[dia] = _fetch_weatherapi_precip_dia(trail, dia)
 
     hoje_str  = agora.strftime("%Y-%m-%d")
     ontem_str = (agora - timedelta(days=1)).strftime("%Y-%m-%d")
