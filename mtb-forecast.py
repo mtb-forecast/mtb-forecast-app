@@ -211,21 +211,31 @@ def classificar_enso(oni: float) -> dict:
             match = max_v is not None and oni <= max_v  # la_nina_forte: sem limite inferior
         if match:
             return {
-                "fase":  _FASE_DISPLAY.get(cfg["fase"], cfg["fase"]),
-                "oni":   oni,
-                "mult":  cfg["multiplicador"],
-                "emoji": cfg["emoji"],
+                "fase":     _FASE_DISPLAY.get(cfg["fase"], cfg["fase"]),
+                "fase_raw": cfg["fase"],
+                "oni":      oni,
+                "mult":     cfg["multiplicador"],
+                "emoji":    cfg["emoji"],
             }
-    return {"fase": "ENSO Neutro", "oni": oni, "mult": 1.00, "emoji": "⚪"}
+    return {"fase": "ENSO Neutro", "fase_raw": "neutro", "oni": oni, "mult": 1.00, "emoji": "⚪"}
+
+
+def _enso_mult_regional(enso: dict, regiao: str) -> float:
+    """Retorna multiplicador ENSO para a região. Fallback: enso['mult'] global."""
+    if not regiao:
+        return enso["mult"]
+    tabela = _carregar_enso_regional_mult()
+    fase_raw = enso.get("fase_raw", "neutro")
+    return tabela.get((fase_raw, regiao), enso["mult"])
 
 
 def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float:
-    """Threshold dinâmico: sazonalidade × ENSO × microclima de bioma."""
+    """Threshold dinâmico: sazonalidade × ENSO regional × microclima de bioma."""
     regiao = ((trail or {}).get("regiao") or "").upper()
     tabela_sb = _carregar_threshold_sazonal()
     tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", {}))
     base, _ = tabela.get(mes, (5.0, 10.0))
-    valor = base * enso["mult"]
+    valor = base * _enso_mult_regional(enso, regiao)
     if trail is not None:
         valor *= fator_microclima(trail)
     return round(valor, 1)
@@ -236,7 +246,7 @@ def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> flo
     tabela_sb = _carregar_threshold_sazonal()
     tabela = tabela_sb.get(regiao, tabela_sb.get("DEFAULT", {}))
     _, sat = tabela.get(mes, (5.0, 10.0))
-    valor = sat * enso["mult"]
+    valor = sat * _enso_mult_regional(enso, regiao)
     if trail is not None:
         valor *= fator_microclima(trail)
     return round(valor, 1)
@@ -732,8 +742,13 @@ def fator_microclima(trail: dict) -> float:
 def _meia_vida(trail: dict) -> float:
     solo = trail.get("solo_type", "terra")
     expo = trail.get("exposicao", "fechada")
+    reg  = (trail.get("regiao") or "").upper().strip() or None
     tabela_mv = _carregar_meia_vida()
-    return float(tabela_mv.get((solo, expo), 24))
+    return float(
+        tabela_mv.get((solo, expo, reg)) or
+        tabela_mv.get((solo, expo, None)) or
+        24
+    )
 
 def _ajustar_meia_vida_clima(meia_vida_base: float, trail: dict,
                              temp_c: float | None = None,
@@ -973,6 +988,7 @@ _CACHE_OM_CHUVA_RAW: dict = {}     # local_key → (times, precips)
 _CACHE_OM_VENTO_RAW: dict = {}     # local_key → (times, speeds, gusts)
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
+_CACHE_ENSO_REGIONAL: dict = {}
 _CACHE_CONFIG: dict = {}
 _CACHE_ENSO_CONFIG: list = []
 _CACHE_ADERENCIA_THRESHOLDS: list = []
@@ -1129,7 +1145,7 @@ def _carregar_meia_vida() -> dict:
     try:
         url = (
             f"{SUPABASE_URL}/rest/v1/meia_vida_secagem"
-            f"?select=solo_type,exposicao,meia_vida_h"
+            f"?select=solo_type,exposicao,regiao,meia_vida_h"
         )
         req = urllib.request.Request(url, headers={
             "apikey":        SUPABASE_KEY,
@@ -1139,7 +1155,8 @@ def _carregar_meia_vida() -> dict:
             dados = json.loads(r.read())
         tabela: dict = {}
         for row in dados:
-            tabela[(row["solo_type"], row["exposicao"])] = row["meia_vida_h"]
+            # chave (solo_type, exposicao, regiao) — regiao pode ser None (entrada global)
+            tabela[(row["solo_type"], row["exposicao"], row.get("regiao"))] = row["meia_vida_h"]
         _CACHE_MEIA_VIDA = tabela
         print(f"  [MeiaVida] Carregado do Supabase: {len(dados)} registros")
         return tabela
@@ -1171,6 +1188,33 @@ def _carregar_enso_config() -> list:
     except Exception as exc:
         print(f"  [ENSO] Erro: {exc} — usando neutro como fallback")
         return [{"fase": "neutro", "oni_min": -0.5, "oni_max": 0.5, "multiplicador": 1.00, "emoji": "🌤️"}]
+
+
+def _carregar_enso_regional_mult() -> dict:
+    """Carrega multiplicadores ENSO por região. Estrutura: {(fase_raw, regiao): mult}."""
+    global _CACHE_ENSO_REGIONAL
+    if _CACHE_ENSO_REGIONAL:
+        return _CACHE_ENSO_REGIONAL
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/enso_regional_mult"
+            f"?select=fase,regiao,multiplicador&ativo=eq.true"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as r:
+            dados = json.loads(r.read())
+        tabela: dict = {}
+        for row in dados:
+            tabela[(row["fase"], row["regiao"])] = float(row["multiplicador"])
+        _CACHE_ENSO_REGIONAL = tabela
+        print(f"  [ENSO Regional] Carregado do Supabase: {len(dados)} registros")
+        return tabela
+    except Exception as exc:
+        print(f"  [ENSO Regional] Erro: {exc} — usando multiplicador global")
+        return {}
 
 
 def _carregar_aderencia_thresholds() -> list:
@@ -3173,6 +3217,7 @@ def main() -> None:
     _carregar_threshold_sazonal()
     _carregar_meia_vida()
     _carregar_enso_config()
+    _carregar_enso_regional_mult()
     _carregar_aderencia_thresholds()
     _carregar_veredicto_pesos()
     _carregar_veredicto_limiares()
