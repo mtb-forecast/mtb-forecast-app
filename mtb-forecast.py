@@ -247,12 +247,21 @@ def _enso_mult_regional(enso: dict, uf: str) -> float:
     return tabela.get((fase_raw, macro_reg), enso["mult"])
 
 
+def _threshold_tabela(uf: str, tabela_sb: dict) -> dict:
+    """Lookup em cascata: UF específica → macro-região → DEFAULT."""
+    macro = _macro_regiao(uf)
+    return (
+        tabela_sb.get(uf) or
+        tabela_sb.get(macro) or
+        tabela_sb.get("DEFAULT", {})
+    )
+
+
 def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float:
     """Threshold dinâmico: sazonalidade × ENSO regional × microclima de bioma."""
     uf = ((trail or {}).get("regiao") or "").upper()
     tabela_sb = _carregar_threshold_sazonal()
-    # threshold_sazonal ainda usa UF (SP, SC…) como chave — mantém granularidade fina
-    tabela = tabela_sb.get(uf, tabela_sb.get("DEFAULT", {}))
+    tabela = _threshold_tabela(uf, tabela_sb)
     base, _ = tabela.get(mes, (5.0, 10.0))
     valor = base * _enso_mult_regional(enso, uf)
     if trail is not None:
@@ -263,7 +272,7 @@ def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float
 def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> float:
     uf = ((trail or {}).get("regiao") or "").upper()
     tabela_sb = _carregar_threshold_sazonal()
-    tabela = tabela_sb.get(uf, tabela_sb.get("DEFAULT", {}))
+    tabela = _threshold_tabela(uf, tabela_sb)
     _, sat = tabela.get(mes, (5.0, 10.0))
     valor = sat * _enso_mult_regional(enso, uf)
     if trail is not None:
