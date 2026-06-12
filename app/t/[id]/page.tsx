@@ -87,25 +87,8 @@ export default async function TrilhaPreviewPage({ params }: { params: { id: stri
           )}
         </div>
 
-        {/* Mapa */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-          <iframe
-            src={`https://maps.google.com/maps?q=${data.lat},${data.lon}&z=15&output=embed&t=k`}
-            width="100%"
-            height="220"
-            style={{ border: 'none', display: 'block' }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-          <div style={{ padding: '8px 14px', borderTop: '0.5px solid #e5e5e5' }}>
-            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
-              Ver no mapa ↗
-            </a>
-          </div>
-        </div>
-
-        {/* Seção bloqueada */}
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 32, textAlign: 'center' }}>
+        {/* Seção bloqueada — acima do mapa para ser o elemento LCP */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 32, textAlign: 'center', marginBottom: 16 }}>
           <i className="ti ti-lock" style={{ fontSize: 48, color: '#e5e5e5' }} />
           <h2 className="font-wheat" style={{ color: '#2a2e25', fontSize: 24, marginTop: 12, marginBottom: 8 }}>
             Veja as condições completas
@@ -134,6 +117,23 @@ export default async function TrilhaPreviewPage({ params }: { params: { id: stri
             >
               Já tenho conta — Entrar
             </Link>
+          </div>
+        </div>
+
+        {/* Mapa — abaixo da dobra, não afeta LCP */}
+        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 16 }}>
+          <iframe
+            src={`https://maps.google.com/maps?q=${data.lat},${data.lon}&z=15&output=embed&t=k`}
+            width="100%"
+            height="220"
+            style={{ border: 'none', display: 'block' }}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+          <div style={{ padding: '8px 14px', borderTop: '0.5px solid #e5e5e5' }}>
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#888' }}>
+              Ver no mapa ↗
+            </a>
           </div>
         </div>
 
