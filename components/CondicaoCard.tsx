@@ -165,6 +165,7 @@ function CondicaoCard({ condicao }: Props) {
     : 'Monitorar chuva'
 
   // Badge do estado do solo — Python é a fonte de verdade; drift calcula o tempo restante
+  // Retorna null quando o solo já está em boas condições (GRIP PERFEITO) — badge desnecessário
   const badgeSolo = (() => {
     if (temChuvaFutura) return fmtHAposChuva(horasParaGrip)
     const futPior = !!(
@@ -174,10 +175,9 @@ function CondicaoCard({ condicao }: Props) {
     )
     if (futPior && isGripOk) return `piora ${condicao.aderencia_futura_label}`
     if (trilhaSecaEmAgora > 0) return `seca em ~${trilhaSecaEmAgora}h`
-    // Solo abaixo do threshold: só "Solo seco" se Python confirmou SECO ou moisture negligível
     if (aderenciaStr === 'SECO' || acumuloAgora < 0.3) return 'Solo seco'
     if (aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
-    return 'Em grip'
+    return null
   })()
 
   // Próximos 3 dias
@@ -291,13 +291,15 @@ function CondicaoCard({ condicao }: Props) {
               <span style={{ fontSize: 11, color: '#6B7280' }}>retidos</span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
-              <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }} className="font-mono">
-                {badgeSolo}
-              </span>
-            </div>
+            {badgeSolo !== null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
+                <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }} className="font-mono">
+                  {badgeSolo}
+                </span>
+              </div>
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
