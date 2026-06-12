@@ -16,8 +16,8 @@ Alterações V5.24:
 
 Alterações V5.23:
 - One Call API 3.0 (OpenWeather) substitui /data/2.5/forecast como fonte principal
-  · fetch_onecall(): previsão horária das próximas 48h (/data/4.0/onecall)
-  · fetch_onecall_historico(): histórico real hora a hora 48h (/data/4.0/onecall/timemachine)
+  · fetch_onecall(): previsão horária das próximas 48h (/data/3.0/onecall)
+  · fetch_onecall_historico(): histórico real hora a hora 48h (/data/3.0/onecall/timemachine)
   · Duas chamadas timemachine por trilha (48h atrás e 24h atrás) — sem janela cega
   · Chuva da madrugada capturada integralmente ao rodar às 07:00 BRT
 - Média ponderada 70% OpenWeather / 30% Open-Meteo (era 50/50)
@@ -281,7 +281,7 @@ def fetch_onecall(trail: dict) -> dict | None:
     if lk and lk in _CACHE_OW_ONECALL:
         return _CACHE_OW_ONECALL[lk]
     url = (
-        "https://api.openweathermap.org/data/4.0/onecall"
+        "https://api.openweathermap.org/data/3.0/onecall"
         f"?lat={trail['lat']}&lon={trail['lon']}"
         f"&appid={OPENWEATHER_KEY}&units=metric&lang=pt_br"
         "&exclude=current,minutely,daily,alerts"
@@ -490,7 +490,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
 
 def fetch_ow_day_summary(trail: dict) -> dict:
     """
-    Precipitação diária via /data/4.0/onecall/day_summary (2 chamadas: hoje + ontem).
+    Precipitação diária via /data/3.0/onecall/day_summary (2 chamadas: hoje + ontem).
     Mais confiável que timemachine para chuva total — retorna o dia inteiro em 1 chamada.
     Retorna {"bruto_ow": mm_total, "hoje": mm_hoje, "ontem": mm_ontem}.
     """
@@ -507,7 +507,7 @@ def fetch_ow_day_summary(trail: dict) -> dict:
     for delta in range(2):          # 0 = hoje, 1 = ontem
         dia = (agora - timedelta(days=delta)).strftime("%Y-%m-%d")
         url = (
-            f"https://api.openweathermap.org/data/4.0/onecall/day_summary"
+            f"https://api.openweathermap.org/data/3.0/onecall/day_summary"
             f"?lat={trail['lat']}&lon={trail['lon']}&date={dia}"
             f"&appid={OPENWEATHER_KEY}&units=metric"
         )
