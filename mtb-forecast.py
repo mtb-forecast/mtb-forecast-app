@@ -20,10 +20,10 @@ Alterações V5.23:
   · fetch_onecall_historico(): histórico real hora a hora 48h (/data/3.0/onecall/timemachine)
   · Duas chamadas timemachine por trilha (48h atrás e 24h atrás) — sem janela cega
   · Chuva da madrugada capturada integralmente ao rodar às 07:00 BRT
-- Média ponderada 70% OpenWeather / 30% Open-Meteo (era 50/50)
+- Cascata de previsão: OpenWeather (primário) → Open-Meteo (fallback) → WeatherAPI (último recurso)
 - pico_3h calculado com granularidade horária (48 pontos vs 16 anteriores)
 - janela, horarios_chuva, resumo_12h e resumo_dia operando com dados horários
-- Open-Meteo mantido para previsão (30%) e vento histórico (rajadas)
+- Open-Meteo mantido para previsão (fallback) e vento histórico (rajadas)
 - Cron ajustado para 07:00 BRT (0 10 * * *)
 
 Alterações V5.22:
@@ -360,8 +360,6 @@ def fetch_onecall(trail: dict) -> dict | None:
                 resultado = None
             else:
                 time.sleep(2 ** attempt)
-    if resultado is None and WEATHERAPI_KEY:
-        resultado = _fetch_weatherapi_forecast_as_ow(trail)
     if lk and resultado is not None:
         _CACHE_OW_ONECALL[lk] = resultado
     return resultado
@@ -847,8 +845,10 @@ def resumo_openmeteo(data: dict) -> dict:
         wind         = hourly.get("windspeed_10m", [])[:24]
         gusts        = hourly.get("windgusts_10m", [])[:24]
         pop          = hourly.get("precipitation_probability", [])[:24]
+        temps        = hourly.get("temperature_2m", [])[:24]
         wind_ms      = [w / 3.6 for w in wind if w is not None]
         gust_ms      = [g / 3.6 for g in gusts if g is not None]
+        temps_valid  = [t for t in temps if t is not None]
         rain_mm      = sum(p for p in precip if p is not None)
         pop_max      = max((p for p in pop if p is not None), default=0)
         wind_max     = max(wind_ms, default=0)
@@ -858,12 +858,16 @@ def resumo_openmeteo(data: dict) -> dict:
             (sum(precip_clean[i:i+3]) for i in range(max(1, len(precip_clean) - 2))),
             default=0.0
         )
+        tmax = round(max(temps_valid, default=25))
+        tmin = round(min(temps_valid, default=tmax))
         return {
             "rain":     round(rain_mm, 1),
             "wind":     round(wind_max, 1),
             "pop":      round(pop_max),
             "pico_3h":  round(pico_3h, 1),
             "gust_max": round(gust_max, 1),
+            "tmax":     tmax,
+            "tmin":     tmin,
         }
     except (KeyError, TypeError):
         return None
@@ -2186,31 +2190,50 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     oc_raw = fetch_onecall(trail)
     oc     = resumo_onecall(oc_raw)
 
-    if oc is None:
-        oc = {"rain": 0.0, "wind": 0.0, "pop": 0, "pico_3h": 0.0, "tmax": 25, "tmin": None}
-
     om_raw = fetch_openmeteo(trail)
     om     = resumo_openmeteo(om_raw)
 
-    if om:
-        rain    = round(oc["rain"]    * 0.7 + om["rain"]    * 0.3, 1)
-        wind    = round(oc["wind"]    * 0.7 + om["wind"]    * 0.3, 1)
-        pop     = round(oc["pop"]     * 0.7 + om["pop"]     * 0.3)
-        pico_3h = round(oc["pico_3h"] * 0.7 + om["pico_3h"] * 0.3, 1)
-        fonte   = "OpenWeather + Open-Meteo"
-        gust_max_ms = max(oc.get("gust_max", 0.0), om.get("gust_max", 0.0))
-    else:
-        rain    = oc["rain"]
-        wind    = oc["wind"]
-        pop     = oc["pop"]
-        pico_3h = oc["pico_3h"]
-        fonte   = "OpenWeather"
+    if oc:
+        rain        = oc["rain"]
+        wind        = oc["wind"]
+        pop         = oc["pop"]
+        pico_3h     = oc["pico_3h"]
         gust_max_ms = oc.get("gust_max", 0.0)
+        tmax        = oc["tmax"]
+        tmin        = oc.get("tmin")
+        fonte       = "OpenWeather"
+    elif om:
+        rain        = om["rain"]
+        wind        = om["wind"]
+        pop         = om["pop"]
+        pico_3h     = om["pico_3h"]
+        gust_max_ms = om.get("gust_max", 0.0)
+        tmax        = om.get("tmax", 25)
+        tmin        = om.get("tmin")
+        fonte       = "Open-Meteo (fallback OW)"
+    else:
+        wapi_raw    = _fetch_weatherapi_forecast_as_ow(trail)
+        wapi        = resumo_onecall(wapi_raw) if wapi_raw else None
+        if wapi:
+            rain        = wapi["rain"]
+            wind        = wapi["wind"]
+            pop         = wapi["pop"]
+            pico_3h     = wapi["pico_3h"]
+            gust_max_ms = wapi.get("gust_max", 0.0)
+            tmax        = wapi.get("tmax", 25)
+            tmin        = wapi.get("tmin")
+            fonte       = "WeatherAPI (fallback OW+OM)"
+        else:
+            rain        = 0.0
+            wind        = 0.0
+            pop         = 0
+            pico_3h     = 0.0
+            gust_max_ms = 0.0
+            tmax        = 25
+            tmin        = None
+            fonte       = "sem dados"
 
     gust_max_kmh = round(gust_max_ms * 3.6, 1)
-
-    tmax = oc["tmax"]
-    tmin = oc.get("tmin")
 
     inclinacao = calcular_inclinacao(trail)
 
@@ -2403,21 +2426,10 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             w     = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
             clouds_pct = round(sum(h.get("clouds", 0) or 0 for h in dia_oc) / len(dia_oc)) if dia_oc else None
 
-            if dia_om:
-                # Blend 70% OWM + 30% Open-Meteo — igual ao pico_3h atual
-                precips_om = [h["precip"] for h in dia_om]
-                r_om  = sum(precips_om)
-                p3_om = max((sum(precips_om[i:i+3]) for i in range(max(1, len(precips_om) - 2))), default=0.0)
-                pp_om = max((h["pop"] for h in dia_om), default=0.0) * 100
-                r    = round(0.7 * r_oc + 0.3 * r_om, 1)
-                p3   = round(0.7 * p3_oc + 0.3 * p3_om, 1)
-                pp   = round(0.7 * pp_oc + 0.3 * pp_om)
-                fonte_dia = "OC+OM"
-            else:
-                r  = round(r_oc, 1)
-                p3 = round(p3_oc, 1)
-                pp = round(pp_oc)
-                fonte_dia = "OC"
+            r  = round(r_oc, 1)
+            p3 = round(p3_oc, 1)
+            pp = round(pp_oc)
+            fonte_dia = "OC"
         elif dia_om:
             # Fallback Open-Meteo (D+3 quando OC não alcança)
             precips = [h["precip"] for h in dia_om]
@@ -3314,28 +3326,47 @@ def _processar_pumptracks():
                            "name": pt["nome"]}
             oc_raw = fetch_onecall(trail_proxy)
             oc     = resumo_onecall(oc_raw)
-            if oc is None:
-                oc = {"rain": 0.0, "wind": 0.0, "pop": 0, "pico_3h": 0.0, "tmax": 25, "tmin": None}
 
             om_raw = fetch_openmeteo(trail_proxy)
             om     = resumo_openmeteo(om_raw)
 
-            if om:
-                rain    = round(oc["rain"]    * 0.7 + om["rain"]    * 0.3, 1)
-                wind    = round(oc["wind"]    * 0.7 + om["wind"]    * 0.3, 1)
-                pop     = round(oc["pop"]     * 0.7 + om["pop"]     * 0.3)
-                pico_3h = round(oc["pico_3h"] * 0.7 + om["pico_3h"] * 0.3, 1)
-            else:
+            if oc:
                 rain    = oc["rain"]
                 wind    = oc["wind"]
                 pop     = oc["pop"]
                 pico_3h = oc["pico_3h"]
+                tmax_pt = oc.get("tmax", 25)
+                tmin_pt = oc.get("tmin")
+            elif om:
+                rain    = om["rain"]
+                wind    = om["wind"]
+                pop     = om["pop"]
+                pico_3h = om["pico_3h"]
+                tmax_pt = om.get("tmax", 25)
+                tmin_pt = om.get("tmin")
+            else:
+                wapi_raw = _fetch_weatherapi_forecast_as_ow(trail_proxy)
+                wapi     = resumo_onecall(wapi_raw) if wapi_raw else None
+                if wapi:
+                    rain    = wapi["rain"]
+                    wind    = wapi["wind"]
+                    pop     = wapi["pop"]
+                    pico_3h = wapi["pico_3h"]
+                    tmax_pt = wapi.get("tmax", 25)
+                    tmin_pt = wapi.get("tmin")
+                else:
+                    rain    = 0.0
+                    wind    = 0.0
+                    pop     = 0
+                    pico_3h = 0.0
+                    tmax_pt = 25
+                    tmin_pt = None
 
             dados = {
                 "rain": rain, "wind": wind, "pop": pop,
                 "pico_3h": pico_3h,
-                "temp_max": oc.get("tmax"),
-                "temp_min": oc.get("tmin"),
+                "temp_max": tmax_pt,
+                "temp_min": tmin_pt,
             }
             ok = _gravar_condicao_pumptrack(pt["id"], dados)
             if ok:
