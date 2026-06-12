@@ -167,6 +167,13 @@ function CondicaoCard({ condicao }: Props) {
   // Badge do estado do solo — Python define se é "seco"; drift define o tempo restante
   const badgeSolo = (() => {
     if (temChuvaFutura) return fmtHAposChuva(horasParaGrip)
+    // Condição futura pior que a atual (calculada pelo Python) — não exibir "Solo seco"
+    const futPior = !!(
+      condicao.aderencia_futura_status &&
+      condicao.aderencia_futura_label &&
+      condicao.aderencia_futura_status !== condicao.aderencia_status
+    )
+    if (futPior && isGripOk) return `piora ${condicao.aderencia_futura_label}`
     if (trilhaSecaEmAgora === 0 && isGripOk) return 'Solo seco'
     if (trilhaSecaEmAgora === 0 && aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
     if (trilhaSecaEmAgora > 0) return `seca em ~${trilhaSecaEmAgora}h`
