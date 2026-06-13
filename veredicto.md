@@ -19,8 +19,7 @@
 | Fator | Peso | Quando ocorre |
 |-------|------|---------------|
 | aderencia_baixa | 4 | acumulo_ef acima do threshold de saturação |
-| aderencia_boa | 2 | acumulo_ef entre threshold de grip e baixa |
-| aderencia_boa_umido | 2 | solo seco mas garoa ativa (≥6h padrão úmido nas 48h) |
+| aderencia_boa_umido | 2 | acumulo_ef entre threshold de grip e baixa, OU garoa ativa (≥6h padrão úmido nas 48h) |
 | aderencia_grip | 1 | acumulo_ef baixo, solo descansado |
 | *(SECO)* | *0* | *acumulo_ef ≈ 0 e sem garoa — não tem fator, risco parte de zero* |
 
@@ -34,11 +33,11 @@
 | bikepark_saturado | 2 | bikepark com solo além do limiar de saturação |
 | vento_estrutural_alto | 2 | vento histórico > 90 km/h |
 | pico_3h_alto | 1 | pico 3h ≥ 10mm |
-| piora_prevista | 1 | previsão 12h vai de SECO/GRIP para BOA ADERÊNCIA |
+| piora_prevista | 1 | previsão 12h vai de SECO/GRIP para BOA ADERÊNCIA - ÚMIDO |
 | rain_alto | 1 | chuva acumulada prevista ≥ 8mm |
 | vento_alto | 1 | vento sustentado previsto ≥ 12 m/s |
 | inclinacao_media | 1 | inclinação > 20% com solo úmido ou chuva prevista |
-| trilha_natural_umida | 1 | trail_type=natural + BOA / BOA ÚMIDO / BAIXA |
+| trilha_natural_umida | 1 | trail_type=natural + BOA ADERÊNCIA - ÚMIDO / BAIXA |
 | trilha_natural_inclinada | 1 | trail_type=natural + inclinação > 20% + chuva prevista |
 | vento_estrutural_med | 1 | vento histórico 65–90 km/h |
 | solo_encharcado | 1 | vento histórico 55–90 km/h com acumulo_ef ≥ threshold |
@@ -63,9 +62,8 @@
 | SECO + piora para BOA | 0 + 1 | 1 |
 | GRIP PERFEITO | 1 | 1 |
 | GRIP PERFEITO + bikepark | 1 − 1 | 0 |
-| BOA ADERÊNCIA + bikepark | 2 − 1 | 1 |
 | BOA ADERÊNCIA - ÚMIDO + bikepark | 2 − 1 | 1 |
-| GRIP PERFEITO + bikepark + piora para BOA | 1 − 1 + 1 | 1 |
+| GRIP PERFEITO + bikepark + piora para BOA ÚMIDO | 1 − 1 + 1 | 1 |
 
 ---
 
@@ -77,11 +75,10 @@
 | GRIP PERFEITO + pico alto (≥10mm) | 1 + 1 | 2 |
 | GRIP PERFEITO + vento estrutural forte | 1 + 1 | 2 |
 | GRIP PERFEITO + piora severa → BAIXA | 1 + 2 | 3 |
-| BOA ADERÊNCIA + bikepark + rajada | 2 − 1 + 1 | 2 |
-| BOA ADERÊNCIA + bikepark + pico alto | 2 − 1 + 1 | 2 |
-| BOA ADERÊNCIA + bikepark + piora severa | 2 − 1 + 2 | 3 |
-| BOA ADERÊNCIA + bikepark + pico muito alto (≥15mm) | 2 − 1 + 3 | 4 → **ESPERAR** ✓ |
-| BOA ADERÊNCIA natural | 2 + 1 | 3 |
+| BOA ADERÊNCIA - ÚMIDO + bikepark + rajada | 2 − 1 + 1 | 2 |
+| BOA ADERÊNCIA - ÚMIDO + bikepark + pico alto | 2 − 1 + 1 | 2 |
+| BOA ADERÊNCIA - ÚMIDO + bikepark + piora severa | 2 − 1 + 2 | 3 |
+| BOA ADERÊNCIA - ÚMIDO + bikepark + pico muito alto (≥15mm) | 2 − 1 + 3 | 4 → **ESPERAR** ✓ |
 | BOA ADERÊNCIA - ÚMIDO natural | 2 + 1 | 3 |
 | BAIXA ADERÊNCIA + bikepark | 4 − 1 | 3 |
 | BAIXA ADERÊNCIA + bikepark + melhora prevista | 4 − 1 − 1 | 2 |
@@ -99,9 +96,9 @@
 | BAIXA ADERÊNCIA + vento estrutural | 4 + 1 | 5 |
 | BAIXA ADERÊNCIA + piora severa | 4 + 2 | 6 |
 | BAIXA ADERÊNCIA + bikepark saturado | 4 − 1 + 2 | 5 |
-| BOA ADERÊNCIA + bikepark + pico muito alto | 2 − 1 + 3 | 4 |
-| BOA ADERÊNCIA natural + pico muito alto | 2 + 1 + 3 | 6 |
-| BOA ADERÊNCIA natural + piora severa | 2 + 1 + 2 | 5 |
+| BOA ADERÊNCIA - ÚMIDO + bikepark + pico muito alto | 2 − 1 + 3 | 4 |
+| BOA ADERÊNCIA - ÚMIDO natural + pico muito alto | 2 + 1 + 3 | 6 |
+| BOA ADERÊNCIA - ÚMIDO natural + piora severa | 2 + 1 + 2 | 5 |
 | GRIP PERFEITO + pico muito alto (natural) | 1 + 3 | 4 |
 | GRIP PERFEITO + piora severa + rajada | 1 + 2 + 1 | 4 |
 | GRIP PERFEITO + piora severa + inclinação alta | 1 + 2 + 1 | 4 |

@@ -30,7 +30,6 @@ function aderenciaBadge(a: string): { bg: string; color: string } {
   if (a === 'SECO')                  return { bg: '#FEF9C3', color: '#A16207' }   // amarelo
   if (a === 'GRIP PERFEITO')         return { bg: '#DCFCE7', color: '#15803D' }   // verde
   if (a === 'BOA ADERÊNCIA - ÚMIDO') return { bg: '#F7FEE7', color: '#4D7C0F' }   // lima
-  if (a === 'BOA ADERÊNCIA')         return { bg: '#FFFBEB', color: '#B45309' }   // âmbar
   if (a === 'BAIXA ADERÊNCIA')       return { bg: '#FEE2E2', color: '#B91C1C' }   // vermelho
   return { bg: '#F9FAFB', color: '#9CA3AF' }
 }
@@ -91,11 +90,10 @@ function recalcularSolo(condicao: Condicao) {
   }
 }
 
-function barZone(aderencia: string, veredicto: string): number {
+function barZone(aderencia: string): number {
   if (aderencia === 'SECO')                  return 100
   if (aderencia === 'GRIP PERFEITO')         return 80
   if (aderencia === 'BOA ADERÊNCIA - ÚMIDO') return 62
-  if (aderencia === 'BOA ADERÊNCIA')         return veredicto.includes('Veja os alertas') ? 30 : 45
   if (aderencia === 'BAIXA ADERÊNCIA')       return 15
   return 0
 }
@@ -104,8 +102,7 @@ function zoneColor(zone: number): string {
   if (zone >= 100) return '#A16207'  // amarelo — SECO
   if (zone >= 80)  return '#15803D'  // verde   — GRIP PERFEITO
   if (zone >= 62)  return '#4D7C0F'  // lima    — BOA ADERÊNCIA - ÚMIDO
-  if (zone >= 45)  return '#B45309'  // âmbar   — BOA ADERÊNCIA
-  if (zone >= 15)  return '#C2410C'  // laranja — BOA ADERÊNCIA (alertas)
+  if (zone >= 15)  return '#C2410C'  // laranja — reserva / sem uso
   return '#B91C1C'                   // vermelho — BAIXA ADERÊNCIA
 }
 
@@ -134,7 +131,7 @@ function CondicaoCard({ condicao }: Props) {
   const aderenciaStr = condicao.aderencia_status?.trim() ?? ''
   const isGripOk     = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO' || aderenciaStr === 'BOA ADERÊNCIA - ÚMIDO'
 
-  const zone             = barZone(aderenciaStr, condicao.veredicto)
+  const zone             = barZone(aderenciaStr)
   const progressoExibido = zone
   const indicatorColor   = zoneColor(zone)
   const horaReport = new Date(condicao.gerado_em).toLocaleTimeString('pt-BR', {
@@ -163,7 +160,6 @@ function CondicaoCard({ condicao }: Props) {
 
   const labelGrip = zone >= 100 ? 'Solo Seco ✓'
     : zone >= 80  ? 'Grip Perfeito ✓'
-    : aderenciaStr === 'BOA ADERÊNCIA - ÚMIDO' ? 'Superfície úmida'
     : zone === 0  ? 'Sem aderência'
     : zone <= 15  ? (horasParaGrip > 0 ? fmtH(horasParaGrip) : 'Baixa aderência')
     : temChuvaFutura && horasParaGrip > 0 ? fmtHAposChuva(horasParaGrip)
@@ -184,7 +180,6 @@ function CondicaoCard({ condicao }: Props) {
     if (trilhaSecaEmAgora > 0) return `seca em ~${trilhaSecaEmAgora}h`
     if (aderenciaStr === 'SECO' || acumuloAgora < 0.3) return 'Solo seco'
     if (aderenciaStr === 'BOA ADERÊNCIA - ÚMIDO') return 'Solo úmido'
-    if (aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
     return null
   })()
 
@@ -279,7 +274,7 @@ function CondicaoCard({ condicao }: Props) {
           {(() => {
             const st = condicao.aderencia_status?.trim()
             return condicao.frase_secagem &&
-              st !== 'GRIP PERFEITO' && st !== 'SECO' && st !== 'BOA ADERÊNCIA' && st !== 'BOA ADERÊNCIA - ÚMIDO' && (
+              st !== 'GRIP PERFEITO' && st !== 'SECO' && st !== 'BOA ADERÊNCIA - ÚMIDO' && (
               <p style={{ fontSize: 12, fontStyle: 'italic', color: '#555555', lineHeight: 1.75, margin: 0 }}>
                 {condicao.frase_secagem}
               </p>

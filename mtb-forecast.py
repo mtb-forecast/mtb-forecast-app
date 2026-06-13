@@ -72,7 +72,7 @@ Alterações V5.11:
 Alterações V5.10:
 - Novo tipo de solo "preto"
 - trail_type simplificado para "natural" e "bikepark"
-- Nomenclatura: GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA
+- Nomenclatura: GRIP PERFEITO / BOA ADERÊNCIA - ÚMIDO / BAIXA ADERÊNCIA
 - Veredicto: DROP LIBERADO / DROP LIBERADO - Veja os alertas / MELHOR ESPERAR
 
 Alterações V5.4:
@@ -131,7 +131,7 @@ def _validar_env() -> None:
         )
 
 BRT = timezone(timedelta(hours=-3))
-ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BAIXA ADERÊNCIA": 3}
 
 # ---------------------------------------------------------------------------
 # Sazonalidade e ENSO — V5.22
@@ -1304,10 +1304,10 @@ def _carregar_aderencia_thresholds() -> list:
     except Exception as exc:
         print(f"  [Aderência] Erro: {exc} — usando thresholds padrão")
         return [
-            {"status": "SECO",            "ef_min": None, "ef_max": 0.0},
-            {"status": "GRIP PERFEITO",   "ef_min": 0.0,  "ef_max": 3.0},
-            {"status": "BOA ADERÊNCIA",   "ef_min": 3.0,  "ef_max": 7.0},
-            {"status": "BAIXA ADERÊNCIA", "ef_min": 7.0,  "ef_max": None},
+            {"status": "SECO",                  "ef_min": None, "ef_max": 0.0},
+            {"status": "GRIP PERFEITO",         "ef_min": 0.0,  "ef_max": 3.0},
+            {"status": "BOA ADERÊNCIA - ÚMIDO", "ef_min": 3.0,  "ef_max": 7.0},
+            {"status": "BAIXA ADERÊNCIA",       "ef_min": 7.0,  "ef_max": None},
         ]
 
 
@@ -1838,14 +1838,14 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     # Exceção: bikepark saturado mantém BAIXA — já passou do limiar de drenagem
     thresh_local = threshold_solo_descansado(mes, enso, trail)
     if status == "BAIXA ADERÊNCIA" and acumulo_ef < thresh_local * 2.5 and not saturado:
-        status = "BOA ADERÊNCIA"
+        status = "BOA ADERÊNCIA - ÚMIDO"
 
     if trail.get("trail_type") == "bikepark":
         if acumulo_ef >= 5.0:
             pass  # BAIXA ADERÊNCIA permitida — sem teto quando solo saturado
         else:
             if status == "BAIXA ADERÊNCIA":
-                status = "BOA ADERÊNCIA"  # teto quando solo não está saturado
+                status = "BOA ADERÊNCIA - ÚMIDO"  # teto quando solo não está saturado
         if acumulo_ef >= 2.0 and status == "SECO":
             status = "GRIP PERFEITO"  # nunca SECO com umidade real no solo
 
@@ -1855,8 +1855,8 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     if garoa_ativa and status == "GRIP PERFEITO":
         status = "BOA ADERÊNCIA - ÚMIDO"
 
-    emojis = {"SECO": "🟡", "GRIP PERFEITO": "🟢", "BOA ADERÊNCIA - ÚMIDO": "🔵", "BOA ADERÊNCIA": "🟠", "BAIXA ADERÊNCIA": "🔴"}
-    cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA - ÚMIDO": "#0ea5e9", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
+    emojis = {"SECO": "🟡", "GRIP PERFEITO": "🟢", "BOA ADERÊNCIA - ÚMIDO": "🔵", "BAIXA ADERÊNCIA": "🔴"}
+    cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA - ÚMIDO": "#84cc16", "BAIXA ADERÊNCIA": "#ef4444"}
     desc = _descricao_aderencia(status, trail, saturado=saturado)
 
     # Threshold efetivo para GRIP PERFEITO em unidades de acumulo_ef (estado histórico do solo).
@@ -1898,12 +1898,9 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
     if status == "BAIXA ADERÊNCIA":
         risco += peso_por_fator.get("aderencia_baixa", 3)
         motivos.append("aderência baixa")
-    elif status == "BOA ADERÊNCIA":
-        risco += peso_por_fator.get("aderencia_boa", 2)
-        motivos.append("aderência moderada")
     elif status == "BOA ADERÊNCIA - ÚMIDO":
-        risco += peso_por_fator.get("aderencia_boa_umido", 2)  # valor canônico na tabela veredicto_pesos
-        motivos.append("superfície úmida — garoa ativa")
+        risco += peso_por_fator.get("aderencia_boa_umido", 2)
+        motivos.append("solo úmido")
     elif status == "GRIP PERFEITO":
         risco += peso_por_fator.get("aderencia_grip", 1)
         motivos.append("aderência boa")
@@ -1944,7 +1941,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             motivos.append("bikepark saturado")
 
     if trail is not None and trail.get("trail_type") == "natural":
-        if status in ("BOA ADERÊNCIA", "BOA ADERÊNCIA - ÚMIDO", "BAIXA ADERÊNCIA"):
+        if status in ("BOA ADERÊNCIA - ÚMIDO", "BAIXA ADERÊNCIA"):
             risco += peso_por_fator.get("trilha_natural_umida", 1)
             motivos.append("trilha natural com solo úmido")
         elif inclinacao is not None and inclinacao > 20 and rain_mm > 0:
@@ -1981,7 +1978,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         risco += peso_por_fator.get("rajada_prevista", 1)
         motivos.append(f"rajada prevista {gust_kmh} km/h ({exposicao})")
 
-    _sev = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+    _sev = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BAIXA ADERÊNCIA": 3}
     if aderencia_futura is not None:
         sev_a = _sev.get(status, 0)
         sev_f = _sev.get(aderencia_futura.get("status", status), 0)
@@ -1989,7 +1986,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             if aderencia_futura["status"] == "BAIXA ADERÊNCIA" and status != "BAIXA ADERÊNCIA":
                 risco += peso_por_fator.get("piora_prevista_severa", 2)
                 motivos.append("piora prevista severa")
-            elif aderencia_futura["status"] == "BOA ADERÊNCIA" and status in ("SECO", "GRIP PERFEITO"):
+            elif aderencia_futura["status"] == "BOA ADERÊNCIA - ÚMIDO" and status in ("SECO", "GRIP PERFEITO"):
                 risco += peso_por_fator.get("piora_prevista", 1)
                 motivos.append("piora prevista")
         elif sev_f < sev_a:
@@ -2639,7 +2636,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         return blocos
 
     def calcular_aderencia_futura_oc() -> dict:
-        _ordem = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+        _ordem = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BAIXA ADERÊNCIA": 3}
         agora = datetime.now(BRT)
         chuva_anterior = 0.0
         pior = None
@@ -2918,8 +2915,8 @@ def _aplicar_override_chuva_futura(resultado: dict) -> dict:
             "solo_type": resultado.get("solo_type_raw", "terra"),
             "trail_type": resultado.get("trail_type", "natural"),
         }
-        aderencia["status"] = "BOA ADERÊNCIA"
-        aderencia["desc"]   = _descricao_aderencia("BOA ADERÊNCIA", trail_mini)
+        aderencia["status"] = "BOA ADERÊNCIA - ÚMIDO"
+        aderencia["desc"]   = _descricao_aderencia("BOA ADERÊNCIA - ÚMIDO", trail_mini)
 
     if vered.get("texto") == "DROP LIBERADO":
         vered["texto"]  = "DROP LIBERADO - Veja os alertas"
