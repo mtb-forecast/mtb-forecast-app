@@ -27,11 +27,12 @@ function verdictBorderColor(v: string): string {
 }
 
 function aderenciaBadge(a: string): { bg: string; color: string } {
-  if (a === 'GRIP PERFEITO')         return { bg: '#DCFCE7', color: '#15803D' }
-  if (a === 'BOA ADERÊNCIA - ÚMIDO') return { bg: '#E0F2FE', color: '#0369A1' }
-  if (a === 'BOA ADERÊNCIA')         return { bg: '#FFF7ED', color: '#C2410C' }
-  if (a === 'BAIXA ADERÊNCIA')       return { bg: '#FEE2E2', color: '#B91C1C' }
-  return { bg: '#FEF9C3', color: '#A16207' }
+  if (a === 'SECO')                  return { bg: '#FEF9C3', color: '#A16207' }   // amarelo
+  if (a === 'GRIP PERFEITO')         return { bg: '#DCFCE7', color: '#15803D' }   // verde
+  if (a === 'BOA ADERÊNCIA - ÚMIDO') return { bg: '#F7FEE7', color: '#4D7C0F' }   // lima
+  if (a === 'BOA ADERÊNCIA')         return { bg: '#FFFBEB', color: '#B45309' }   // âmbar
+  if (a === 'BAIXA ADERÊNCIA')       return { bg: '#FEE2E2', color: '#B91C1C' }   // vermelho
+  return { bg: '#F9FAFB', color: '#9CA3AF' }
 }
 
 function recalcularSolo(condicao: Condicao) {
@@ -91,19 +92,21 @@ function recalcularSolo(condicao: Condicao) {
 }
 
 function barZone(aderencia: string, veredicto: string): number {
-  if (aderencia === 'SECO' || aderencia === 'GRIP PERFEITO') return 100
-  if (aderencia === 'BOA ADERÊNCIA - ÚMIDO') return 75
-  if (aderencia === 'BOA ADERÊNCIA') return veredicto.includes('Veja os alertas') ? 50 : 75
-  if (aderencia === 'BAIXA ADERÊNCIA') return 25
+  if (aderencia === 'SECO')                  return 100
+  if (aderencia === 'GRIP PERFEITO')         return 80
+  if (aderencia === 'BOA ADERÊNCIA - ÚMIDO') return 62
+  if (aderencia === 'BOA ADERÊNCIA')         return veredicto.includes('Veja os alertas') ? 30 : 45
+  if (aderencia === 'BAIXA ADERÊNCIA')       return 15
   return 0
 }
 
 function zoneColor(zone: number): string {
-  if (zone >= 100) return '#22C55E'
-  if (zone >= 75)  return '#84CC16'
-  if (zone >= 50)  return '#F59E0B'
-  if (zone >= 25)  return '#F97316'
-  return '#EF4444'
+  if (zone >= 100) return '#A16207'  // amarelo — SECO
+  if (zone >= 80)  return '#15803D'  // verde   — GRIP PERFEITO
+  if (zone >= 62)  return '#4D7C0F'  // lima    — BOA ADERÊNCIA - ÚMIDO
+  if (zone >= 45)  return '#B45309'  // âmbar   — BOA ADERÊNCIA
+  if (zone >= 15)  return '#C2410C'  // laranja — BOA ADERÊNCIA (alertas)
+  return '#B91C1C'                   // vermelho — BAIXA ADERÊNCIA
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -158,13 +161,14 @@ function CondicaoCard({ condicao }: Props) {
     return `${hrs}h atrás · ${dias}d${resto > 0 ? ` ${resto}h` : ''}`
   }
 
-  const labelGrip = zone === 100 ? 'Grip Perfeito ✓'
+  const labelGrip = zone >= 100 ? 'Solo Seco ✓'
+    : zone >= 80  ? 'Grip Perfeito ✓'
     : aderenciaStr === 'BOA ADERÊNCIA - ÚMIDO' ? 'Superfície úmida'
     : zone === 0  ? 'Sem aderência'
-    : zone === 25 ? (horasParaGrip > 0 ? fmtH(horasParaGrip) : 'Baixa aderência')
+    : zone <= 15  ? (horasParaGrip > 0 ? fmtH(horasParaGrip) : 'Baixa aderência')
     : temChuvaFutura && horasParaGrip > 0 ? fmtHAposChuva(horasParaGrip)
     : horasParaGrip > 0 ? fmtH(horasParaGrip)
-    : zone === 75 ? 'Boa Aderência ✓'
+    : zone >= 45  ? 'Boa Aderência ✓'
     : 'Monitorar chuva'
 
   // Badge do estado do solo — Python é a fonte de verdade; drift calcula o tempo restante
@@ -328,12 +332,12 @@ function CondicaoCard({ condicao }: Props) {
           {/* Barra Grip Perfeito */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: '#9CA3AF' }}>Caminho para Grip Perfeito</span>
+              <span style={{ fontSize: 11, color: '#9CA3AF' }}>Estado do Solo</span>
               <span style={{ fontSize: 11, fontWeight: 500, color: indicatorColor }} className="font-mono">
                 {labelGrip}
               </span>
             </div>
-            <div style={{ height: 8, borderRadius: 999, position: 'relative', background: 'linear-gradient(to right, #EF4444 0%, #F59E0B 50%, #22C55E 100%)' }}>
+            <div style={{ height: 8, borderRadius: 999, position: 'relative', background: 'linear-gradient(to right, #EF4444 0%, #F97316 15%, #F59E0B 45%, #84CC16 62%, #22C55E 80%, #EAB308 100%)' }}>
               <div style={{ position: 'absolute', left: `${progressoExibido}%`, top: -3, transform: 'translateX(-50%)', width: 14, height: 14, borderRadius: '50%', background: '#FFFFFF', border: `2px solid ${indicatorColor}`, boxShadow: '0 1px 4px rgba(0,0,0,0.2)', transition: 'left 0.6s ease' }} />
             </div>
           </div>
