@@ -581,6 +581,20 @@ def fetch_onecall_historico(trail: dict) -> dict:
         for wc in [weather_codes[i] if i < len(weather_codes) else None]
     )
 
+    # Garoa persistente: padrão de 48h com chuva leve acumulada em condições saturadas.
+    # Captura o cenário frio+nublado+garoando que o acumulo_ef (filtrado por chuva_pct) não enxerga.
+    # Conta horas passadas com umidade ≥ 85%, nuvens ≥ 70% e precipitação > 0.05mm/h simultaneamente.
+    _precips_48h = (_CACHE_OM_CHUVA_RAW.get(lk, ([], []))[1]
+                    if lk and lk in _CACHE_OM_CHUVA_RAW else [])
+    garoa_horas_hist = sum(
+        1 for i, t in enumerate(times_cl)
+        if t <= agora_str
+        and i < len(humidity)    and humidity[i]    is not None and float(humidity[i])    >= 85
+        and i < len(clouds)      and clouds[i]      is not None and float(clouds[i])      >= 70
+        and i < len(_precips_48h) and _precips_48h[i] is not None and float(_precips_48h[i]) > 0.05
+    )
+    is_garoa_persistente = garoa_horas_hist >= 6
+
     meia_vida = _ajustar_meia_vida_clima(
         meia_vida_base,
         trail,
@@ -600,8 +614,10 @@ def fetch_onecall_historico(trail: dict) -> dict:
         "vento_medio_ms":   vento_medio,
         "nublado_pct":      nublado_medio,
         "umidade_pct":      umidade_media,
-        "dew_point_media":  dew_point_media,
-        "is_garoa_wmo":     is_garoa_wmo,
+        "dew_point_media":      dew_point_media,
+        "is_garoa_wmo":         is_garoa_wmo,
+        "is_garoa_persistente": is_garoa_persistente,
+        "garoa_horas_hist":     garoa_horas_hist,
         "vento_max_kmh_ow": None,  # timemachine removido; vento máx calculado exclusivamente via OM hist
     }
 
@@ -2496,11 +2512,13 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     chuva_1h_ow   = float((ow_current.get("rain") or {}).get("1h", 0.0) or 0.0)
     weather_id_ow = ((ow_current.get("weather") or [{}])[0]).get("id", 0)
     is_garoa_ow   = chuva_1h_ow > 0 or (300 <= weather_id_ow < 322)   # nowcast OW
-    is_garoa_wmo  = hist.get("is_garoa_wmo", False)                    # WMO 45/48/51-57 nas últimas 4h
-    is_garoa_era5 = ultima_chuva is not None and ultima_chuva <= 4.0   # fallback ERA5
+    is_garoa_wmo         = hist.get("is_garoa_wmo", False)                    # WMO 45/48/51-57 nas últimas 4h
+    is_garoa_era5        = ultima_chuva is not None and ultima_chuva <= 4.0   # fallback ERA5
+    is_garoa_persistente = hist.get("is_garoa_persistente", False)            # ≥6h húmido+nublado+chuva nas 48h
+    garoa_horas_hist     = hist.get("garoa_horas_hist", 0)
 
-    # Condição atmosférica (Item 3): OW current é instantâneo — preferível à média 48h do OM.
-    # Dew point (Item 1): temp - dew_point < 2°C = ar fisicamente saturado (garoa/névoa).
+    # Condição atmosférica (instantânea): OW current preferível à média 48h do OM.
+    # Dew point: temp - dew_point < 2°C = ar fisicamente saturado (garoa/névoa).
     umidade_ref    = ow_current.get("humidity") or hist.get("umidade_pct") or 0
     dew_point_m    = hist.get("dew_point_media")
     temp_m         = hist.get("temp_media_c")
@@ -2508,18 +2526,32 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
                       and (temp_m - dew_point_m) < 2.0)
     cond_atmo = ar_saturado or umidade_ref >= 85
 
-    garoa_ativa = (
-        (is_garoa_ow or is_garoa_wmo or is_garoa_era5)
-        and acumulo_ef < 2.0
-        and cond_atmo
+    garoa_ativa = acumulo_ef < 2.0 and (
+        # Garoa ativa agora: sinal instantâneo + confirmação atmosférica
+        ((is_garoa_ow or is_garoa_wmo or is_garoa_era5) and cond_atmo)
+        or
+        # Padrão persistente de 48h: umidade já embutida na contagem de horas
+        is_garoa_persistente
     )
     if garoa_ativa:
         sinais = []
-        if is_garoa_ow:   sinais.append(f"OW current (1h={chuva_1h_ow:.2f}mm id={weather_id_ow})")
-        if is_garoa_wmo:  sinais.append("OM WMO drizzle/fog")
-        if is_garoa_era5: sinais.append(f"ERA5 (últ. chuva {ultima_chuva:.1f}h)")
-        if ar_saturado:   sinais.append(f"ar saturado (Td={dew_point_m:.1f}°C ΔT={temp_m-dew_point_m:.1f}°C)")
+        if is_garoa_ow:          sinais.append(f"OW current (1h={chuva_1h_ow:.2f}mm id={weather_id_ow})")
+        if is_garoa_wmo:         sinais.append("OM WMO drizzle/fog")
+        if is_garoa_era5:        sinais.append(f"ERA5 (últ. chuva {ultima_chuva:.1f}h)")
+        if is_garoa_persistente: sinais.append(f"persistente {garoa_horas_hist}h/48h")
+        if ar_saturado:          sinais.append(f"ar saturado (Td={dew_point_m:.1f}°C ΔT={temp_m-dew_point_m:.1f}°C)")
         print(f"  [garoa] {trail['name']}: {' + '.join(sinais)}, ef={acumulo_ef:.2f}mm, umidade={umidade_ref:.0f}% → superfície escorregadia")
+    else:
+        # Log de diagnóstico: mostra por que garoa não disparou
+        bloq = []
+        if not (is_garoa_ow or is_garoa_wmo or is_garoa_era5 or is_garoa_persistente):
+            ult_h = f"{ultima_chuva:.1f}h" if ultima_chuva is not None else "?"
+            bloq.append(f"sem sinal (OW={chuva_1h_ow:.2f}mm id={weather_id_ow} | WMO={is_garoa_wmo} | ERA5 últ={ult_h} | persist={garoa_horas_hist}h)")
+        if acumulo_ef >= 2.0:
+            bloq.append(f"ef={acumulo_ef:.2f}≥2.0")
+        if not cond_atmo and (is_garoa_ow or is_garoa_wmo or is_garoa_era5):
+            bloq.append(f"cond_atmo False (umid={umidade_ref:.0f}% Δdewpt={f'{temp_m-dew_point_m:.1f}°C' if dew_point_m and temp_m else '?'})")
+        print(f"  [garoa-no] {trail['name']}: {' | '.join(bloq) if bloq else 'garoa=False'}")
 
     aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso, garoa_ativa=garoa_ativa)
     trail["gust_max_kmh"] = gust_max_kmh
