@@ -472,7 +472,7 @@ def fetch_onecall(trail: dict) -> dict | None:
         "https://api.openweathermap.org/data/3.0/onecall"
         f"?lat={trail['lat']}&lon={trail['lon']}"
         f"&appid={OPENWEATHER_KEY}&units=metric&lang=pt_br"
-        "&exclude=current,minutely,daily,alerts"
+        "&exclude=minutely,daily,alerts"
     )
     resultado = None
     for attempt in range(3):
@@ -2471,18 +2471,23 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
 
     meia_vida_h = hist["meia_vida_h"]
 
-    # Garoa ativa: chuva muito leve recente (≤4h) que o modelo vê como solo seco
-    # porque o dossel intercepta ~80% dos mm (chuva_pct). Mas a superfície da trilha
-    # (raízes, pedras, folhas) fica molhada e escorregadia — risco real não capturado
-    # pelo acumulo_ef. Condição: precipitação nas últimas 4h + efetivo baixo + umidade alta.
+    # Garoa ativa: superfície molhada não capturada pelo acumulo_ef.
+    # Fonte primária: OW current (nowcast real — mais confiável que ERA5 a 30km para garoa).
+    # Fallback: ERA5 ultima_chuva ≤ 4h (caso OW não esteja disponível).
+    # Ambas requerem acumulo_ef baixo (solo "seco" pelo modelo) + umidade alta.
+    ow_current     = (oc_raw or {}).get("current", {})
+    chuva_1h_ow    = float((ow_current.get("rain") or {}).get("1h", 0.0) or 0.0)
+    weather_id_ow  = ((ow_current.get("weather") or [{}])[0]).get("id", 0)
+    is_garoa_ow    = chuva_1h_ow > 0 or (300 <= weather_id_ow < 322)
+    is_garoa_era5  = ultima_chuva is not None and ultima_chuva <= 4.0
     garoa_ativa = (
-        ultima_chuva is not None
-        and ultima_chuva <= 4.0
+        (is_garoa_ow or is_garoa_era5)
         and acumulo_ef < 2.0
         and (hist.get("umidade_pct") or 0) >= 85
     )
     if garoa_ativa:
-        print(f"  [garoa] {trail['name']}: última chuva {ultima_chuva:.1f}h, ef={acumulo_ef:.2f}mm, umidade={hist.get('umidade_pct'):.0f}% → superfície escorregadia")
+        fonte_garoa = f"OW current (1h={chuva_1h_ow:.2f}mm id={weather_id_ow})" if is_garoa_ow else f"ERA5 (última chuva {ultima_chuva:.1f}h)"
+        print(f"  [garoa] {trail['name']}: {fonte_garoa}, ef={acumulo_ef:.2f}mm, umidade={hist.get('umidade_pct'):.0f}% → superfície escorregadia")
 
     aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso, garoa_ativa=garoa_ativa)
     trail["gust_max_kmh"] = gust_max_kmh
