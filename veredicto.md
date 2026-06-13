@@ -12,47 +12,44 @@
 
 ---
 
-## Fatores e pesos
+## Fatores e pesos — tabela `veredicto_pesos`
 
 ### Aderência (base do risco)
 
-| Status de aderência | Risco base | Quando ocorre |
-|---------------------|-----------|---------------|
-| SECO | 0 | acumulo_ef ≈ 0 e sem garoa |
-| GRIP PERFEITO | +1 | acumulo_ef baixo, solo descansado |
-| BOA ADERÊNCIA - ÚMIDO | +2 | solo seco mas garoa ativa (≥6h padrão úmido nas 48h) |
-| BOA ADERÊNCIA | +2 | acumulo_ef entre threshold de grip e baixa |
-| BAIXA ADERÊNCIA | **+4** | acumulo_ef acima do threshold de saturação |
+| Fator | Peso | Quando ocorre |
+|-------|------|---------------|
+| aderencia_baixa | 4 | acumulo_ef acima do threshold de saturação |
+| aderencia_boa | 2 | acumulo_ef entre threshold de grip e baixa |
+| aderencia_boa_umido | 2 | solo seco mas garoa ativa (≥6h padrão úmido nas 48h) |
+| aderencia_grip | 1 | acumulo_ef baixo, solo descansado |
+| *(SECO)* | *0* | *acumulo_ef ≈ 0 e sem garoa — não tem fator, risco parte de zero* |
 
 ### Modificadores positivos (agravam)
 
 | Fator | Peso | Condição |
 |-------|------|----------|
-| Pico previsto muito alto | +2 | pico 3h ≥ 15mm |
-| Pico previsto alto | +1 | pico 3h ≥ 10mm |
-| Chuva acumulada alta | +1 | chuva próximas 48h ≥ 8mm |
-| Vento forte (previsão) | +1 | vento sustentado ≥ 12 m/s |
-| Inclinação muito alta | +2 | > 30% com solo úmido ou chuva prevista |
-| Inclinação alta | +1 | > 20% com solo úmido ou chuva prevista |
-| Trilha natural com solo úmido | +1 | trail_type=natural + BOA / BOA ÚMIDO / BAIXA |
-| Trilha natural inclinada | +1 | trail_type=natural + inclinação > 20% + chuva prevista |
-| Bikepark saturado | +2 | bikepark com solo além do limiar de saturação |
-| Vento estrutural — tempestade | +2 | histórico > 90 km/h |
-| Vento estrutural — forte | +1 | histórico 65–90 km/h |
-| Solo encharcado + vento forte | +1 | histórico 65–90 km/h com acumulo_ef ≥ threshold |
-| Solo encharcado + vento moderado | +1 | histórico 55–65 km/h com acumulo_ef ≥ threshold |
-| Rajada prevista | **+1** | ≥ 30 km/h (aberta) ou ≥ 50 km/h (fechada) |
-| Piora prevista severa | +2 | previsão 12h vai para BAIXA ADERÊNCIA |
-| Piora prevista | +1 | previsão 12h vai de SECO/GRIP para BOA ADERÊNCIA |
+| pico_3h_muito_alto | 3 | pico 3h ≥ 15mm |
+| piora_prevista_severa | 2 | previsão 12h vai para BAIXA ADERÊNCIA |
+| inclinacao_alta | 2 | inclinação > 30% com solo úmido ou chuva prevista |
+| bikepark_saturado | 2 | bikepark com solo além do limiar de saturação |
+| vento_estrutural_alto | 2 | vento histórico > 90 km/h |
+| pico_3h_alto | 1 | pico 3h ≥ 10mm |
+| piora_prevista | 1 | previsão 12h vai de SECO/GRIP para BOA ADERÊNCIA |
+| rain_alto | 1 | chuva acumulada prevista ≥ 8mm |
+| vento_alto | 1 | vento sustentado previsto ≥ 12 m/s |
+| inclinacao_media | 1 | inclinação > 20% com solo úmido ou chuva prevista |
+| trilha_natural_umida | 1 | trail_type=natural + BOA / BOA ÚMIDO / BAIXA |
+| trilha_natural_inclinada | 1 | trail_type=natural + inclinação > 20% + chuva prevista |
+| vento_estrutural_med | 1 | vento histórico 65–90 km/h |
+| solo_encharcado | 1 | vento histórico 55–90 km/h com acumulo_ef ≥ threshold |
+| rajada_prevista | 1 | rajada ≥ 30 km/h (aberta) ou ≥ 50 km/h (fechada) |
 
 ### Modificadores negativos (atenuam)
 
 | Fator | Peso | Condição |
 |-------|------|----------|
-| Bikepark | −1 | trail_type=bikepark **e status ≠ BAIXA ADERÊNCIA** |
-| Melhora prevista | −1 | previsão 12h melhora a aderência atual |
-
-> **Regra bikepark**: quando o solo está em BAIXA ADERÊNCIA, a infraestrutura do bikepark não compensa o encharcamento real — o −1 não é aplicado.
+| bikepark_reduz | 1 | trail_type=bikepark **e status ≠ BAIXA ADERÊNCIA** |
+| melhora_prevista | 1 | previsão 12h melhora a aderência atual |
 
 ---
 
@@ -62,12 +59,12 @@
 
 | Cenário | Cálculo | Risco |
 |---------|---------|-------|
-| SECO, sem fatores | 0 | 0 |
+| SECO | 0 | 0 |
 | SECO + piora para BOA | 0 + 1 | 1 |
 | GRIP PERFEITO | 1 | 1 |
 | GRIP PERFEITO + bikepark | 1 − 1 | 0 |
 | BOA ADERÊNCIA + bikepark | 2 − 1 | 1 |
-| BOA ADERÊNCIA - ÚMIDO + bikepark | 2 − 1 | **1** ← Reserva (garoa 14h/48h) |
+| BOA ADERÊNCIA - ÚMIDO + bikepark | 2 − 1 | 1 |
 | GRIP PERFEITO + bikepark + piora para BOA | 1 − 1 + 1 | 1 |
 
 ---
@@ -76,13 +73,14 @@
 
 | Cenário | Cálculo | Risco |
 |---------|---------|-------|
-| GRIP PERFEITO + rajada ≥ 30 km/h (aberta) | 1 + 1 | 2 |
-| GRIP PERFEITO + pico ≥ 10mm | 1 + 1 | 2 |
+| GRIP PERFEITO + rajada | 1 + 1 | 2 |
+| GRIP PERFEITO + pico alto (≥10mm) | 1 + 1 | 2 |
 | GRIP PERFEITO + vento estrutural forte | 1 + 1 | 2 |
 | GRIP PERFEITO + piora severa → BAIXA | 1 + 2 | 3 |
 | BOA ADERÊNCIA + bikepark + rajada | 2 − 1 + 1 | 2 |
 | BOA ADERÊNCIA + bikepark + pico alto | 2 − 1 + 1 | 2 |
 | BOA ADERÊNCIA + bikepark + piora severa | 2 − 1 + 2 | 3 |
+| BOA ADERÊNCIA + bikepark + pico muito alto (≥15mm) | 2 − 1 + 3 | 4 → **ESPERAR** ✓ |
 | BOA ADERÊNCIA natural | 2 + 1 | 3 |
 | BOA ADERÊNCIA - ÚMIDO natural | 2 + 1 | 3 |
 | BAIXA ADERÊNCIA + bikepark | 4 − 1 | 3 |
@@ -94,27 +92,16 @@
 
 | Cenário | Cálculo | Risco |
 |---------|---------|-------|
-| **BAIXA ADERÊNCIA sozinha** | **4** | **4** |
+| **BAIXA ADERÊNCIA sozinha** | 4 | 4 |
 | BAIXA ADERÊNCIA natural | 4 + 1 | 5 |
-| BAIXA ADERÊNCIA + pico alto | 4 + 1 | 5 |
 | BAIXA ADERÊNCIA + inclinação > 20% | 4 + 1 | 5 |
-| BAIXA ADERÊNCIA + vento estrutural forte | 4 + 1 | 5 |
+| BAIXA ADERÊNCIA + pico alto | 4 + 1 | 5 |
+| BAIXA ADERÊNCIA + vento estrutural | 4 + 1 | 5 |
 | BAIXA ADERÊNCIA + piora severa | 4 + 2 | 6 |
 | BAIXA ADERÊNCIA + bikepark saturado | 4 − 1 + 2 | 5 |
-| BOA ADERÊNCIA natural + pico muito alto | 2 + 1 + 2 | 5 |
+| BOA ADERÊNCIA + bikepark + pico muito alto | 2 − 1 + 3 | 4 |
+| BOA ADERÊNCIA natural + pico muito alto | 2 + 1 + 3 | 6 |
 | BOA ADERÊNCIA natural + piora severa | 2 + 1 + 2 | 5 |
-| BOA ADERÊNCIA + pico muito alto (bikepark) | 2 − 1 + 2 | 3 → **alertas** ⚠️ |
+| GRIP PERFEITO + pico muito alto (natural) | 1 + 3 | 4 |
 | GRIP PERFEITO + piora severa + rajada | 1 + 2 + 1 | 4 |
 | GRIP PERFEITO + piora severa + inclinação alta | 1 + 2 + 1 | 4 |
-
----
-
-## Pontos de atenção para calibração
-
-1. **BAIXA ADERÊNCIA + bikepark com melhora prevista = alertas** (4−1−1=2) — solo ruim mas bikepark drenando e melhora chegando. Aceitável, mas monitorar.
-
-2. **BOA ADERÊNCIA + bikepark + pico muito alto = alertas** (2−1+2=3) — bikepark com chuva pesada prevista fica em alertas mesmo com pico de 15mm. Avaliar se deveria ser ESPERAR.
-
-3. **Rajada agora soma** (+1) em vez de forçar mínimo — permite que BAIXA + rajada chegue a 5 (ESPERAR), antes ficava travado no comportamento de força-mínimo.
-
-4. **`aderencia_boa_umido` ausente na tabela `veredicto_pesos`** — peso 2 vem do fallback no código. Considerar inserir para visibilidade.

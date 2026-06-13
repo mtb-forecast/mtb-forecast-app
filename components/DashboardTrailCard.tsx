@@ -38,10 +38,10 @@ type SoloBadge = { label: string; bg: string; color: string; border: string }
 function soloLabel(a: string | null | undefined): SoloBadge | null {
   if (!a) return null
   const s = a.trim()
-  if (s === 'GRIP PERFEITO')         return { label: s, bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }
   if (s === 'SECO')                  return { label: s, bg: '#fef9c3', color: '#a16207', border: '#fde68a' }
-  if (s === 'BOA ADERÊNCIA - ÚMIDO') return { label: s, bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' }
-  if (s === 'BOA ADERÊNCIA')         return { label: s, bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' }
+  if (s === 'GRIP PERFEITO')         return { label: s, bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }
+  if (s === 'BOA ADERÊNCIA - ÚMIDO') return { label: s, bg: '#f7fee7', color: '#4d7c0f', border: '#bef264' }
+  if (s === 'BOA ADERÊNCIA')         return { label: s, bg: '#fffbeb', color: '#b45309', border: '#fde68a' }
   if (s === 'BAIXA ADERÊNCIA')       return { label: s, bg: '#fee2e2', color: '#b91c1c', border: '#fca5a5' }
   return null
 }
