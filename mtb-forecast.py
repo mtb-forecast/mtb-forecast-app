@@ -137,10 +137,10 @@ ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "
 # Sazonalidade e ENSO — V5.22
 # ---------------------------------------------------------------------------
 
-_CACHE_ONI: dict = {}
+_CACHE_ONI: dict = {}  # {"oni": float, "ts": float} — TTL 24h (ONI muda mensalmente)
 
 def fetch_oni_atual() -> float:
-    if "oni" in _CACHE_ONI:
+    if "oni" in _CACHE_ONI and (time.time() - _CACHE_ONI.get("ts", 0)) < 86400:
         return _CACHE_ONI["oni"]
     try:
         url = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
@@ -183,10 +183,12 @@ def fetch_oni_atual() -> float:
             print("[ENSO] Formato inesperado — usando neutro (0.0). Verifique oni.ascii.txt manualmente.")
 
         _CACHE_ONI["oni"] = oni_val
+        _CACHE_ONI["ts"]  = time.time()
         return oni_val
     except Exception as exc:
         print(f"[ENSO] Falha ao buscar ONI: {exc} — usando neutro (0.0)")
         _CACHE_ONI["oni"] = 0.0
+        _CACHE_ONI["ts"]  = time.time()
         return 0.0
 
 
@@ -538,16 +540,19 @@ def fetch_onecall_historico(trail: dict) -> dict:
 
     lk    = trail.get("local_key")
     clima = _CACHE_OM_CLIMA_RAW.get(lk, {}) if lk else {}
-    times_cl    = clima.get("times", [])
-    temps       = clima.get("temp", [])
-    humidity    = clima.get("humidity", [])
-    clouds      = clima.get("clouds", [])
-    wind_speeds = clima.get("wind_speed", [])  # km/h (unidade padrão OM)
+    times_cl      = clima.get("times", [])
+    temps         = clima.get("temp", [])
+    humidity      = clima.get("humidity", [])
+    clouds        = clima.get("clouds", [])
+    wind_speeds   = clima.get("wind_speed", [])   # km/h (unidade padrão OM)
+    dew_points    = clima.get("dew_point", [])
+    weather_codes = clima.get("weather_codes", [])
 
     amostras_temp     = []
     amostras_wind_ms  = []
     amostras_cloud    = []
     amostras_humidity = []
+    amostras_dew      = []
 
     for i, t in enumerate(times_cl):
         if t > agora_str:
@@ -556,13 +561,25 @@ def fetch_onecall_historico(trail: dict) -> dict:
         if i < len(wind_speeds) and wind_speeds[i]  is not None: amostras_wind_ms.append(wind_speeds[i] / 3.6)
         if i < len(clouds)      and clouds[i]       is not None: amostras_cloud.append(clouds[i])
         if i < len(humidity)    and humidity[i]     is not None: amostras_humidity.append(humidity[i])
+        if i < len(dew_points)  and dew_points[i]   is not None: amostras_dew.append(dew_points[i])
 
-    print(f"  [OM hist clima] {trail['name']}: {len(amostras_temp)} amostras horárias (temp/vento/nuvens/umidade)")
+    print(f"  [OM hist clima] {trail['name']}: {len(amostras_temp)} amostras horárias (temp/vento/nuvens/umidade/dewpoint)")
 
-    temp_media    = round(sum(amostras_temp)     / len(amostras_temp),     1) if amostras_temp     else None
-    vento_medio   = round(sum(amostras_wind_ms)  / len(amostras_wind_ms),  1) if amostras_wind_ms  else None
-    nublado_medio = round(sum(amostras_cloud)    / len(amostras_cloud),    1) if amostras_cloud    else None
-    umidade_media = round(sum(amostras_humidity) / len(amostras_humidity), 1) if amostras_humidity else None
+    temp_media     = round(sum(amostras_temp)     / len(amostras_temp),     1) if amostras_temp     else None
+    vento_medio    = round(sum(amostras_wind_ms)  / len(amostras_wind_ms),  1) if amostras_wind_ms  else None
+    nublado_medio  = round(sum(amostras_cloud)    / len(amostras_cloud),    1) if amostras_cloud    else None
+    umidade_media  = round(sum(amostras_humidity) / len(amostras_humidity), 1) if amostras_humidity else None
+    dew_point_media = round(sum(amostras_dew)     / len(amostras_dew),      1) if amostras_dew      else None
+
+    # WMO weather_code nas últimas 4h: 45/48=névoa, 51-57=garoa/drizzle
+    _WMO_GAROA = {45, 48, 51, 53, 55, 56, 57}
+    agora_m4h_str = (agora - timedelta(hours=4)).strftime("%Y-%m-%dT%H:00")
+    is_garoa_wmo = any(
+        wc is not None and int(wc) in _WMO_GAROA
+        for i, t in enumerate(times_cl)
+        if agora_m4h_str <= t <= agora_str
+        for wc in [weather_codes[i] if i < len(weather_codes) else None]
+    )
 
     meia_vida = _ajustar_meia_vida_clima(
         meia_vida_base,
@@ -583,6 +600,8 @@ def fetch_onecall_historico(trail: dict) -> dict:
         "vento_medio_ms":   vento_medio,
         "nublado_pct":      nublado_medio,
         "umidade_pct":      umidade_media,
+        "dew_point_media":  dew_point_media,
+        "is_garoa_wmo":     is_garoa_wmo,
         "vento_max_kmh_ow": None,  # timemachine removido; vento máx calculado exclusivamente via OM hist
     }
 
@@ -1010,7 +1029,7 @@ def resumo_openmeteo(data: dict) -> dict:
 _CACHE_SOLO: dict = {}
 _CACHE_TABELA_SOLO: list = []
 _CACHE_OW_ONECALL: dict = {}      # local_key → raw JSON forecast
-_CACHE_OM_CLIMA_RAW: dict = {}     # local_key → {times, temp, humidity, clouds, wind_speed} do batch hist
+_CACHE_OM_CLIMA_RAW: dict = {}     # local_key → {times, temp, humidity, clouds, wind_speed, dew_point, weather_codes} do batch hist
 _CACHE_OW_DAY_SUMMARY: dict = {}   # local_key → {"bruto_ow", "hoje", "ontem"}
 _CACHE_OM_FORECAST: dict = {}      # local_key → raw JSON forecast
 _CACHE_OM_CHUVA_RAW: dict = {}     # local_key → (times, precips)
@@ -2472,22 +2491,35 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     meia_vida_h = hist["meia_vida_h"]
 
     # Garoa ativa: superfície molhada não capturada pelo acumulo_ef.
-    # Fonte primária: OW current (nowcast real — mais confiável que ERA5 a 30km para garoa).
-    # Fallback: ERA5 ultima_chuva ≤ 4h (caso OW não esteja disponível).
-    # Ambas requerem acumulo_ef baixo (solo "seco" pelo modelo) + umidade alta.
-    ow_current     = (oc_raw or {}).get("current", {})
-    chuva_1h_ow    = float((ow_current.get("rain") or {}).get("1h", 0.0) or 0.0)
-    weather_id_ow  = ((ow_current.get("weather") or [{}])[0]).get("id", 0)
-    is_garoa_ow    = chuva_1h_ow > 0 or (300 <= weather_id_ow < 322)
-    is_garoa_era5  = ultima_chuva is not None and ultima_chuva <= 4.0
+    # Precipitação (qualquer fonte que detecte chuva leve/garoa agora):
+    ow_current    = (oc_raw or {}).get("current", {})
+    chuva_1h_ow   = float((ow_current.get("rain") or {}).get("1h", 0.0) or 0.0)
+    weather_id_ow = ((ow_current.get("weather") or [{}])[0]).get("id", 0)
+    is_garoa_ow   = chuva_1h_ow > 0 or (300 <= weather_id_ow < 322)   # nowcast OW
+    is_garoa_wmo  = hist.get("is_garoa_wmo", False)                    # WMO 45/48/51-57 nas últimas 4h
+    is_garoa_era5 = ultima_chuva is not None and ultima_chuva <= 4.0   # fallback ERA5
+
+    # Condição atmosférica (Item 3): OW current é instantâneo — preferível à média 48h do OM.
+    # Dew point (Item 1): temp - dew_point < 2°C = ar fisicamente saturado (garoa/névoa).
+    umidade_ref    = ow_current.get("humidity") or hist.get("umidade_pct") or 0
+    dew_point_m    = hist.get("dew_point_media")
+    temp_m         = hist.get("temp_media_c")
+    ar_saturado    = (dew_point_m is not None and temp_m is not None
+                      and (temp_m - dew_point_m) < 2.0)
+    cond_atmo = ar_saturado or umidade_ref >= 85
+
     garoa_ativa = (
-        (is_garoa_ow or is_garoa_era5)
+        (is_garoa_ow or is_garoa_wmo or is_garoa_era5)
         and acumulo_ef < 2.0
-        and (hist.get("umidade_pct") or 0) >= 85
+        and cond_atmo
     )
     if garoa_ativa:
-        fonte_garoa = f"OW current (1h={chuva_1h_ow:.2f}mm id={weather_id_ow})" if is_garoa_ow else f"ERA5 (última chuva {ultima_chuva:.1f}h)"
-        print(f"  [garoa] {trail['name']}: {fonte_garoa}, ef={acumulo_ef:.2f}mm, umidade={hist.get('umidade_pct'):.0f}% → superfície escorregadia")
+        sinais = []
+        if is_garoa_ow:   sinais.append(f"OW current (1h={chuva_1h_ow:.2f}mm id={weather_id_ow})")
+        if is_garoa_wmo:  sinais.append("OM WMO drizzle/fog")
+        if is_garoa_era5: sinais.append(f"ERA5 (últ. chuva {ultima_chuva:.1f}h)")
+        if ar_saturado:   sinais.append(f"ar saturado (Td={dew_point_m:.1f}°C ΔT={temp_m-dew_point_m:.1f}°C)")
+        print(f"  [garoa] {trail['name']}: {' + '.join(sinais)}, ef={acumulo_ef:.2f}mm, umidade={umidade_ref:.0f}% → superfície escorregadia")
 
     aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso, garoa_ativa=garoa_ativa)
     trail["gust_max_kmh"] = gust_max_kmh
@@ -3207,7 +3239,7 @@ def prefetch_om_batch(trails: list) -> None:
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat_s}&longitude={lon_s}"
         "&past_days=2&forecast_days=0"
-        "&hourly=precipitation,windspeed_10m,windgusts_10m,temperature_2m,relative_humidity_2m,cloud_cover"
+        "&hourly=precipitation,windspeed_10m,windgusts_10m,temperature_2m,relative_humidity_2m,cloud_cover,dew_point_2m,weather_code"
         "&timezone=America%2FSao_Paulo"
     )
     try:
@@ -3231,11 +3263,13 @@ def prefetch_om_batch(trails: list) -> None:
             _CACHE_OM_CHUVA_RAW[lk] = (times, precips)
             _CACHE_OM_VENTO_RAW[lk] = (times, speeds, gusts)
             _CACHE_OM_CLIMA_RAW[lk] = {
-                "times":      times,
-                "temp":       h.get("temperature_2m", []),
-                "humidity":   h.get("relative_humidity_2m", []),
-                "clouds":     h.get("cloud_cover", []),
-                "wind_speed": speeds,
+                "times":         times,
+                "temp":          h.get("temperature_2m", []),
+                "humidity":      h.get("relative_humidity_2m", []),
+                "clouds":        h.get("cloud_cover", []),
+                "wind_speed":    speeds,
+                "dew_point":     h.get("dew_point_2m", []),
+                "weather_codes": h.get("weather_code", []),
             }
         print(f"  [OM batch histórico] OK — {len(hist_items)} grupo(s) em cache (chuva + vento + clima)")
     except Exception as exc:
