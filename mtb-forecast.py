@@ -2520,6 +2520,17 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         if is_garoa_era5: sinais.append(f"ERA5 (últ. chuva {ultima_chuva:.1f}h)")
         if ar_saturado:   sinais.append(f"ar saturado (Td={dew_point_m:.1f}°C ΔT={temp_m-dew_point_m:.1f}°C)")
         print(f"  [garoa] {trail['name']}: {' + '.join(sinais)}, ef={acumulo_ef:.2f}mm, umidade={umidade_ref:.0f}% → superfície escorregadia")
+    else:
+        # Log de diagnóstico: mostra por que garoa não disparou
+        bloq = []
+        if not (is_garoa_ow or is_garoa_wmo or is_garoa_era5):
+            ult_h = f"{ultima_chuva:.1f}h" if ultima_chuva is not None else "?"
+            bloq.append(f"sem sinal (OW={chuva_1h_ow:.2f}mm id={weather_id_ow} | WMO={is_garoa_wmo} | ERA5 últ={ult_h})")
+        if acumulo_ef >= 2.0:
+            bloq.append(f"ef={acumulo_ef:.2f}≥2.0")
+        if not cond_atmo:
+            bloq.append(f"cond_atmo False (umid={umidade_ref:.0f}% Δdewpt={f'{temp_m-dew_point_m:.1f}°C' if dew_point_m and temp_m else '?'})")
+        print(f"  [garoa-no] {trail['name']}: {' | '.join(bloq) if bloq else 'todos critérios ok mas garoa=False'}")
 
     aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso, garoa_ativa=garoa_ativa)
     trail["gust_max_kmh"] = gust_max_kmh
