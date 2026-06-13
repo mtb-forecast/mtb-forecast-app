@@ -672,9 +672,9 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
                         new_ef = round(ef_prev * (0.5 ** (horas_delta / meia_vida)), 2) if meia_vida > 0 else 0.0
                         uc_adj = round(uc_prev + horas_delta, 1) if uc_prev is not None else None
                         print(f"  [OM hist] ⚠️  fallback Supabase: ef {ef_prev:.1f}→{new_ef:.1f}mm (Δ{horas_delta:.0f}h) — veredicto conservador")
-                        return {"bruto": b48_prev, "efetivo": new_ef, "ultima_chuva_h": uc_adj}
+                        return {"bruto": b48_prev, "bruto_raw": b48_prev, "efetivo": new_ef, "ultima_chuva_h": uc_adj}
                     print(f"  [OM hist] ⚠️  sem fallback disponível — usando 0mm (veredicto pode ser otimista)")
-                    return {"bruto": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
+                    return {"bruto": 0.0, "bruto_raw": 0.0, "efetivo": 0.0, "ultima_chuva_h": None}
                 print(f"  [OM hist] Tentativa {attempt+1} falhou: {exc} — retentando em 5s...")
                 time.sleep(5)
         times   = data.get("hourly", {}).get("time", [])
@@ -687,6 +687,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
     chuva_pct  = _lookup_bioma(trail, mes).get("chuva_pct", 1.0)
 
     bruto          = 0.0
+    bruto_raw      = 0.0   # precipitação bruta OM sem interceptação de dossel
     efetivo        = 0.0
     ultima_chuva_h = None
 
@@ -698,15 +699,17 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         dt_entry    = datetime.fromisoformat(t).replace(tzinfo=BRT)
         horas_atras = max(0, (agora - dt_entry).total_seconds() / 3600)
 
-        bruto   += p
-        peso     = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
-        efetivo += p * peso
+        bruto     += p
+        bruto_raw += p_bruto
+        peso       = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
+        efetivo   += p * peso
 
         if p_bruto >= 0.1 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
             ultima_chuva_h = round(horas_atras, 1)
 
     return {
         "bruto":          round(bruto, 1),
+        "bruto_raw":      round(bruto_raw, 1),
         "efetivo":        round(efetivo, 1),
         "ultima_chuva_h": ultima_chuva_h,
     }
@@ -2477,11 +2480,13 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     chuva_pct_blend = _lookup_bioma(trail, mes_atual).get("chuva_pct", 1.0)
     bruto_ow  = round(bruto_ow_raw * chuva_pct_blend, 1)
 
-    om_bruto = hist_om["bruto"]
-    om_ef    = hist_om["efetivo"]
-    om_uc    = hist_om["ultima_chuva_h"]
+    om_bruto     = hist_om["bruto"]
+    om_bruto_raw = hist_om.get("bruto_raw", om_bruto)   # OM sem chuva_pct (comparável a apps de clima)
+    om_ef        = hist_om["efetivo"]
+    om_uc        = hist_om["ultima_chuva_h"]
 
-    acumulo_48h = max(om_bruto, bruto_ow)
+    acumulo_48h    = max(om_bruto, bruto_ow)
+    chuva_bruta_mm = round(max(om_bruto_raw, bruto_ow_raw), 1)  # referência de chuva real p/ texto
 
     LAG_THRESHOLD = 1.0   # mm de diferença para considerar lag do OM
     lag_detectado = bruto_ow > om_bruto + LAG_THRESHOLD
@@ -2499,6 +2504,16 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         print(f"  [chuva hist] lag detectado e OM sem ultima_chuva — setando 2.0h (conservador)")
     else:
         ultima_chuva = om_uc
+
+    # Correção de timing: se OW viu chuva hoje mas OM não capturou horário recente
+    ow_hoje_raw = day_sum.get("hoje", 0.0)
+    if ow_hoje_raw > 0.5 and (ultima_chuva is None or ultima_chuva > 12.0):
+        agora_brt         = datetime.now(BRT)
+        horas_decorridas  = agora_brt.hour + agora_brt.minute / 60
+        estimativa        = round(max(1.0, min(horas_decorridas / 2, 12.0)), 1)
+        if ultima_chuva is None or estimativa < ultima_chuva:
+            print(f"  [chuva-timing] {trail.get('name','?')}: OW hoje={ow_hoje_raw:.1f}mm mas OM={om_uc}h → estimando {estimativa}h")
+            ultima_chuva = estimativa
 
     vento_hist   = fetch_vento_historico(trail, ow_vento_max_kmh=hist.get("vento_max_kmh_ow"))
 
@@ -2834,6 +2849,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
 
     narrativa, cor_n, bg_n = _gerar_narrativa_claude({
         "acumulo_48h":      acumulo_48h,
+        "chuva_bruta_mm":   chuva_bruta_mm,   # chuva sem interceptação de dossel (texto humano)
         "acumulo_ef":       acumulo_ef,
         "ultima_chuva_h":   ultima_chuva,
         "meia_vida_h":      meia_vida_h,
@@ -3018,7 +3034,7 @@ def ajustar_por_observacoes(resultado: dict, trail: dict) -> dict:
 
 
 def _resumo_secagem_local(r: dict) -> str:
-    bruto      = r.get("acumulo_48h", 0)
+    bruto      = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
     efetivo    = r.get("acumulo_ef", 0)
     ult_h      = r.get("ultima_chuva_h")
     meia_vida  = r.get("meia_vida_h", 24)
@@ -3070,7 +3086,7 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
     if not ANTHROPIC_KEY:
         return _resumo_secagem_local(r)
 
-    bruto      = r.get("acumulo_48h", 0)
+    bruto      = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
     efetivo    = r.get("acumulo_ef", 0)
     ult_h      = r.get("ultima_chuva_h")
     meia_vida  = r.get("meia_vida_h", 24)
@@ -3108,8 +3124,8 @@ Se pico previsto (próximas 48h) >= 3mm: mencione que chuva está chegando e ori
 Trilha: {trail_name}{f" · bioma {bioma}" if bioma else ""}
 
 PASSADO — últimas 48h:
-- Chuva bruta acumulada: {bruto}mm
-- Chuva efetiva retida no solo agora: {efetivo}mm
+- Chuva acumulada (precipitação total captada): {bruto}mm
+- Umidade retida no solo agora (após dossel + tempo): {efetivo}mm
 - Última chuva: {ult_h_str}
 - Meia-vida de secagem deste solo: {meia_vida}h
 - Solo descansado (abaixo do limiar de grip): {"SIM" if descansado else "NÃO — solo saturado"}
