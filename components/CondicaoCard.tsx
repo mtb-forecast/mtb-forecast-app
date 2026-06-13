@@ -160,6 +160,7 @@ function CondicaoCard({ condicao }: Props) {
 
   const labelGrip = zone >= 100 ? 'Solo Seco ✓'
     : zone >= 80  ? 'Grip Perfeito ✓'
+    : zone >= 62  ? 'Solo úmido'
     : zone === 0  ? 'Sem aderência'
     : zone <= 15  ? (horasParaGrip > 0 ? fmtH(horasParaGrip) : 'Baixa aderência')
     : temChuvaFutura && horasParaGrip > 0 ? fmtHAposChuva(horasParaGrip)
@@ -343,7 +344,7 @@ function CondicaoCard({ condicao }: Props) {
           <>
             <div style={DIV} />
             <div>
-              <div style={{ ...SEC, marginBottom: 10 }}>Alertas — próximas 24h</div>
+              <div style={{ ...SEC, marginBottom: 10 }}>Alertas</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
                 {/* Aderência futura */}
