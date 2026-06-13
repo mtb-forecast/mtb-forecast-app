@@ -131,7 +131,7 @@ def _validar_env() -> None:
         )
 
 BRT = timezone(timedelta(hours=-3))
-ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
 
 # ---------------------------------------------------------------------------
 # Sazonalidade e ENSO — V5.22
@@ -1761,7 +1761,8 @@ def _descricao_aderencia(status: str, trail: dict, saturado: bool = False) -> st
     return texto or f"Solo em condição de {status.lower()}."
 
 def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
-                       pico_3h: float = 0.0, mes: int = None, enso: dict = None) -> dict:
+                       pico_3h: float = 0.0, mes: int = None, enso: dict = None,
+                       garoa_ativa: bool = False) -> dict:
     if mes is None:
         mes = datetime.now(timezone(timedelta(hours=-3))).month
     if enso is None:
@@ -1813,8 +1814,14 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
         if acumulo_ef >= 2.0 and status == "SECO":
             status = "GRIP PERFEITO"  # nunca SECO com umidade real no solo
 
-    emojis = {"SECO": "🟡", "GRIP PERFEITO": "🟢", "BOA ADERÊNCIA": "🟠", "BAIXA ADERÊNCIA": "🔴"}
-    cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
+    # Garoa ativa: superfície molhada mesmo com solo em GRIP PERFEITO.
+    # O dossel intercepta ~80% dos mm (chuva_pct), mas raízes/pedras/folhas da trilha
+    # ficam molhadas. Badge verde enganaria o rider — sinalizar como ÚMIDO.
+    if garoa_ativa and status == "GRIP PERFEITO":
+        status = "BOA ADERÊNCIA - ÚMIDO"
+
+    emojis = {"SECO": "🟡", "GRIP PERFEITO": "🟢", "BOA ADERÊNCIA - ÚMIDO": "🔵", "BOA ADERÊNCIA": "🟠", "BAIXA ADERÊNCIA": "🔴"}
+    cores  = {"SECO": "#eab308", "GRIP PERFEITO": "#22c55e", "BOA ADERÊNCIA - ÚMIDO": "#0ea5e9", "BOA ADERÊNCIA": "#f97316", "BAIXA ADERÊNCIA": "#ef4444"}
     desc = _descricao_aderencia(status, trail, saturado=saturado)
 
     # Threshold efetivo para GRIP PERFEITO em unidades de acumulo_ef (estado histórico do solo).
@@ -1859,6 +1866,9 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
     elif status == "BOA ADERÊNCIA":
         risco += peso_por_fator.get("aderencia_boa", 2)
         motivos.append("aderência moderada")
+    elif status == "BOA ADERÊNCIA - ÚMIDO":
+        risco += peso_por_fator.get("aderencia_boa_umido", 2)
+        motivos.append("superfície úmida — garoa ativa")
     elif status == "GRIP PERFEITO":
         risco += peso_por_fator.get("aderencia_grip", 1)
         motivos.append("aderência boa")
@@ -1897,7 +1907,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             motivos.append("bikepark saturado")
 
     if trail is not None and trail.get("trail_type") == "natural":
-        if status in ("BOA ADERÊNCIA", "BAIXA ADERÊNCIA"):
+        if status in ("BOA ADERÊNCIA", "BOA ADERÊNCIA - ÚMIDO", "BAIXA ADERÊNCIA"):
             risco += 1
             motivos.append("trilha natural com solo úmido")
         elif inclinacao is not None and inclinacao > 20 and rain_mm > 0:
@@ -1935,7 +1945,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
             risco = 2
         motivos.append(f"rajada prevista {gust_kmh} km/h ({exposicao})")
 
-    _sev = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+    _sev = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
     if aderencia_futura is not None:
         sev_a = _sev.get(status, 0)
         sev_f = _sev.get(aderencia_futura.get("status", status), 0)
@@ -2461,7 +2471,20 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
 
     meia_vida_h = hist["meia_vida_h"]
 
-    aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso)
+    # Garoa ativa: chuva muito leve recente (≤4h) que o modelo vê como solo seco
+    # porque o dossel intercepta ~80% dos mm (chuva_pct). Mas a superfície da trilha
+    # (raízes, pedras, folhas) fica molhada e escorregadia — risco real não capturado
+    # pelo acumulo_ef. Condição: precipitação nas últimas 4h + efetivo baixo + umidade alta.
+    garoa_ativa = (
+        ultima_chuva is not None
+        and ultima_chuva <= 4.0
+        and acumulo_ef < 2.0
+        and (hist.get("umidade_pct") or 0) >= 85
+    )
+    if garoa_ativa:
+        print(f"  [garoa] {trail['name']}: última chuva {ultima_chuva:.1f}h, ef={acumulo_ef:.2f}mm, umidade={hist.get('umidade_pct'):.0f}% → superfície escorregadia")
+
+    aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso, garoa_ativa=garoa_ativa)
     trail["gust_max_kmh"] = gust_max_kmh
     hourly_oc = (oc_raw or {}).get("hourly", [])[:48]
 
@@ -2546,7 +2569,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         return blocos
 
     def calcular_aderencia_futura_oc() -> dict:
-        _ordem = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
+        _ordem = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
         agora = datetime.now(BRT)
         chuva_anterior = 0.0
         pior = None

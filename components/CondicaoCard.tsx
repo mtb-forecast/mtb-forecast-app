@@ -27,9 +27,10 @@ function verdictBorderColor(v: string): string {
 }
 
 function aderenciaBadge(a: string): { bg: string; color: string } {
-  if (a === 'GRIP PERFEITO') return { bg: '#DCFCE7', color: '#15803D' }
-  if (a === 'BOA ADERÊNCIA') return { bg: '#FFF7ED', color: '#C2410C' }
-  if (a === 'BAIXA ADERÊNCIA') return { bg: '#FEE2E2', color: '#B91C1C' }
+  if (a === 'GRIP PERFEITO')         return { bg: '#DCFCE7', color: '#15803D' }
+  if (a === 'BOA ADERÊNCIA - ÚMIDO') return { bg: '#E0F2FE', color: '#0369A1' }
+  if (a === 'BOA ADERÊNCIA')         return { bg: '#FFF7ED', color: '#C2410C' }
+  if (a === 'BAIXA ADERÊNCIA')       return { bg: '#FEE2E2', color: '#B91C1C' }
   return { bg: '#FEF9C3', color: '#A16207' }
 }
 
@@ -91,6 +92,7 @@ function recalcularSolo(condicao: Condicao) {
 
 function barZone(aderencia: string, veredicto: string): number {
   if (aderencia === 'SECO' || aderencia === 'GRIP PERFEITO') return 100
+  if (aderencia === 'BOA ADERÊNCIA - ÚMIDO') return 75
   if (aderencia === 'BOA ADERÊNCIA') return veredicto.includes('Veja os alertas') ? 50 : 75
   if (aderencia === 'BAIXA ADERÊNCIA') return 25
   return 0
@@ -127,7 +129,7 @@ function CondicaoCard({ condicao }: Props) {
           horasParaGrip, temChuvaFutura, trilhaSecaEmAgora } = solo
 
   const aderenciaStr = condicao.aderencia_status?.trim() ?? ''
-  const isGripOk     = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO'
+  const isGripOk     = aderenciaStr === 'GRIP PERFEITO' || aderenciaStr === 'SECO' || aderenciaStr === 'BOA ADERÊNCIA - ÚMIDO'
 
   const zone             = barZone(aderenciaStr, condicao.veredicto)
   const progressoExibido = zone
@@ -157,6 +159,7 @@ function CondicaoCard({ condicao }: Props) {
   }
 
   const labelGrip = zone === 100 ? 'Grip Perfeito ✓'
+    : aderenciaStr === 'BOA ADERÊNCIA - ÚMIDO' ? 'Superfície úmida'
     : zone === 0  ? 'Sem aderência'
     : zone === 25 ? (horasParaGrip > 0 ? fmtH(horasParaGrip) : 'Baixa aderência')
     : temChuvaFutura && horasParaGrip > 0 ? fmtHAposChuva(horasParaGrip)
@@ -176,6 +179,7 @@ function CondicaoCard({ condicao }: Props) {
     if (futPior && isGripOk) return `piora ${condicao.aderencia_futura_label}`
     if (trilhaSecaEmAgora > 0) return `seca em ~${trilhaSecaEmAgora}h`
     if (aderenciaStr === 'SECO' || acumuloAgora < 0.3) return 'Solo seco'
+    if (aderenciaStr === 'BOA ADERÊNCIA - ÚMIDO') return 'Solo úmido'
     if (aderenciaStr === 'BOA ADERÊNCIA') return 'Boa Aderência'
     return null
   })()
@@ -271,7 +275,7 @@ function CondicaoCard({ condicao }: Props) {
           {(() => {
             const st = condicao.aderencia_status?.trim()
             return condicao.frase_secagem &&
-              st !== 'GRIP PERFEITO' && st !== 'SECO' && st !== 'BOA ADERÊNCIA' && (
+              st !== 'GRIP PERFEITO' && st !== 'SECO' && st !== 'BOA ADERÊNCIA' && st !== 'BOA ADERÊNCIA - ÚMIDO' && (
               <p style={{ fontSize: 12, fontStyle: 'italic', color: '#555555', lineHeight: 1.75, margin: 0 }}>
                 {condicao.frase_secagem}
               </p>
