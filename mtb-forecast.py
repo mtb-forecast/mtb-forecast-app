@@ -1902,7 +1902,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         risco += peso_por_fator.get("aderencia_boa", 2)
         motivos.append("aderência moderada")
     elif status == "BOA ADERÊNCIA - ÚMIDO":
-        risco += peso_por_fator.get("aderencia_boa_umido", 2)
+        risco += peso_por_fator.get("aderencia_boa_umido", 2)  # valor canônico na tabela veredicto_pesos
         motivos.append("superfície úmida — garoa ativa")
     elif status == "GRIP PERFEITO":
         risco += peso_por_fator.get("aderencia_grip", 1)
@@ -1937,18 +1937,18 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
     if trail is not None and trail.get("trail_type") == "bikepark":
         # Solo em BAIXA ADERÊNCIA = encharcado além da drenagem do bikepark — não reduz
         if status != "BAIXA ADERÊNCIA":
-            risco -= 1
+            risco -= peso_por_fator.get("bikepark_reduz", 1)
             motivos.append("bikepark reduz severidade")
         if aderencia.get("saturado"):
-            risco += 2
+            risco += peso_por_fator.get("bikepark_saturado", 2)
             motivos.append("bikepark saturado")
 
     if trail is not None and trail.get("trail_type") == "natural":
         if status in ("BOA ADERÊNCIA", "BOA ADERÊNCIA - ÚMIDO", "BAIXA ADERÊNCIA"):
-            risco += 1
+            risco += peso_por_fator.get("trilha_natural_umida", 1)
             motivos.append("trilha natural com solo úmido")
         elif inclinacao is not None and inclinacao > 20 and rain_mm > 0:
-            risco += 1
+            risco += peso_por_fator.get("trilha_natural_inclinada", 1)
             motivos.append("trilha natural inclinada com chuva prevista")
 
     # Vento histórico: impacto no veredicto por nível graduado
@@ -1987,13 +1987,13 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         sev_f = _sev.get(aderencia_futura.get("status", status), 0)
         if sev_f > sev_a:
             if aderencia_futura["status"] == "BAIXA ADERÊNCIA" and status != "BAIXA ADERÊNCIA":
-                risco += 2
+                risco += peso_por_fator.get("piora_prevista_severa", 2)
                 motivos.append("piora prevista severa")
             elif aderencia_futura["status"] == "BOA ADERÊNCIA" and status in ("SECO", "GRIP PERFEITO"):
-                risco += 1
+                risco += peso_por_fator.get("piora_prevista", 1)
                 motivos.append("piora prevista")
         elif sev_f < sev_a:
-            risco = max(0, risco - 1)
+            risco = max(0, risco - peso_por_fator.get("melhora_prevista", 1))
             motivos.append("melhora prevista")
 
     risco = max(0, risco)
