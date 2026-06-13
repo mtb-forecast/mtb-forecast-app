@@ -1935,8 +1935,10 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
                 motivos.append("inclinação alta")
 
     if trail is not None and trail.get("trail_type") == "bikepark":
-        risco -= 1
-        motivos.append("bikepark reduz severidade")
+        # Solo em BAIXA ADERÊNCIA = encharcado além da drenagem do bikepark — não reduz
+        if status != "BAIXA ADERÊNCIA":
+            risco -= 1
+            motivos.append("bikepark reduz severidade")
         if aderencia.get("saturado"):
             risco += 2
             motivos.append("bikepark saturado")
@@ -1976,8 +1978,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
     exposicao = (trail or {}).get("exposicao", "aberta")
     thresh_gust = 30.0 if exposicao == "aberta" else 50.0
     if gust_kmh >= thresh_gust:
-        if risco < 2:
-            risco = 2
+        risco += peso_por_fator.get("rajada_prevista", 1)
         motivos.append(f"rajada prevista {gust_kmh} km/h ({exposicao})")
 
     _sev = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BOA ADERÊNCIA": 2, "BAIXA ADERÊNCIA": 3}
