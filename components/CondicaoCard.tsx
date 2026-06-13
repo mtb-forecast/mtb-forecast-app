@@ -287,24 +287,12 @@ function CondicaoCard({ condicao }: Props) {
 
         {/* ── 2. Solo ──────────────────────────────────────────────── */}
         <div>
-          {/* 3 métricas em linha */}
+          {/* métrica de última chuva */}
           <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 20, rowGap: 6, marginBottom: 14 }}>
-            <div style={{ fontSize: 12, color: '#6B7280' }}>
-              Tempo de secagem{' '}
-              <span style={{ fontWeight: 600, color: '#374151' }} className="font-mono">
-                = {badgeSolo ?? '—'}
-              </span>
-            </div>
             <div style={{ fontSize: 12, color: '#6B7280' }}>
               Última chuva{' '}
               <span style={{ fontWeight: 600, color: '#374151' }} className="font-mono">
                 = {condicao.ultima_chuva_h != null ? fmtUltimaChuva(ultimaChuvaH) : '—'}
-              </span>
-            </div>
-            <div style={{ fontSize: 12, color: '#6B7280' }}>
-              Umidade no solo{' '}
-              <span style={{ fontWeight: 600, color: rainColor(acumuloAgora) }} className="font-mono">
-                = {acumuloAgora.toFixed(1)}mm
               </span>
             </div>
           </div>
