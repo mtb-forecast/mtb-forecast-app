@@ -287,31 +287,24 @@ function CondicaoCard({ condicao }: Props) {
 
         {/* ── 2. Solo ──────────────────────────────────────────────── */}
         <div>
-          {/* 3 badges */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
-              <i className="ti ti-droplet" style={{ fontSize: 13, color: rainColor(acumuloAgora) }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: rainColor(acumuloAgora) }} className="font-mono">{acumuloAgora.toFixed(1)}mm</span>
-              <span style={{ fontSize: 11, color: '#6B7280' }}>retidos</span>
+          {/* 3 métricas em linha */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 20, rowGap: 6, marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: '#6B7280' }}>
+              Tempo de secagem{' '}
+              <span style={{ fontWeight: 600, color: '#374151' }} className="font-mono">
+                = {badgeSolo ?? '—'}
+              </span>
             </div>
-
-            {badgeSolo !== null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
-                <i className="ti ti-clock" style={{ fontSize: 13, color: '#9CA3AF' }} />
-                <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }} className="font-mono">
-                  {badgeSolo}
-                </span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#F0FDF4', border: '0.5px solid #BBF7D0', borderRadius: 20, padding: '5px 12px' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
-              <i className="ti ti-history" style={{ fontSize: 13, color: '#9CA3AF' }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#374151' }} className="font-mono">
-                {condicao.ultima_chuva_h != null
-                  ? `últ. chuva ${fmtUltimaChuva(ultimaChuvaH)}`
-                  : 'sem chuva registrada'}
+            <div style={{ fontSize: 12, color: '#6B7280' }}>
+              Última chuva{' '}
+              <span style={{ fontWeight: 600, color: '#374151' }} className="font-mono">
+                = {condicao.ultima_chuva_h != null ? fmtUltimaChuva(ultimaChuvaH) : '—'}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: '#6B7280' }}>
+              Umidade no solo{' '}
+              <span style={{ fontWeight: 600, color: rainColor(acumuloAgora) }} className="font-mono">
+                = {acumuloAgora.toFixed(1)}mm
               </span>
             </div>
           </div>
