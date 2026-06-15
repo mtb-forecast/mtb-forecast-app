@@ -1846,8 +1846,8 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
         status = "BOA ADERÊNCIA - ÚMIDO"
 
     if trail.get("trail_type") == "bikepark":
-        if acumulo_ef >= 5.0:
-            pass  # BAIXA ADERÊNCIA permitida — sem teto quando solo saturado
+        if saturado:
+            pass  # BAIXA ADERÊNCIA permitida — solo saturado (threshold dinâmico com sensibilidade)
         else:
             if status == "BAIXA ADERÊNCIA":
                 status = "BOA ADERÊNCIA - ÚMIDO"  # teto quando solo não está saturado
