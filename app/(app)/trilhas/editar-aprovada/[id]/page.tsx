@@ -442,11 +442,33 @@ function EditarAprovadaContent() {
                   style={inputStyle}
                 />
               </Field>
-              <p style={{ fontSize: 12, color: '#888', margin: 0, lineHeight: 1.5 }}>
-                Multiplica o <code>fator_threshold</code> do bioma. Valores &lt; 1.0 tornam o modelo mais
-                conservador (BAIXA ADERÊNCIA mais fácil). Valores &gt; 1.0 tornam mais permissivo
-                (útil para bikeparks com drenagem boa). Padrão: 1.0.
-              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#f4f5f0' }}>
+                      <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5', whiteSpace: 'nowrap' }}>Valor</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5' }}>Efeito</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5' }}>Uso típico</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { val: '0.6 – 0.7', efeito: 'BAIXA com ≈60–70% da chuva normal', uso: 'Solo muito argiloso, sem drenagem', cor: '#fef2f2' },
+                      { val: '0.8 – 0.9', efeito: 'Modelo mais restritivo que o bioma',  uso: 'Solo sensível, sombra permanente', cor: '#fff7ed' },
+                      { val: '1.0',       efeito: 'Padrão do bioma — sem ajuste',        uso: 'Maioria das trilhas naturais',     cor: '#f0fdf4' },
+                      { val: '1.2 – 1.3', efeito: 'BAIXA precisa de 20–30% mais chuva', uso: 'Bikepark com boa drenagem',        cor: '#eff6ff' },
+                      { val: '1.5 – 1.8', efeito: 'BAIXA precisa de 50–80% mais chuva', uso: 'Bikepark com drenagem profissional', cor: '#eff6ff' },
+                      { val: '2.0 +',     efeito: 'BAIXA muito difícil de atingir',      uso: 'Bikepark com drenagem de alto nível', cor: '#eff6ff' },
+                    ].map(row => (
+                      <tr key={row.val} style={{ background: row.cor, borderBottom: '1px solid #e5e5e5' }}>
+                        <td style={{ padding: '7px 10px', fontFamily: 'var(--font-dm-mono)', fontWeight: 700, whiteSpace: 'nowrap', color: '#2a2e25' }}>{row.val}</td>
+                        <td style={{ padding: '7px 10px', color: '#374151' }}>{row.efeito}</td>
+                        <td style={{ padding: '7px 10px', color: '#6b7280' }}>{row.uso}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </SectionCard>
           )}
 
