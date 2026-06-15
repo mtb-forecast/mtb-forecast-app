@@ -131,7 +131,6 @@ def _validar_env() -> None:
         )
 
 BRT = timezone(timedelta(hours=-3))
-ORDEM_CONDICAO = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BAIXA ADERÊNCIA": 3}
 
 # ---------------------------------------------------------------------------
 # Sazonalidade e ENSO — V5.22
@@ -629,8 +628,6 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
     Substitui o histórico do One Call timemachine, que retorna apenas 1 ponto por chamada.
     """
     agora     = datetime.now(BRT)
-    inicio    = (agora - timedelta(hours=48)).strftime("%Y-%m-%d")
-    fim       = agora.strftime("%Y-%m-%d")
     agora_str = agora.strftime("%Y-%m-%dT%H:00")
 
     lk = trail.get("local_key")
@@ -932,8 +929,6 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     eliminando chamada redundante ao timemachine da One Call API.
     """
     agora     = datetime.now(BRT)
-    inicio    = (agora - timedelta(hours=48)).strftime("%Y-%m-%d")
-    fim       = agora.strftime("%Y-%m-%d")
     agora_str = agora.strftime("%Y-%m-%dT%H:00")
 
     # Open-Meteo /forecast com past_days=2: fonte de vento sustentado + rajadas históricas
@@ -993,7 +988,7 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     else:
         nivel_vento = 0
 
-    fonte_str = ["OpenWeather (timemachine)"] if ow_vento_max_kmh is not None else []
+    fonte_str = []
     if om_vento_max is not None or om_rajada_max is not None:
         fonte_str.append("Open-Meteo (archive)")
 
@@ -1064,7 +1059,6 @@ _CACHE_ADERENCIA_THRESHOLDS: list = []
 _CACHE_VEREDICTO_PESOS: list = []
 _CACHE_VEREDICTO_LIMIARES: list = []
 _CACHE_MEIA_VIDA_CLIMA_MULT: list = []
-_CACHE_MICROCLIMA_CONFIG: list = []
 _CACHE_BIOMAS: list = []
 _CACHE_TRAIL_TYPE_CONFIG: list = []
 _CACHE_SOLO_TYPE_CONFIG: list = []
@@ -1340,7 +1334,7 @@ def _carregar_veredicto_pesos() -> list:
         print(f"  [Veredicto] Erro ao carregar pesos: {exc} — usando fallback")
         return [
             {"fator": "aderencia_baixa",       "peso": 3},
-            {"fator": "aderencia_boa",         "peso": 2},
+            {"fator": "aderencia_boa_umido",    "peso": 2},
             {"fator": "aderencia_grip",        "peso": 1},
             {"fator": "pico_3h_muito_alto",    "peso": 2},
             {"fator": "pico_3h_alto",          "peso": 1},
@@ -1422,34 +1416,6 @@ def _carregar_meia_vida_clima_mult() -> list:
             {"variavel": "umidade",      "valor_min": None, "valor_max": 45,   "exposicao": None,      "multiplicador": 0.93},
             {"variavel": "bikepark",     "valor_min": None, "valor_max": None, "exposicao": "fechada", "multiplicador": 0.60},
             {"variavel": "bikepark",     "valor_min": None, "valor_max": None, "exposicao": "aberta",  "multiplicador": 0.35},
-        ]
-
-
-def _carregar_microclima_config() -> list:
-    """Carrega configurações de microclima do Supabase. Fallback: Mata Atlântica padrão."""
-    global _CACHE_MICROCLIMA_CONFIG
-    if _CACHE_MICROCLIMA_CONFIG:
-        return _CACHE_MICROCLIMA_CONFIG
-    try:
-        url = (
-            f"{SUPABASE_URL}/rest/v1/microclima_config"
-            f"?select=bioma,altitude_min,exposicao,fator_threshold,fator_secagem"
-            f"&ativo=eq.true&order=id.asc"
-        )
-        req = urllib.request.Request(url, headers={
-            "apikey":        SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-        })
-        with urllib.request.urlopen(req, timeout=10) as r:
-            dados = json.loads(r.read())
-        _CACHE_MICROCLIMA_CONFIG = dados
-        print(f"  [Microclima] Config carregada do Supabase: {len(dados)} biomas")
-        return dados
-    except Exception as exc:
-        print(f"  [Microclima] Erro: {exc} — usando Mata Atlântica padrão")
-        return [
-            {"bioma": "Mata Atlântica", "altitude_min": 600, "exposicao": "fechada", "fator_threshold": 0.50, "fator_secagem": 1.20},
-            {"bioma": "Mata Atlântica", "altitude_min": None, "exposicao": None,     "fator_threshold": 0.90, "fator_secagem": 1.10},
         ]
 
 
@@ -2052,65 +2018,6 @@ def _carregar_ids_com_favorito() -> set | None:
     except Exception as exc:
         print(f"  [Favoritos] Erro ao carregar: {exc} — processando todas as trilhas")
         return None
-
-
-def gravar_sem_favorito(trilha_name: str) -> bool:
-    """
-    Grava registro especial em condicoes sinalizando que a trilha precisa ser
-    favoritada para ter condições geradas. Falha silenciosa.
-    """
-    if not SUPABASE_KEY:
-        return False
-    try:
-        url_busca = (
-            f"{SUPABASE_URL}/rest/v1/trilhas"
-            f"?name=eq.{urllib.parse.quote(trilha_name)}"
-            f"&select=id&limit=1"
-        )
-        req = urllib.request.Request(url_busca, headers={
-            "apikey":        SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-        })
-        with urllib.request.urlopen(req, timeout=10) as r:
-            trilhas = json.loads(r.read())
-        if not trilhas:
-            return False
-        trilha_id = trilhas[0]["id"]
-
-        payload = json.dumps({
-            "trilha_id":        trilha_id,
-            "gerado_em":        datetime.now(BRT).isoformat(),
-            "aderencia_status": "SEM FAVORITO",
-            "veredicto":        "Favorite esta trilha para gerar as condições",
-            "veredicto_12h":    "Favorite esta trilha para gerar as condições",
-        }).encode("utf-8")
-
-        url_delete = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=eq.{trilha_id}"
-        req_del = urllib.request.Request(url_delete, headers={
-            "apikey":        SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-        })
-        req_del.get_method = lambda: "DELETE"
-        try:
-            with urllib.request.urlopen(req_del, timeout=10) as r:
-                pass
-        except Exception:
-            pass
-
-        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes"
-        req_ins = urllib.request.Request(url_insert, data=payload, headers={
-            "apikey":        SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type":  "application/json",
-            "Prefer":        "return=minimal",
-        })
-        req_ins.get_method = lambda: "POST"
-        with urllib.request.urlopen(req_ins, timeout=10) as r:
-            pass
-        return True
-    except Exception as exc:
-        print(f"  [Supabase] [ERRO] gravar_sem_favorito '{trilha_name}': {exc}")
-        return False
 
 
 def gravar_sem_favorito_bulk(trilhas: list) -> None:
@@ -3426,8 +3333,6 @@ def main() -> None:
         )
         if dados_solo:
             trail.update(dados_solo)
-            fator_base = round(0.20 + (dados_solo["clay_pct"] / 100) * 1.60, 2)
-            fator_base = max(0.25, min(0.90, fator_base))
             print(f"  [Solo] {trail['name']}: clay={dados_solo['clay_pct']}%, sand={dados_solo['sand_pct']}% → {dados_solo['texture_class']}")
         else:
             print(f"  [Solo] {trail['name']}: API indisponível — usando fallback '{trail['solo_type']}'")
@@ -3435,7 +3340,7 @@ def main() -> None:
     for regiao, trails in sorted(trails_por_regiao.items()):
 
         print(f"\n[MTBForecaster] Processando região {regiao} ({len(trails)} trilha(s))...")
-        resultados, falhas = [], []
+        resultados = []
 
         for trail in trails:
             try:
@@ -3449,7 +3354,6 @@ def main() -> None:
                 inc_str = f" | inclinação={dados['inclinacao']}%" if dados['inclinacao'] is not None else ""
                 print(f"  [OK] {trail['name']} [{trail.get('trail_type','natural')} / {trail['solo_type']}]{inc_str} — {dados['aderencia']['status']} | pico={dados['pico_3h']}mm | 12h: {dados['veredicto_12h']['veredicto']['texto']} | 48h: {dados['veredicto']['texto']}")
             except Exception as exc:
-                falhas.append(f"{trail['name']}: {exc}")
                 print(f"  [ERRO] {trail['name']}: {exc}")
 
             if DEBUG_MODEL:
