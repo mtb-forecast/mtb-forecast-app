@@ -685,8 +685,15 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
 
     bruto          = 0.0
     bruto_raw      = 0.0   # precipitação bruta OM sem interceptação de dossel
+    bruto_48h      = 0.0   # bruto restrito a 48h — janela comparável ao OW day_summary (hoje+ontem)
+    bruto_raw_48h  = 0.0
     efetivo        = 0.0
     ultima_chuva_h = None
+
+    # OW day_summary cobre hoje + ontem (2 dias calendário). Para comparação de lag ser
+    # justa, o bruto OM deve usar a mesma janela — senão chuva de 3+ dias atrás infla
+    # om_bruto e dificulta detectar lag real de hoje.
+    ontem_00h = (agora - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     for i, t in enumerate(times):
         if t > agora_str:
@@ -701,12 +708,18 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         peso       = 0.5 ** (horas_atras / meia_vida) if meia_vida > 0 else 0.0
         efetivo   += p * peso
 
+        if dt_entry >= ontem_00h:
+            bruto_48h     += p
+            bruto_raw_48h += p_bruto
+
         if p_bruto >= 0.1 and (ultima_chuva_h is None or horas_atras < ultima_chuva_h):
             ultima_chuva_h = round(horas_atras, 1)
 
     return {
         "bruto":          round(bruto, 1),
+        "bruto_48h":      round(bruto_48h, 1),
         "bruto_raw":      round(bruto_raw, 1),
+        "bruto_raw_48h":  round(bruto_raw_48h, 1),
         "efetivo":        round(efetivo, 1),
         "ultima_chuva_h": ultima_chuva_h,
     }
@@ -2392,22 +2405,24 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     chuva_pct_blend = _lookup_bioma(trail, mes_atual).get("chuva_pct", 1.0)
     bruto_ow  = round(bruto_ow_raw * chuva_pct_blend, 1)
 
-    om_bruto     = hist_om["bruto"]
-    om_bruto_raw = hist_om.get("bruto_raw", om_bruto)   # OM sem chuva_pct (comparável a apps de clima)
-    om_ef        = hist_om["efetivo"]
-    om_uc        = hist_om["ultima_chuva_h"]
+    om_bruto      = hist_om["bruto"]
+    om_bruto_48h  = hist_om["bruto_48h"]   # OM restrito à janela hoje+ontem — comparável ao OW
+    om_bruto_raw  = hist_om.get("bruto_raw", om_bruto)
+    om_ef         = hist_om["efetivo"]
+    om_uc         = hist_om["ultima_chuva_h"]
 
-    acumulo_48h    = max(om_bruto, bruto_ow)
-    chuva_bruta_mm = round(max(om_bruto_raw, bruto_ow_raw), 1)  # referência de chuva real p/ texto
+    acumulo_48h    = max(om_bruto_48h, bruto_ow)
+    chuva_bruta_mm = round(max(hist_om.get("bruto_raw_48h", om_bruto_raw), bruto_ow_raw), 1)
 
+    # Comparação de lag usa janela alinhada (ambas cobrem hoje+ontem)
     LAG_THRESHOLD = 1.0   # mm de diferença para considerar lag do OM
-    lag_detectado = bruto_ow > om_bruto + LAG_THRESHOLD
+    lag_detectado = bruto_ow > om_bruto_48h + LAG_THRESHOLD
 
     if lag_detectado:
         # Chuva vista pelo OW mas não pelo OM (lag NWP) — tratar como RECENTE
         # Peso 0.9 = conservador: protege o rider de falso "solo seco"
-        acumulo_ef   = round(om_ef + (bruto_ow - om_bruto) * 0.9, 2)
-        print(f"  [chuva hist] lag OM detectado: OW={bruto_ow:.1f}mm OM={om_bruto:.1f}mm (chuva_pct={chuva_pct_blend:.2f}) → ef={acumulo_ef:.2f}mm")
+        acumulo_ef   = round(om_ef + (bruto_ow - om_bruto_48h) * 0.9, 2)
+        print(f"  [chuva hist] lag OM detectado: OW={bruto_ow:.1f}mm OM_48h={om_bruto_48h:.1f}mm (chuva_pct={chuva_pct_blend:.2f}) → ef={acumulo_ef:.2f}mm")
     else:
         acumulo_ef = om_ef
 
