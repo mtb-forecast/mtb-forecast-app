@@ -92,6 +92,7 @@ export default function CadastrarTrilhaPage() {
   const [bioma, setBioma] = useState('')
   const [desnivel, setDesnivel] = useState('')
   const [extensao, setExtensao] = useState('')
+  const [sensibilidade, setSensibilidade] = useState('1')
 
   // ── Campos pump track ──────────────────────────────────────────
   const [ptCidade, setPtCidade] = useState('')
@@ -203,6 +204,8 @@ export default function CadastrarTrilhaPage() {
     if (!soloType) { setErro('Tipo de solo é obrigatório.'); return false }
     if (!exposicao) { setErro('Exposição é obrigatória.'); return false }
     if (!trailType) { setErro('Tipo de trilha é obrigatório.'); return false }
+    const sensNum = parseFloat(sensibilidade)
+    if (!sensibilidade || isNaN(sensNum) || sensNum <= 0) { setErro('Sensibilidade é obrigatória.'); return false }
 
     const user = await getClientUser()
     if (!user) { window.location.href = '/login'; return false }
@@ -218,6 +221,7 @@ export default function CadastrarTrilhaPage() {
       bioma: bioma || null,
       desnivel_m: desnivel ? parseFloat(desnivel) : null,
       extensao_km: extensao ? parseFloat(extensao) : null,
+      sensibilidade: sensNum,
       link_referencia: linkRef.trim() || null,
       observacoes: observacoes.trim() || null,
       aprovada: true,
@@ -273,7 +277,7 @@ export default function CadastrarTrilhaPage() {
   function resetForm() {
     setNome(''); setRegiao(''); setMapsUrl(''); setLat(''); setLon('')
     setAltitude(''); setSoloType(''); setExposicao(''); setTrailType('')
-    setBioma(''); setDesnivel(''); setExtensao(''); setLinkRef(''); setObservacoes('')
+    setBioma(''); setDesnivel(''); setExtensao(''); setSensibilidade('1'); setLinkRef(''); setObservacoes('')
     setPtCidade(''); setPtUf(''); setPtEndereco(''); setPtSuperficie('')
     setPtComprimento(''); setPtIluminacao(''); setPtEstacionamento('')
     setPtInstagram(''); setPtFonte('')
@@ -526,6 +530,42 @@ export default function CadastrarTrilhaPage() {
                     {biomas.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </Field>
+                <Field label="Sensibilidade do modelo" required>
+                  <input
+                    type="number" step="0.05" min="0.1" max="3.0"
+                    value={sensibilidade}
+                    onChange={e => setSensibilidade(e.target.value)}
+                    placeholder="1.0"
+                    style={inputStyle}
+                  />
+                </Field>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: '#f4f5f0' }}>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5', whiteSpace: 'nowrap' }}>Valor</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5' }}>Efeito</th>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5' }}>Uso típico</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { val: '0.6 – 0.7', efeito: 'BAIXA com ≈60–70% da chuva normal', uso: 'Solo muito argiloso, sem drenagem', cor: '#fef2f2' },
+                        { val: '0.8 – 0.9', efeito: 'Modelo mais restritivo que o bioma',  uso: 'Solo sensível, sombra permanente', cor: '#fff7ed' },
+                        { val: '1.0',       efeito: 'Padrão do bioma — sem ajuste',        uso: 'Maioria das trilhas naturais',     cor: '#f0fdf4' },
+                        { val: '1.2 – 1.3', efeito: 'BAIXA precisa de 20–30% mais chuva', uso: 'Bikepark com boa drenagem',        cor: '#eff6ff' },
+                        { val: '1.5 – 1.8', efeito: 'BAIXA precisa de 50–80% mais chuva', uso: 'Bikepark c/ drenagem profissional', cor: '#eff6ff' },
+                        { val: '2.0 +',     efeito: 'BAIXA muito difícil de atingir',      uso: 'Bikepark com drenagem de alto nível', cor: '#eff6ff' },
+                      ].map(row => (
+                        <tr key={row.val} style={{ background: row.cor, borderBottom: '1px solid #e5e5e5' }}>
+                          <td style={{ padding: '6px 10px', fontFamily: 'var(--font-dm-mono)', fontWeight: 700, whiteSpace: 'nowrap', color: '#2a2e25' }}>{row.val}</td>
+                          <td style={{ padding: '6px 10px', color: '#374151' }}>{row.efeito}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.uso}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </SectionCard>
 
               <SectionCard title="5. Métricas (opcional)">
