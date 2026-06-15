@@ -91,6 +91,7 @@ function EditarAprovadaContent() {
   const [extensao, setExtensao]         = useState('')
   const [mantenedorId, setMantenedorId] = useState<string>('')
   const [mantenedores, setMantenedores] = useState<{ id: string; nome: string }[]>([])
+  const [sensibilidade, setSensibilidade] = useState('')
 
   // Geocoding
   const [geoResult, setGeoResult]   = useState<GeoResult | null>(null)
@@ -139,6 +140,7 @@ function EditarAprovadaContent() {
       setExtensao(t.extensao_km ? String(t.extensao_km) : '')
       setMantenedorId(t.mantenedor_id || '')
       setMantenedores((mants as { id: string; nome: string }[]) ?? [])
+      setSensibilidade(t.sensibilidade != null ? String(t.sensibilidade) : '1')
 
       setSoloTypes(sts)
       setBiomas(bio)
@@ -228,6 +230,7 @@ function EditarAprovadaContent() {
       extensao_km: extensao ? parseFloat(extensao) : null,
       mantenedor_id: mantenedorId || null,
       ...(localidadeId ? { localidade_id: localidadeId } : {}),
+      ...(isAdmin ? { sensibilidade: sensibilidade ? parseFloat(sensibilidade) : 1.0 } : {}),
     }
 
     if (isAdmin) {
@@ -426,6 +429,26 @@ function EditarAprovadaContent() {
               </Field>
             </div>
           </SectionCard>
+
+          {/* ── Calibração (admin only) ── */}
+          {isAdmin && (
+            <SectionCard title="6. Calibração do modelo (admin)">
+              <Field label="Sensibilidade (padrão 1.0)">
+                <input
+                  type="number" step="0.05" min="0.1" max="3.0"
+                  value={sensibilidade}
+                  onChange={e => setSensibilidade(e.target.value)}
+                  placeholder="1.0"
+                  style={inputStyle}
+                />
+              </Field>
+              <p style={{ fontSize: 12, color: '#888', margin: 0, lineHeight: 1.5 }}>
+                Multiplica o <code>fator_threshold</code> do bioma. Valores &lt; 1.0 tornam o modelo mais
+                conservador (BAIXA ADERÊNCIA mais fácil). Valores &gt; 1.0 tornam mais permissivo
+                (útil para bikeparks com drenagem boa). Padrão: 1.0.
+              </p>
+            </SectionCard>
+          )}
 
           {/* ── Actions ── */}
           <div style={{ display: 'flex', gap: 10 }}>

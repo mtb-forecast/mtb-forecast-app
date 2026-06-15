@@ -803,7 +803,9 @@ def fetch_openmeteo(trail: dict) -> dict | None:
 # ---------------------------------------------------------------------------
 
 def fator_microclima(trail: dict) -> float:
-    return _lookup_bioma(trail).get("fator_threshold", 1.0)
+    base = _lookup_bioma(trail).get("fator_threshold", 1.0)
+    sens = float(trail.get("sensibilidade") or 1.0)
+    return base * sens
 
 
 def _meia_vida(trail: dict) -> float:
@@ -3494,7 +3496,7 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
 
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
-        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,localidades!localidade_id(cidade,localidade)"
+        f"?select=id,name,lat,lon,solo_type,exposicao,altitude_m,trail_type,regiao,desnivel_m,extensao_km,bioma,sensibilidade,localidades!localidade_id(cidade,localidade)"
         f"&aprovada=eq.true"
         f"{filtro_ids}"
         f"&order=name.asc"
