@@ -181,7 +181,18 @@
       "Bash(python -m py_compile mtb-forecast.py)",
       "Bash(cat next.config.ts)",
       "Bash(cat next.config.js)",
-      "Bash(cat next.config.mjs)"
+      "Bash(cat next.config.mjs)",
+      "Bash(Get-ChildItem -Path \"c:\\\\ClaudeCode\\\\mtb-forecast-app\" -Recurse -Filter \"*.tsx\" -File)",
+      "Bash(grep -r \"maxWidth\\\\|max-width\" \"/cygdrive/c/ClaudeCode/mtb-forecast-app/app\" --include=\"*.tsx\" | head -25)",
+      "Read(//cygdrive/c/ClaudeCode/mtb-forecast-app/**)",
+      "Bash(grep -r \"width.*px\\\\|padding.*px\" \"/cygdrive/c/ClaudeCode/mtb-forecast-app/components\" --include=\"*.tsx\" -n | head -30)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('next:', p.dependencies.next, '\\\\nsupabase-js:', p.dependencies['@supabase/supabase-js']\\)\")",
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "Bash(grep -i \"\\\\.md$\\\\|readme\\\\|supabase\\\\|formula\\\\|docs\")",
+      "Bash(grep \"\\\\.md$\")",
+      "PowerShell(Get-ChildItem \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\README.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\docs\\\\supabase-tabelas.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\docs\\\\formulas-modelo.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\docs\\\\fluxos.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\CLAUDE.md\" | Select-Object Name, @{N='Lines';E={\\(Get-Content $_.FullName\\).Count}}, @{N='KB';E={[math]::Round\\($_.Length/1024,1\\)}})",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py'\\).read\\(\\)\\); print\\('OK — sem erros de sintaxe'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
