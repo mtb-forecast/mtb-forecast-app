@@ -709,7 +709,7 @@ Resultado do processamento do agente Python por trilha. Uma linha por trilha (DE
 | `horarios_chuva` | text | Blocos com chuva prevista (JSON) |
 | `frase_secagem` | text | Frase descritiva do estado do solo (Claude AI) |
 | `solo_descansado` | boolean | `true` se `acumulo_ef < threshold` |
-| `thresh_desc` | numeric | Threshold de solo descansado calculado (mm) |
+| `limiar_descanso` | numeric | Threshold de solo descansado calculado (mm) |
 | `meia_vida_h` | numeric | Meia-vida de secagem ajustada (horas) |
 | `clay_pct` | numeric | Teor de argila via tabela_solo (%) |
 | `sand_pct` | numeric | Teor de areia (%) |

@@ -7,7 +7,7 @@ MTB Agent V6.4
 
 Alterações V5.24:
 - Campo `bioma` lido do trilhas.csv (coluna opcional, ex: "Mata Atlântica")
-- fator_microclima(): threshold mais conservador para biomas com instabilidade orográfica
+- fator_tolerancia(): threshold mais conservador para biomas com instabilidade orográfica
   · Mata Atlântica + altitude >= 600m + fechada → threshold 25% menor (mais conservador)
   · Mata Atlântica demais casos → threshold 10% menor
   · Outros biomas → sem ajuste
@@ -266,7 +266,7 @@ def threshold_solo_descansado(mes: int, enso: dict, trail: dict = None) -> float
     base, _ = tabela.get(mes, (5.0, 10.0))
     valor = base * _enso_mult_regional(enso, uf)
     if trail is not None:
-        valor *= fator_microclima(trail)
+        valor *= fator_tolerancia(trail)
     return round(valor, 1)
 
 
@@ -277,7 +277,7 @@ def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> flo
     _, sat = tabela.get(mes, (5.0, 10.0))
     valor = sat * _enso_mult_regional(enso, uf)
     if trail is not None:
-        valor *= fator_microclima(trail)
+        valor *= fator_tolerancia(trail)
     return round(valor, 1)
 
 
@@ -812,7 +812,7 @@ def fetch_openmeteo(trail: dict) -> dict | None:
 # Modelo de secagem do solo — V5.21
 # ---------------------------------------------------------------------------
 
-def fator_microclima(trail: dict) -> float:
+def fator_tolerancia(trail: dict) -> float:
     base = _lookup_bioma(trail).get("tolerancia_bioma", 1.0)
     sens = float(trail.get("sensibilidade") or 1.0)
     return base * sens
@@ -1736,9 +1736,9 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     bk_acumulo_thr  = float(sc.get("bikepark_acumulo_threshold", 5.0))
     ttc_score_mult  = _lookup_trail_type(trail)["score_mult"]
 
-    thresh = threshold_solo_descansado(mes, enso, trail)
+    limiar_descanso = threshold_solo_descansado(mes, enso, trail)
     fator  = fator_absorcao(trail)
-    solo_descansado = acumulo_ef < thresh
+    solo_descansado = acumulo_ef < limiar_descanso
 
     if pico_3h >= pico_thr:
         impacto = pico_3h * (coef_pico_desc if solo_descansado else coef_pico_mol)
@@ -1765,7 +1765,7 @@ def calcular_score_trilha(rain_mm: float, acumulo_ef: float, pico_3h: float,
     return {
         "score": round(score, 1),
         "solo_descansado": solo_descansado,
-        "thresh": round(thresh, 1),
+        "limiar_descanso": round(limiar_descanso, 1),
         "impacto": round(impacto, 2),
     }
 
@@ -1794,16 +1794,15 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     # Thresholds carregados do Supabase (tabela aderencia_thresholds).
     # aderencia_status reflete o estado ATUAL do solo (histórico), sem pico_3h forecast.
     # pico_3h entra no veredicto como fator de risco, não na condição presente do solo.
-    efetivo_combinado = acumulo_ef
 
     # Ajuste microclimático: Mata Atlântica fechada de altitude retém umidade estruturalmente —
     # o mesmo acumulo_ef causa mais degradação do que em terreno aberto.
-    # Divide pelo fator_microclima (0.75–1.0) para tornar os thresholds proporcionalmente mais
+    # Divide pelo fator_tolerancia (0.75–1.0) para tornar os thresholds proporcionalmente mais
     # rígidos. Reutiliza a tabela microclima_config já usada em threshold_solo_descansado.
     # Exemplo: ef=4mm em Mata Atlântica alta (fator=0.75) → ef_norm=5.33mm → BOA ADERÊNCIA
     # Em terreno sem ajuste (fator=1.0): ef=4mm → GRIP PERFEITO
-    fator_mc = fator_microclima(trail)
-    ef_normalizado = efetivo_combinado / fator_mc if fator_mc > 0 else efetivo_combinado
+    fator_tol = fator_tolerancia(trail)
+    ef_normalizado = acumulo_ef / fator_tol if fator_tol > 0 else acumulo_ef
 
     status = "BAIXA ADERÊNCIA"  # default seguro caso nenhum threshold dê match
     for thr in _carregar_aderencia_thresholds():
@@ -1852,13 +1851,13 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
         (t["ef_max"] for t in _carregar_aderencia_thresholds() if t.get("status") == "GRIP PERFEITO"),
         3.0
     )
-    grip_threshold_ef = round(grip_ef_max * fator_mc, 3) if fator_mc > 0 else grip_ef_max
+    grip_threshold_ef = round(grip_ef_max * fator_tol, 3) if fator_tol > 0 else grip_ef_max
 
     return {
         "status": status,
         "score": s,
         "solo_descansado": base["solo_descansado"],
-        "thresh": base["thresh"],
+        "limiar_descanso": base["limiar_descanso"],
         "impacto": base["impacto"],
         "saturado": saturado,
         "emoji": emojis[status],
@@ -2151,7 +2150,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "horarios_chuva":     resultado.get("horarios_chuva"),
             "frase_secagem":      resultado.get("resumo_secagem_frase"),
             "solo_descansado":    aderencia.get("solo_descansado"),
-            "thresh_desc":        resultado.get("thresh_desc"),
+            "limiar_descanso":    resultado.get("limiar_descanso"),
             "clay_pct":           resultado.get("clay_pct"),
             "sand_pct":           resultado.get("sand_pct"),
             "texture_class":      resultado.get("texture_class"),
@@ -2386,7 +2385,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     mes  = datetime.now(BRT).month
     oni  = fetch_oni_atual()
     enso = classificar_enso(oni)
-    thresh_desc = threshold_solo_descansado(mes, enso, trail)
+    limiar_descanso = threshold_solo_descansado(mes, enso, trail)
 
     hist         = fetch_onecall_historico(trail)
     hist_om      = fetch_historico_chuva_om(trail, hist["meia_vida_h"])
@@ -2656,7 +2655,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         inc  = calcular_inclinacao(trail)
         # Para dias futuros, o veredicto representa a condição APÓS a chuva do dia cair.
         # Sem isso, D+1 com 17mm aparece como DROP LIBERADO porque o solo "começa seco"
-        # e a chuva do dia não entra em efetivo_combinado — só aparecia no D+2.
+        # e a chuva do dia não entra em acumulo_ef — só aparecia no D+2.
         ef_pos_chuva = round(acumulo_ate_val + r, 1)
         ader = calcular_aderencia(r, trail, ef_pos_chuva, p3, mes, enso)
         return {
@@ -2665,9 +2664,9 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             "fonte_dia": fonte_dia,
             "veredicto": veredicto(ader, r, w, p3, inc, trail, ef_pos_chuva, vento_hist),
             "debug_model": {
-                "acumulo_bruto": acumulo_48h,
-                "acumulo_efetivo": acumulo_ef,
-                "threshold_descanso": thresh_desc,
+                "acumulo_48h": acumulo_48h,
+                "acumulo_ef": acumulo_ef,
+                "limiar_descanso": limiar_descanso,
                 "solo_descansado": aderencia["solo_descansado"],
                 "meia_vida_h": meia_vida_h,
                 "temp_media_c": hist.get("temp_media_c"),
@@ -2780,7 +2779,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "acumulo_ef":       acumulo_ef,
         "ultima_chuva_h":   ultima_chuva,
         "meia_vida_h":      meia_vida_h,
-        "thresh_desc":      thresh_desc,
+        "limiar_descanso":  limiar_descanso,
         "pico_3h":          pico_3h,
         "aderencia":        aderencia,
         "aderencia_futura": aderencia_futura,
@@ -2810,7 +2809,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "nublado_pct":    hist.get("nublado_pct"),
         "umidade_pct":    hist.get("umidade_pct"),
         "enso":           enso,
-        "thresh_desc":    thresh_desc,
+        "limiar_descanso": limiar_descanso,
         "fonte":          fonte,
         "bioma":          trail.get("bioma", "Desconhecido"),
         "trail_type":     trail.get("trail_type", "natural"),
@@ -2961,13 +2960,13 @@ def ajustar_por_observacoes(resultado: dict, trail: dict) -> dict:
 
 
 def _resumo_secagem_local(r: dict) -> str:
-    bruto      = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
-    efetivo    = r.get("acumulo_ef", 0)
-    ult_h      = r.get("ultima_chuva_h")
-    meia_vida  = r.get("meia_vida_h", 24)
-    thresh     = r.get("thresh_desc", 5.0)
-    pico_3h    = r.get("pico_3h", 0)
-    descansado = efetivo < thresh
+    bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
+    efetivo         = r.get("acumulo_ef", 0)
+    ult_h           = r.get("ultima_chuva_h")
+    meia_vida       = r.get("meia_vida_h", 24)
+    limiar_descanso = r.get("limiar_descanso", 5.0)
+    pico_3h         = r.get("pico_3h", 0)
+    descansado = efetivo < limiar_descanso
 
     if bruto < 0.5:
         if pico_3h >= 3:
@@ -2997,9 +2996,9 @@ def _resumo_secagem_local(r: dict) -> str:
     else:                 parte_secagem = "Este solo retém umidade por bastante tempo"
 
     if descansado:
-        conclusao = "O solo está descansado e em ótima condição para pedalar." if efetivo < thresh * 0.4 else "O solo está descansado — boa condição para pedalar."
+        conclusao = "O solo está descansado e em ótima condição para pedalar." if efetivo < limiar_descanso * 0.4 else "O solo está descansado — boa condição para pedalar."
         cor, bg = "#16a34a", "#f0fdf4"
-    elif efetivo > thresh * 2:
+    elif efetivo > limiar_descanso * 2:
         conclusao = "O solo ainda está significativamente úmido — atenção na tração."
         cor, bg = "#dc2626", "#fef2f2"
     else:
@@ -3013,13 +3012,13 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
     if not ANTHROPIC_KEY:
         return _resumo_secagem_local(r)
 
-    bruto      = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
-    efetivo    = r.get("acumulo_ef", 0)
-    ult_h      = r.get("ultima_chuva_h")
-    meia_vida  = r.get("meia_vida_h", 24)
-    thresh     = r.get("thresh_desc", 5.0)
-    pico_3h    = r.get("pico_3h", 0)
-    descansado = efetivo < thresh
+    bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
+    efetivo         = r.get("acumulo_ef", 0)
+    ult_h           = r.get("ultima_chuva_h")
+    meia_vida       = r.get("meia_vida_h", 24)
+    limiar_descanso = r.get("limiar_descanso", 5.0)
+    pico_3h         = r.get("pico_3h", 0)
+    descansado = efetivo < limiar_descanso
 
     ult_h_str = f"{round(ult_h)}h atrás" if ult_h is not None else "não identificada"
 
@@ -3101,7 +3100,7 @@ Regras de estilo:
                 narrativa = data["content"][0]["text"].strip()
                 if descansado and pico_3h < 3:
                     cor, bg = "#16a34a", "#f0fdf4"
-                elif efetivo > thresh * 2 or pico_3h >= 10:
+                elif efetivo > limiar_descanso * 2 or pico_3h >= 10:
                     cor, bg = "#dc2626", "#fef2f2"
                 else:
                     cor, bg = "#d97706", "#fffbeb"
@@ -3379,9 +3378,9 @@ def main() -> None:
                     dbg = dados["fds"]["d1"].get("debug_model", {})
                     print(
                         f"  [DEBUG] {trail['name']} | "
-                        f"bruto={dbg.get('acumulo_bruto')} | "
-                        f"ef={dbg.get('acumulo_efetivo')} | "
-                        f"th={dbg.get('threshold_descanso')} | "
+                        f"bruto={dbg.get('acumulo_48h')} | "
+                        f"ef={dbg.get('acumulo_ef')} | "
+                        f"th={dbg.get('limiar_descanso')} | "
                         f"solo_desc={dbg.get('solo_descansado')} | "
                         f"meia_vida={dbg.get('meia_vida_h')}h | "
                         f"temp={dbg.get('temp_media_c')}C | "
