@@ -2686,6 +2686,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         inicio       = None
         chuva_acum   = 0.0   # chuva futura acumulada desde agora (sem decaimento — igual a calcular_aderencia_futura_oc)
         agora_local  = datetime.now(BRT)
+        motivos      = {"chuva": 0, "solo": 0, "vento": 0}
 
         for h in hourly_oc:
             p   = _precip_hora(h)
@@ -2701,19 +2702,41 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             adh    = calcular_aderencia(p, trail, ef_proj, p, mes, enso)
             solo_ok = adh["status"] in ("SECO", "GRIP PERFEITO")
 
-            ok = pp < 30 and p < 1.0 and w < 15 and solo_ok
+            chuva_ok = pp < 30 and p < 1.0
+            ok = chuva_ok and w < 15 and solo_ok
             if ok and inicio is None:
                 inicio = dt
             elif not ok and inicio is not None:
                 blocos.append((inicio, dt))
                 inicio = None
 
+            # Causa dominante da hora bloqueada (prioridade: chuva > solo > vento,
+            # já que chuva costuma ser a causa raiz quando presente)
+            if not ok:
+                if not chuva_ok:
+                    motivos["chuva"] += 1
+                elif not solo_ok:
+                    motivos["solo"] += 1
+                else:
+                    motivos["vento"] += 1
+
             chuva_acum += p
 
         if inicio and hourly_oc:
             blocos.append((inicio, datetime.fromtimestamp(hourly_oc[-1]["dt"], tz=BRT)))
         if not blocos:
-            return "Sem janela limpa nas próximas 48h"
+            total_horas = len(hourly_oc) or 1
+            causa = max(motivos, key=motivos.get) if any(motivos.values()) else None
+            pct   = round(100 * motivos.get(causa, 0) / total_horas) if causa else 0
+            frase = {
+                "chuva": f"chuva prevista em {pct}% do período",
+                "solo":  f"solo sem tempo de secar entre chuvas ({pct}% do período)",
+                "vento": f"vento forte sustentado ({pct}% do período)",
+            }.get(causa)
+            return (
+                f"Sem janela limpa nas próximas 48h — {frase}"
+                if frase else "Sem janela limpa nas próximas 48h"
+            )
         melhor = max(blocos, key=lambda x: (x[1] - x[0]).total_seconds())
         dur    = int((melhor[1] - melhor[0]).total_seconds() / 3600)
         return f"{melhor[0].strftime('%d/%m %Hh')}–{melhor[1].strftime('%Hh')} ({dur}h)"
