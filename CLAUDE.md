@@ -15,9 +15,9 @@ Histórico de chuva divergia da realidade. Causa raiz tripla, confirmada em log 
 ### Arquitetura atual (não regredir)
 - **Precipitação histórica**: Open-Meteo batch (primário, horário ERA5) + OpenWeather
   `/data/3.0/onecall/day_summary` hoje+ontem (detector de lag).
-  Regra: se `bruto_ow > bruto_om + 1.0mm` → lag detectado → soma a diferença ao
+  Regra: se `ow_chuva_solo_mm > om_chuva_solo_48h_mm + 1.0mm` → lag detectado → soma a diferença ao
   efetivo com peso 0.9 (conservador, protege o rider de falso "solo seco").
-- **`chuva_pct` (interceptação de dossel, via `_lookup_bioma`) DEVE ser aplicado a
+- **`chuva_penetracao` (interceptação de dossel, via `_lookup_bioma`) DEVE ser aplicado a
   TODAS as fontes antes de qualquer comparação/max()**. Comparar chuva crua de uma
   fonte com chuva interceptada de outra infla o histórico em mata fechada.
 - **Open-Meteo em batch**: 1 chamada de forecast + 1 de histórico cobrem todos os
@@ -33,7 +33,7 @@ Histórico de chuva divergia da realidade. Causa raiz tripla, confirmada em log 
 
 ### Regras invioláveis de chuva
 - NUNCA reintroduzir timemachine como fonte de precipitação.
-- NUNCA comparar acumulados de fontes sem normalizar `chuva_pct` em ambas.
+- NUNCA comparar acumulados de fontes sem normalizar `chuva_penetracao` em ambas.
 - O zero-rain shortcircuit foi REMOVIDO em jun/2026 (ver git history).
   Não recriar otimizações que pulem o histórico com base em forecast=0 —
   forecast zero não prova ausência de chuva passada. Com o batch OM a economia
@@ -194,7 +194,7 @@ Nunca exibir o valor bruto de `condicoes.acumulo_ef` — sempre aplicar drift.
 ## INVARIANTES DO SISTEMA — nunca regredir
 
 1. **NUNCA reintroduzir timemachine como fonte de precipitação**
-2. **NUNCA comparar acumulados de fontes sem normalizar `chuva_pct` em ambas**
+2. **NUNCA comparar acumulados de fontes sem normalizar `chuva_penetracao` em ambas**
 3. **NUNCA usar só `rain` no OM** — sempre `precipitation` (= rain + showers + snow)
 4. **NUNCA somar `rain + precipitation`** — dupla contagem
 5. **NUNCA criar zero-rain shortcircuit** que pule histórico com base em forecast=0
