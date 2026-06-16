@@ -51,7 +51,7 @@ export type Condicao = {
   aderencia_score: number
   aderencia_desc?: string | null
   solo_descansado?: boolean | null
-  thresh_desc?: number | null
+  limiar_descanso?: number | null
   grip_threshold_ef?: number | null
 
   // Veredictos

@@ -323,7 +323,7 @@ Painel de edição das tabelas mestras do modelo. **Todas as alterações requer
 | Solo | `tabela_solo` | clay_pct, sand_pct, texture_class |
 | Thresholds Sazonais | `threshold_sazonal` | threshold_descansado, threshold_saturado |
 | Meia-vida de Secagem | `meia_vida_secagem` | meia_vida_h |
-| Biomas | `biomas` | chuva_pct, vento_pct, sol_pct, fator_threshold, sazonalidade |
+| Biomas | `biomas` | chuva_penetracao, vento_penetracao, sol_penetracao, tolerancia_bioma, sazonalidade |
 | Trail Type | `trail_type_config` | meia_vida_mult, score_mult |
 
 ---
@@ -537,7 +537,7 @@ Para o inventário completo de cada tabela, ver `docs/supabase-tabelas.md`.
 | `veredicto_pesos` | Pesos de risco por condição (aderencia_baixa, pico_3h_alto, vento_alto, etc.) |
 | `veredicto_limiares` | Limiares de decisão: ≤1 → DROP LIBERADO, ≤3 → Veja alertas, >3 → MELHOR ESPERAR |
 | `meia_vida_clima_mult` | Multiplicadores de secagem por temperatura, vento, nebulosidade, umidade e combo garoa |
-| `biomas` | Coeficientes de dossel (chuva_pct, vento_pct, sol_pct), fator_threshold e sazonalidade |
+| `biomas` | Coeficientes de dossel (chuva_penetracao, vento_penetracao, sol_penetracao), tolerancia_bioma e sazonalidade |
 | `configuracoes_sistema` | Chave-valor: parâmetros do modelo, coeficientes de scoring, credenciais email |
 | `solo_type_config` | `fator_absorcao_base` e `score_mult` por tipo de solo |
 | `inclinacao_config` | Penalizadores de absorção por inclinação calculada ou desnível bruto |
@@ -628,8 +628,8 @@ GitHub Actions (schedule + workflow_dispatch)
    │
    ├── fetch_onecall_day_summary() — OWM day_summary hoje + ontem
    │     Detector de lag OM:
-   │     se bruto_ow > bruto_om + 1.0mm → lag detectado
-   │         → acumulo_ef += (bruto_ow - bruto_om) × 0.9
+   │     se ow_chuva_solo_mm > om_chuva_solo_48h_mm + 1.0mm → lag detectado
+   │         → acumulo_ef += (ow_chuva_solo_mm - om_chuva_solo_48h_mm) × 0.9
    │
    ├── fetch_batch_openmeteo_historico() → clima histórico (batch)
    │     Temperatura, vento, nuvens, umidade → _ajustar_meia_vida_clima()
@@ -638,7 +638,7 @@ GitHub Actions (schedule + workflow_dispatch)
    ├── fetch_historico_chuva_om() — ERA5 precipitação (do batch)
    │     Usa campo "precipitation" (= rain + showers + snow) — NUNCA só "rain"
    │     Calcula acumulo_ef via decaimento exponencial: Σ p × 0.5^(t/τ)
-   │     Aplica chuva_pct do bioma em AMBAS as fontes antes de comparar
+   │     Aplica chuva_penetracao do bioma em AMBAS as fontes antes de comparar
    │
    ├── fetch_vento_historico() — ERA5 rajadas 48h → nível alerta 1/2/3
    │
@@ -700,7 +700,7 @@ Para a documentação completa das fórmulas, ver `docs/formulas-modelo.md`.
 ### Resumo do pipeline
 
 1. **Composição do solo** via `tabela_solo` — lookup prioritário por (solo_type, bioma, regiao)
-2. **Decaimento exponencial** — `acumulo_ef = Σ p_i × chuva_pct × 0.5^(t_i / τ)`
+2. **Decaimento exponencial** — `acumulo_ef = Σ p_i × chuva_penetracao × 0.5^(t_i / τ)`
 3. **Meia-vida base** por (solo_type, exposicao, regiao) — coluna `regiao` adicionada em jun/2026
 
 | regiao | terra/fechada | fator vs DEFAULT |
@@ -717,6 +717,11 @@ Para a documentação completa das fórmulas, ver `docs/formulas-modelo.md`.
 7. **Clamp final:** `max(4h, min(72h, meia_vida))`
 8. **Thresholds sazonais** via `threshold_sazonal` — cascata UF → macro-região → DEFAULT
 9. **ENSO regional** via `enso_regional_mult` — consulta por (fase_raw, macro_regiao) com lógica inversa para NORTE/NORDESTE
+10. **Tolerância de microclima** — `fator_tolerancia(trail) = tolerancia_bioma × sensibilidade` — multiplicador mestre aplicado a todas as camadas de threshold (descanso, saturação, grip)
+11. **Limiar de descanso** — `limiar_descanso = threshold_solo_descansado(mes, enso, trail)`; `solo_descansado = acumulo_ef < limiar_descanso`
+12. **Normalização para status de aderência** — `ef_normalizado = acumulo_ef / fator_tolerancia`, comparado contra `aderencia_thresholds` (SECO / GRIP PERFEITO / BOA ADERÊNCIA / BAIXA ADERÊNCIA)
+
+> Nomenclatura unificada em jun/2026 — ver [Notas de versão](#notas-de-versão) para o mapeamento completo nome-antigo → nome-atual.
 
 ---
 
@@ -1045,6 +1050,29 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 
 ## Notas de versão
 
+### V10.1 — Unificação de nomenclatura do modelo (jun/2026)
+
+Renomeação de parâmetros no agente Python e no schema Supabase para eliminar ambiguidade entre fontes de chuva, dossel e camadas de threshold. Sem mudança de comportamento — apenas clareza de leitura. Tabela completa de mapeamento:
+
+| Nome antigo | Nome atual | Onde |
+|---|---|---|
+| `chuva_pct` / `vento_pct` / `sol_pct` | `chuva_penetracao` / `vento_penetracao` / `sol_penetracao` | coluna `biomas`, código |
+| `bruto` / `bruto_raw` (+ `_48h`) | `chuva_solo_mm` / `chuva_ceu_mm` (+ `_48h`) | `fetch_historico_chuva_om()` |
+| `bruto_ow` / `bruto_ow_raw` | `ow_chuva_solo_mm` / `ow_chuva_ceu_mm` | blend OM/OW no pipeline |
+| `om_bruto` / `om_bruto_48h` / `om_bruto_raw` | `om_chuva_solo_mm` / `om_chuva_solo_48h_mm` / `om_chuva_ceu_mm` | blend OM/OW no pipeline |
+| `fator_threshold` | `tolerancia_bioma` | coluna `biomas` |
+| `fator_microclima()` / `fator_mc` | `fator_tolerancia()` / `fator_tol` | função + variável local |
+| `thresh_local` / `thresh` / `thresh_desc` / `threshold_descanso` (6 grafias) | `limiar_descanso` | coluna `condicoes`, variáveis, debug |
+| `efetivo_threshold` | `ef_normalizado` | variável local em `calcular_aderencia()` |
+| `efetivo_combinado` (alias morto) | removido — usa `acumulo_ef` direto | `calcular_aderencia()` |
+| `acumulo_bruto` / `acumulo_efetivo` (debug) | `acumulo_48h` / `acumulo_ef` | bloco `debug_model` |
+
+**Excluídos da renomeação (mantidos):** `sensibilidade` (coluna por trilha) e `saturado` (flag de bikepark) — nomes já claros, sem ambiguidade.
+
+**Convenção solo vs céu:** `*_solo_mm` = precipitação **após** interceptação de dossel (o que chega ao solo); `*_ceu_mm` = precipitação bruta **antes** do dossel. Aplicada simetricamente a Open-Meteo e OpenWeather.
+
+---
+
 ### V10.0 — Modelo Regional + Batch OM + Mantenedores (jun/2026)
 
 **Arquitetura Open-Meteo em batch:**
@@ -1055,7 +1083,7 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 
 **Detector de lag de assimilação:**
 - OWM `day_summary` hoje + ontem como fonte secundária de precipitação
-- Regra: se `bruto_ow > bruto_om + 1.0mm` → lag detectado → adiciona `(bruto_ow - bruto_om) × 0.9` ao acumulo_ef
+- Regra: se `ow_chuva_solo_mm > om_chuva_solo_48h_mm + 1.0mm` → lag detectado → adiciona `(ow_chuva_solo_mm - om_chuva_solo_48h_mm) × 0.9` ao acumulo_ef
 - Flagrado em produção em 22 trilhas (11/06/2026): Reserva Natural Park OW=9.1mm vs OM=0.2mm
 
 **Modelo regional:**
