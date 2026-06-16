@@ -2,7 +2,18 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const PUBLIC_ROUTES = ['/login', '/cadastro', '/auth/callback', '/auth/nova-senha', '/t/', '/api/telegram/', '/planos', '/manifest.json', '/sw.js', '/icons/']
+
 export async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname
+  const isPublic = pathname === '/' || PUBLIC_ROUTES.some(route => pathname.startsWith(route))
+
+  // Rotas públicas não precisam de sessão — evita o round-trip de rede do
+  // getUser() (validação contra o servidor de Auth) no caminho crítico do FCP.
+  if (isPublic) {
+    return NextResponse.next()
+  }
+
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.next()
   }
@@ -30,11 +41,7 @@ export async function middleware(req: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const publicRoutes = ['/login', '/cadastro', '/auth/callback', '/auth/nova-senha', '/t/', '/api/telegram/', '/planos', '/manifest.json', '/sw.js', '/icons/']
-  const isPublic = publicRoutes.some(route => req.nextUrl.pathname.startsWith(route))
-  const isProtected = !isPublic && req.nextUrl.pathname !== '/'
-
-  if (isProtected && !user) {
+  if (!user) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
