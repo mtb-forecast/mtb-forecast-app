@@ -159,15 +159,8 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
             borderTop: '0.5px solid #d0d4c6',
             background: '#f4f5f0',
             padding: '8px 16px 10px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            display: 'flex', alignItems: 'center',
           }}>
-            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-clock" style={{ fontSize: 11 }} />
-              {c.janela ? `JANELA: ${c.janela}` : '—'}
-            </div>
-
-            <div style={{ width: 1, height: 12, background: '#d0d4c6', flexShrink: 0 }} />
-
             <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
               <i className="ti ti-hourglass" style={{ fontSize: 11 }} />
               {c.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
