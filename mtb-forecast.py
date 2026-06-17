@@ -2682,11 +2682,22 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         }
 
     def calcular_janela_oc() -> str:
-        blocos       = []
-        inicio       = None
-        chuva_acum   = 0.0   # chuva futura acumulada desde agora (sem decaimento — igual a calcular_aderencia_futura_oc)
-        agora_local  = datetime.now(BRT)
-        motivos      = {"chuva": 0, "solo": 0, "vento": 0}
+        # meia_vida_base = valor da tabela antes dos multiplicadores climáticos.
+        # Usado para recalcular a taxa de secagem hora a hora com o FORECAST
+        # (temp/umidade/nuvens previstas), em vez da média histórica das 48h passadas.
+        # Isso corrige o gap onde um período nublado infla a meia_vida e impede
+        # a abertura de janela mesmo num dia de sol subsequente.
+        meia_vida_base_h = float(hist.get("meia_vida_base_h") or _meia_vida(trail))
+
+        blocos      = []
+        inicio      = None
+        agora_local = datetime.now(BRT)
+        motivos     = {"chuva": 0, "solo": 0, "vento": 0}
+
+        # Simulação passo-a-passo: ef_running decai hora a hora com a meia_vida
+        # ajustada pelo CLIMA PREVISTO naquela hora (não a média histórica global).
+        ef_running = acumulo_ef
+        ultimo_t   = agora_local
 
         for h in hourly_oc:
             p   = _precip_hora(h)
@@ -2694,24 +2705,37 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             w   = h.get("wind_speed", 0) or 0
             dt  = datetime.fromtimestamp(h["dt"], tz=BRT)
 
-            # Projeta aderência nesta hora usando a mesma fórmula dos alertas
-            horas_ate = max(0.0, (dt - agora_local).total_seconds() / 3600)
-            ef_proj   = (
-                acumulo_ef * (0.5 ** (horas_ate / meia_vida_h)) if meia_vida_h > 0 else 0.0
-            ) + chuva_acum
-            adh    = calcular_aderencia(p, trail, ef_proj, p, mes, enso)
-            solo_ok = adh["status"] in ("SECO", "GRIP PERFEITO")
+            # Decai ef desde o passo anterior usando meia_vida baseada no forecast
+            horas_passo = max(0.0, (dt - ultimo_t).total_seconds() / 3600)
+            if horas_passo > 0 and ef_running > 0:
+                temp_h     = h.get("temp")       or None
+                clouds_h   = h.get("clouds")     or None
+                humidity_h = h.get("humidity")   or None
+                mv_hora = _ajustar_meia_vida_clima(
+                    meia_vida_base_h, trail,
+                    temp_c=temp_h, wind_ms=w,
+                    cloud_pct=clouds_h, humidity_pct=humidity_h,
+                )
+                ef_running = ef_running * (0.5 ** (horas_passo / mv_hora))
 
+            ef_running += p   # chuva desta hora entra no acumulado
+            ultimo_t    = dt
+
+            adh = calcular_aderencia(p, trail, ef_running, p, mes, enso)
+
+            # Gap 2 corrigido: aceita qualquer status exceto BAIXA ADERÊNCIA.
+            # Antes exigia SECO/GRIP PERFEITO, criando contradição entre trilhas
+            # com veredicto DROP LIBERADO e "sem janela" simultâneos.
+            solo_ok  = adh["status"] != "BAIXA ADERÊNCIA"
             chuva_ok = pp < 30 and p < 1.0
-            ok = chuva_ok and w < 15 and solo_ok
+            ok       = chuva_ok and w < 15 and solo_ok
+
             if ok and inicio is None:
                 inicio = dt
             elif not ok and inicio is not None:
                 blocos.append((inicio, dt))
                 inicio = None
 
-            # Causa dominante da hora bloqueada (prioridade: chuva > solo > vento,
-            # já que chuva costuma ser a causa raiz quando presente)
             if not ok:
                 if not chuva_ok:
                     motivos["chuva"] += 1
@@ -2719,8 +2743,6 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
                     motivos["solo"] += 1
                 else:
                     motivos["vento"] += 1
-
-            chuva_acum += p
 
         if inicio and hourly_oc:
             blocos.append((inicio, datetime.fromtimestamp(hourly_oc[-1]["dt"], tz=BRT)))
