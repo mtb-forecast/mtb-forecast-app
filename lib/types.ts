@@ -89,8 +89,7 @@ export type Condicao = {
   enso_fase?: string | null
   enso_oni?: number | null
 
-  // Janela / frase
-  janela: string
+  // Frase de secagem
   frase_secagem: string
 
   // Fonte

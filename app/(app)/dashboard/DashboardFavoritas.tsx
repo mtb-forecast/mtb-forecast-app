@@ -42,7 +42,7 @@ export default async function DashboardFavoritas({ favTrilhaIds }: { favTrilhaId
           veredicto, veredicto_12h,
           aderencia_status, aderencia_futura_status, aderencia_futura_label,
           pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
-          texto_dinamico, frase_secagem, janela, gerado_em
+          texto_dinamico, frase_secagem, gerado_em
         )
       `)
       .in('id', favTrilhaIds)

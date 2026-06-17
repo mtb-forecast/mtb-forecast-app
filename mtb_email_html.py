@@ -89,7 +89,7 @@ def _buscar_condicoes(trilha_ids: list) -> list:
     rows = _get(
         "condicoes"
         f"?select=trilha_id,aderencia_status,veredicto,veredicto_12h"
-        f",rain_mm,wind_ms,janela,ultima_chuva_h,texto_dinamico,frase_secagem"
+        f",rain_mm,wind_ms,ultima_chuva_h,texto_dinamico,frase_secagem"
         f",trilhas(name,regiao,trail_type,desnivel_m,extensao_km)"
         f"&trilha_id=in.({ids_csv})"
         f"&gerado_em=gte.{hoje}T00:00:00"
@@ -134,7 +134,6 @@ def _card(row: dict) -> str:
 
     rain   = row.get("rain_mm", 0) or 0
     wind   = row.get("wind_ms", 0) or 0
-    janela = row.get("janela") or "—"
     ultima = _fmt_ultima_chuva(row.get("ultima_chuva_h"))
     nota   = (row.get("texto_dinamico") or row.get("frase_secagem") or "").strip()
 
@@ -189,7 +188,7 @@ def _card(row: dict) -> str:
       </div>
 
       <div style="margin-top:10px;font-size:12px;color:#6d745f;line-height:1.9;">
-        🌧 <b>{rain}mm</b> &nbsp;·&nbsp; 💨 <b>{wind}m/s</b> &nbsp;·&nbsp; 🕐 <b>{janela}</b>
+        🌧 <b>{rain}mm</b> &nbsp;·&nbsp; 💨 <b>{wind}m/s</b>
         {ultima_html}
         {nota_html}
       </div>

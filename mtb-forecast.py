@@ -2146,7 +2146,6 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "humidity_pct":       resultado.get("umidade_pct"),
             "temp_media_c":       resultado.get("temp_media_c"),
             "gust_max_kmh":       resultado.get("gust_max_kmh"),
-            "janela":             resultado.get("janela"),
             "horarios_chuva":     resultado.get("horarios_chuva"),
             "frase_secagem":      resultado.get("resumo_secagem_frase"),
             "solo_descansado":    aderencia.get("solo_descansado"),
@@ -2681,88 +2680,6 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             },
         }
 
-    def calcular_janela_oc() -> str:
-        # meia_vida_base = valor da tabela antes dos multiplicadores climáticos.
-        # Usado para recalcular a taxa de secagem hora a hora com o FORECAST
-        # (temp/umidade/nuvens previstas), em vez da média histórica das 48h passadas.
-        # Isso corrige o gap onde um período nublado infla a meia_vida e impede
-        # a abertura de janela mesmo num dia de sol subsequente.
-        meia_vida_base_h = float(hist.get("meia_vida_base_h") or _meia_vida(trail))
-
-        blocos      = []
-        inicio      = None
-        agora_local = datetime.now(BRT)
-        motivos     = {"chuva": 0, "solo": 0, "vento": 0}
-
-        # Simulação passo-a-passo: ef_running decai hora a hora com a meia_vida
-        # ajustada pelo CLIMA PREVISTO naquela hora (não a média histórica global).
-        ef_running = acumulo_ef
-        ultimo_t   = agora_local
-
-        for h in hourly_oc:
-            p   = _precip_hora(h)
-            pp  = (h.get("pop", 0) or 0) * 100
-            w   = h.get("wind_speed", 0) or 0
-            dt  = datetime.fromtimestamp(h["dt"], tz=BRT)
-
-            # Decai ef desde o passo anterior usando meia_vida baseada no forecast
-            horas_passo = max(0.0, (dt - ultimo_t).total_seconds() / 3600)
-            if horas_passo > 0 and ef_running > 0:
-                temp_h     = h.get("temp")       or None
-                clouds_h   = h.get("clouds")     or None
-                humidity_h = h.get("humidity")   or None
-                mv_hora = _ajustar_meia_vida_clima(
-                    meia_vida_base_h, trail,
-                    temp_c=temp_h, wind_ms=w,
-                    cloud_pct=clouds_h, humidity_pct=humidity_h,
-                )
-                ef_running = ef_running * (0.5 ** (horas_passo / mv_hora))
-
-            ef_running += p   # chuva desta hora entra no acumulado
-            ultimo_t    = dt
-
-            adh = calcular_aderencia(p, trail, ef_running, p, mes, enso)
-
-            # Gap 2 corrigido: aceita qualquer status exceto BAIXA ADERÊNCIA.
-            # Antes exigia SECO/GRIP PERFEITO, criando contradição entre trilhas
-            # com veredicto DROP LIBERADO e "sem janela" simultâneos.
-            solo_ok  = adh["status"] != "BAIXA ADERÊNCIA"
-            chuva_ok = pp < 30 and p < 1.0
-            ok       = chuva_ok and w < 15 and solo_ok
-
-            if ok and inicio is None:
-                inicio = dt
-            elif not ok and inicio is not None:
-                blocos.append((inicio, dt))
-                inicio = None
-
-            if not ok:
-                if not chuva_ok:
-                    motivos["chuva"] += 1
-                elif not solo_ok:
-                    motivos["solo"] += 1
-                else:
-                    motivos["vento"] += 1
-
-        if inicio and hourly_oc:
-            blocos.append((inicio, datetime.fromtimestamp(hourly_oc[-1]["dt"], tz=BRT)))
-        if not blocos:
-            total_horas = len(hourly_oc) or 1
-            causa = max(motivos, key=motivos.get) if any(motivos.values()) else None
-            pct   = round(100 * motivos.get(causa, 0) / total_horas) if causa else 0
-            frase = {
-                "chuva": f"chuva prevista em {pct}% do período",
-                "solo":  f"solo sem tempo de secar entre chuvas ({pct}% do período)",
-                "vento": f"vento forte sustentado ({pct}% do período)",
-            }.get(causa)
-            return (
-                f"Sem janela limpa nas próximas 48h — {frase}"
-                if frase else "Sem janela limpa nas próximas 48h"
-            )
-        melhor = max(blocos, key=lambda x: (x[1] - x[0]).total_seconds())
-        dur    = int((melhor[1] - melhor[0]).total_seconds() / 3600)
-        return f"{melhor[0].strftime('%d/%m %Hh')}–{melhor[1].strftime('%Hh')} ({dur}h)"
-
     def calcular_horarios_chuva_oc() -> str:
         # FIX #10: exibir blocos separados por gap > 3h em vez de intervalo contínuo enganoso
         blocos_chuva = []
@@ -2869,7 +2786,6 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "veredicto_12h":  resumo_12h,
         "previsao_24h":   calcular_blocos_24h_oc(),
         "vento_hist":     vento_hist,
-        "janela":         calcular_janela_oc(),
         "horarios_chuva": horarios_chuva,
         "fds": fds_resumo,
         "resumo_secagem_frase": narrativa,
