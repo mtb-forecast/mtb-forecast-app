@@ -20,6 +20,50 @@ function janelaStyle(v: string): { bg: string; color: string } {
   return { bg: '#FFFBEB', color: '#92400E' }
 }
 
+// Humaniza a data da janela: "17/06 14h–18h (4h)" → "Hoje 14h–18h · 4h"
+function parseJanela(janela: string): { semJanela: boolean; motivo: string | null; label: string } {
+  if (janela.startsWith('Sem janela')) {
+    const sep = janela.indexOf(' — ')
+    return {
+      semJanela: true,
+      motivo: sep !== -1 ? janela.slice(sep + 3) : null,
+      label: 'Sem janela nas próximas 48h',
+    }
+  }
+  const match = janela.match(/^(\d{2})\/(\d{2}) (\d{1,2})h[–-](\d{1,2})h \((\d+)h\)/)
+  if (match) {
+    const [, day, month, startH, endH, dur] = match
+    const now = new Date()
+    const todayD = String(now.getDate()).padStart(2, '0')
+    const todayM = String(now.getMonth() + 1).padStart(2, '0')
+    const tom = new Date(now); tom.setDate(tom.getDate() + 1)
+    const tomD = String(tom.getDate()).padStart(2, '0')
+    const tomM = String(tom.getMonth() + 1).padStart(2, '0')
+    const prefix = day === todayD && month === todayM ? 'Hoje'
+      : day === tomD && month === tomM ? 'Amanhã'
+      : `${day}/${month}`
+    return { semJanela: false, motivo: null, label: `${prefix} ${startH}h–${endH}h · ${dur}h livres` }
+  }
+  return { semJanela: false, motivo: null, label: janela }
+}
+
+// Estima quando o solo atingirá o limiar de descanso (assume sem chuva futura).
+function estimarAbertura(condicao: Condicao): string | null {
+  const { acumulo_ef, meia_vida_h, limiar_descanso, gerado_em } = condicao
+  if (!limiar_descanso || !meia_vida_h || !acumulo_ef || acumulo_ef <= limiar_descanso) return null
+  const horasSince = (Date.now() - new Date(gerado_em).getTime()) / 3600000
+  const efAgora = acumulo_ef * Math.pow(0.5, horasSince / meia_vida_h)
+  if (efAgora <= limiar_descanso) return null
+  const horasAteSecar = meia_vida_h * Math.log2(efAgora / limiar_descanso)
+  if (horasAteSecar <= 0 || !isFinite(horasAteSecar)) return null
+  const diasAte = horasAteSecar / 24
+  if (diasAte < 1) return `solo seco em ~${Math.round(horasAteSecar)}h`
+  const abertura = new Date(Date.now() + horasAteSecar * 3600000)
+  const d = abertura.getDate()
+  const m = abertura.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  return `solo seco ~${d} de ${m}`
+}
+
 function verdictBorderColor(v: string): string {
   if (v.trim() === 'DROP LIBERADO') return '#22C55E'
   if (v.includes('MELHOR ESPERAR')) return '#EF4444'
@@ -462,20 +506,44 @@ function CondicaoCard({ condicao }: Props) {
         <div style={DIV} />
 
         {/* ── 6. Melhor janela ─────────────────────────────────────── */}
-        {condicao.janela ? (
-          <div style={{ background: janela.bg, borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela</span>
-            <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <i className="ti ti-clock" style={{ fontSize: 13, color: janela.color }} />
-              <span style={{ color: janela.color }} className="font-mono">{condicao.janela}</span>
+        {(() => {
+          if (!condicao.janela) return (
+            <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#9CA3AF' }} />
+              <span style={{ color: '#9CA3AF' }}>Sem janela definida</span>
             </div>
-          </div>
-        ) : (
-          <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#9CA3AF' }} />
-            <span style={{ color: '#9CA3AF' }}>Sem janela definida</span>
-          </div>
-        )}
+          )
+          const { semJanela, motivo, label } = parseJanela(condicao.janela)
+          if (semJanela) {
+            const estimativa = estimarAbertura(condicao)
+            return (
+              <div style={{ background: '#FEF2F2', borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela para pedalar</span>
+                <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="ti ti-clock-off" style={{ fontSize: 13, color: '#B91C1C' }} />
+                  <span style={{ color: '#B91C1C', fontWeight: 600 }}>{label}</span>
+                </div>
+                {motivo && (
+                  <span style={{ fontSize: 11, color: '#9CA3AF', paddingLeft: 19 }}>{motivo}</span>
+                )}
+                {estimativa && (
+                  <span style={{ fontSize: 11, color: '#6B7280', paddingLeft: 19 }}>
+                    ↳ Estimativa: {estimativa} (sem chuva)
+                  </span>
+                )}
+              </div>
+            )
+          }
+          return (
+            <div style={{ background: janela.bg, borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela para pedalar</span>
+              <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <i className="ti ti-calendar-check" style={{ fontSize: 14, color: janela.color }} />
+                <span style={{ color: janela.color, fontWeight: 700 }} className="font-mono">{label}</span>
+              </div>
+            </div>
+          )
+        })()}
 
       </div>
     </div>
