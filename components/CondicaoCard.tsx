@@ -503,47 +503,6 @@ function CondicaoCard({ condicao }: Props) {
           </>
         )}
 
-        <div style={DIV} />
-
-        {/* ── 6. Melhor janela ─────────────────────────────────────── */}
-        {(() => {
-          if (!condicao.janela) return (
-            <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#9CA3AF' }} />
-              <span style={{ color: '#9CA3AF' }}>Sem janela definida</span>
-            </div>
-          )
-          const { semJanela, motivo, label } = parseJanela(condicao.janela)
-          if (semJanela) {
-            const estimativa = estimarAbertura(condicao)
-            return (
-              <div style={{ background: '#FEF2F2', borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela para pedalar</span>
-                <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <i className="ti ti-clock-off" style={{ fontSize: 13, color: '#B91C1C' }} />
-                  <span style={{ color: '#B91C1C', fontWeight: 600 }}>{label}</span>
-                </div>
-                {motivo && (
-                  <span style={{ fontSize: 11, color: '#9CA3AF', paddingLeft: 19 }}>{motivo}</span>
-                )}
-                {estimativa && (
-                  <span style={{ fontSize: 11, color: '#6B7280', paddingLeft: 19 }}>
-                    ↳ Estimativa: {estimativa} (sem chuva)
-                  </span>
-                )}
-              </div>
-            )
-          }
-          return (
-            <div style={{ background: janela.bg, borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Melhor janela para pedalar</span>
-              <div style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <i className="ti ti-calendar-check" style={{ fontSize: 14, color: janela.color }} />
-                <span style={{ color: janela.color, fontWeight: 700 }} className="font-mono">{label}</span>
-              </div>
-            </div>
-          )
-        })()}
 
       </div>
     </div>
