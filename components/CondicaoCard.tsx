@@ -14,55 +14,6 @@ function verdictBadge(v: string): { bg: string; color: string } {
   return { bg: '#FEF9C3', color: '#A16207' }
 }
 
-function janelaStyle(v: string): { bg: string; color: string } {
-  if (v.trim() === 'DROP LIBERADO') return { bg: '#F0FDF4', color: '#166534' }
-  if (v.includes('MELHOR ESPERAR')) return { bg: '#FEF2F2', color: '#991B1B' }
-  return { bg: '#FFFBEB', color: '#92400E' }
-}
-
-// Humaniza a data da janela: "17/06 14h–18h (4h)" → "Hoje 14h–18h · 4h"
-function parseJanela(janela: string): { semJanela: boolean; motivo: string | null; label: string } {
-  if (janela.startsWith('Sem janela')) {
-    const sep = janela.indexOf(' — ')
-    return {
-      semJanela: true,
-      motivo: sep !== -1 ? janela.slice(sep + 3) : null,
-      label: 'Sem janela nas próximas 48h',
-    }
-  }
-  const match = janela.match(/^(\d{2})\/(\d{2}) (\d{1,2})h[–-](\d{1,2})h \((\d+)h\)/)
-  if (match) {
-    const [, day, month, startH, endH, dur] = match
-    const now = new Date()
-    const todayD = String(now.getDate()).padStart(2, '0')
-    const todayM = String(now.getMonth() + 1).padStart(2, '0')
-    const tom = new Date(now); tom.setDate(tom.getDate() + 1)
-    const tomD = String(tom.getDate()).padStart(2, '0')
-    const tomM = String(tom.getMonth() + 1).padStart(2, '0')
-    const prefix = day === todayD && month === todayM ? 'Hoje'
-      : day === tomD && month === tomM ? 'Amanhã'
-      : `${day}/${month}`
-    return { semJanela: false, motivo: null, label: `${prefix} ${startH}h–${endH}h · ${dur}h livres` }
-  }
-  return { semJanela: false, motivo: null, label: janela }
-}
-
-// Estima quando o solo atingirá o limiar de descanso (assume sem chuva futura).
-function estimarAbertura(condicao: Condicao): string | null {
-  const { acumulo_ef, meia_vida_h, limiar_descanso, gerado_em } = condicao
-  if (!limiar_descanso || !meia_vida_h || !acumulo_ef || acumulo_ef <= limiar_descanso) return null
-  const horasSince = (Date.now() - new Date(gerado_em).getTime()) / 3600000
-  const efAgora = acumulo_ef * Math.pow(0.5, horasSince / meia_vida_h)
-  if (efAgora <= limiar_descanso) return null
-  const horasAteSecar = meia_vida_h * Math.log2(efAgora / limiar_descanso)
-  if (horasAteSecar <= 0 || !isFinite(horasAteSecar)) return null
-  const diasAte = horasAteSecar / 24
-  if (diasAte < 1) return `solo seco em ~${Math.round(horasAteSecar)}h`
-  const abertura = new Date(Date.now() + horasAteSecar * 3600000)
-  const d = abertura.getDate()
-  const m = abertura.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
-  return `solo seco ~${d} de ${m}`
-}
 
 function verdictBorderColor(v: string): string {
   if (v.trim() === 'DROP LIBERADO') return '#22C55E'
@@ -165,7 +116,6 @@ function CondicaoCard({ condicao }: Props) {
   const veredictoDisplay = condicao.veredicto_12h?.trim() || condicao.veredicto
   const has12h      = !!condicao.veredicto_12h?.trim()
   const badge       = verdictBadge(veredictoDisplay)
-  const janela      = janelaStyle(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
 
   const solo = useMemo(() => recalcularSolo(condicao), [condicao])
