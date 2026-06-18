@@ -1,21 +1,7 @@
 'use client'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
-
-function decodePolyline(encoded: string): [number, number][] {
-  const result: [number, number][] = []
-  let index = 0, lat = 0, lng = 0
-  while (index < encoded.length) {
-    let b = 0, shift = 0, r = 0
-    do { b = encoded.charCodeAt(index++) - 63; r |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
-    lat += (r & 1) ? ~(r >> 1) : r >> 1
-    b = 0; shift = 0; r = 0
-    do { b = encoded.charCodeAt(index++) - 63; r |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
-    lng += (r & 1) ? ~(r >> 1) : r >> 1
-    result.push([lat / 1e5, lng / 1e5])
-  }
-  return result
-}
+import { decodePolyline } from '@/lib/polyline'
 
 function dot(color: string) {
   return `<div style="width:11px;height:11px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`

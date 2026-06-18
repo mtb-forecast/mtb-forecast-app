@@ -6,6 +6,7 @@ import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
+import { encodePolyline } from '@/lib/polyline'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,23 +29,6 @@ function totalDistance(pts: Pt[]): number {
   return pts.reduce((acc, p, i) => (i === 0 ? acc : acc + haversine(pts[i - 1], p)), 0)
 }
 
-function encodePolyline(pts: Pt[]): string {
-  let out = '', pLat = 0, pLng = 0
-  for (const p of pts) {
-    const lat = Math.round(p.lat * 1e5)
-    const lng = Math.round(p.lng * 1e5)
-    out += encCoord(lat - pLat) + encCoord(lng - pLng)
-    pLat = lat; pLng = lng
-  }
-  return out
-}
-
-function encCoord(v: number): string {
-  v = v < 0 ? ~(v << 1) : v << 1
-  let s = ''
-  while (v >= 0x20) { s += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5 }
-  return s + String.fromCharCode(v + 63)
-}
 
 function fmtTime(s: number): string {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
