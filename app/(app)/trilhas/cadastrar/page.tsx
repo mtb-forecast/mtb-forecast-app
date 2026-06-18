@@ -112,6 +112,11 @@ export default function CadastrarTrilhaPage() {
   const [extracting, setExtracting] = useState(false)
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // ── GPX import ─────────────────────────────────────────────────
+  const [gpxImporting, setGpxImporting] = useState(false)
+  const [gpxErro, setGpxErro] = useState<string | null>(null)
+  const gpxInputRef = useRef<HTMLInputElement | null>(null)
+
   // ── Opções dinâmicas ───────────────────────────────────────────
   const [soloTypes, setSoloTypes] = useState<string[]>([])
   const [biomas, setBiomas] = useState<string[]>([])
@@ -150,6 +155,87 @@ export default function CadastrarTrilhaPage() {
     }, 800)
     return () => { if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current) }
   }, [lat, lon]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
+  async function handleGpxImport(file: File) {
+    setGpxErro(null)
+    setGpxImporting(true)
+    try {
+      const text = await file.text()
+      const doc = new DOMParser().parseFromString(text, 'application/xml')
+      if (doc.querySelector('parsererror')) throw new Error('Arquivo GPX inválido ou corrompido.')
+
+      // Aceita tanto <trkpt> (track) quanto <rtept> (route) e <wpt> (waypoints)
+      const pts = [
+        ...Array.from(doc.querySelectorAll('trkpt')),
+        ...Array.from(doc.querySelectorAll('rtept')),
+      ]
+      if (pts.length === 0) throw new Error('Nenhum ponto de trilha encontrado no arquivo GPX.')
+
+      const lats: number[] = []
+      const lons: number[] = []
+      const eles: number[] = []
+
+      pts.forEach(pt => {
+        const lat = parseFloat(pt.getAttribute('lat') || '')
+        const lon = parseFloat(pt.getAttribute('lon') || '')
+        const ele = parseFloat(pt.querySelector('ele')?.textContent || '')
+        if (!isNaN(lat) && !isNaN(lon)) { lats.push(lat); lons.push(lon) }
+        if (!isNaN(ele)) eles.push(ele)
+      })
+
+      if (lats.length === 0) throw new Error('Pontos de GPS sem coordenadas válidas.')
+
+      // Centróide da trilha
+      const centLat = lats.reduce((s, v) => s + v, 0) / lats.length
+      const centLon = lons.reduce((s, v) => s + v, 0) / lons.length
+
+      // Distância total (soma de segmentos consecutivos)
+      let distKm = 0
+      for (let i = 1; i < lats.length; i++) {
+        distKm += haversineKm(lats[i - 1], lons[i - 1], lats[i], lons[i])
+      }
+
+      // Ganho de altitude (soma de deltas positivos) e altitude média
+      let ganho = 0
+      let altMedia = 0
+      if (eles.length > 0) {
+        altMedia = eles.reduce((s, v) => s + v, 0) / eles.length
+        for (let i = 1; i < eles.length; i++) {
+          const delta = eles[i] - eles[i - 1]
+          if (delta > 0) ganho += delta
+        }
+      }
+
+      // Preenche os campos
+      setLat(centLat.toFixed(6))
+      setLon(centLon.toFixed(6))
+      if (eles.length > 0) {
+        setAltitude(Math.round(altMedia).toString())
+        if (ganho > 1) setDesnivel(Math.round(ganho).toString())
+      }
+      if (distKm > 0.01) setExtensao(distKm.toFixed(2))
+
+      // Nome da trilha do GPX, se campo estiver vazio
+      const gpxName = doc.querySelector('trk > name, rte > name')?.textContent?.trim()
+      if (gpxName && !nome) setNome(gpxName)
+
+    } catch (e) {
+      setGpxErro(e instanceof Error ? e.message : 'Erro ao processar o arquivo GPX.')
+    } finally {
+      setGpxImporting(false)
+      // Limpa o input para permitir reimportar o mesmo arquivo
+      if (gpxInputRef.current) gpxInputRef.current.value = ''
+    }
+  }
 
   async function handleExtract() {
     if (!mapsUrl.trim()) return
@@ -401,6 +487,57 @@ export default function CadastrarTrilhaPage() {
 
           {/* ── LOCALIZAÇÃO — sempre visível, primeiro passo ── */}
           <SectionCard title="1. Localização">
+
+            {/* Importar GPX */}
+            <div>
+              <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
+                Importe um arquivo GPX para preencher automaticamente as coordenadas, altitude, desnível e extensão:
+              </p>
+              <input
+                ref={gpxInputRef}
+                type="file"
+                accept=".gpx,application/gpx+xml"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleGpxImport(f) }}
+              />
+              <button
+                type="button"
+                disabled={gpxImporting}
+                onClick={() => gpxInputRef.current?.click()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: gpxImporting ? '#8a9280' : '#2a2e25',
+                  color: '#fff', border: 'none', borderRadius: 6,
+                  padding: '9px 16px', fontSize: 13, fontWeight: 600,
+                  cursor: gpxImporting ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.15s',
+                }}
+              >
+                {gpxImporting ? (
+                  <>
+                    <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+                    Importando…
+                  </>
+                ) : (
+                  <>
+                    <i className="ti ti-route" style={{ fontSize: 15 }} />
+                    Importar arquivo GPX
+                  </>
+                )}
+              </button>
+              {gpxErro && (
+                <p style={{ fontSize: 12, color: '#b91c1c', marginTop: 8, background: '#fee2e2', borderRadius: 6, padding: '6px 10px' }}>
+                  {gpxErro}
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#ccc', fontSize: 12 }}>
+              <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+              ou informe o link do Maps
+              <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+            </div>
+
             <Field label="URL do Google Maps">
               <div style={{ display: 'flex', gap: 8 }}>
                 <input type="url" value={mapsUrl}
