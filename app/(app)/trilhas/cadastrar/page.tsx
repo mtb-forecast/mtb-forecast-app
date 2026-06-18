@@ -7,6 +7,7 @@ import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
+import { encodePolyline } from '@/lib/polyline'
 
 type TipoCadastro = 'trilha' | 'pumptrack'
 
@@ -127,6 +128,7 @@ export default function CadastrarTrilhaPage() {
   const [gpxImporting, setGpxImporting] = useState(false)
   const [gpxErro, setGpxErro] = useState<string | null>(null)
   const gpxInputRef = useRef<HTMLInputElement | null>(null)
+  const [polyline, setPolyline] = useState<string | null>(null)
 
   // ── Opções dinâmicas ───────────────────────────────────────────
   const [soloTypes, setSoloTypes] = useState<string[]>([])
@@ -204,6 +206,9 @@ export default function CadastrarTrilhaPage() {
       })
 
       if (lats.length === 0) throw new Error('Pontos de GPS sem coordenadas válidas.')
+
+      // Polyline codificada (Google Encoded Polyline) para exibição no mapa
+      setPolyline(encodePolyline(lats.map((la, i) => ({ lat: la, lng: lons[i] }))))
 
       // Centróide da trilha
       const centLat = lats.reduce((s, v) => s + v, 0) / lats.length
@@ -321,6 +326,7 @@ export default function CadastrarTrilhaPage() {
       sensibilidade: sensNum,
       link_referencia: linkRef.trim() || null,
       observacoes: observacoes.trim() || null,
+      polyline: polyline ?? null,
       aprovada: true,
       created_by: user.id,
       localidade_id: localidadeId,
@@ -375,6 +381,7 @@ export default function CadastrarTrilhaPage() {
     setNome(''); setRegiao(''); setMapsUrl(''); setLat(''); setLon('')
     setAltitude(''); setSoloType(''); setExposicao(''); setTrailType('')
     setBioma(''); setDesnivel(''); setExtensao(''); setSensibilidade('1'); setLinkRef(''); setObservacoes('')
+    setPolyline(null)
     setPtCidade(''); setPtUf(''); setPtEndereco(''); setPtSuperficie('')
     setPtComprimento(''); setPtIluminacao(''); setPtEstacionamento('')
     setPtInstagram(''); setPtFonte('')
