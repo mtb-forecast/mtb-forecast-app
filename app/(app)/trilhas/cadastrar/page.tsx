@@ -29,6 +29,17 @@ function isShortUrl(url: string): boolean {
   return /maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/maps/.test(url)
 }
 
+function isWikiloc(url: string): boolean {
+  return /wikiloc\.com/.test(url)
+}
+
+function wikilockGpxUrl(url: string): string | null {
+  // Extrai o ID numérico do final da URL: /trail-name-12345678
+  const m = url.match(/[-/](\d{5,})(?:[?#]|$)/)
+  if (!m) return null
+  return `https://www.wikiloc.com/wikiloc/spatialArtifacts.do?event=download&id=${m[1]}&filetype=gpx`
+}
+
 const SUPERFICIE_OPTIONS = [
   'Asfalto', 'Terra', 'Terra / Saibro', 'Concreto',
   'Asfalto / Terra', 'Terra / Madeira', 'Concreto / Asfalto',
@@ -561,8 +572,56 @@ export default function CadastrarTrilhaPage() {
                 </button>
               </div>
               <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
-                Aceita URL completa ou curta. Pressione Enter ou clique em Extrair.
+                Aceita URL completa ou curta (Maps). Pressione Enter ou clique em Extrair.
               </p>
+
+              {/* Banner Wikiloc */}
+              {isWikiloc(mapsUrl) && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '14px 16px', marginTop: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#92400e', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <i className="ti ti-map-2" style={{ fontSize: 14 }} />
+                    URL do Wikiloc detectada
+                  </p>
+                  <p style={{ fontSize: 12, color: '#78350f', margin: '0 0 12px', lineHeight: 1.6 }}>
+                    O Wikiloc não tem API pública — mas você pode baixar o GPX da trilha e importar aqui para preencher todos os campos automaticamente.
+                  </p>
+                  <ol style={{ fontSize: 12, color: '#78350f', margin: '0 0 12px', paddingLeft: 18, lineHeight: 2 }}>
+                    <li>Abra a trilha no Wikiloc (precisa estar logado)</li>
+                    <li>Clique em <strong>Baixar</strong> → selecione <strong>GPX</strong></li>
+                    <li>Use o botão <strong>Importar GPX</strong> acima</li>
+                  </ol>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        background: '#f59e0b', color: '#fff', textDecoration: 'none',
+                        borderRadius: 6, padding: '7px 14px', fontSize: 12, fontWeight: 600,
+                      }}
+                    >
+                      <i className="ti ti-external-link" style={{ fontSize: 13 }} />
+                      Abrir trilha no Wikiloc
+                    </a>
+                    {wikilockGpxUrl(mapsUrl) && (
+                      <a
+                        href={wikilockGpxUrl(mapsUrl)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          background: '#fff', color: '#92400e', textDecoration: 'none',
+                          border: '1px solid #fde68a', borderRadius: 6, padding: '7px 14px', fontSize: 12, fontWeight: 600,
+                        }}
+                      >
+                        <i className="ti ti-download" style={{ fontSize: 13 }} />
+                        Baixar GPX direto
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
             </Field>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
