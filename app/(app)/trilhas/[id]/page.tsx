@@ -178,8 +178,8 @@ export default function TrilhaDetalhe() {
                 onClick={toggleFavorito}
                 style={{
                   background: 'none', border: '1px solid', cursor: 'pointer',
-                  borderColor: isFavorito ? '#a8b899' : '#8a9280',
-                  color: isFavorito ? '#a8b899' : '#8a9280',
+                  borderColor: isFavorito ? '#f59e0b' : '#8a9280',
+                  color: isFavorito ? '#f59e0b' : '#8a9280',
                   fontSize: 18, padding: '4px 10px', borderRadius: 4,
                 }}
               >
