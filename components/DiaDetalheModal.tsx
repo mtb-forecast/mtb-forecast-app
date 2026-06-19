@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { IconX, IconDroplet, IconWind } from '@tabler/icons-react'
+import { IconX, IconDroplet, IconWind, IconThermometer, IconSunrise, IconSunset } from '@tabler/icons-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,10 +189,13 @@ export default function DiaDetalheModal({
             </div>
           )}
           {summaryTmin != null && summaryTmax != null && (
-            <div style={{ fontSize: 13, color: '#374151' }}>
-              🌡 <b style={{ color: '#374151' }}>{summaryTmin}°</b>
-              <span style={{ color: '#9CA3AF' }}> – </span>
-              <b style={{ color: '#374151' }}>{summaryTmax}°</b>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <IconThermometer size={14} style={{ color: '#6B7280' }} />
+              <span style={{ fontSize: 13, color: '#374151' }}>
+                <b>{summaryTmin}°</b>
+                <span style={{ color: '#9CA3AF' }}> – </span>
+                <b>{summaryTmax}°</b>
+              </span>
             </div>
           )}
           {summaryWind != null && (
@@ -202,8 +205,15 @@ export default function DiaDetalheModal({
             </div>
           )}
           {solar && (
-            <div style={{ fontSize: 13, color: '#92400E', marginLeft: 'auto' }}>
-              🌅 {solar.sunrise} · 🌇 {solar.sunset}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <IconSunrise size={14} style={{ color: '#F59E0B' }} />
+                <span style={{ fontSize: 13, color: '#374151' }}>{solar.sunrise}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <IconSunset size={14} style={{ color: '#F59E0B' }} />
+                <span style={{ fontSize: 13, color: '#374151' }}>{solar.sunset}</span>
+              </div>
             </div>
           )}
         </div>
@@ -263,11 +273,10 @@ export default function DiaDetalheModal({
                     >
                       {/* Sunrise/sunset marker */}
                       {(isSunrise || isSunset) && (
-                        <div style={{
-                          position: 'absolute', top: 0, left: 1,
-                          fontSize: 11, lineHeight: 1,
-                        }}>
-                          {isSunrise ? '🌅' : '🌇'}
+                        <div style={{ position: 'absolute', top: 0, left: 1 }}>
+                          {isSunrise
+                            ? <IconSunrise size={11} style={{ color: '#F59E0B' }} />
+                            : <IconSunset  size={11} style={{ color: '#F59E0B' }} />}
                         </div>
                       )}
 
@@ -276,9 +285,9 @@ export default function DiaDetalheModal({
                         {h.temp}°
                       </div>
 
-                      {/* Rain icon + amount */}
-                      <div style={{ fontSize: 10, height: 16, display: 'flex', alignItems: 'center', color: '#3B82F6', fontWeight: 600 }}>
-                        {isRainy ? `💧${h.precip}` : ''}
+                      {/* Rain amount */}
+                      <div style={{ fontSize: 10, height: 16, display: 'flex', alignItems: 'center', gap: 1, color: '#3B82F6', fontWeight: 600 }}>
+                        {isRainy ? <><IconDroplet size={9} />{h.precip}</> : ''}
                       </div>
 
                       {/* Pop % */}
@@ -303,8 +312,8 @@ export default function DiaDetalheModal({
                       </div>
 
                       {/* Wind indicator */}
-                      <div style={{ fontSize: 9, height: 13, display: 'flex', alignItems: 'center', color: '#9CA3AF' }}>
-                        {h.wind >= 20 ? `💨${Math.round(h.wind)}` : ''}
+                      <div style={{ fontSize: 9, height: 13, display: 'flex', alignItems: 'center', gap: 1, color: '#9CA3AF' }}>
+                        {h.wind >= 20 ? <><IconWind size={9} />{Math.round(h.wind)}</> : ''}
                       </div>
 
                       {/* Hour label */}
