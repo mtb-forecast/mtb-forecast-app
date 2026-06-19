@@ -250,7 +250,7 @@ export default function PerfilPage() {
         setAvatarUrl(p.avatar_url || null)
       }
       const [{ data: minhas }, { data: favIds }] = await Promise.all([
-        supabase.from('trilhas_pendentes').select('id,name,regiao,status,motivo_rejeicao,created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('trilhas').select('id,name,regiao,created_at').eq('created_by', user.id).order('created_at', { ascending: false }),
         supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
       ])
       if (minhas) setMinhasTrilhas(minhas)
