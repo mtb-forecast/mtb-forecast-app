@@ -287,12 +287,13 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
   const { arc: arcColor, elapsed: elapsedColor,
           hor: horColor }                         = skyArcColors[skyState]
 
+  // Estrelas em coordenadas SVG (cx/cy dentro do viewBox 320×92) para ficarem acima do horizonte
   const stars = useMemo(() =>
-    Array.from({ length: 55 }, (_, i) => ({
-      left:    `${(i * 61.8) % 100}%`,
-      top:     `${(i * 43.2) % 82}%`,
-      size:    0.8 + (i * 0.17) % 2.2,
-      opacity: 0.3 + (i * 0.019) % 0.65,
+    Array.from({ length: 48 }, (_, i) => ({
+      cx: (i * 61.8) % 316 + 2,           // x: 2–318
+      cy: (i * 43.2) % 54 + 3,            // y: 3–57 (abaixo do horizonte em cy=62)
+      r:  0.7 + (i * 0.17) % 1.6,
+      o:  0.35 + (i * 0.019) % 0.55,
     }))
   , [])
 
@@ -311,7 +312,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
 
   return (
     <div style={{
-      borderRadius: 12, overflow: 'hidden', position: 'relative',
+      overflow: 'hidden', position: 'relative',
       background: skyBackgrounds[skyState],
     }}>
       <style>{`
@@ -321,15 +322,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
         }
       `}</style>
 
-      {/* Stars — noites limpas/parcialmente nubladas */}
-      {isNightState && stars.map((s, i) => (
-        <div key={i} style={{
-          position: 'absolute', borderRadius: '50%', background: '#fff',
-          width: s.size, height: s.size, left: s.left, top: s.top,
-          opacity: skyState === 'night-cloudy' ? s.opacity * 0.3 : s.opacity,
-          pointerEvents: 'none',
-        }} />
-      ))}
+{/* Stars renderizadas dentro do SVG — veja abaixo */}
 
       {/* Nuvens CSS com blur */}
       {(cloudLayers[skyState] ?? []).map((c, i) => (
@@ -359,28 +352,37 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
         <div style={getMoonStyle(moonPhase)} />
       )}
 
-      {/* Arco solar SVG — fundo transparente, sobre os elementos decorativos */}
+      {/* SVG principal — estrelas, arco tracejado, sol, horizonte */}
       <svg viewBox="0 0 320 92" style={{ width: '100%', height: 'auto', display: 'block', position: 'relative', zIndex: 1 }}>
-        {/* Arc track */}
+        {/* Estrelas dentro do SVG — naturalmente clippadas pelo viewBox, acima do horizonte */}
+        {isNightState && stars.map((s, i) => (
+          <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="white"
+            opacity={skyState === 'night-cloudy' ? s.o * 0.25 : s.o} />
+        ))}
+
+        {/* Arco tracejado (trilha completa) */}
         <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
-          fill="none" stroke={arcColor} strokeWidth="1.5" strokeDasharray="3 4" />
-        {/* Elapsed arc */}
-        {progress > 0.01 && (
+          fill="none" stroke={arcColor} strokeWidth="1.5" strokeDasharray="5 6" strokeLinecap="round" />
+
+        {/* Trecho percorrido — tracejado mais brilhante */}
+        {progress > 0.02 && (
           <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
-            fill="none" stroke={elapsedColor} strokeWidth="2.5" strokeLinecap="round"
-            strokeDasharray={`${progress * arcLen} ${arcLen}`} />
+            fill="none" stroke={elapsedColor} strokeWidth="1.8" strokeLinecap="round"
+            strokeDasharray={`${progress * arcLen} ${arcLen}`} opacity={0.7} />
         )}
+
         {/* Sol no arco (dia) */}
         {isSunState && (
           <>
-            <circle cx={sunX} cy={sunY} r={18} fill="#FEF3C7" opacity={0.3} />
-            <circle cx={sunX} cy={sunY} r={11} fill="#FDE68A" opacity={0.65} />
-            <circle cx={sunX} cy={sunY} r={6}  fill="#FCD34D" />
-            <circle cx={sunX} cy={sunY} r={3}  fill="#F59E0B" />
+            <circle cx={sunX} cy={sunY} r={16} fill="#FEF3C7" opacity={0.28} />
+            <circle cx={sunX} cy={sunY} r={10} fill="#FDE68A" opacity={0.65} />
+            <circle cx={sunX} cy={sunY} r={5.5} fill="#FCD34D" />
+            <circle cx={sunX} cy={sunY} r={2.5} fill="#F59E0B" />
           </>
         )}
-        {/* Horizon */}
-        <line x1={cx-rx-6} y1={cy} x2={cx+rx+6} y2={cy} stroke={horColor} strokeWidth="1" />
+
+        {/* Horizonte */}
+        <line x1={cx-rx-4} y1={cy} x2={cx+rx+4} y2={cy} stroke={horColor} strokeWidth="0.5" strokeDasharray="2 3" />
       </svg>
 
       {/* Info row: nascer · duração+lua · pôr */}
@@ -757,8 +759,10 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         {solar && (
           <>
             <div style={DIV} />
-            <div>
-              <div style={{ ...SEC, marginBottom: 8 }}>Luz do dia — Hoje</div>
+            <div style={{ margin: '0 -18px' }}>
+              <div style={{ padding: '0 18px 8px' }}>
+                <div style={{ ...SEC }}>Luz do dia — Hoje</div>
+              </div>
               <SolarArc
                 sunrise={solar.sunrise}
                 sunset={solar.sunset}
