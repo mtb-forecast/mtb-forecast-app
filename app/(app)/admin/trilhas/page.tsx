@@ -13,6 +13,7 @@ type TrilhaRow = {
   id: string
   name: string
   regiao: string | null
+  observacoes: string | null
   localidade: Loc | Loc[] | null
   mantenedor: { nome: string; nome_primario: string | null } | null
 }
@@ -23,16 +24,23 @@ function resolveLoc(raw: TrilhaRow['localidade']): Loc | null {
   return raw as Loc
 }
 
+function isPendente(t: TrilhaRow) {
+  return !!t.observacoes?.includes('AJUSTE NECESSÁRIO')
+}
+
 function AdminTrilhasContent() {
-  const router     = useRouter()
-  const params     = useSearchParams()
-  const [ready, setReady]         = useState(false)
-  const [todas, setTodas]         = useState<TrilhaRow[]>([])
-  const [page, setPage]           = useState(0)
-  const [busca, setBusca]         = useState('')
-  const [estado, setEstado]       = useState(params.get('estado') ?? '')
-  const [cidade, setCidade]       = useState(params.get('cidade') ?? '')
-  const [estados, setEstados]     = useState<string[]>([])
+  const router  = useRouter()
+  const params  = useSearchParams()
+  const [ready, setReady]               = useState(false)
+  const [todas, setTodas]               = useState<TrilhaRow[]>([])
+  const [page, setPage]                 = useState(0)
+  const [busca, setBusca]               = useState('')
+  const [estado, setEstado]             = useState(params.get('estado') ?? '')
+  const [cidade, setCidade]             = useState(params.get('cidade') ?? '')
+  const [estados, setEstados]           = useState<string[]>([])
+  const [somentePendentes, setSomentePendentes] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId]   = useState<string | null>(null)
+  const [deleting, setDeleting]         = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -47,7 +55,7 @@ function AdminTrilhasContent() {
 
       const { data } = await supabase
         .from('trilhas')
-        .select('id, name, regiao, localidade:localidades(estado, cidade), mantenedor:mantenedores(nome,nome_primario)')
+        .select('id, name, regiao, observacoes, localidade:localidades(estado, cidade), mantenedor:mantenedores(nome,nome_primario)')
         .eq('aprovada', true)
         .order('name')
 
@@ -76,28 +84,43 @@ function AdminTrilhasContent() {
     return [...set].sort()
   }, [todas, estado])
 
-  // reset cidade quando estado muda
   useEffect(() => { setCidade(''); setPage(0) }, [estado])
-  useEffect(() => { setPage(0) }, [cidade, busca])
+  useEffect(() => { setPage(0) }, [cidade, busca, somentePendentes])
 
   const filtradas = useMemo(() => {
     return todas.filter(t => {
-      const loc    = resolveLoc(t.localidade)
+      const loc     = resolveLoc(t.localidade)
       const tEstado = loc?.estado || t.regiao || ''
       const tCidade = loc?.cidade || ''
       if (estado && tEstado !== estado) return false
       if (cidade && tCidade !== cidade) return false
       if (busca.trim() && !t.name.toLowerCase().includes(busca.trim().toLowerCase())) return false
+      if (somentePendentes && !isPendente(t)) return false
       return true
     })
-  }, [todas, estado, cidade, busca])
+  }, [todas, estado, cidade, busca, somentePendentes])
 
-  const totalPages = Math.ceil(filtradas.length / PER_PAGE)
-  const paginadas  = filtradas.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
+  const totalPendentes = useMemo(() => todas.filter(isPendente).length, [todas])
+  const totalPages     = Math.ceil(filtradas.length / PER_PAGE)
+  const paginadas      = filtradas.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
 
   function handleBusca(v: string) {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => setBusca(v), 250)
+  }
+
+  async function handleDelete(id: string) {
+    setDeleting(true)
+    const res = await fetch('/api/delete-item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'mtb_catalogo', id }),
+    })
+    setDeleting(false)
+    if (res.ok) {
+      setTodas(prev => prev.filter(t => t.id !== id))
+      setConfirmDeleteId(null)
+    }
   }
 
   // ── Loading ─────────────────────────────────────────────────────────────────
@@ -133,6 +156,11 @@ function AdminTrilhasContent() {
           </div>
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
             {filtradas.length} de {todas.length} trilha{todas.length !== 1 ? 's' : ''} no catálogo
+            {totalPendentes > 0 && (
+              <span style={{ marginLeft: 10, color: '#f59e0b', fontWeight: 600 }}>
+                · ⚠️ {totalPendentes} pendente{totalPendentes !== 1 ? 's' : ''} de ajuste
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -156,7 +184,7 @@ function AdminTrilhasContent() {
             <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888', pointerEvents: 'none' }} />
           </div>
 
-          {/* Cidade — só aparece se há cidades para o estado */}
+          {/* Cidade */}
           {estado && cidades.length > 0 && (
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <select
@@ -186,6 +214,23 @@ function AdminTrilhasContent() {
               }}
             />
           </div>
+
+          {/* Filtro pendentes */}
+          {totalPendentes > 0 && (
+            <button
+              onClick={() => setSomentePendentes(v => !v)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                border: somentePendentes ? 'none' : '1px solid #fcd34d',
+                background: somentePendentes ? '#fbbf24' : '#fffbeb',
+                color: somentePendentes ? '#fff' : '#92400e',
+                cursor: 'pointer', flexShrink: 0,
+              }}
+            >
+              ⚠️ Pendentes{somentePendentes ? '' : ` (${totalPendentes})`}
+            </button>
+          )}
         </div>
 
         {/* Lista */}
@@ -201,35 +246,92 @@ function AdminTrilhasContent() {
                   <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', color: '#aaa', textTransform: 'uppercase' }}>Nome</th>
                   <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', color: '#aaa', textTransform: 'uppercase' }}>Local</th>
                   <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', color: '#aaa', textTransform: 'uppercase' }}>Mantenedor</th>
-                  <th style={{ padding: '12px 20px', width: 80 }} />
+                  <th style={{ padding: '12px 20px', width: 160 }} />
                 </tr>
               </thead>
               <tbody>
                 {paginadas.map((t, i) => {
-                  const loc = resolveLoc(t.localidade)
+                  const loc      = resolveLoc(t.localidade)
                   const localStr = loc
                     ? `${loc.estado}${loc.cidade ? ` · ${loc.cidade}` : ''}`
                     : t.regiao || '—'
+                  const pendente   = isPendente(t)
+                  const isConfirm  = confirmDeleteId === t.id
+
                   return (
-                    <tr key={t.id} style={{ borderBottom: i < paginadas.length - 1 ? '0.5px solid #f4f5f0' : 'none' }}>
-                      <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: '#2a2e25' }}>{t.name}</td>
+                    <tr
+                      key={t.id}
+                      style={{
+                        borderBottom: i < paginadas.length - 1 ? '0.5px solid #f4f5f0' : 'none',
+                        background: pendente ? 'rgba(251,191,36,0.04)' : undefined,
+                      }}
+                    >
+                      <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: '#2a2e25' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {pendente && (
+                            <span title="Pendente de ajuste" style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>⚠️</span>
+                          )}
+                          {t.name}
+                        </span>
+                      </td>
                       <td style={{ padding: '14px 20px', fontSize: 13, color: '#6b7280' }}>{localStr}</td>
                       <td style={{ padding: '14px 20px', fontSize: 13, color: t.mantenedor ? '#2a2e25' : '#d1d5db' }}>
                         {t.mantenedor ? (t.mantenedor.nome_primario ?? t.mantenedor.nome) : '—'}
                       </td>
                       <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                        <Link
-                          href={`/trilhas/editar-aprovada/${t.id}?from=admin${estado ? `&estado=${encodeURIComponent(estado)}` : ''}${cidade ? `&cidade=${encodeURIComponent(cidade)}` : ''}`}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                            fontSize: 13, fontWeight: 600, color: '#6d745f',
-                            textDecoration: 'none', padding: '6px 12px',
-                            background: '#f4f5f0', borderRadius: 6, border: '0.5px solid #e5e5e5',
-                          }}
-                        >
-                          <i className="ti ti-pencil" style={{ fontSize: 13 }} />
-                          Editar
-                        </Link>
+                        {isConfirm ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 12, color: '#6b7280', marginRight: 4 }}>Excluir?</span>
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              disabled={deleting}
+                              style={{
+                                fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 6,
+                                background: '#ef4444', color: '#fff', border: 'none',
+                                cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1,
+                              }}
+                            >
+                              {deleting ? '…' : 'Sim'}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              style={{
+                                fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 6,
+                                background: '#f4f5f0', color: '#6b7280', border: '0.5px solid #e5e5e5',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Não
+                            </button>
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Link
+                              href={`/trilhas/editar-aprovada/${t.id}?from=admin${estado ? `&estado=${encodeURIComponent(estado)}` : ''}${cidade ? `&cidade=${encodeURIComponent(cidade)}` : ''}`}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                fontSize: 13, fontWeight: 600, color: '#6d745f',
+                                textDecoration: 'none', padding: '6px 12px',
+                                background: '#f4f5f0', borderRadius: 6, border: '0.5px solid #e5e5e5',
+                              }}
+                            >
+                              <i className="ti ti-pencil" style={{ fontSize: 13 }} />
+                              Editar
+                            </Link>
+                            <button
+                              onClick={() => setConfirmDeleteId(t.id)}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                fontSize: 13, fontWeight: 600, color: '#ef4444',
+                                padding: '6px 10px', background: 'rgba(239,68,68,0.06)',
+                                borderRadius: 6, border: '0.5px solid rgba(239,68,68,0.2)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                            </button>
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )

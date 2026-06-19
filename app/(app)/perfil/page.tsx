@@ -601,7 +601,7 @@ export default function PerfilPage() {
             />
             <Divider />
             <InfoRow
-              icon="ti-checklist" label="Revisar Trilhas" value="Aprovar pendentes"
+              icon="ti-checklist" label="Administrar Trilhas" value="Catálogo e importações"
               onTap={() => { window.location.href = '/admin' }}
             />
           </>
