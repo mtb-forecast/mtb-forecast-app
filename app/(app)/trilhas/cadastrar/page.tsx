@@ -136,10 +136,17 @@ export default function CadastrarTrilhaPage() {
   const [biomas, setBiomas] = useState<string[]>([])
   const [exposicoes, setExposicoes] = useState<{ valor: string; label: string }[]>([])
   const [trailTypes, setTrailTypes] = useState<{ valor: string; label: string }[]>([])
+  const [mantenedores, setMantenedores] = useState<{ id: string; nome: string }[]>([])
+  const [mantenedorId, setMantenedorId] = useState('')
 
   useEffect(() => {
-    Promise.all([getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes()])
-      .then(([s, b, e, t]) => { setSoloTypes(s); setBiomas(b); setExposicoes(e); setTrailTypes(t) })
+    Promise.all([
+      getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes(),
+      supabase.from('mantenedores').select('id, nome').eq('ativo', true).order('nome'),
+    ]).then(([s, b, e, t, { data: mants }]) => {
+      setSoloTypes(s); setBiomas(b); setExposicoes(e); setTrailTypes(t)
+      setMantenedores((mants as { id: string; nome: string }[]) ?? [])
+    })
   }, [])
 
   // Geocoding automático com debounce de 800ms
@@ -328,6 +335,7 @@ export default function CadastrarTrilhaPage() {
       link_referencia: linkRef.trim() || null,
       observacoes: observacoes.trim() || null,
       polyline: polyline ?? null,
+      mantenedor_id: mantenedorId || null,
       aprovada: true,
       created_by: user.id,
       localidade_id: localidadeId,
@@ -798,6 +806,14 @@ export default function CadastrarTrilhaPage() {
               </SectionCard>
 
               <SectionCard title="6. Informações extras (opcional)">
+                {mantenedores.length > 0 && (
+                  <Field label="Mantenedor / Bike Park">
+                    <select value={mantenedorId} onChange={e => setMantenedorId(e.target.value)} style={selectStyle}>
+                      <option value="">Nenhum</option>
+                      {mantenedores.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                    </select>
+                  </Field>
+                )}
                 <Field label="Link de referência">
                   <input type="url" value={linkRef} onChange={e => setLinkRef(e.target.value)}
                     placeholder="Strava, Wikiloc, site do parque…" style={inputStyle} />
