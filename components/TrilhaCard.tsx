@@ -1,5 +1,10 @@
 import { memo } from 'react'
 import Link from 'next/link'
+import {
+  IconMinus, IconCircleX, IconAlertTriangle, IconCircleCheck,
+  IconMapPin, IconChevronRight, IconHourglass,
+  type TablerIcon,
+} from '@tabler/icons-react'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
@@ -20,15 +25,15 @@ function topBarColor(v: string | null): string {
   return '#d0d4c6'
 }
 
-type VerdictStyle = { icon: string; bg: string; text: string; border: string }
+type VerdictStyle = { Icon: TablerIcon; bg: string; text: string; border: string }
 
 function verdictStyle(v: string | null): VerdictStyle {
-  if (!v) return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
+  if (!v) return { Icon: IconMinus, bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
   const u = v.toUpperCase()
-  if (u.includes('EVITAR') || u.includes('FECHADA')) return { icon: 'ti-circle-x', bg: '#fcd8d8', text: '#8a1a1a', border: '#e8a0a0' }
-  if (u.includes('ESPERAR') || u.includes('AGUARDAR') || u.includes('ALERTA')) return { icon: 'ti-alert-triangle', bg: '#fdf0cc', text: '#8a5e00', border: '#e8d080' }
-  if (u.includes('LIBERADO')) return { icon: 'ti-circle-check', bg: '#d6edcc', text: '#2a6b1e', border: '#a8d99a' }
-  return { icon: 'ti-minus', bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
+  if (u.includes('EVITAR') || u.includes('FECHADA')) return { Icon: IconCircleX, bg: '#fcd8d8', text: '#8a1a1a', border: '#e8a0a0' }
+  if (u.includes('ESPERAR') || u.includes('AGUARDAR') || u.includes('ALERTA')) return { Icon: IconAlertTriangle, bg: '#fdf0cc', text: '#8a5e00', border: '#e8d080' }
+  if (u.includes('LIBERADO')) return { Icon: IconCircleCheck, bg: '#d6edcc', text: '#2a6b1e', border: '#a8d99a' }
+  return { Icon: IconMinus, bg: '#eaece4', text: '#6d745f', border: '#d0d4c6' }
 }
 
 type SoloBadge = { label: string; bg: string; color: string; border: string }
@@ -95,7 +100,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
                 {trilha.name}
               </div>
               <div style={{ fontSize: 11, color: '#6d745f', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <i className="ti ti-map-pin" style={{ fontSize: 10 }} />
+                <IconMapPin size={10} />
                 {formatLocalidade(trilha.localidades, trilha.regiao)}
               </div>
             </div>
@@ -115,7 +120,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
                   {isFavorito ? '★' : '☆'}
                 </button>
               )}
-              <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#8a9480' }} />
+              <IconChevronRight size={14} style={{ color: '#8a9480' }} />
             </div>
           </div>
 
@@ -128,7 +133,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
           {hasData && (
             <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ ...tagBase, fontSize: 10 }}>
-                <i className={`ti ${vs.icon}`} style={{ fontSize: 10 }} />
+                <vs.Icon size={10} />
                 {veredictoText}
               </span>
 
@@ -165,7 +170,7 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
             display: 'flex', alignItems: 'center',
           }}>
             <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-hourglass" style={{ fontSize: 11 }} />
+              <IconHourglass size={11} />
               {c.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
             </div>
           </div>

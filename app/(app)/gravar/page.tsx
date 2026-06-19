@@ -3,6 +3,10 @@
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 import { supabase, getClientUser } from '@/lib/supabase'
+import {
+  IconNavigation, IconPlayerRecordFilled, IconPlayerPauseFilled,
+  IconPlayerPlayFilled, IconFlagFilled, IconArrowRight, IconTrash,
+} from '@tabler/icons-react'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
@@ -451,7 +455,7 @@ export default function GravarTrilhaPage() {
                 cursor: 'pointer',
               }}
             >
-              <i className="ti ti-navigation" style={{ fontSize: 18, color: '#2563eb' }} />
+              <IconNavigation size={18} style={{ color: '#2563eb' }} />
             </button>
           )}
 
@@ -473,7 +477,7 @@ export default function GravarTrilhaPage() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 32px rgba(0,0,0,0.38)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.30)' }}
               >
-                <i className="ti ti-player-record-filled" style={{ fontSize: 36, color: '#fff' }} />
+                <IconPlayerRecordFilled size={36} style={{ color: '#fff' }} />
               </button>
               <span style={{
                 pointerEvents: 'none',
@@ -515,7 +519,7 @@ export default function GravarTrilhaPage() {
                 GRAVANDO
               </span>
               <button onClick={handlePause} style={{ pointerEvents: 'all', width: 84, height: 84, borderRadius: '50%', background: '#d97706', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 24px rgba(0,0,0,0.32)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <i className="ti ti-player-pause-filled" style={{ fontSize: 32, color: '#fff' }} />
+                <IconPlayerPauseFilled size={32} style={{ color: '#fff' }} />
               </button>
               <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>PAUSAR</span>
             </div>
@@ -526,13 +530,13 @@ export default function GravarTrilhaPage() {
             <div style={{ position: 'absolute', bottom: 20, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 48, zIndex: 1000, pointerEvents: 'none' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                 <button onClick={handleContinue} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#dc2626', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className="ti ti-player-play-filled" style={{ fontSize: 28, color: '#fff' }} />
+                  <IconPlayerPlayFilled size={28} style={{ color: '#fff' }} />
                 </button>
                 <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>CONTINUAR</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                 <button onClick={handleEnd} style={{ pointerEvents: 'all', width: 76, height: 76, borderRadius: '50%', background: '#16a34a', border: '5px solid rgba(255,255,255,0.9)', boxShadow: '0 4px 20px rgba(0,0,0,0.28)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className="ti ti-flag-filled" style={{ fontSize: 28, color: '#fff' }} />
+                  <IconFlagFilled size={28} style={{ color: '#fff' }} />
                 </button>
                 <span style={{ background: 'rgba(42,46,37,0.82)', color: '#f4f5f0', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', padding: '4px 12px', borderRadius: 999 }}>ENCERRAR</span>
               </div>
@@ -582,7 +586,7 @@ export default function GravarTrilhaPage() {
               <button onClick={confirmTrim}
                 style={{ flex: 1, background: '#6d745f', color: '#fff', border: 'none', borderRadius: 8, padding: '10px', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 Confirmar recorte
-                <i className="ti ti-arrow-right" style={{ fontSize: 14 }} />
+                <IconArrowRight size={14} />
               </button>
             </div>
           </div>
@@ -713,7 +717,7 @@ export default function GravarTrilhaPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 whiteSpace: 'nowrap', flexShrink: 0,
               }}>
-                <i className="ti ti-trash" style={{ fontSize: 16 }} />
+                <IconTrash size={16} />
                 Descartar
               </button>
               <button onClick={handleSave} disabled={saving} style={{

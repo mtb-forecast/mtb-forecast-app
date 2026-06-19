@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Barlow_Condensed } from 'next/font/google'
+import { IconArrowLeft } from '@tabler/icons-react'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao } from '@/lib/types'
 import CondicaoCard from '@/components/CondicaoCard'
@@ -108,7 +109,7 @@ function ComparacaoContent() {
             href="/dashboard"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#9CA3AF', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}
           >
-            <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
+            <IconArrowLeft size={14} />
             Voltar ao dashboard
           </Link>
           <h1 style={{

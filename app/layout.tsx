@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { DM_Sans, DM_Mono } from 'next/font/google'
 import './globals.css'
-import '@tabler/icons-webfont/dist/tabler-icons.min.css'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
 import { Analytics } from '@vercel/analytics/next'

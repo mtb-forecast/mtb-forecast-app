@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { IconLock } from '@tabler/icons-react'
 
 // Página pública — sem cookies, sem auth → pode ser cacheada via ISR
 export const revalidate = 3600
@@ -80,7 +81,7 @@ async function TrilhaPreviewContent({ id }: { id: string }) {
 
       {/* Seção bloqueada — acima do mapa para ser o elemento LCP */}
       <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 32, textAlign: 'center', marginBottom: 16 }}>
-        <i className="ti ti-lock" style={{ fontSize: 48, color: '#e5e5e5' }} />
+        <IconLock size={48} style={{ color: '#e5e5e5' }} />
         <h2 className="font-wheat" style={{ color: '#2a2e25', fontSize: 24, marginTop: 12, marginBottom: 8 }}>
           Veja as condições completas
         </h2>

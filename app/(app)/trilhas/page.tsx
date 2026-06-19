@@ -8,6 +8,7 @@ import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
 import PumpTrackCard from '@/components/PumpTrackCard'
+import { IconChevronDown, IconSearch, IconRoute, IconShieldCheck } from '@tabler/icons-react'
 
 
 const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
@@ -349,7 +350,7 @@ function TrilhasContent() {
                   return <option key={m.id} value={m.id}>{label}</option>
                 })}
               </select>
-              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
             </div>
           )}
 
@@ -370,7 +371,7 @@ function TrilhasContent() {
               <option value="">Estado</option>
               {estados.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+            <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
           </div>
 
           {/* Select 2 — Cidade */}
@@ -391,7 +392,7 @@ function TrilhasContent() {
                 <option value="">Todas as cidades</option>
                 {cidades.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
             </div>
           )}
 
@@ -413,14 +414,14 @@ function TrilhasContent() {
                 <option value="">Todas as localidades</option>
                 {localidadesOpts.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
-              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
             </div>
           )}
 
           {/* Input de busca */}
           {estadoSelecionado && (
             <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-              <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }} />
+              <IconSearch size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
               <input
                 type="text"
                 placeholder="Buscar trilha ou pump track..."
@@ -470,7 +471,7 @@ function TrilhasContent() {
                   background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
                 }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <i className="ti ti-route" style={{ fontSize: 24, color: '#7C3AED' }} />
+                  <IconRoute size={24} style={{ color: '#7C3AED' }} />
                   <span style={{
                     background: '#EDE9FE', color: '#7C3AED',
                     fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
@@ -506,7 +507,7 @@ function TrilhasContent() {
                     background: 'linear-gradient(90deg, #4a6741, #a8b899)',
                   }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <i className="ti ti-shield-check" style={{ fontSize: 22, color: '#6d745f' }} />
+                    <IconShieldCheck size={22} style={{ color: '#6d745f' }} />
                     <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: 0 }}>
                       Mantenedores & Bike Parks
                     </p>

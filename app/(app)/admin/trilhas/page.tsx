@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import {
+  IconChevronDown, IconSearch, IconPencil, IconTrash,
+} from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 
 const PER_PAGE = 25
@@ -181,7 +184,7 @@ function AdminTrilhasContent() {
               <option value="">Estado (todos)</option>
               {estados.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888', pointerEvents: 'none' }} />
+            <IconChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#888', pointerEvents: 'none' }} />
           </div>
 
           {/* Cidade */}
@@ -195,13 +198,13 @@ function AdminTrilhasContent() {
                 <option value="">Todas as cidades</option>
                 {cidades.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888', pointerEvents: 'none' }} />
+              <IconChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#888', pointerEvents: 'none' }} />
             </div>
           )}
 
           {/* Busca */}
           <div style={{ position: 'relative', flex: '1 1 200px' }}>
-            <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#888' }} />
+            <IconSearch size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
             <input
               type="text"
               placeholder="Buscar por nome…"
@@ -315,7 +318,7 @@ function AdminTrilhasContent() {
                                 background: '#f4f5f0', borderRadius: 6, border: '0.5px solid #e5e5e5',
                               }}
                             >
-                              <i className="ti ti-pencil" style={{ fontSize: 13 }} />
+                              <IconPencil size={13} />
                               Editar
                             </Link>
                             <button
@@ -328,7 +331,7 @@ function AdminTrilhasContent() {
                                 cursor: 'pointer',
                               }}
                             >
-                              <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                              <IconTrash size={13} />
                             </button>
                           </span>
                         )}
