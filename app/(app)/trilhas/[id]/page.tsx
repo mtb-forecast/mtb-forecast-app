@@ -140,12 +140,12 @@ export default function TrilhaDetalhe() {
         <div className="page-header-inner" style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', boxSizing: 'border-box' }}>
 
           {/* Voltar */}
-          <Link
-            href="/trilhas"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none' }}
+          <button
+            onClick={() => router.back()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             ← Voltar para trilhas
-          </Link>
+          </button>
 
           {/* Nome + ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>

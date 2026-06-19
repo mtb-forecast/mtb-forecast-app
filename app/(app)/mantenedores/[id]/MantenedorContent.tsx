@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import TrilhaCard from '@/components/TrilhaCard'
@@ -9,6 +10,7 @@ import type { Mantenedor, TrilhaComCondicao } from '@/lib/types'
 type Props = { mantenedor: Mantenedor; trilhas: TrilhaComCondicao[] }
 
 export default function MantenedorContent({ mantenedor, trilhas }: Props) {
+  const router = useRouter()
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
   const [userId, setUserId]       = useState<string | null>(null)
 
@@ -45,9 +47,9 @@ export default function MantenedorContent({ mantenedor, trilhas }: Props) {
       <div style={{ background: '#2a2e25', padding: '32px 0 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 28px', boxSizing: 'border-box' }}>
 
-          <Link href="/trilhas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none' }}>
+          <button onClick={() => router.back()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             ← Trilhas
-          </Link>
+          </button>
 
           {/* Logo à esquerda do nome */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>

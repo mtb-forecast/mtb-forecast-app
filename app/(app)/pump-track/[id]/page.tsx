@@ -84,9 +84,9 @@ export default function PumpTrackDetailPage() {
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
 
           {/* Breadcrumb */}
-          <Link href="/trilhas" style={{ fontSize: 12, color: '#555', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>
+          <button onClick={() => router.back()} style={{ fontSize: 12, color: '#555', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             ← Trilhas &amp; Pump Tracks
-          </Link>
+          </button>
 
           {/* Badge + título */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
