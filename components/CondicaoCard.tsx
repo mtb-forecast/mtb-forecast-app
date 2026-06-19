@@ -406,7 +406,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
       }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: txt }}>{sunrise}</div>
-          <div style={{ fontSize: 9, color: sub }}>nascer</div>
+          <div style={{ fontSize: 9, color: sub }}>nascer do sol</div>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 10, color: sub }}>
