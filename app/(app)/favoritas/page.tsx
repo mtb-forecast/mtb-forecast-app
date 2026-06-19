@@ -45,6 +45,8 @@ export default async function FavoritasPage() {
       `)
       .in('id', ids)
       .eq('aprovada', true)
+      .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+      .limit(1, { foreignTable: 'condicoes' })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mapped = (data as any[] ?? []).map((t) => {

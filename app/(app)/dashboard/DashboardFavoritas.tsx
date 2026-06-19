@@ -66,7 +66,9 @@ export default async function DashboardFavoritas({
         )
       `)
       .in('id', favTrilhaIds)
-      .eq('aprovada', true),
+      .eq('aprovada', true)
+      .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+      .limit(1, { foreignTable: 'condicoes' }),
     sb.from('observacoes_trilha')
       .select('trilha_id, estrelas')
       .gte('created_at', h48atras)
@@ -176,7 +178,10 @@ async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondic
         favoritos_agg:favoritos(count)
       `)
       .eq('regiao', estado)
-      .eq('aprovada', true),
+      .eq('aprovada', true)
+      .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+      .limit(1, { foreignTable: 'condicoes' })
+      .limit(30),
     sb.from('trilhas')
       .select('id', { count: 'exact', head: true })
       .eq('regiao', estado)
