@@ -251,14 +251,21 @@ const skyTextColors: Record<SkyState, { txt: string; sub: string }> = {
   'night-rain':   { txt: '#CBD5E1', sub: '#6B7280'                 },
 }
 
-const skyArcColors: Record<SkyState, { arc: string; elapsed: string; hor: string }> = {
-  clear:          { arc: 'rgba(255,255,255,0.45)',  elapsed: '#FCD34D', hor: 'rgba(255,255,255,0.4)'  },
-  partly:         { arc: 'rgba(255,255,255,0.4)',   elapsed: '#FCD34D', hor: 'rgba(255,255,255,0.35)' },
-  cloudy:         { arc: 'rgba(31,41,55,0.3)',      elapsed: '#FCD34D', hor: 'rgba(31,41,55,0.2)'     },
-  rain:           { arc: 'rgba(209,213,219,0.4)',   elapsed: '#93C5FD', hor: 'rgba(209,213,219,0.35)' },
-  'night-clear':  { arc: 'rgba(148,163,184,0.25)',  elapsed: '#94A3B8', hor: 'rgba(148,163,184,0.2)'  },
-  'night-cloudy': { arc: 'rgba(107,114,128,0.35)',  elapsed: '#94A3B8', hor: 'rgba(107,114,128,0.25)' },
-  'night-rain':   { arc: 'rgba(107,114,128,0.3)',   elapsed: '#94A3B8', hor: 'rgba(107,114,128,0.2)'  },
+
+// Calcula posição do sol na curva Bezier que coincide com o path SVG
+// P0=(30,130) P1=(170,18) P2=(310,130) — viewBox 340×158
+function getSunPosition(sunriseStr: string, sunsetStr: string): { left: string; top: string } | null {
+  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const srMin = toMin(sunriseStr)
+  const ssMin = toMin(sunsetStr)
+  const total = ssMin - srMin
+  if (total <= 0) return null
+  const t = Math.max(0, Math.min(1, (nowMin - srMin) / total))
+  const x = (1-t)*(1-t)*30  + 2*(1-t)*t*170 + t*t*310
+  const y = (1-t)*(1-t)*130 + 2*(1-t)*t*18  + t*t*130
+  return { left: `${(x / 340) * 100}%`, top: `${(y / 158) * 100}%` }
 }
 
 function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
@@ -270,37 +277,30 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const srMin  = toMin(sunrise), ssMin = toMin(sunset)
   const totalMin = ssMin - srMin
-  const progress = totalMin > 0 ? Math.min(1, Math.max(0, (nowMin - srMin) / totalMin)) : 0
   const dh = Math.floor(totalMin / 60), dm = totalMin % 60
-
-  const cx = 160, cy = 62, rx = 140, ry = 46
-  const arcLen = Math.PI * Math.sqrt((rx * rx + ry * ry) / 2)
-  const sunX = cx - rx * Math.cos(progress * Math.PI)
-  const sunY = cy - ry * Math.sin(progress * Math.PI)
 
   const skyState       = getSkyState(cloudCover, isRaining, srMin, ssMin)
   const isNightState   = skyState.startsWith('night')
   const isRainingVisual = skyState === 'rain' || skyState === 'night-rain'
-  const isSunState     = skyState === 'clear' || skyState === 'partly'
 
-  const { txt, sub }                              = skyTextColors[skyState]
-  const { arc: arcColor, elapsed: elapsedColor,
-          hor: horColor }                         = skyArcColors[skyState]
+  const { txt, sub } = skyTextColors[skyState]
 
-  // Estrelas em coordenadas SVG (cx/cy dentro do viewBox 320×92) para ficarem acima do horizonte
+  const sunPos = !isNightState ? getSunPosition(sunrise, sunset) : null
+
+  // Estrelas como divs CSS — posições pseudo-aleatórias fixas em percentagem do sky area
   const stars = useMemo(() =>
     Array.from({ length: 48 }, (_, i) => ({
-      cx: (i * 61.8) % 316 + 2,           // x: 2–318
-      cy: (i * 43.2) % 54 + 3,            // y: 3–57 (abaixo do horizonte em cy=62)
-      r:  0.7 + (i * 0.17) % 1.6,
-      o:  0.35 + (i * 0.019) % 0.55,
+      left:    `${(i * 61.8) % 96 + 2}%`,
+      top:     `${(i * 43.2) % 70 + 2}%`,  // max ~72% do sky area (≈ 114px de 158px)
+      size:    0.8 + (i * 0.17) % 1.8,
+      opacity: 0.35 + (i * 0.019) % 0.55,
     }))
   , [])
 
   const rainDrops = useMemo(() =>
     Array.from({ length: 28 }, (_, i) => ({
       left:     `${(i * 37.3) % 110 - 5}%`,
-      top:      `${(i * 53.7) % 120 - 20}%`,
+      top:      `${(i * 53.7) % 110 - 10}%`,
       height:   10 + (i * 7.3) % 18,
       delay:    `${(i * 0.07) % 0.7}s`,
       duration: `${0.55 + (i * 0.03) % 0.3}s`,
@@ -311,85 +311,87 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
   const moon = moonPhaseInfo(moonPhase)
 
   return (
-    <div style={{
-      overflow: 'hidden', position: 'relative',
-      background: skyBackgrounds[skyState],
-    }}>
+    <div style={{ overflow: 'hidden', position: 'relative', background: skyBackgrounds[skyState] }}>
       <style>{`
         @keyframes rainFall {
           from { transform: rotate(12deg) translateY(-20px); }
-          to   { transform: rotate(12deg) translateY(180px); }
+          to   { transform: rotate(12deg) translateY(160px); }
         }
       `}</style>
 
-{/* Stars renderizadas dentro do SVG — veja abaixo */}
+      {/* ── Sky area — altura fixa que define o espaço do céu ──────────── */}
+      <div style={{ position: 'relative', height: 158, overflow: 'hidden' }}>
 
-      {/* Nuvens CSS com blur */}
-      {(cloudLayers[skyState] ?? []).map((c, i) => (
-        <div key={i} style={{
-          position: 'absolute', borderRadius: '50%', pointerEvents: 'none',
-          width: c.w, height: c.h, top: c.top,
-          ...(c.left  !== undefined ? { left:  c.left  } : {}),
-          ...(c.right !== undefined ? { right: c.right } : {}),
-          background: c.bg, filter: `blur(${c.blur}px)`,
-        }} />
-      ))}
-
-      {/* Gotas de chuva animadas */}
-      {isRainingVisual && rainDrops.map((d, i) => (
-        <div key={i} style={{
-          position: 'absolute', width: 1.5, height: d.height,
-          left: d.left, top: d.top, borderRadius: 1,
-          background: 'linear-gradient(to bottom, transparent, rgba(180,210,240,0.55))',
-          transform: 'rotate(12deg)',
-          animation: `rainFall ${d.duration} ${d.delay} linear infinite`,
-          opacity: d.opacity, pointerEvents: 'none',
-        }} />
-      ))}
-
-      {/* Lua com fase real (CSS box-shadow) */}
-      {isNightState && moonPhase > 0.03 && (
-        <div style={getMoonStyle(moonPhase)} />
-      )}
-
-      {/* SVG principal — estrelas, arco tracejado, sol, horizonte */}
-      <svg viewBox="0 0 320 92" style={{ width: '100%', height: 'auto', display: 'block', position: 'relative', zIndex: 1 }}>
-        {/* Estrelas dentro do SVG — naturalmente clippadas pelo viewBox, acima do horizonte */}
+        {/* Estrelas — CSS divs, só à noite, clippadas pelo overflow:hidden do sky area */}
         {isNightState && stars.map((s, i) => (
-          <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="white"
-            opacity={skyState === 'night-cloudy' ? s.o * 0.25 : s.o} />
+          <div key={i} style={{
+            position: 'absolute', borderRadius: '50%', background: '#fff',
+            width: s.size, height: s.size, left: s.left, top: s.top,
+            opacity: skyState === 'night-cloudy' ? s.opacity * 0.25 : s.opacity,
+            pointerEvents: 'none',
+          }} />
         ))}
 
-        {/* Arco tracejado (trilha completa) */}
-        <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
-          fill="none" stroke={arcColor} strokeWidth="1.5" strokeDasharray="5 6" strokeLinecap="round" />
+        {/* Nuvens CSS com blur */}
+        {(cloudLayers[skyState] ?? []).map((c, i) => (
+          <div key={i} style={{
+            position: 'absolute', borderRadius: '50%', pointerEvents: 'none',
+            width: c.w, height: c.h, top: c.top,
+            ...(c.left  !== undefined ? { left:  c.left  } : {}),
+            ...(c.right !== undefined ? { right: c.right } : {}),
+            background: c.bg, filter: `blur(${c.blur}px)`,
+          }} />
+        ))}
 
-        {/* Trecho percorrido — tracejado mais brilhante */}
-        {progress > 0.02 && (
-          <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
-            fill="none" stroke={elapsedColor} strokeWidth="1.8" strokeLinecap="round"
-            strokeDasharray={`${progress * arcLen} ${arcLen}`} opacity={0.7} />
+        {/* Gotas de chuva animadas */}
+        {isRainingVisual && rainDrops.map((d, i) => (
+          <div key={i} style={{
+            position: 'absolute', width: 1.5, height: d.height,
+            left: d.left, top: d.top, borderRadius: 1,
+            background: 'linear-gradient(to bottom, transparent, rgba(180,210,240,0.55))',
+            transform: 'rotate(12deg)',
+            animation: `rainFall ${d.duration} ${d.delay} linear infinite`,
+            opacity: d.opacity, pointerEvents: 'none',
+          }} />
+        ))}
+
+        {/* Lua — posição fixa canto superior direito */}
+        {isNightState && moonPhase > 0.03 && (
+          <div style={getMoonStyle(moonPhase)} />
         )}
 
-        {/* Sol no arco (dia) */}
-        {isSunState && (
-          <>
-            <circle cx={sunX} cy={sunY} r={16} fill="#FEF3C7" opacity={0.28} />
-            <circle cx={sunX} cy={sunY} r={10} fill="#FDE68A" opacity={0.65} />
-            <circle cx={sunX} cy={sunY} r={5.5} fill="#FCD34D" />
-            <circle cx={sunX} cy={sunY} r={2.5} fill="#F59E0B" />
-          </>
+        {/* Sol — posição calculada pela mesma curva Bezier do arco SVG */}
+        {sunPos && (
+          <div style={{
+            position: 'absolute', left: sunPos.left, top: sunPos.top,
+            transform: 'translate(-50%, -50%)',
+            width: 32, height: 32, borderRadius: '50%', pointerEvents: 'none', zIndex: 2,
+            background: 'radial-gradient(circle,#fff 18%,#ffe566 48%,transparent 70%)',
+            boxShadow: '0 0 20px 10px rgba(255,210,80,0.45)',
+          }} />
         )}
 
-        {/* Horizonte */}
-        <line x1={cx-rx-4} y1={cy} x2={cx+rx+4} y2={cy} stroke={horColor} strokeWidth="0.5" strokeDasharray="2 3" />
-      </svg>
+        {/* Arco SVG — absolute inset-0, Bezier com vectorEffect para não escalar o stroke */}
+        <svg
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
+          viewBox="0 0 340 158"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M30,130 Q170,18 310,130"
+            stroke={isNightState ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.28)'}
+            strokeWidth="1"
+            fill="none"
+            strokeDasharray="2 5"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      </div>
 
       {/* Info row: nascer · duração+lua · pôr */}
       <div style={{
-        position: 'relative', zIndex: 1,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '2px 16px 10px',
+        padding: '8px 16px 12px',
       }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: txt }}>{sunrise}</div>
