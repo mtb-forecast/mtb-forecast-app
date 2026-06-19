@@ -9,9 +9,8 @@ import { REPORT_SCHEDULE } from '@/lib/schedule'
 
 type Tab = 'conta' | 'alertas' | 'plano' | 'integracoes'
 type SheetField = 'telegram' | null
-type TrilhaPendente = {
-  id: string; name: string; regiao: string
-  status: string; motivo_rejeicao?: string | null; created_at: string
+type TrilhaCadastrada = {
+  id: string; name: string; regiao: string; created_at: string
 }
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -207,7 +206,7 @@ export default function PerfilPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   // Counters
-  const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaPendente[]>([])
+  const [minhasTrilhas, setMinhasTrilhas] = useState<TrilhaCadastrada[]>([])
   const [trilhasFavoritas, setTrilhasFavoritas] = useState<Trilha[]>([])
 
   // Notification
