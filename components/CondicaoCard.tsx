@@ -119,6 +119,67 @@ const SEC: React.CSSProperties = {
 
 const DIV: React.CSSProperties = { borderTop: '0.5px solid #E5E7EB' }
 
+// ── Solar Arc ─────────────────────────────────────────────────────────────────
+
+function SolarArc({ sunrise, sunset }: { sunrise: string; sunset: string }) {
+  const toMin = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    return h * 60 + (m || 0)
+  }
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const srMin = toMin(sunrise)
+  const ssMin = toMin(sunset)
+  const totalMin = ssMin - srMin
+  const progress = totalMin > 0 ? Math.min(1, Math.max(0, (nowMin - srMin) / totalMin)) : 0
+  const isDaytime = nowMin > srMin && nowMin < ssMin
+
+  const cx = 120, cy = 104, r = 80
+  const arcLen = Math.PI * r
+  const sunX = cx - r * Math.cos(progress * Math.PI)
+  const sunY = cy - r * Math.sin(progress * Math.PI)
+  const dh = Math.floor(totalMin / 60)
+  const dm = totalMin % 60
+
+  return (
+    <svg viewBox="0 0 240 132" style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {/* Track arc — dashed gray */}
+      <path
+        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+        fill="none" stroke="#E5E7EB" strokeWidth="2" strokeDasharray="4 5"
+      />
+      {/* Elapsed arc — amber fill from sunrise to now */}
+      {progress > 0.01 && (
+        <path
+          d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+          fill="none"
+          stroke={isDaytime ? '#F59E0B' : '#9CA3AF'}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={`${progress * arcLen} ${arcLen}`}
+        />
+      )}
+      {/* Sun glow (layered circles, no filter ID needed) */}
+      <circle cx={sunX} cy={sunY} r={20} fill={isDaytime ? '#FEF3C7' : '#F3F4F6'} opacity={0.35} />
+      <circle cx={sunX} cy={sunY} r={12} fill={isDaytime ? '#FDE68A' : '#E5E7EB'} opacity={0.6} />
+      <circle cx={sunX} cy={sunY} r={7} fill={isDaytime ? '#FCD34D' : '#D1D5DB'} />
+      <circle cx={sunX} cy={sunY} r={3.5} fill={isDaytime ? '#F59E0B' : '#9CA3AF'} />
+      {/* Horizon line */}
+      <line x1={cx - r - 8} y1={cy} x2={cx + r + 8} y2={cy} stroke="#E5E7EB" strokeWidth="1" />
+      {/* Sunrise time + label */}
+      <text x={cx - r} y={cy + 15} textAnchor="middle" fontSize="12" fill="#374151" fontWeight="600">{sunrise}</text>
+      <text x={cx - r} y={cy + 26} textAnchor="middle" fontSize="9" fill="#9CA3AF">nascer</text>
+      {/* Sunset time + label */}
+      <text x={cx + r} y={cy + 15} textAnchor="middle" fontSize="12" fill="#374151" fontWeight="600">{sunset}</text>
+      <text x={cx + r} y={cy + 26} textAnchor="middle" fontSize="9" fill="#9CA3AF">pôr do sol</text>
+      {/* Center: total daylight */}
+      <text x={cx} y={cy + 15} textAnchor="middle" fontSize="10" fill="#9CA3AF">
+        {`${dh}h${dm > 0 ? `${String(dm).padStart(2, '0')}m` : ''} de luz`}
+      </text>
+    </svg>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 function CondicaoCard({ condicao, lat, lon }: Props) {
@@ -466,10 +527,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
             <div style={DIV} />
             <div>
               <div style={{ ...SEC, marginBottom: 8 }}>Luz do dia — Hoje</div>
-              <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
-                <span style={{ color: '#92400E' }}>🌅 <b>{solar.sunrise}</b></span>
-                <span style={{ color: '#9A3412' }}>🌇 <b>{solar.sunset}</b></span>
-              </div>
+              <SolarArc sunrise={solar.sunrise} sunset={solar.sunset} />
             </div>
           </>
         )}
