@@ -2,13 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import {
+  IconLayoutDashboard, IconMap2, IconPlayerRecord, IconMapPin, IconUser,
+  type TablerIcon,
+} from '@tabler/icons-react'
 
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: 'ti-layout-dashboard' },
-  { href: '/trilhas',   label: 'Trilhas',   icon: 'ti-map-2'            },
-  { href: '/gravar',    label: 'Gravar',    icon: 'ti-player-record'    },
-  { href: '/mapa',      label: 'Mapa',      icon: 'ti-map-pin'          },
-  { href: '/perfil',    label: 'Perfil',    icon: 'ti-user'             },
+const NAV_ITEMS: { href: string; label: string; Icon: TablerIcon }[] = [
+  { href: '/dashboard', label: 'Dashboard', Icon: IconLayoutDashboard },
+  { href: '/trilhas',   label: 'Trilhas',   Icon: IconMap2            },
+  { href: '/gravar',    label: 'Gravar',    Icon: IconPlayerRecord    },
+  { href: '/mapa',      label: 'Mapa',      Icon: IconMapPin          },
+  { href: '/perfil',    label: 'Perfil',    Icon: IconUser            },
 ]
 
 const HIDDEN_ON = ['/', '/login', '/cadastro']
@@ -53,10 +57,9 @@ export default function BottomNav() {
         .bnav-item:hover { background: #3a4035; }
 
         .bnav-icon {
-          font-size: 22px;
           color: #8a9280;
           transition: color 0.15s;
-          line-height: 1;
+          display: block;
         }
 
         .bnav-label {
@@ -91,7 +94,7 @@ export default function BottomNav() {
             className={`bnav-item${isActive(item.href) ? ' active' : ''}`}
             aria-current={isActive(item.href) ? 'page' : undefined}
           >
-            <i className={`ti ${item.icon} bnav-icon`} aria-hidden="true" />
+            <item.Icon size={22} className="bnav-icon" aria-hidden="true" />
             <span className="bnav-label">{item.label}</span>
             {isActive(item.href) && <span className="bnav-dot" />}
           </Link>
