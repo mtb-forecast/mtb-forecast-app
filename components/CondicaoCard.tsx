@@ -287,13 +287,16 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
 
   const sunPos = !isNightState ? getSunPosition(sunrise, sunset) : null
 
-  // Estrelas como divs CSS — posições pseudo-aleatórias fixas em percentagem do sky area
+  // Estrelas como divs CSS — posições e timings pseudo-aleatórios fixos
   const stars = useMemo(() =>
-    Array.from({ length: 48 }, (_, i) => ({
-      left:    `${(i * 61.8) % 96 + 2}%`,
-      top:     `${(i * 43.2) % 70 + 2}%`,  // max ~72% do sky area (≈ 114px de 158px)
-      size:    0.8 + (i * 0.17) % 1.8,
-      opacity: 0.35 + (i * 0.019) % 0.55,
+    Array.from({ length: 55 }, (_, i) => ({
+      left:       `${(i * 61.8) % 96 + 2}%`,
+      top:        `${(i * 43.2) % 70 + 2}%`,  // max ~72% do sky area (≈ 114px de 158px)
+      size:       0.8 + (i * 0.17) % 2.2,
+      opacityMax: 0.5  + (i * 0.019) % 0.5,
+      opacityMin: 0.15 + (i * 0.011) % 0.25,
+      duration:   2.5  + (i * 0.31)  % 3.5,   // 2.5s–6s por estrela
+      delay:      (i * 0.17) % 4,              // até 4s de delay individual
     }))
   , [])
 
@@ -317,19 +320,25 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
           from { transform: rotate(12deg) translateY(-20px); }
           to   { transform: rotate(12deg) translateY(160px); }
         }
+        @keyframes star-twinkle {
+          0%, 100% { opacity: var(--star-opacity-min); }
+          50%      { opacity: var(--star-opacity-max); }
+        }
       `}</style>
 
       {/* ── Sky area — altura fixa que define o espaço do céu ──────────── */}
       <div style={{ position: 'relative', height: 158, overflow: 'hidden' }}>
 
-        {/* Estrelas — CSS divs, só à noite, clippadas pelo overflow:hidden do sky area */}
+        {/* Estrelas — CSS divs com twinkle individualizado, só à noite */}
         {isNightState && stars.map((s, i) => (
           <div key={i} style={{
             position: 'absolute', borderRadius: '50%', background: '#fff',
             width: s.size, height: s.size, left: s.left, top: s.top,
-            opacity: skyState === 'night-cloudy' ? s.opacity * 0.25 : s.opacity,
             pointerEvents: 'none',
-          }} />
+            ['--star-opacity-min' as string]: skyState === 'night-cloudy' ? s.opacityMin * 0.25 : s.opacityMin,
+            ['--star-opacity-max' as string]: skyState === 'night-cloudy' ? s.opacityMax * 0.25 : s.opacityMax,
+            animation: `star-twinkle ${s.duration}s ${s.delay}s ease-in-out infinite`,
+          } as React.CSSProperties} />
         ))}
 
         {/* Nuvens CSS com blur */}
@@ -371,21 +380,23 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
           }} />
         )}
 
-        {/* Arco SVG — absolute inset-0, Bezier com vectorEffect para não escalar o stroke */}
-        <svg
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
-          viewBox="0 0 340 158"
-          preserveAspectRatio="none"
-        >
-          <path
-            d="M30,130 Q170,18 310,130"
-            stroke={isNightState ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.28)'}
-            strokeWidth="1"
-            fill="none"
-            strokeDasharray="2 5"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
+        {/* Arco SVG — só durante o dia; à noite removido do DOM */}
+        {!isNightState && (
+          <svg
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
+            viewBox="0 0 340 158"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M30,130 Q170,18 310,130"
+              stroke="rgba(255,255,255,0.22)"
+              strokeWidth="1"
+              fill="none"
+              strokeDasharray="2 5"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+        )}
       </div>
 
       {/* Info row: nascer · duração+lua · pôr */}
