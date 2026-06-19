@@ -312,7 +312,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
 
   return (
     <div style={{
-      borderRadius: 12, overflow: 'hidden', position: 'relative',
+      overflow: 'hidden', position: 'relative',
       background: skyBackgrounds[skyState],
     }}>
       <style>{`
@@ -759,8 +759,10 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         {solar && (
           <>
             <div style={DIV} />
-            <div>
-              <div style={{ ...SEC, marginBottom: 8 }}>Luz do dia — Hoje</div>
+            <div style={{ margin: '0 -18px' }}>
+              <div style={{ padding: '0 18px 8px' }}>
+                <div style={{ ...SEC }}>Luz do dia — Hoje</div>
+              </div>
               <SolarArc
                 sunrise={solar.sunrise}
                 sunset={solar.sunset}
