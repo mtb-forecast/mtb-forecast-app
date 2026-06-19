@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import Link from 'next/link'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
+import DashboardVitrine from './DashboardVitrine'
 import type { TrilhaComCondicao } from '@/lib/types'
 
 const RANKING_VEREDICTO: Record<string, number> = {
@@ -12,8 +13,27 @@ const RANKING_ADERENCIA: Record<string, number> = {
   'GRIP PERFEITO': 0, 'SECO': 1, 'BOA ADERÊNCIA': 2, 'BAIXA ADERÊNCIA': 3,
 }
 
-export default async function DashboardFavoritas({ favTrilhaIds }: { favTrilhaIds: string[] }) {
+export default async function DashboardFavoritas({
+  favTrilhaIds,
+  userEstado,
+  userId,
+}: {
+  favTrilhaIds: string[]
+  userEstado?: string
+  userId?: string
+}) {
   if (!favTrilhaIds.length) {
+    if (userEstado && userId) {
+      const vitrineData = await getVitrineData(userEstado)
+      return (
+        <DashboardVitrine
+          trilha={vitrineData.trilha}
+          totalTrilhasRegiao={vitrineData.totalCount}
+          userEstado={userEstado}
+          userId={userId}
+        />
+      )
+    }
     return (
       <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 40, textAlign: 'center' }}>
         <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>
@@ -121,4 +141,54 @@ export default async function DashboardFavoritas({ favTrilhaIds }: { favTrilhaId
       </div>
     </>
   )
+}
+
+// ── Vitrine helpers ───────────────────────────────────────────────────────────
+
+async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondicao | null; totalCount: number }> {
+  const sb = createSupabaseServerClient()
+
+  const [{ data: trilhasData }, { count }] = await Promise.all([
+    sb.from('trilhas')
+      .select(`
+        id, name, bioma, trail_type, regiao,
+        localidades(cidade, estado, localidade),
+        mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
+        condicoes(
+          veredicto, veredicto_12h,
+          aderencia_status, aderencia_score,
+          aderencia_futura_status, aderencia_futura_label,
+          pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+          texto_dinamico, frase_secagem, gerado_em
+        ),
+        favoritos_agg:favoritos(count)
+      `)
+      .eq('regiao', estado)
+      .eq('aprovada', true),
+    sb.from('trilhas')
+      .select('id', { count: 'exact', head: true })
+      .eq('regiao', estado)
+      .eq('aprovada', true),
+  ])
+
+  const totalCount = count ?? 0
+
+  if (!trilhasData?.length) return { trilha: null, totalCount }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapped = (trilhasData as any[]).map((t) => {
+    const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+    arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
+      new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
+    )
+    const favCount = Array.isArray(t.favoritos_agg) ? (t.favoritos_agg[0]?.count ?? 0) : 0
+    return { ...t, condicao: arr[0] ?? undefined, _favCount: favCount } as TrilhaComCondicao & { _favCount: number }
+  })
+
+  mapped.sort((a, b) => b._favCount - a._favCount)
+
+  const top = mapped[0]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { _favCount: _, favoritos_agg: __, ...trilha } = top as any
+  return { trilha: trilha as TrilhaComCondicao, totalCount }
 }
