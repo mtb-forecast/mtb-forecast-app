@@ -1,11 +1,25 @@
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { unstable_cache } from 'next/cache'
+
+const getFrases = unstable_cache(
+  async () => {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/frases_motivacionais?select=frase&ativo=eq.true`,
+      {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+        },
+      }
+    )
+    if (!res.ok) return []
+    return res.json() as Promise<{ frase: string }[]>
+  },
+  ['frases-motivacionais'],
+  { revalidate: 86400 }
+)
 
 export default async function DashboardFrase() {
-  const sb = createSupabaseServerClient()
-  const { data: frases } = await sb
-    .from('frases_motivacionais')
-    .select('frase')
-    .eq('ativo', true)
+  const frases = await getFrases()
 
   if (!frases || frases.length === 0) return null
 
