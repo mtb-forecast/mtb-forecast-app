@@ -82,7 +82,7 @@ export default async function DashboardFavoritas({
     return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
   })
 
-  const favoritas = [...mapped].sort((a, b) => {
+  const favoritasAll = [...mapped].sort((a, b) => {
     const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
     const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
     if (vA !== vB) return vA - vB
@@ -90,6 +90,8 @@ export default async function DashboardFavoritas({
     const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
     return aA - aB
   })
+  const favoritas = favoritasAll.slice(0, 5)
+  const totalFavoritas = favoritasAll.length
 
   const porTrilha: Record<string, { count: number; media: number }> = {}
   for (const av of (avaliacoes48h ?? [])) {
@@ -139,6 +141,16 @@ export default async function DashboardFavoritas({
           />
         ))}
       </div>
+      {totalFavoritas > 5 && (
+        <div style={{ marginTop: 10, textAlign: 'center' }}>
+          <Link href="/favoritas" style={{
+            fontSize: 12, color: '#6d745f', fontWeight: 500,
+            textDecoration: 'none', display: 'inline-block',
+          }}>
+            +{totalFavoritas - 5} favoritas ocultas — ver todas
+          </Link>
+        </div>
+      )}
     </>
   )
 }

@@ -130,7 +130,11 @@ export default async function DashboardPage() {
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <h2 style={{ fontSize: 15, fontWeight: 500, color: '#2a2e25' }}>Minhas trilhas favoritas</h2>
-            <Link href="/trilhas" style={{ fontSize: 13, color: '#6B7280', fontWeight: 400, textDecoration: 'none' }}>
+            <Link href="/favoritas" style={{
+              fontSize: 12, fontWeight: 700, color: '#1A1A1A',
+              background: '#FFE000', borderRadius: 999,
+              padding: '4px 12px', textDecoration: 'none',
+            }}>
               Ver todas →
             </Link>
           </div>
