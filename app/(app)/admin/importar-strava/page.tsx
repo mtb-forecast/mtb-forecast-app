@@ -238,10 +238,10 @@ function ImportarStravaContent() {
       <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <Link
-            href="/perfil"
+            href="/admin"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none' }}
           >
-            ← Voltar
+            ← Admin
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Importar via Strava</h1>
