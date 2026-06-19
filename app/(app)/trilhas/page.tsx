@@ -120,6 +120,7 @@ function TrilhasContent() {
               )
             `)
             .eq('aprovada', true)
+            .eq('regiao', estadoSelecionado)
             .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
             .order('name'),
           supabase
@@ -217,15 +218,15 @@ function TrilhasContent() {
     }
   }, [userId, favoritos])
 
-  // Filtragem client-side — memoizado para evitar recálculo a cada render
-  const trilhasFiltradas = useMemo(() => trilhasAll.filter(t => {
-    if (!estadoSelecionado) return false
-    const estadoTrilha = t.localidades?.estado || t.regiao || ''
-    if (estadoTrilha !== estadoSelecionado) return false
-    if (cidadeSelecionada && t.localidades?.cidade !== cidadeSelecionada) return false
-    if (localidadeSelecionada && t.localidades?.localidade !== localidadeSelecionada) return false
-    return true
-  }), [trilhasAll, estadoSelecionado, cidadeSelecionada, localidadeSelecionada])
+  // Filtragem client-side — estado já filtrado no banco; apenas cidade/localidade aqui
+  const trilhasFiltradas = useMemo(() => {
+    if (!estadoSelecionado) return []
+    return trilhasAll.filter(t => {
+      if (cidadeSelecionada && t.localidades?.cidade !== cidadeSelecionada) return false
+      if (localidadeSelecionada && t.localidades?.localidade !== localidadeSelecionada) return false
+      return true
+    })
+  }, [trilhasAll, estadoSelecionado, cidadeSelecionada, localidadeSelecionada])
 
   const ranked = useMemo(() => rankTrilhas(trilhasFiltradas), [trilhasFiltradas])
 
