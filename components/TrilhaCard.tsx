@@ -2,12 +2,13 @@ import { memo } from 'react'
 import Link from 'next/link'
 import {
   IconMinus, IconCircleX, IconAlertTriangle, IconCircleCheck,
-  IconMapPin, IconChevronRight, IconHourglass, IconBell, IconStar,
+  IconMapPin, IconChevronRight, IconHourglass, IconBell,
   type TablerIcon,
 } from '@tabler/icons-react'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
+import FavoritoButton from '@/components/FavoritoButton'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -106,35 +107,12 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 1 }}>
-              {onToggleFavorito && !hasData && (
-                <button
+              {onToggleFavorito && (
+                <FavoritoButton
+                  isFavorito={!!isFavorito}
                   onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleFavorito(trilha.id) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    background: '#FFE000', color: '#1A1A1A',
-                    fontWeight: 700, fontSize: 11,
-                    border: 'none', borderRadius: 999,
-                    padding: '5px 10px', cursor: 'pointer',
-                    whiteSpace: 'nowrap', flexShrink: 0,
-                  }}
-                >
-                  <IconStar size={12} />
-                  Favoritar
-                </button>
-              )}
-              {onToggleFavorito && hasData && (
-                <button
-                  onClick={e => { e.preventDefault(); onToggleFavorito(trilha.id) }}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: 16, lineHeight: 1,
-                    padding: '8px', margin: '-8px -4px -8px 0',
-                    color: isFavorito ? '#f59e0b' : '#d0d4c6',
-                    transition: 'color 0.15s',
-                  }}
-                >
-                  {isFavorito ? '★' : '☆'}
-                </button>
+                  size="sm"
+                />
               )}
               <IconChevronRight size={14} style={{ color: '#8a9480' }} />
             </div>

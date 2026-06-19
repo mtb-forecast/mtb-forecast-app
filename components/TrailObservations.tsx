@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Observacao } from '@/lib/types'
+import FavoritoButton from '@/components/FavoritoButton'
 
 type Props = {
   trilhaId: string
@@ -262,19 +263,12 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
               <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
                 Adicione esta trilha aos favoritos para avaliar
               </p>
-              <button
-                onClick={handleFavoritar}
-                disabled={favoritando}
-                style={{
-                  background: '#6d745f', color: '#fff',
-                  border: 'none', borderRadius: 4,
-                  padding: '6px 14px', fontSize: 12, fontWeight: 500,
-                  cursor: favoritando ? 'not-allowed' : 'pointer',
-                  opacity: favoritando ? 0.7 : 1,
-                }}
-              >
-                {favoritando ? 'Favoritando...' : 'Favoritar trilha'}
-              </button>
+              <FavoritoButton
+                isFavorito={false}
+                onClick={e => { e.preventDefault(); handleFavoritar() }}
+                loading={favoritando}
+                size="sm"
+              />
             </div>
             {limiteMsg && (
               <p style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>
