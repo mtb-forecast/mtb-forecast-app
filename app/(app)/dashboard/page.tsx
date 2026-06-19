@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import DashboardFavoritas from './DashboardFavoritas'
+import DashboardFrase from './DashboardFrase'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 export default async function DashboardPage() {
@@ -13,29 +14,16 @@ export default async function DashboardPage() {
   const user = session?.user
   if (!user) redirect('/login')
 
-  // Rodada 1 — dados leves: perfil + favoritos + frase
-  // O shell (hero com h1) é enviado ao browser assim que esta rodada termina.
-  // A rodada 2 (trilhas + avaliações) roda em DashboardFavoritas, em paralelo com
-  // o streaming do shell, sem bloquear o LCP.
-  const [{ data: profileData }, { data: favIds }, { data: frases }] = await Promise.all([
+  // Rodada 1 — apenas perfil + favoritos (críticos para o LCP).
+  // frases_motivacionais é buscada em DashboardFrase via Suspense, sem bloquear o LCP.
+  const [{ data: profileData }, { data: favIds }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, email, is_admin, nome, apelido, telefone, regiao, receber_email, telegram_username, telegram_chat_id, telegram_ativo')
       .eq('id', user.id)
       .single(),
     supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-    supabase.from('frases_motivacionais').select('frase').eq('ativo', true),
   ])
-
-  const frase = frases && frases.length > 0
-    ? (() => {
-        const now = new Date()
-        const dayOfYear = Math.floor(
-          (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000
-        )
-        return frases[dayOfYear % frases.length].frase
-      })()
-    : null
 
   const profile = profileData
   const name = profile?.apelido || profile?.nome?.split(' ')[0] || user.email?.split('@')[0]
@@ -63,16 +51,9 @@ export default async function DashboardPage() {
             )}
           </h1>
 
-          {frase && (
-            <p style={{
-              marginTop: 10, marginBottom: 0,
-              fontSize: 13, fontStyle: 'italic',
-              color: 'rgba(168,184,153,0.85)',
-              lineHeight: 1.5, maxWidth: 480,
-            }}>
-              &ldquo;{frase}&rdquo;
-            </p>
-          )}
+          <Suspense fallback={null}>
+            <DashboardFrase />
+          </Suspense>
 
           <div style={{ background: '#a8b899', height: 3, marginTop: 20 }} />
         </div>

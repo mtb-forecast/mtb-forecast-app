@@ -1,4 +1,8 @@
 import { memo, useMemo } from 'react'
+import {
+  IconAlertTriangle, IconWind, IconDroplet, IconInfoCircle,
+  IconCloud, IconCalendar,
+} from '@tabler/icons-react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { rainColor, windColor, DISPLAY_THR, emojiTempo } from '@/lib/display'
 
@@ -326,7 +330,7 @@ function CondicaoCard({ condicao }: Props) {
                 {hasAlerta && (
                   <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: 8, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E', fontWeight: 600 }}>
-                      <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: '#F59E0B' }} />
+                      <IconAlertTriangle size={13} style={{ color: '#F59E0B' }} />
                       Previsão {condicao.aderencia_futura_label}: {condicao.aderencia_futura_status}
                       {condicao.aderencia_futura_rain != null && condicao.aderencia_futura_rain > 0
                         ? <span className="font-mono"> ({condicao.aderencia_futura_rain.toFixed(1)}mm previstos)</span> : null}
@@ -339,7 +343,7 @@ function CondicaoCard({ condicao }: Props) {
                 {vCfg && (
                   <div style={{ background: '#FEFCE8', borderLeft: `3px solid ${vCfg.border}`, borderRadius: 8, padding: '8px 12px' }}>
                     <div style={{ fontSize: 12, color: vCfg.cor, fontWeight: 600, marginBottom: 3 }}>
-                      <i className="ti ti-wind" style={{ fontSize: 12, marginRight: 5 }} />
+                      <IconWind size={12} style={{ marginRight: 5 }} />
                       {vCfg.titulo}
                       {condicao.alerta_vento_kmh != null && <span className="font-mono"> · {condicao.alerta_vento_kmh.toFixed(0)} km/h</span>}
                     </div>
@@ -350,7 +354,7 @@ function CondicaoCard({ condicao }: Props) {
                 {/* Rajada prevista */}
                 {temRajada && condicao.gust_max_kmh != null && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F9FAFB', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#374151' }}>
-                    <i className="ti ti-wind" style={{ fontSize: 14, color: windColor(condicao.gust_max_kmh) }} />
+                    <IconWind size={14} style={{ color: windColor(condicao.gust_max_kmh) }} />
                     <span>Rajada prevista de até <b className="font-mono">{condicao.gust_max_kmh.toFixed(0)} km/h</b> nas próximas 24h</span>
                   </div>
                 )}
@@ -358,7 +362,7 @@ function CondicaoCard({ condicao }: Props) {
                 {/* Chuva prevista */}
                 {temChuva24h && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F9FAFB', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#374151' }}>
-                    <i className="ti ti-droplet" style={{ fontSize: 14, color: '#3B82F6' }} />
+                    <IconDroplet size={14} style={{ color: '#3B82F6' }} />
                     <span className="font-mono">
                       Chuva prevista: {chuvasPrev.map(b => `${b.rain_mm.toFixed(1)}mm (${b.label})`).join(', ')}
                     </span>
@@ -369,7 +373,7 @@ function CondicaoCard({ condicao }: Props) {
                 {isAlertaVeredicto && !hasAlerta && !vCfg && !temRajada && !temChuva24h && condicao.motivo_veredicto && (
                   <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: 8, padding: '8px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E', fontWeight: 600, marginBottom: 4 }}>
-                      <i className="ti ti-info-circle" style={{ fontSize: 13, color: '#F59E0B' }} />
+                      <IconInfoCircle size={13} style={{ color: '#F59E0B' }} />
                       Fatores de atenção
                     </div>
                     <span style={{ fontSize: 11, color: '#B45309', paddingLeft: 19, display: 'block' }}>
@@ -395,13 +399,13 @@ function CondicaoCard({ condicao }: Props) {
                 <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '5px 10px', borderRadius: 6, background: '#F9FAFB' }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: '#374151', minWidth: 70 }}>{b.label}</span>
                   <span style={{ color: b.rain_mm > 5 ? '#EF4444' : b.rain_mm > 1 ? '#F59E0B' : '#22C55E' }} className="font-mono">
-                    <i className="ti ti-droplet" style={{ fontSize: 11 }} /> {b.rain_mm.toFixed(1)}mm
+                    <IconDroplet size={11} /> {b.rain_mm.toFixed(1)}mm
                   </span>
                   <span style={{ color: '#9CA3AF' }} className="font-mono">
-                    <i className="ti ti-cloud" style={{ fontSize: 11 }} /> {b.pop_max}%
+                    <IconCloud size={11} /> {b.pop_max}%
                   </span>
                   <span style={{ color: '#6B7280' }} className="font-mono">
-                    <i className="ti ti-wind" style={{ fontSize: 11 }} /> {b.wind_max.toFixed(1)}m/s
+                    <IconWind size={11} /> {b.wind_max.toFixed(1)}m/s
                   </span>
                   <span style={{ color: '#9CA3AF', marginLeft: 'auto' }} className="font-mono">{b.temp_med}°C</span>
                 </div>
@@ -411,7 +415,7 @@ function CondicaoCard({ condicao }: Props) {
 
           {condicao.horarios_chuva && (
             <div style={{ fontSize: 11, color: '#6B7280', lineHeight: 1.6 }}>
-              <i className="ti ti-calendar" style={{ fontSize: 11, marginRight: 4 }} />
+              <IconCalendar size={11} style={{ marginRight: 4 }} />
               {condicao.horarios_chuva}
             </div>
           )}

@@ -46,8 +46,7 @@ export default async function DashboardFavoritas({ favTrilhaIds }: { favTrilhaId
         )
       `)
       .in('id', favTrilhaIds)
-      .eq('aprovada', true)
-      .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
+      .eq('aprovada', true),
     sb.from('observacoes_trilha')
       .select('trilha_id, estrelas')
       .gte('created_at', h48atras)
@@ -57,6 +56,9 @@ export default async function DashboardFavoritas({ favTrilhaIds }: { favTrilhaId
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapped = (trilhasData as any[] ?? []).map((t) => {
     const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+    arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
+      new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
+    )
     return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
   })
 

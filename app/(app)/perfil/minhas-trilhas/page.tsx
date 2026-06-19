@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import {
+  IconArrowLeft, IconPlus, IconSearch, IconX, IconMapPin,
+  IconFilterOff, IconPencil, IconMap, IconTrash,
+} from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -184,7 +188,7 @@ export default function MinhasTrilhasPage() {
       {/* Header */}
       <div style={{ padding: '20px 16px 0', maxWidth: 640, margin: '0 auto' }}>
         <Link href="/perfil" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.muted, fontSize: 13, textDecoration: 'none', marginBottom: 20 }}>
-          <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
+          <IconArrowLeft size={14} />
           Perfil
         </Link>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
@@ -201,7 +205,7 @@ export default function MinhasTrilhasPage() {
             background: T.primary, color: '#fff', borderRadius: 12,
             padding: '9px 14px', fontSize: 13, fontWeight: 800, textDecoration: 'none', flexShrink: 0,
           }}>
-            <i className="ti ti-plus" style={{ fontSize: 14 }} />
+            <IconPlus size={14} />
             Novo
           </Link>
         </div>
@@ -266,7 +270,7 @@ export default function MinhasTrilhasPage() {
 
         {/* Search */}
         <div style={{ position: 'relative', marginBottom: 16 }}>
-          <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: T.muted }} />
+          <IconSearch size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.muted }} />
           <input
             type="text"
             placeholder="Buscar por nome…"
@@ -281,7 +285,7 @@ export default function MinhasTrilhasPage() {
           />
           {busca && (
             <button onClick={() => setBusca('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, padding: 2 }}>
-              <i className="ti ti-x" />
+              <IconX size={14} />
             </button>
           )}
         </div>
@@ -293,7 +297,7 @@ export default function MinhasTrilhasPage() {
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(109,116,95,0.08)', border: '1px solid rgba(109,116,95,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
                 {estadoFiltro}
                 <button onClick={() => { setEstadoFiltro(''); setCidadeFiltro('') }} style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', padding: 0, fontSize: 12, display: 'flex' }}>
-                  <i className="ti ti-x" />
+                  <IconX size={14} />
                 </button>
               </span>
             )}
@@ -301,7 +305,7 @@ export default function MinhasTrilhasPage() {
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(109,116,95,0.08)', border: '1px solid rgba(109,116,95,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
                 {cidadeFiltro}
                 <button onClick={() => setCidadeFiltro('')} style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', padding: 0, fontSize: 12, display: 'flex' }}>
-                  <i className="ti ti-x" />
+                  <IconX size={14} />
                 </button>
               </span>
             )}
@@ -314,7 +318,7 @@ export default function MinhasTrilhasPage() {
         {items.length === 0 ? (
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 20, padding: '48px 32px', textAlign: 'center' }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-map-pin" style={{ fontSize: 24, color: T.muted }} />
+              <IconMapPin size={24} style={{ color: T.muted }} />
             </div>
             <p style={{ fontSize: 15, color: T.text, fontWeight: 600, margin: '0 0 8px' }}>Nenhum cadastro ainda</p>
             <p style={{ fontSize: 13, color: T.muted, margin: '0 0 24px' }}>Compartilhe suas trilhas e pump tracks com a comunidade MTB.</p>
@@ -323,13 +327,13 @@ export default function MinhasTrilhasPage() {
               background: T.primary, color: '#fff', borderRadius: 14,
               padding: '12px 24px', fontSize: 14, fontWeight: 800, textDecoration: 'none',
             }}>
-              <i className="ti ti-plus" style={{ fontSize: 16 }} />
+              <IconPlus size={16} />
               Cadastrar agora
             </Link>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: '32px', textAlign: 'center' }}>
-            <i className="ti ti-filter-off" style={{ fontSize: 28, color: T.muted }} />
+            <IconFilterOff size={28} style={{ color: T.muted }} />
             <p style={{ fontSize: 14, color: T.muted, marginTop: 12 }}>Nenhum resultado para os filtros aplicados.</p>
           </div>
         ) : (
@@ -370,7 +374,7 @@ export default function MinhasTrilhasPage() {
                     {/* Meta */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                       <span style={{ fontSize: 12, color: T.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <i className="ti ti-map-pin" style={{ fontSize: 12 }} />
+                        <IconMapPin size={12} />
                         {item.regiao}{item.cidade ? ` · ${item.cidade}` : ''}
                       </span>
                       <span style={{ fontSize: 12, color: T.muted }}>
@@ -405,7 +409,7 @@ export default function MinhasTrilhasPage() {
                           padding: '8px 16px', fontSize: 13, fontWeight: 600,
                           textDecoration: 'none', border: `1px solid ${T.border}`,
                         }}>
-                          <i className="ti ti-pencil" style={{ fontSize: 14, color: T.primary }} />
+                          <IconPencil size={14} style={{ color: T.primary }} />
                           Editar
                         </Link>
 
@@ -416,7 +420,7 @@ export default function MinhasTrilhasPage() {
                             padding: '8px 16px', fontSize: 13, fontWeight: 600,
                             textDecoration: 'none', border: `1px solid ${T.border}`,
                           }}>
-                            <i className="ti ti-map" style={{ fontSize: 14 }} />
+                            <IconMap size={14} />
                             Ver no mapa
                           </Link>
                         )}
@@ -429,7 +433,7 @@ export default function MinhasTrilhasPage() {
                             padding: '8px 12px', fontSize: 13, fontWeight: 600,
                             border: '1px solid rgba(248,113,113,0.2)', cursor: 'pointer',
                           }}>
-                          <i className="ti ti-trash" style={{ fontSize: 14 }} />
+                          <IconTrash size={14} />
                           Excluir
                         </button>
                       </div>

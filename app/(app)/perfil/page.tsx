@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import {
+  IconLock, IconChevronRight, IconAlertTriangle, IconExternalLink,
+  IconBrandInstagram, IconBrandTelegram, IconSettings, IconBrandFacebook,
+  IconBrandStrava, IconMail, IconCircleCheck, IconRocket, IconUser,
+  IconMapPin, IconDeviceMobile, IconArrowRight, IconLogout, IconDeviceFloppy,
+} from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
 import { PLANOS } from '@/lib/stripe-config'
@@ -102,8 +108,8 @@ function InfoRow({
         </div>
         {sub && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{sub}</div>}
       </div>
-      {locked && <i className="ti ti-lock" style={{ fontSize: 14, color: T.dim, flexShrink: 0 }} />}
-      {!locked && onTap && <i className="ti ti-chevron-right" style={{ fontSize: 14, color: T.dim, flexShrink: 0 }} />}
+      {locked && <IconLock size={14} style={{ color: T.dim, flexShrink: 0 }} />}
+      {!locked && onTap && <IconChevronRight size={14} style={{ color: T.dim, flexShrink: 0 }} />}
     </button>
   )
 }
@@ -377,7 +383,7 @@ export default function PerfilPage() {
       {/* Banner perfil incompleto */}
       {isIncomplete && (
         <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 14, padding: '12px 16px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: '#d97706', flexShrink: 0, marginTop: 1 }} />
+          <IconAlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 13, color: '#92400e', margin: 0, lineHeight: 1.5 }}>
             Complete seu perfil — alguns dados obrigatórios estão faltando.
           </p>
@@ -434,7 +440,7 @@ export default function PerfilPage() {
           <div>
             <label style={lbl}>
               E-mail
-              <i className="ti ti-lock" style={{ fontSize: 11, marginLeft: 5, color: T.dim }} />
+              <IconLock size={11} style={{ marginLeft: 5, color: T.dim }} />
             </label>
             <input style={{ ...inpForm, color: T.dim, cursor: 'not-allowed' }}
               type="email" value={profile?.email || ''} disabled />
@@ -469,7 +475,7 @@ export default function PerfilPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
             <div>
               <label style={lbl}>
-                <i className="ti ti-brand-instagram" style={{ marginRight: 5, color: '#E1306C' }} />Instagram
+                <IconBrandInstagram size={14} style={{ marginRight: 5, color: '#E1306C' }} />Instagram
               </label>
               <input style={inpForm} type="text" value={instagram}
                 onChange={e => { const v = e.target.value; setInstagram(v && !v.startsWith('@') ? '@' + v : v) }}
@@ -478,7 +484,7 @@ export default function PerfilPage() {
             {instagram && (
               <a href={`https://instagram.com/${instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#E1306C', textDecoration: 'none', flexShrink: 0 }}>
-                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+                <IconExternalLink size={16} />
               </a>
             )}
           </div>
@@ -487,7 +493,7 @@ export default function PerfilPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
             <div>
               <label style={lbl}>
-                <i className="ti ti-brand-telegram" style={{ marginRight: 5, color: '#26A5E4' }} />Telegram
+                <IconBrandTelegram size={14} style={{ marginRight: 5, color: '#26A5E4' }} />Telegram
               </label>
               <input style={inpForm} type="text" value={telegram}
                 onChange={e => { const v = e.target.value; setTelegram(v && !v.startsWith('@') ? '@' + v : v) }}
@@ -496,12 +502,12 @@ export default function PerfilPage() {
             {telegram ? (
               <a href={`https://t.me/${telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#26A5E4', textDecoration: 'none', flexShrink: 0 }}>
-                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+                <IconExternalLink size={16} />
               </a>
             ) : (
               <button type="button" onClick={() => setSheetField('telegram')}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
-                <i className="ti ti-settings" style={{ fontSize: 16, color: T.muted }} />
+                <IconSettings size={16} style={{ color: T.muted }} />
               </button>
             )}
           </div>
@@ -510,7 +516,7 @@ export default function PerfilPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
             <div>
               <label style={lbl}>
-                <i className="ti ti-brand-facebook" style={{ marginRight: 5, color: '#1877F2' }} />Facebook
+                <IconBrandFacebook size={14} style={{ marginRight: 5, color: '#1877F2' }} />Facebook
               </label>
               <input style={inpForm} type="text" value={facebook}
                 onChange={e => setFacebook(e.target.value)}
@@ -519,7 +525,7 @@ export default function PerfilPage() {
             {facebook && (
               <a href={facebook.startsWith('http') ? facebook : `https://facebook.com/${facebook}`} target="_blank" rel="noopener noreferrer"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#1877F2', textDecoration: 'none', flexShrink: 0 }}>
-                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+                <IconExternalLink size={16} />
               </a>
             )}
           </div>
@@ -528,7 +534,7 @@ export default function PerfilPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
             <div>
               <label style={lbl}>
-                <i className="ti ti-brand-strava" style={{ marginRight: 5, color: '#FC4C02' }} />Strava ID
+                <IconBrandStrava size={14} style={{ marginRight: 5, color: '#FC4C02' }} />Strava ID
               </label>
               <input style={inpForm} type="text" value={stravaId}
                 onChange={e => setStravaId(e.target.value.replace(/\D/g, ''))}
@@ -540,7 +546,7 @@ export default function PerfilPage() {
             {stravaId && (
               <a href={`https://www.strava.com/athletes/${stravaId}`} target="_blank" rel="noopener noreferrer"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#FC4C02', textDecoration: 'none', flexShrink: 0, alignSelf: 'start', marginTop: 22 }}>
-                <i className="ti ti-external-link" style={{ fontSize: 16 }} />
+                <IconExternalLink size={16} />
               </a>
             )}
           </div>
@@ -623,7 +629,7 @@ export default function PerfilPage() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             transition: 'background 0.2s',
           }}>
-            <i className="ti ti-mail" style={{ fontSize: 18, color: receberEmail ? T.primary : T.muted }} />
+            <IconMail size={18} style={{ color: receberEmail ? T.primary : T.muted }} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
@@ -675,7 +681,7 @@ export default function PerfilPage() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background 0.2s',
                 }}>
-                  <i className="ti ti-brand-telegram" style={{ fontSize: 18, color: isAtivo ? '#26A5E4' : !hasUsername ? T.muted : '#f59e0b' }} />
+                  <IconBrandTelegram size={18} style={{ color: isAtivo ? '#26A5E4' : !hasUsername ? T.muted : '#f59e0b' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -720,7 +726,7 @@ export default function PerfilPage() {
                       border: 'none', borderRadius: 12, padding: '12px', fontSize: 13, fontWeight: 700,
                       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     }}>
-                    <i className="ti ti-brand-telegram" style={{ fontSize: 16 }} />
+                    <IconBrandTelegram size={16} />
                     Adicionar meu @username
                   </button>
                 </div>
@@ -752,7 +758,7 @@ export default function PerfilPage() {
                       padding: '12px', fontSize: 13, fontWeight: 700,
                       textDecoration: 'none', width: '100%', boxSizing: 'border-box',
                     }}>
-                    <i className="ti ti-brand-telegram" style={{ fontSize: 16 }} />
+                    <IconBrandTelegram size={16} />
                     Abrir @mtbforecaster_bot no Telegram
                   </a>
                 </div>
@@ -818,7 +824,7 @@ export default function PerfilPage() {
         <div style={{ marginBottom: 24 }}>
           {plano.features.map(f => (
             <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '5px 0' }}>
-              <i className="ti ti-circle-check" style={{ fontSize: 16, color: isPago ? T.primary : '#4ade80', flexShrink: 0, marginTop: 1 }} />
+              <IconCircleCheck size={16} style={{ color: isPago ? T.primary : '#4ade80', flexShrink: 0, marginTop: 1 }} />
               <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{f}</span>
             </div>
           ))}
@@ -833,7 +839,7 @@ export default function PerfilPage() {
               padding: '11px 20px', fontSize: 13, fontWeight: 600,
               cursor: portalLoading ? 'not-allowed' : 'pointer',
             }}>
-            {portalLoading ? <Spinner size={13} /> : <i className="ti ti-external-link" style={{ fontSize: 15 }} />}
+            {portalLoading ? <Spinner size={13} /> : <IconExternalLink size={15} />}
             Gerenciar assinatura
           </button>
         ) : (
@@ -844,7 +850,7 @@ export default function PerfilPage() {
             fontSize: 14, fontWeight: 800, textDecoration: 'none',
             boxShadow: '0 4px 20px rgba(109,116,95,0.25)',
           }}>
-            <i className="ti ti-rocket" style={{ fontSize: 16 }} />
+            <IconRocket size={16} />
             Fazer upgrade
           </Link>
         )}
@@ -856,7 +862,7 @@ export default function PerfilPage() {
           <p style={{ fontSize: 13, fontWeight: 700, color: T.text, margin: '0 0 14px' }}>Com o upgrade você ganha:</p>
           {['Alertas Telegram em tempo real', 'Escolha o horário do report', 'Integração com Strava', 'Histórico de condições'].map(item => (
             <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-              <i className="ti ti-circle-check" style={{ fontSize: 15, color: T.primary, flexShrink: 0 }} />
+              <IconCircleCheck size={15} style={{ color: T.primary, flexShrink: 0 }} />
               <span style={{ fontSize: 13, color: T.muted }}>{item}</span>
             </div>
           ))}
@@ -872,7 +878,7 @@ export default function PerfilPage() {
     {
       nome: 'Strava',
       sub: 'Segmentos favoritos e histórico de atividades',
-      icon: <i className="ti ti-brand-strava" style={{ fontSize: 22, color: '#FC4C02' }} />,
+      icon: <IconBrandStrava size={22} style={{ color: '#FC4C02' }} />,
       bg: 'rgba(252,76,2,0.10)',
       border: 'rgba(252,76,2,0.20)',
       color: '#FC4C02',
@@ -1022,7 +1028,7 @@ export default function PerfilPage() {
                       padding: '10px 14px', fontSize: 13, fontWeight: 600,
                       textDecoration: 'none',
                     }}>
-                    <i className="ti ti-brand-telegram" style={{ fontSize: 15 }} />
+                    <IconBrandTelegram size={15} />
                     Abrir @mtbforecaster_bot
                   </a>
                 </>
@@ -1105,26 +1111,26 @@ export default function PerfilPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
               {nome && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="ti ti-user" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <IconUser size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
                   <span style={{ fontSize: 13, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</span>
                 </div>
               )}
               {regiao && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="ti ti-map-pin" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <IconMapPin size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
                   <span style={{ fontSize: 13, color: T.text }}>{estadoLabel(regiao)}</span>
                 </div>
               )}
               {telefone && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="ti ti-device-mobile" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <IconDeviceMobile size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
                   <span style={{ fontSize: 13, color: T.text }}>{telefone}</span>
                   {telefoneWhatsapp && <span style={{ fontSize: 10, background: 'rgba(37,211,102,0.12)', color: '#25D366', borderRadius: 20, padding: '2px 8px', fontWeight: 600 }}>WhatsApp</span>}
                 </div>
               )}
               {instagram && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <i className="ti ti-brand-instagram" style={{ fontSize: 14, color: T.muted, width: 16, flexShrink: 0 }} />
+                  <IconBrandInstagram size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
                   <span style={{ fontSize: 13, color: T.text }}>{instagram.startsWith('@') ? instagram : `@${instagram}`}</span>
                 </div>
               )}
@@ -1154,7 +1160,7 @@ export default function PerfilPage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ fontSize: 11, color: T.muted, fontWeight: 500 }}>{s.label}</span>
-                    {s.href && <i className="ti ti-arrow-right" style={{ fontSize: 10, color: T.dim }} />}
+                    {s.href && <IconArrowRight size={10} style={{ color: T.dim }} />}
                   </div>
                 </div>
               )
@@ -1216,7 +1222,7 @@ export default function PerfilPage() {
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
-            <i className="ti ti-logout" style={{ fontSize: 18 }} />
+            <IconLogout size={18} />
             Sair da conta
           </button>
         </div>
@@ -1248,7 +1254,7 @@ export default function PerfilPage() {
             transition: 'background 0.15s',
           }}
         >
-          {saving ? <Spinner size={16} /> : <i className="ti ti-device-floppy" style={{ fontSize: 18 }} />}
+          {saving ? <Spinner size={16} /> : <IconDeviceFloppy size={18} />}
           {saving ? 'Salvando…' : saveOk ? '✓ Alterações salvas' : 'Salvar alterações'}
         </button>
       </div>

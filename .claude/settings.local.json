@@ -192,7 +192,11 @@
       "Bash(grep \"\\\\.md$\")",
       "PowerShell(Get-ChildItem \"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\README.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\docs\\\\supabase-tabelas.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\docs\\\\formulas-modelo.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\docs\\\\fluxos.md\",\"c:\\\\ClaudeCode\\\\mtb-forecast-app\\\\CLAUDE.md\" | Select-Object Name, @{N='Lines';E={\\(Get-Content $_.FullName\\).Count}}, @{N='KB';E={[math]::Round\\($_.Length/1024,1\\)}})",
       "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py'\\).read\\(\\)\\); print\\('OK — sem erros de sintaxe'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('mtb-forecast.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('mtb_email_html.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('mtb_telegram.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@tabler/icons-react/package.json'\\); console.log\\('version:', pkg.version\\)\")",
+      "Bash(node -e \"const icons = require\\('@tabler/icons-react'\\); console.log\\(typeof icons.IconMapPin, Object.keys\\(icons\\).filter\\(k=>k==='Icon'\\)\\)\")"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",

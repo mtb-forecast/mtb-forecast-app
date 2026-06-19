@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { IconRoute, IconMap2, IconExternalLink, IconDownload } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
@@ -559,7 +560,7 @@ export default function CadastrarTrilhaPage() {
                   </>
                 ) : (
                   <>
-                    <i className="ti ti-route" style={{ fontSize: 15 }} />
+                    <IconRoute size={15} />
                     Importar arquivo GPX
                   </>
                 )}
@@ -607,7 +608,7 @@ export default function CadastrarTrilhaPage() {
               {isWikiloc(mapsUrl) && (
                 <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '14px 16px', marginTop: 8 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: '#92400e', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <i className="ti ti-map-2" style={{ fontSize: 14 }} />
+                    <IconMap2 size={14} />
                     URL do Wikiloc detectada
                   </p>
                   <p style={{ fontSize: 12, color: '#78350f', margin: '0 0 12px', lineHeight: 1.6 }}>
@@ -629,7 +630,7 @@ export default function CadastrarTrilhaPage() {
                         borderRadius: 6, padding: '7px 14px', fontSize: 12, fontWeight: 600,
                       }}
                     >
-                      <i className="ti ti-external-link" style={{ fontSize: 13 }} />
+                      <IconExternalLink size={13} />
                       Abrir trilha no Wikiloc
                     </a>
                     {wikilockGpxUrl(mapsUrl) && (
@@ -643,7 +644,7 @@ export default function CadastrarTrilhaPage() {
                           border: '1px solid #fde68a', borderRadius: 6, padding: '7px 14px', fontSize: 12, fontWeight: 600,
                         }}
                       >
-                        <i className="ti ti-download" style={{ fontSize: 13 }} />
+                        <IconDownload size={13} />
                         Baixar GPX direto
                       </a>
                     )}
