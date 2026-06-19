@@ -2,7 +2,7 @@ import { memo } from 'react'
 import Link from 'next/link'
 import {
   IconMinus, IconCircleX, IconAlertTriangle, IconCircleCheck,
-  IconMapPin, IconChevronRight, IconHourglass,
+  IconMapPin, IconChevronRight, IconHourglass, IconBell, IconStar,
   type TablerIcon,
 } from '@tabler/icons-react'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
@@ -106,7 +106,23 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 1 }}>
-              {onToggleFavorito && (
+              {onToggleFavorito && !hasData && (
+                <button
+                  onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleFavorito(trilha.id) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: '#FFE000', color: '#1A1A1A',
+                    fontWeight: 700, fontSize: 11,
+                    border: 'none', borderRadius: 999,
+                    padding: '5px 10px', cursor: 'pointer',
+                    whiteSpace: 'nowrap', flexShrink: 0,
+                  }}
+                >
+                  <IconStar size={12} />
+                  Favoritar
+                </button>
+              )}
+              {onToggleFavorito && hasData && (
                 <button
                   onClick={e => { e.preventDefault(); onToggleFavorito(trilha.id) }}
                   style={{
@@ -155,13 +171,36 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
           )}
 
           {!hasData && (
-            <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', margin: '8px 0 0' }}>
-              Condição ainda não calculada.
-            </p>
+            <div style={{ marginTop: 8 }}>
+              <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', margin: '0 0 8px' }}>
+                Condição ainda não calculada.
+              </p>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#fffbeb', color: '#78350f',
+                fontSize: 11, fontWeight: 500,
+                padding: '5px 10px', borderRadius: 999,
+              }}>
+                <IconBell size={12} />
+                Favorite para ser avisado quando a condição sair
+              </span>
+            </div>
           )}
         </div>
 
         {/* ── Card footer ── */}
+        {!hasData && (
+          <div style={{
+            borderTop: '0.5px solid #d0d4c6',
+            background: '#f4f5f0',
+            padding: '8px 16px 10px',
+            display: 'flex', justifyContent: 'flex-end',
+          }}>
+            <span style={{ fontSize: 11, color: '#6d745f', fontWeight: 500 }}>
+              Ver trilha →
+            </span>
+          </div>
+        )}
         {hasData && c && (
           <div style={{
             borderTop: '0.5px solid #d0d4c6',
