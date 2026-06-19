@@ -378,15 +378,6 @@ export default function MinhasTrilhasPage() {
                       </span>
                     </div>
 
-                    {/* Rejection reason (MTB only) */}
-                    {item.kind === 'mtb' && item.status === 'rejeitada' && item.motivo_rejeicao && (
-                      <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
-                        <p style={{ fontSize: 12, color: '#f87171', margin: 0, lineHeight: 1.6 }}>
-                          <strong>Motivo:</strong> {item.motivo_rejeicao}
-                        </p>
-                      </div>
-                    )}
-
                     {/* Actions */}
                     {confirmDeleteId === `${item.kind}-${item.id}` ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px' }}>
