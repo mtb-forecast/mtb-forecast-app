@@ -51,7 +51,6 @@ export default async function MantenedorPage({ params }: { params: { id: string 
       `)
       .eq('mantenedor_id', params.id)
       .eq('aprovada', true)
-      .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
       .order('name'),
   ])
 
@@ -60,6 +59,10 @@ export default async function MantenedorPage({ params }: { params: { id: string 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const trilhas: TrilhaComCondicao[] = (trilhasRaw ?? []).map((t: any) => {
     const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+    // ordena por gerado_em desc para pegar a condição mais recente
+    arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
+      new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
+    )
     return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
   })
 
