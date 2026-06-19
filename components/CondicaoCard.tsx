@@ -121,6 +121,15 @@ const DIV: React.CSSProperties = { borderTop: '0.5px solid #E5E7EB' }
 
 // ── Solar Arc ─────────────────────────────────────────────────────────────────
 
+// Fase da lua calculada localmente — sem API, sempre disponível.
+// Retorna 0–1: 0 = lua nova, 0.5 = lua cheia.
+function calcMoonPhase(date: Date): number {
+  const known = new Date(2000, 0, 6, 18, 14, 0) // lua nova conhecida: 6 jan 2000
+  const synodic = 29.530588853                   // mês sinódico em dias
+  const diff = (date.getTime() - known.getTime()) / 86400000
+  return (((diff % synodic) + synodic) % synodic) / synodic
+}
+
 const STAR_POS = [
   { x: 30,  y: 11, r: 0.9, o: 0.9 }, { x: 72,  y: 6,  r: 1.2, o: 1.0 },
   { x: 118, y: 14, r: 0.7, o: 0.8 }, { x: 176, y: 5,  r: 1.1, o: 0.9 },
@@ -328,17 +337,14 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
     if (!lat || !lon) return
     const ctrl = new AbortController()
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&timezone=America%2FSao_Paulo&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset&timezone=America%2FSao_Paulo&forecast_days=1`,
       { signal: ctrl.signal }
     )
       .then(r => r.json())
       .then(data => {
         const sr = (data.daily?.sunrise?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
         const ss = (data.daily?.sunset?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
-        if (sr && ss) setSolar({
-          sunrise: sr, sunset: ss,
-          moonPhase: data.daily?.moon_phase?.[0] ?? 0,
-        })
+        if (sr && ss) setSolar({ sunrise: sr, sunset: ss, moonPhase: calcMoonPhase(new Date()) })
       })
       .catch(() => {})
     return () => ctrl.abort()
