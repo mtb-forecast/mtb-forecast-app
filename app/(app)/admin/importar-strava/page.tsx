@@ -144,19 +144,17 @@ function ImportarStravaContent() {
       const data: StravaSegment[] = await res.json()
       setHasToken(true)
 
-      // Filtrar segmentos já importados: verifica trilhas_pendentes (qualquer status) e trilhas (aprovadas)
+      // Filtrar segmentos já importados: verifica trilhas
       let disponiveis = data
       if (data.length > 0) {
         const ids = data.map(s => s.strava_segment_id)
-        const [{ data: pendentes }, { data: aprovadas }] = await Promise.all([
-          supabase.from('trilhas_pendentes').select('strava_segment_id').not('strava_segment_id', 'is', null).in('strava_segment_id', ids),
-          supabase.from('trilhas').select('strava_segment_id').not('strava_segment_id', 'is', null).in('strava_segment_id', ids),
-        ])
+        const { data: existentes } = await supabase
+          .from('trilhas')
+          .select('strava_segment_id')
+          .not('strava_segment_id', 'is', null)
+          .in('strava_segment_id', ids)
 
-        const usados = new Set([
-          ...((pendentes ?? []).map((r: { strava_segment_id: number }) => r.strava_segment_id)),
-          ...((aprovadas ?? []).map((r: { strava_segment_id: number }) => r.strava_segment_id)),
-        ])
+        const usados = new Set((existentes ?? []).map((r: { strava_segment_id: number }) => r.strava_segment_id))
         if (usados.size > 0) disponiveis = data.filter(s => !usados.has(s.strava_segment_id))
       }
 
@@ -191,49 +189,26 @@ function ImportarStravaContent() {
     // 2. Geocoding reverso — estado + localidade_id via Nominatim
     const { regiao, localidadeId } = await getOrCreateLocalidade(seg.lat, seg.lon)
 
-    // 3. UPDATE se já existe registro pendente, INSERT caso contrário
-    const { data: existing } = await supabase
-      .from('trilhas_pendentes')
-      .select('id')
-      .eq('strava_segment_id', seg.strava_segment_id)
-      .eq('status', 'pendente')
-      .maybeSingle()
-
-    let dbError
-    if (existing) {
-      const { error } = await supabase.from('trilhas_pendentes').update({
-        name: seg.name,
-        lat: seg.lat,
-        lon: seg.lon,
-        polyline: polyline ?? null,
-        extensao_km: seg.distance_km,
-        desnivel_m: seg.desnivel_m,
-        altitude_m,
-        regiao,
-        localidade_id: localidadeId,
-      }).eq('id', (existing as { id: string }).id)
-      dbError = error
-    } else {
-      const { error } = await supabase.from('trilhas_pendentes').insert({
-        name: seg.name,
-        lat: seg.lat,
-        lon: seg.lon,
-        polyline: polyline ?? null,
-        extensao_km: seg.distance_km,
-        desnivel_m: seg.desnivel_m,
-        strava_segment_id: seg.strava_segment_id,
-        user_id: userId,
-        status: 'pendente',
-        solo_type: null,
-        exposicao: null,
-        altitude_m,
-        trail_type: null,
-        regiao,
-        bioma: null,
-        localidade_id: localidadeId,
-      })
-      dbError = error
-    }
+    // 3. Inserir diretamente em trilhas com placeholders para campos obrigatórios
+    const { error: dbError } = await supabase.from('trilhas').insert({
+      name: seg.name,
+      lat: seg.lat,
+      lon: seg.lon,
+      polyline: polyline ?? null,
+      extensao_km: seg.distance_km,
+      desnivel_m: seg.desnivel_m,
+      strava_segment_id: seg.strava_segment_id,
+      created_by: userId,
+      solo_type: 'terra',
+      exposicao: 'semi-aberta',
+      altitude_m,
+      trail_type: 'natural',
+      regiao,
+      bioma: null,
+      localidade_id: localidadeId,
+      aprovada: true,
+      observacoes: '⚠️ AJUSTE NECESSÁRIO — importado via Strava',
+    })
 
     if (dbError) {
       console.warn('Erro ao importar segmento:', dbError.message)
@@ -281,7 +256,7 @@ function ImportarStravaContent() {
           <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
             {hasToken
               ? `${segments.length} segmento${segments.length !== 1 ? 's' : ''} ainda não importado${segments.length !== 1 ? 's' : ''}`
-              : 'Conecte seu Strava para importar segmentos favoritos como trilhas pendentes'}
+              : 'Conecte seu Strava para importar segmentos favoritos como trilhas'}
           </p>
         </div>
       </div>

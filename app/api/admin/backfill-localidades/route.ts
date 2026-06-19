@@ -85,7 +85,7 @@ export async function POST() {
     .or('cidade.eq.,cidade.is.null')
   const idsVazios = (localidadesVazias || []).map((l: { id: string }) => l.id)
 
-  // Trilhas aprovadas: sem localidade_id OU com localidade só de estado
+  // Trilhas: sem localidade_id OU com localidade só de estado
   const semLocal = await sb
     .from('trilhas')
     .select('id, name, lat, lon, regiao')
@@ -96,23 +96,11 @@ export async function POST() {
     ? await sb.from('trilhas').select('id, name, lat, lon, regiao').eq('aprovada', true).in('localidade_id', idsVazios)
     : { data: [] }
 
-  // Trilhas pendentes: sem localidade_id OU com localidade só de estado
-  const semLocalPend = await sb
-    .from('trilhas_pendentes')
-    .select('id, name, lat, lon, regiao')
-    .is('localidade_id', null)
-
-  const comLocalVaziaPend = idsVazios.length > 0
-    ? await sb.from('trilhas_pendentes').select('id, name, lat, lon, regiao').in('localidade_id', idsVazios)
-    : { data: [] }
-
   // Deduplica por id (evita processar mesma trilha duas vezes)
   const seen = new Set<string>()
   const toProcess = [
-    ...(semLocal.data        || []).map(t => ({ ...t, tabela: 'trilhas'           as const })),
-    ...(comLocalVazia.data   || []).map(t => ({ ...t, tabela: 'trilhas'           as const })),
-    ...(semLocalPend.data    || []).map(t => ({ ...t, tabela: 'trilhas_pendentes' as const })),
-    ...(comLocalVaziaPend.data || []).map(t => ({ ...t, tabela: 'trilhas_pendentes' as const })),
+    ...(semLocal.data      || []).map(t => ({ ...t, tabela: 'trilhas' as const })),
+    ...(comLocalVazia.data || []).map(t => ({ ...t, tabela: 'trilhas' as const })),
   ].filter(t => { if (seen.has(t.id)) return false; seen.add(t.id); return true })
 
   let atualizadas = 0, sem_geo = 0, erros = 0
@@ -128,7 +116,7 @@ export async function POST() {
           pais: 'Brasil', estado: trail.regiao, cidade: '', localidade: null,
         })
         if (localidadeId) {
-          await sb.from(trail.tabela).update({ localidade_id: localidadeId }).eq('id', trail.id)
+          await sb.from('trilhas').update({ localidade_id: localidadeId }).eq('id', trail.id)
           atualizadas++
         } else { erros++ }
       } else { sem_geo++ }
@@ -138,7 +126,7 @@ export async function POST() {
     const localidadeId = await getOrCreateLocalidade(sb, geo)
     if (!localidadeId) { erros++; continue }
 
-    const { error } = await sb.from(trail.tabela).update({ localidade_id: localidadeId }).eq('id', trail.id)
+    const { error } = await sb.from('trilhas').update({ localidade_id: localidadeId }).eq('id', trail.id)
     if (error) erros++
     else atualizadas++
   }

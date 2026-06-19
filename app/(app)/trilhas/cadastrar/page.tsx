@@ -86,6 +86,7 @@ export default function CadastrarTrilhaPage() {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [lastCreatedId, setLastCreatedId] = useState<string | null>(null)
 
   // ── Campos comuns ──────────────────────────────────────────────
   const [nome, setNome] = useState('')
@@ -315,10 +316,10 @@ export default function CadastrarTrilhaPage() {
     let localidadeId: string | null = null
     if (geoResult) localidadeId = await getOrCreateLocalidade(geoResult)
 
-    const { error } = await supabase.from('trilhas').insert({
+    const { data: inserted, error } = await supabase.from('trilhas').insert({
       name: nome.trim(), regiao,
       lat: parseFloat(lat), lon: parseFloat(lon),
-      altitude_m: parseInt(altitude),
+      altitude_m: parseInt(altitude, 10),
       solo_type: soloType, exposicao, trail_type: trailType,
       bioma: bioma || null,
       desnivel_m: desnivel ? parseFloat(desnivel) : null,
@@ -330,8 +331,11 @@ export default function CadastrarTrilhaPage() {
       aprovada: true,
       created_by: user.id,
       localidade_id: localidadeId,
-    })
+    }).select('id')
     if (error) { setErro('Erro ao publicar trilha. Tente novamente.'); return false }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = inserted as any[]
+    if (rows?.[0]?.id) setLastCreatedId(rows[0].id)
     return true
   }
 
@@ -419,17 +423,26 @@ export default function CadastrarTrilhaPage() {
             <p style={{ fontSize: 14, color: '#888', marginBottom: 32 }}>
               {isPt
                 ? 'Seu pump track já está publicado no catálogo e disponível para todos os riders!'
-                : 'Sua trilha já está disponível no catálogo para todos os riders!'}
+                : 'Sua trilha já está disponível no catálogo. O modelo vai processar as condições no próximo ciclo.'}
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/trilhas" style={{
-                background: isPt ? '#7C3AED' : '#6d745f',
-                color: '#fff',
-                border: 'none',
+              {!isPt && lastCreatedId && (
+                <Link href={`/trilhas/${lastCreatedId}`} style={{
+                  background: '#6d745f', color: '#fff',
+                  border: 'none', borderRadius: 4, padding: '10px 24px',
+                  fontSize: 13, fontWeight: 500, textDecoration: 'none',
+                }}>
+                  Ver minha trilha
+                </Link>
+              )}
+              <Link href="/perfil/minhas-trilhas" style={{
+                background: isPt ? '#7C3AED' : lastCreatedId ? '#fff' : '#6d745f',
+                color: isPt ? '#fff' : lastCreatedId ? '#2a2e25' : '#fff',
+                border: lastCreatedId ? '0.5px solid #e5e5e5' : 'none',
                 borderRadius: 4, padding: '10px 24px',
                 fontSize: 13, fontWeight: 500, textDecoration: 'none',
               }}>
-                {isPt ? 'Ver pump tracks' : 'Ver trilhas'}
+                Minhas trilhas
               </Link>
               <button onClick={resetForm} style={{
                 background: '#fff', color: '#111',
@@ -874,18 +887,25 @@ export default function CadastrarTrilhaPage() {
 
           {/* ── Submit — só aparece com coordenadas ── */}
           {hasCoords && (
-            <button type="submit" disabled={saving} style={{
-              background: saving ? '#e5e7eb' : accent,
-              color: saving ? '#9ca3af' : accentText,
-              border: 'none', borderRadius: 8,
-              padding: '14px', fontSize: 14, fontWeight: 700,
-              cursor: saving ? 'not-allowed' : 'pointer',
-              transition: 'background 0.15s',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}>
-              {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
-              {saving ? 'Publicando…' : tipo === 'pumptrack' ? 'Publicar pump track' : 'Publicar no catálogo'}
-            </button>
+            <>
+              {geocoding && (
+                <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', margin: 0 }}>
+                  Aguarde — identificando localização antes de publicar…
+                </p>
+              )}
+              <button type="submit" disabled={saving || geocoding} style={{
+                background: (saving || geocoding) ? '#e5e7eb' : accent,
+                color: (saving || geocoding) ? '#9ca3af' : accentText,
+                border: 'none', borderRadius: 8,
+                padding: '14px', fontSize: 14, fontWeight: 700,
+                cursor: (saving || geocoding) ? 'not-allowed' : 'pointer',
+                transition: 'background 0.15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                {saving && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.65s linear infinite' }} />}
+                {saving ? 'Publicando…' : geocoding ? 'Aguardando geocoding…' : tipo === 'pumptrack' ? 'Publicar pump track' : 'Publicar no catálogo'}
+              </button>
+            </>
           )}
 
         </form>

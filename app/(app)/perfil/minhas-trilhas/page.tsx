@@ -12,9 +12,7 @@ type TrilhaMTB = {
   regiao: string
   cidade: string | null
   status: string
-  motivo_rejeicao?: string | null
   created_at: string
-  source: 'pendentes' | 'catalogo'
 }
 
 type PumpTrack = {
@@ -68,12 +66,7 @@ export default function MinhasTrilhasPage() {
       const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
 
-      const [{ data: mtb }, { data: catalogo }, { data: pt }] = await Promise.all([
-        supabase
-          .from('trilhas_pendentes')
-          .select('id, name, regiao, status, motivo_rejeicao, created_at, localidade:localidades(estado, cidade)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
+      const [{ data: catalogo }, { data: pt }] = await Promise.all([
         supabase
           .from('trilhas')
           .select('id, name, regiao, created_at, localidade:localidades(estado, cidade)')
@@ -86,11 +79,7 @@ export default function MinhasTrilhasPage() {
           .order('created_at', { ascending: false }),
       ])
 
-      // IDs já em trilhas_pendentes — não duplicar
-      const pendentesIds = new Set((mtb || []).map((t: { id: string }) => t.id))
-
       type LocRaw = { estado: string; cidade: string | null }
-      // Supabase pode retornar o join como objeto OU array dependendo da versão
       function resolveLoc(raw: unknown): LocRaw | null {
         if (!raw) return null
         if (Array.isArray(raw)) return (raw as LocRaw[])[0] ?? null
@@ -98,37 +87,18 @@ export default function MinhasTrilhasPage() {
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mtbItems: TrilhaMTB[] = [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(mtb || []).map((t: any) => {
-          const loc = resolveLoc(t.localidade)
-          return {
-            kind: 'mtb' as const,
-            id: t.id as string,
-            name: t.name as string,
-            regiao: loc?.estado || (t.regiao as string) || '',
-            cidade: loc?.cidade ?? null,
-            status: t.status as string,
-            motivo_rejeicao: t.motivo_rejeicao as string | null | undefined,
-            created_at: t.created_at as string,
-            source: 'pendentes' as const,
-          }
-        }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(catalogo || []).filter((t: any) => !pendentesIds.has(t.id)).map((t: any) => {
-          const loc = resolveLoc(t.localidade)
-          return {
-            kind: 'mtb' as const,
-            id: t.id as string,
-            name: t.name as string,
-            regiao: loc?.estado || (t.regiao as string) || '',
-            cidade: loc?.cidade ?? null,
-            status: 'aprovada',
-            created_at: t.created_at as string,
-            source: 'catalogo' as const,
-          }
-        }),
-      ]
+      const mtbItems: TrilhaMTB[] = (catalogo || []).map((t: any) => {
+        const loc = resolveLoc(t.localidade)
+        return {
+          kind: 'mtb' as const,
+          id: t.id as string,
+          name: t.name as string,
+          regiao: loc?.estado || (t.regiao as string) || '',
+          cidade: loc?.cidade ?? null,
+          status: 'aprovada',
+          created_at: t.created_at as string,
+        }
+      })
 
       const ptItems: PumpTrack[] = (pt || []).map((p: { id: string; nome: string; uf: string | null; cidade: string | null; status_validacao: string | null; created_at: string }) => ({
         kind: 'pumptrack',
@@ -185,9 +155,7 @@ export default function MinhasTrilhasPage() {
   // ── Delete ─────────────────────────────────────────────────────────────────
   async function handleDelete(item: Item) {
     setDeleting(true)
-    const kind = item.kind === 'pumptrack'
-      ? 'pumptrack'
-      : item.source === 'catalogo' ? 'mtb_catalogo' : 'mtb_pendente'
+    const kind = item.kind === 'pumptrack' ? 'pumptrack' : 'mtb_catalogo'
     const res = await fetch('/api/delete-item', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -372,9 +340,7 @@ export default function MinhasTrilhasPage() {
               const isPTActive = isPumptrack && item.status === 'Ativo - Base de Dados'
               const editHref = isPumptrack
                 ? `/trilhas/editar-pumptrack/${item.id}`
-                : item.kind === 'mtb' && item.source === 'catalogo'
-                  ? `/trilhas/editar-aprovada/${item.id}`
-                  : `/trilhas/editar/${item.id}`
+                : `/trilhas/editar-aprovada/${item.id}`
 
               return (
                 <div key={`${item.kind}-${item.id}`} style={{
