@@ -119,7 +119,7 @@ const SEC: React.CSSProperties = {
 
 const DIV: React.CSSProperties = { borderTop: '0.5px solid #E5E7EB' }
 
-// ── Solar Arc ─────────────────────────────────────────────────────────────────
+// ── Sky Card ──────────────────────────────────────────────────────────────────
 
 // Fase da lua calculada localmente — sem API, sempre disponível.
 // Retorna 0–1: 0 = lua nova, 0.5 = lua cheia.
@@ -129,24 +129,6 @@ function calcMoonPhase(date: Date): number {
   const diff = (date.getTime() - known.getTime()) / 86400000
   return (((diff % synodic) + synodic) % synodic) / synodic
 }
-
-const STAR_POS = [
-  { x: 30,  y: 11, r: 0.9, o: 0.9 }, { x: 72,  y: 6,  r: 1.2, o: 1.0 },
-  { x: 118, y: 14, r: 0.7, o: 0.8 }, { x: 176, y: 5,  r: 1.1, o: 0.9 },
-  { x: 220, y: 17, r: 0.8, o: 1.0 }, { x: 265, y: 9,  r: 1.3, o: 0.9 },
-  { x: 50,  y: 30, r: 0.7, o: 0.7 }, { x: 138, y: 23, r: 0.9, o: 0.8 },
-  { x: 198, y: 31, r: 0.8, o: 0.9 }, { x: 88,  y: 36, r: 1.0, o: 1.0 },
-  { x: 252, y: 38, r: 0.7, o: 0.7 }, { x: 295, y: 24, r: 0.9, o: 0.8 },
-  { x: 166, y: 42, r: 0.8, o: 0.9 }, { x: 308, y: 14, r: 1.1, o: 1.0 },
-  { x: 22,  y: 44, r: 0.7, o: 0.7 },
-]
-
-const CLOUD_POS = [
-  { x: 60,  y: 20, s: 0.85 },
-  { x: 205, y: 14, s: 1.1  },
-  { x: 268, y: 29, s: 0.75 },
-  { x: 128, y: 34, s: 0.95 },
-]
 
 function moonPhaseInfo(p: number) {
   if (p < 0.063 || p >= 0.938) return { emoji: '🌑', name: 'Lua Nova' }
@@ -159,6 +141,126 @@ function moonPhaseInfo(p: number) {
   return { emoji: '🌘', name: 'Minguante' }
 }
 
+type SkyState = 'clear' | 'partly' | 'cloudy' | 'rain' | 'night-clear' | 'night-cloudy' | 'night-rain'
+
+function getSkyState(cloudCover: number, isRaining: boolean, srMin: number, ssMin: number): SkyState {
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const isNight = nowMin < srMin || nowMin > ssMin
+  if (isNight) {
+    if (isRaining)      return 'night-rain'
+    if (cloudCover > 60) return 'night-cloudy'
+    return 'night-clear'
+  }
+  if (isRaining)      return 'rain'
+  if (cloudCover > 60) return 'cloudy'
+  if (cloudCover > 25) return 'partly'
+  return 'clear'
+}
+
+const skyBackgrounds: Record<SkyState, string> = {
+  clear: [
+    'radial-gradient(ellipse at 22% 22%, rgba(255,215,90,0.38) 0%, transparent 42%)',
+    'radial-gradient(ellipse at 55% 0%, rgba(120,190,255,0.25) 0%, transparent 55%)',
+    'linear-gradient(180deg,#0d4f8c 0%,#1a6bb5 18%,#2e8fd4 42%,#5aaee8 66%,#88c8f0 84%,#b8e0f8 100%)',
+  ].join(','),
+  partly: [
+    'radial-gradient(ellipse at 28% 18%, rgba(255,215,90,0.22) 0%, transparent 38%)',
+    'linear-gradient(180deg,#1060a8 0%,#2478c0 28%,#4a98d8 56%,#78bae8 80%,#a8d8f5 100%)',
+  ].join(','),
+  cloudy: [
+    'radial-gradient(ellipse at 28% 5%, rgba(110,145,180,0.65) 0%, transparent 48%)',
+    'radial-gradient(ellipse at 78% 28%, rgba(140,170,200,0.55) 0%, transparent 42%)',
+    'radial-gradient(ellipse at 48% 65%, rgba(125,158,188,0.45) 0%, transparent 48%)',
+    'linear-gradient(180deg,#3a5270 0%,#4a6585 25%,#607a98 52%,#7a95ae 76%,#96afc4 100%)',
+  ].join(','),
+  rain: [
+    'radial-gradient(ellipse at 50% 0%, rgba(55,78,105,0.7) 0%, transparent 58%)',
+    'linear-gradient(180deg,#1e2d3e 0%,#263848 26%,#2f4458 52%,#3a5268 76%,#425e76 100%)',
+  ].join(','),
+  'night-clear': [
+    'radial-gradient(ellipse at 50% 90%, rgba(20,50,100,0.5) 0%, transparent 60%)',
+    'linear-gradient(180deg,#020810 0%,#060f20 18%,#0a1830 38%,#0e2040 58%,#122848 78%,#163058 100%)',
+  ].join(','),
+  'night-cloudy': [
+    'radial-gradient(ellipse at 50% 90%, rgba(20,50,100,0.5) 0%, transparent 60%)',
+    'linear-gradient(180deg,#020810 0%,#060f20 18%,#0a1830 38%,#0e2040 58%,#122848 78%,#163058 100%)',
+  ].join(','),
+  'night-rain': 'linear-gradient(180deg,#050a10 0%,#080f18 30%,#0c1520 60%,#101c2a 100%)',
+}
+
+type CloudLayer = { w: number; h: number; top: number; left?: number | string; right?: number; bg: string; blur: number }
+
+const cloudLayers: Partial<Record<SkyState, CloudLayer[]>> = {
+  partly: [
+    { w:130, h:55, top:8,  left:-15,   bg:'rgba(255,255,255,0.72)', blur:22 },
+    { w:95,  h:42, top:22, right:0,    bg:'rgba(255,255,255,0.55)', blur:18 },
+    { w:70,  h:32, top:5,  left:'38%', bg:'rgba(255,255,255,0.45)', blur:16 },
+  ],
+  cloudy: [
+    { w:180, h:70, top:0,  left:-30,   bg:'rgba(190,208,225,0.8)',  blur:28 },
+    { w:130, h:55, top:15, right:-20,  bg:'rgba(175,198,218,0.7)',  blur:24 },
+    { w:100, h:45, top:30, left:'30%', bg:'rgba(185,205,222,0.65)', blur:20 },
+    { w:80,  h:35, top:2,  left:'55%', bg:'rgba(195,212,228,0.6)',  blur:18 },
+  ],
+  rain: [
+    { w:200, h:80, top:-5, left:-40,   bg:'rgba(70,90,108,0.72)',  blur:30 },
+    { w:150, h:60, top:10, right:-30,  bg:'rgba(65,85,105,0.65)',  blur:26 },
+    { w:110, h:48, top:28, left:'22%', bg:'rgba(75,95,112,0.6)',   blur:22 },
+  ],
+  'night-cloudy': [
+    { w:180, h:70, top:0,  left:-30,  bg:'rgba(15,25,40,0.8)', blur:28 },
+    { w:130, h:55, top:15, right:-20, bg:'rgba(12,20,35,0.7)', blur:24 },
+  ],
+  'night-rain': [
+    { w:200, h:75, top:-5, left:-40,  bg:'rgba(15,22,35,0.8)', blur:28 },
+    { w:155, h:58, top:18, right:-25, bg:'rgba(12,18,30,0.7)', blur:24 },
+  ],
+}
+
+function getMoonStyle(phase: number): React.CSSProperties {
+  const base: React.CSSProperties = {
+    position: 'absolute', top: 14, right: 22, width: 28, height: 28,
+    borderRadius: '50%', pointerEvents: 'none',
+    filter: 'drop-shadow(0 0 5px rgba(210,220,190,0.5))',
+  }
+  if (phase < 0.03 || phase > 0.97)
+    return { ...base, background: '#0a0a18', boxShadow: 'none', filter: 'none' }
+  if (phase < 0.22)
+    return { ...base, background: '#dde0c8', boxShadow: 'inset -11px -1px 0 rgba(4,8,24,0.92)' }
+  if (phase < 0.28)
+    return { ...base, background: 'linear-gradient(to left,#dde0c8 50%,rgba(4,8,24,0.95) 50%)', boxShadow: 'none' }
+  if (phase < 0.47)
+    return { ...base, background: '#dde0c8', boxShadow: 'inset -3px -1px 0 rgba(4,8,24,0.55)' }
+  if (phase < 0.53)
+    return { ...base, background: '#e8ecd6', boxShadow: '0 0 14px 6px rgba(220,228,200,0.5)', filter: 'drop-shadow(0 0 8px rgba(220,228,180,0.6))' }
+  if (phase < 0.72)
+    return { ...base, background: '#dde0c8', boxShadow: 'inset 3px -1px 0 rgba(4,8,24,0.55)' }
+  if (phase < 0.78)
+    return { ...base, background: 'linear-gradient(to right,#dde0c8 50%,rgba(4,8,24,0.95) 50%)', boxShadow: 'none' }
+  return { ...base, background: '#dde0c8', boxShadow: 'inset 11px -1px 0 rgba(4,8,24,0.92)' }
+}
+
+const skyTextColors: Record<SkyState, { txt: string; sub: string }> = {
+  clear:          { txt: '#fff',     sub: 'rgba(255,255,255,0.8)'  },
+  partly:         { txt: '#fff',     sub: 'rgba(255,255,255,0.75)' },
+  cloudy:         { txt: '#1F2937', sub: '#374151'                 },
+  rain:           { txt: '#F3F4F6', sub: '#D1D5DB'                 },
+  'night-clear':  { txt: '#E2E8F0', sub: '#94A3B8'                 },
+  'night-cloudy': { txt: '#D1D5DB', sub: '#6B7280'                 },
+  'night-rain':   { txt: '#CBD5E1', sub: '#6B7280'                 },
+}
+
+const skyArcColors: Record<SkyState, { arc: string; elapsed: string; hor: string }> = {
+  clear:          { arc: 'rgba(255,255,255,0.45)',  elapsed: '#FCD34D', hor: 'rgba(255,255,255,0.4)'  },
+  partly:         { arc: 'rgba(255,255,255,0.4)',   elapsed: '#FCD34D', hor: 'rgba(255,255,255,0.35)' },
+  cloudy:         { arc: 'rgba(31,41,55,0.3)',      elapsed: '#FCD34D', hor: 'rgba(31,41,55,0.2)'     },
+  rain:           { arc: 'rgba(209,213,219,0.4)',   elapsed: '#93C5FD', hor: 'rgba(209,213,219,0.35)' },
+  'night-clear':  { arc: 'rgba(148,163,184,0.25)',  elapsed: '#94A3B8', hor: 'rgba(148,163,184,0.2)'  },
+  'night-cloudy': { arc: 'rgba(107,114,128,0.35)',  elapsed: '#94A3B8', hor: 'rgba(107,114,128,0.25)' },
+  'night-rain':   { arc: 'rgba(107,114,128,0.3)',   elapsed: '#94A3B8', hor: 'rgba(107,114,128,0.2)'  },
+}
+
 function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
   sunrise: string; sunset: string
   cloudCover: number; isRaining: boolean; moonPhase: number
@@ -168,148 +270,137 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const srMin  = toMin(sunrise), ssMin = toMin(sunset)
   const totalMin = ssMin - srMin
-  const progress  = totalMin > 0 ? Math.min(1, Math.max(0, (nowMin - srMin) / totalMin)) : 0
-  const isDaytime = nowMin > srMin && nowMin < ssMin
+  const progress = totalMin > 0 ? Math.min(1, Math.max(0, (nowMin - srMin) / totalMin)) : 0
   const dh = Math.floor(totalMin / 60), dm = totalMin % 60
 
   const cx = 160, cy = 62, rx = 140, ry = 46
   const arcLen = Math.PI * Math.sqrt((rx * rx + ry * ry) / 2)
-  const sunX = cx - rx * Math.cos(progress * Math.PI)
-  const sunY = cy - ry * Math.sin(progress * Math.PI)
 
-  const isFoggy = false // sem weather_code disponível; placeholder
+  const skyState       = getSkyState(cloudCover, isRaining, srMin, ssMin)
+  const isNightState   = skyState.startsWith('night')
+  const isRainingVisual = skyState === 'rain' || skyState === 'night-rain'
+  const isSunState     = skyState === 'clear' || skyState === 'partly'
 
-  // Sky theme
-  type Theme = { bg: string; txt: string; sub: string; arc: string; hor: string }
-  const sky: Theme = (() => {
-    if (!isDaytime) {
-      if (cloudCover < 25) return { bg:'linear-gradient(180deg,#060d1f 0%,#0f1f3d 55%,#1a2f4e 100%)', txt:'#E2E8F0', sub:'#94A3B8', arc:'rgba(148,163,184,0.25)', hor:'rgba(148,163,184,0.2)' }
-      if (cloudCover < 65) return { bg:'linear-gradient(180deg,#111827 0%,#1f2937 55%,#27334a 100%)', txt:'#D1D5DB', sub:'#6B7280', arc:'rgba(107,114,128,0.35)', hor:'rgba(107,114,128,0.25)' }
-      return              { bg:'linear-gradient(180deg,#1a1d24 0%,#23272f 55%,#2d323c 100%)', txt:'#CBD5E1', sub:'#6B7280', arc:'rgba(107,114,128,0.3)', hor:'rgba(107,114,128,0.2)' }
-    }
-    if (isRaining) return { bg:'linear-gradient(180deg,#2d3748 0%,#4a5568 45%,#718096 100%)', txt:'#F3F4F6', sub:'#D1D5DB', arc:'rgba(209,213,219,0.4)', hor:'rgba(209,213,219,0.35)' }
-    if (isFoggy)   return { bg:'linear-gradient(180deg,#9CA3AF 0%,#D1D5DB 50%,#E5E7EB 100%)', txt:'#374151', sub:'#6B7280', arc:'rgba(107,114,128,0.4)', hor:'rgba(107,114,128,0.3)' }
-    if (cloudCover < 20)  return { bg:'linear-gradient(180deg,#1D4ED8 0%,#3B82F6 35%,#60A5FA 65%,#BAE6FD 100%)', txt:'#fff', sub:'rgba(255,255,255,0.8)', arc:'rgba(255,255,255,0.45)', hor:'rgba(255,255,255,0.4)' }
-    if (cloudCover < 50)  return { bg:'linear-gradient(180deg,#2563EB 0%,#60A5FA 40%,#93C5FD 70%,#DBEAFE 100%)', txt:'#fff', sub:'rgba(255,255,255,0.75)', arc:'rgba(255,255,255,0.4)', hor:'rgba(255,255,255,0.35)' }
-    if (cloudCover < 80)  return { bg:'linear-gradient(180deg,#6B7280 0%,#9CA3AF 45%,#CBD5E1 100%)', txt:'#1F2937', sub:'#374151', arc:'rgba(31,41,55,0.3)', hor:'rgba(31,41,55,0.2)' }
-    return                { bg:'linear-gradient(180deg,#374151 0%,#4B5563 45%,#9CA3AF 100%)', txt:'#F3F4F6', sub:'#D1D5DB', arc:'rgba(209,213,219,0.4)', hor:'rgba(209,213,219,0.35)' }
-  })()
+  const { txt, sub }                              = skyTextColors[skyState]
+  const { arc: arcColor, elapsed: elapsedColor,
+          hor: horColor }                         = skyArcColors[skyState]
 
-  // Stars: only at night, fewer as clouds increase
-  const starCount = !isDaytime && cloudCover < 65
-    ? Math.floor(STAR_POS.length * (1 - Math.max(0, cloudCover - 20) / 60))
-    : 0
+  const stars = useMemo(() =>
+    Array.from({ length: 55 }, (_, i) => ({
+      left:    `${(i * 61.8) % 100}%`,
+      top:     `${(i * 43.2) % 82}%`,
+      size:    0.8 + (i * 0.17) % 2.2,
+      opacity: 0.3 + (i * 0.019) % 0.65,
+    }))
+  , [])
 
-  // Clouds: only daytime, count proportional to cloudCover
-  const cloudCount    = isDaytime ? Math.min(CLOUD_POS.length, Math.round(cloudCover / 25)) : 0
-  const cloudOpacity  = Math.min(0.88, 0.3 + cloudCover / 120)
-
-  // Moon position: right side of arc (70% progress)
-  const moonX = cx - rx * Math.cos(0.72 * Math.PI)
-  const moonY = cy - ry * Math.sin(0.72 * Math.PI) - 6
-
-  // Moon SVG shape based on phase
-  const MoonShape = () => {
-    const r = 9
-    const ill = moonPhase <= 0.5 ? moonPhase * 2 : (1 - moonPhase) * 2
-    const isWaxing = moonPhase < 0.5
-    if (ill < 0.08) return <circle cx={moonX} cy={moonY} r={r} fill="#0f1f3d" stroke="#1e3a5f" strokeWidth="0.8" />
-    if (ill > 0.92) return (
-      <g>
-        <circle cx={moonX} cy={moonY} r={r} fill="#F1F5F9" opacity={0.95} />
-        <circle cx={moonX} cy={moonY} r={r - 0.5} fill="none" stroke="#CBD5E1" strokeWidth="0.3" opacity={0.5} />
-      </g>
-    )
-    const offset = r * (1 - ill * 2) * (isWaxing ? 1 : -1)
-    const shadowFill = isDaytime ? '#60A5FA' : '#060d1f'
-    return (
-      <g>
-        <circle cx={moonX} cy={moonY} r={r} fill="#F1F5F9" opacity={0.9} />
-        <circle cx={moonX + offset} cy={moonY} r={r * 0.98} fill={shadowFill} opacity={0.95} />
-      </g>
-    )
-  }
+  const rainDrops = useMemo(() =>
+    Array.from({ length: 28 }, (_, i) => ({
+      left:     `${(i * 37.3) % 110 - 5}%`,
+      top:      `${(i * 53.7) % 120 - 20}%`,
+      height:   10 + (i * 7.3) % 18,
+      delay:    `${(i * 0.07) % 0.7}s`,
+      duration: `${0.55 + (i * 0.03) % 0.3}s`,
+      opacity:  0.2 + (i * 0.023) % 0.35,
+    }))
+  , [])
 
   const moon = moonPhaseInfo(moonPhase)
 
   return (
-    <div style={{ maxWidth: 340, margin: '0 auto', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ background: sky.bg }}>
+    <div style={{
+      maxWidth: 340, margin: '0 auto', borderRadius: 12,
+      overflow: 'hidden', position: 'relative',
+      background: skyBackgrounds[skyState],
+    }}>
+      <style>{`
+        @keyframes rainFall {
+          from { transform: rotate(12deg) translateY(-20px); }
+          to   { transform: rotate(12deg) translateY(180px); }
+        }
+      `}</style>
 
-        {/* SVG sky scene */}
-        <svg viewBox="0 0 320 92" style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {/* Stars — noites limpas/parcialmente nubladas */}
+      {isNightState && stars.map((s, i) => (
+        <div key={i} style={{
+          position: 'absolute', borderRadius: '50%', background: '#fff',
+          width: s.size, height: s.size, left: s.left, top: s.top,
+          opacity: skyState === 'night-cloudy' ? s.opacity * 0.3 : s.opacity,
+          pointerEvents: 'none',
+        }} />
+      ))}
 
-          {/* Stars — clear nights */}
-          {STAR_POS.slice(0, starCount).map((s, i) => (
-            <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="white" opacity={s.o * 0.85} />
-          ))}
+      {/* Nuvens CSS com blur */}
+      {(cloudLayers[skyState] ?? []).map((c, i) => (
+        <div key={i} style={{
+          position: 'absolute', borderRadius: '50%', pointerEvents: 'none',
+          width: c.w, height: c.h, top: c.top,
+          ...(c.left  !== undefined ? { left:  c.left  } : {}),
+          ...(c.right !== undefined ? { right: c.right } : {}),
+          background: c.bg, filter: `blur(${c.blur}px)`,
+        }} />
+      ))}
 
-          {/* Clouds — daytime */}
-          {CLOUD_POS.slice(0, cloudCount).map((c, i) => (
-            <g key={i} transform={`translate(${c.x},${c.y}) scale(${c.s})`} opacity={cloudOpacity} fill="white">
-              <ellipse cx={0}   cy={0}  rx={22} ry={9} />
-              <ellipse cx={-13} cy={3}  rx={14} ry={7} />
-              <ellipse cx={14}  cy={2}  rx={16} ry={8} />
-            </g>
-          ))}
+      {/* Gotas de chuva animadas */}
+      {isRainingVisual && rainDrops.map((d, i) => (
+        <div key={i} style={{
+          position: 'absolute', width: 1.5, height: d.height,
+          left: d.left, top: d.top, borderRadius: 1,
+          background: 'linear-gradient(to bottom, transparent, rgba(180,210,240,0.55))',
+          transform: 'rotate(12deg)',
+          animation: `rainFall ${d.duration} ${d.delay} linear infinite`,
+          opacity: d.opacity, pointerEvents: 'none',
+        }} />
+      ))}
 
-          {/* Rain drops */}
-          {isRaining && [40,68,96,130,168,206,240,274].map((bx, i) => (
-            <line key={i}
-              x1={bx} y1={16 + (i % 3) * 6} x2={bx - 5} y2={30 + (i % 3) * 6}
-              stroke="rgba(147,197,253,0.55)" strokeWidth="1.5" strokeLinecap="round"
-            />
-          ))}
+      {/* Sol (dia claro / parcialmente nublado) */}
+      {isSunState && (
+        <div style={{
+          position: 'absolute', top: 16, left: 18, width: 32, height: 32,
+          borderRadius: '50%', pointerEvents: 'none',
+          background: 'radial-gradient(circle,#fff 18%,#ffe566 48%,transparent 70%)',
+          boxShadow: '0 0 20px 10px rgba(255,210,80,0.45)',
+        }} />
+      )}
 
-          {/* Arc track */}
+      {/* Lua com fase real (CSS box-shadow) */}
+      {isNightState && moonPhase > 0.03 && (
+        <div style={getMoonStyle(moonPhase)} />
+      )}
+
+      {/* Arco solar SVG — fundo transparente, sobre os elementos decorativos */}
+      <svg viewBox="0 0 320 92" style={{ width: '100%', height: 'auto', display: 'block', position: 'relative', zIndex: 1 }}>
+        <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
+          fill="none" stroke={arcColor} strokeWidth="1.5" strokeDasharray="3 4" />
+        {progress > 0.01 && (
           <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
-            fill="none" stroke={sky.arc} strokeWidth="1.5" strokeDasharray="3 4" />
+            fill="none" stroke={elapsedColor} strokeWidth="2.5" strokeLinecap="round"
+            strokeDasharray={`${progress * arcLen} ${arcLen}`} />
+        )}
+        <line x1={cx-rx-6} y1={cy} x2={cx+rx+6} y2={cy} stroke={horColor} strokeWidth="1" />
+      </svg>
 
-          {/* Elapsed arc */}
-          {progress > 0.01 && (
-            <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
-              fill="none"
-              stroke={isDaytime ? '#FCD34D' : '#94A3B8'}
-              strokeWidth="2.5" strokeLinecap="round"
-              strokeDasharray={`${progress * arcLen} ${arcLen}`}
-            />
-          )}
-
-          {/* Moon at night */}
-          {!isDaytime && <MoonShape />}
-
-          {/* Sun (daytime only) */}
-          {isDaytime && (
-            <>
-              <circle cx={sunX} cy={sunY} r={18} fill={cloudCover < 50 ? '#FEF3C7' : '#E5E7EB'} opacity={0.28} />
-              <circle cx={sunX} cy={sunY} r={11} fill={cloudCover < 50 ? '#FDE68A' : '#D1D5DB'} opacity={0.62} />
-              <circle cx={sunX} cy={sunY} r={6}  fill={cloudCover < 50 ? '#FCD34D' : '#9CA3AF'} />
-              <circle cx={sunX} cy={sunY} r={3}  fill={cloudCover < 50 ? '#F59E0B' : '#6B7280'} />
-            </>
-          )}
-
-          {/* Horizon */}
-          <line x1={cx-rx-6} y1={cy} x2={cx+rx+6} y2={cy} stroke={sky.hor} strokeWidth="1" />
-        </svg>
-
-        {/* Info row: nascer · duração+lua · pôr */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'2px 16px 10px' }}>
-          <div>
-            <div style={{ fontSize:13, fontWeight:700, color:sky.txt }}>{sunrise}</div>
-            <div style={{ fontSize:9, color:sky.sub }}>nascer</div>
+      {/* Info row: nascer · duração+lua · pôr */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '2px 16px 10px',
+      }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: txt }}>{sunrise}</div>
+          <div style={{ fontSize: 9, color: sub }}>nascer</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: sub }}>
+            {`${dh}h${dm > 0 ? String(dm).padStart(2, '0') + 'm' : ''} de luz`}
           </div>
-          <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:10, color:sky.sub }}>
-              {`${dh}h${dm > 0 ? String(dm).padStart(2,'0')+'m' : ''} de luz`}
-            </div>
-            <div style={{ fontSize:12, color:sky.sub, marginTop:3 }}>
-              {moon.emoji} <span style={{ fontSize:10 }}>{moon.name}</span>
-            </div>
+          <div style={{ fontSize: 12, color: sub, marginTop: 3 }}>
+            {moon.emoji} <span style={{ fontSize: 10 }}>{moon.name}</span>
           </div>
-          <div style={{ textAlign:'right' }}>
-            <div style={{ fontSize:13, fontWeight:700, color:sky.txt }}>{sunset}</div>
-            <div style={{ fontSize:9, color:sky.sub }}>pôr do sol</div>
-          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: txt }}>{sunset}</div>
+          <div style={{ fontSize: 9, color: sub }}>pôr do sol</div>
         </div>
       </div>
     </div>
