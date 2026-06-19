@@ -150,9 +150,9 @@ function moonPhaseInfo(p: number) {
   return { emoji: '🌘', name: 'Minguante' }
 }
 
-function SolarArc({ sunrise, sunset, cloudCover, weatherCode, moonPhase }: {
+function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
   sunrise: string; sunset: string
-  cloudCover: number; weatherCode: number; moonPhase: number
+  cloudCover: number; isRaining: boolean; moonPhase: number
 }) {
   const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
   const now    = new Date()
@@ -168,8 +168,7 @@ function SolarArc({ sunrise, sunset, cloudCover, weatherCode, moonPhase }: {
   const sunX = cx - rx * Math.cos(progress * Math.PI)
   const sunY = cy - ry * Math.sin(progress * Math.PI)
 
-  const isRaining = weatherCode >= 51 && weatherCode <= 99
-  const isFoggy   = weatherCode === 45 || weatherCode === 48
+  const isFoggy = false // sem weather_code disponível; placeholder
 
   // Sky theme
   type Theme = { bg: string; txt: string; sub: string; arc: string; hor: string }
@@ -322,15 +321,14 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
   }
   const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null)
   const [solar, setSolar] = useState<{
-    sunrise: string; sunset: string
-    moonPhase: number; cloudCover: number; weatherCode: number
+    sunrise: string; sunset: string; moonPhase: number
   } | null>(null)
 
   useEffect(() => {
     if (!lat || !lon) return
     const ctrl = new AbortController()
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&current=cloud_cover,weather_code&timezone=America%2FSao_Paulo&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&timezone=America%2FSao_Paulo&forecast_days=1`,
       { signal: ctrl.signal }
     )
       .then(r => r.json())
@@ -339,9 +337,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         const ss = (data.daily?.sunset?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
         if (sr && ss) setSolar({
           sunrise: sr, sunset: ss,
-          moonPhase:   data.daily?.moon_phase?.[0] ?? 0,
-          cloudCover:  data.current?.cloud_cover  ?? 30,
-          weatherCode: data.current?.weather_code ?? 0,
+          moonPhase: data.daily?.moon_phase?.[0] ?? 0,
         })
       })
       .catch(() => {})
@@ -666,8 +662,8 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
               <SolarArc
                 sunrise={solar.sunrise}
                 sunset={solar.sunset}
-                cloudCover={solar.cloudCover}
-                weatherCode={solar.weatherCode}
+                cloudCover={condicao.cloud_pct ?? 30}
+                isRaining={(condicao.acumulo_48h ?? 0) > 0.5}
                 moonPhase={solar.moonPhase}
               />
             </div>
