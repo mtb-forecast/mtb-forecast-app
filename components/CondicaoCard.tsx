@@ -134,7 +134,7 @@ function SolarArc({ sunrise, sunset }: { sunrise: string; sunset: string }) {
   const progress = totalMin > 0 ? Math.min(1, Math.max(0, (nowMin - srMin) / totalMin)) : 0
   const isDaytime = nowMin > srMin && nowMin < ssMin
 
-  const cx = 120, cy = 104, r = 80
+  const cx = 120, cy = 58, r = 46
   const arcLen = Math.PI * r
   const sunX = cx - r * Math.cos(progress * Math.PI)
   const sunY = cy - r * Math.sin(progress * Math.PI)
@@ -142,11 +142,11 @@ function SolarArc({ sunrise, sunset }: { sunrise: string; sunset: string }) {
   const dm = totalMin % 60
 
   return (
-    <svg viewBox="0 0 240 132" style={{ width: '100%', height: 'auto', display: 'block' }}>
+    <svg viewBox="0 0 240 88" style={{ width: '100%', height: 'auto', display: 'block' }}>
       {/* Track arc — dashed gray */}
       <path
         d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none" stroke="#E5E7EB" strokeWidth="2" strokeDasharray="4 5"
+        fill="none" stroke="#E5E7EB" strokeWidth="1.5" strokeDasharray="3 4"
       />
       {/* Elapsed arc — amber fill from sunrise to now */}
       {progress > 0.01 && (
@@ -154,26 +154,25 @@ function SolarArc({ sunrise, sunset }: { sunrise: string; sunset: string }) {
           d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
           fill="none"
           stroke={isDaytime ? '#F59E0B' : '#9CA3AF'}
-          strokeWidth="2.5"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeDasharray={`${progress * arcLen} ${arcLen}`}
         />
       )}
-      {/* Sun glow (layered circles, no filter ID needed) */}
-      <circle cx={sunX} cy={sunY} r={20} fill={isDaytime ? '#FEF3C7' : '#F3F4F6'} opacity={0.35} />
-      <circle cx={sunX} cy={sunY} r={12} fill={isDaytime ? '#FDE68A' : '#E5E7EB'} opacity={0.6} />
-      <circle cx={sunX} cy={sunY} r={7} fill={isDaytime ? '#FCD34D' : '#D1D5DB'} />
+      {/* Sun glow + body */}
+      <circle cx={sunX} cy={sunY} r={11} fill={isDaytime ? '#FEF3C7' : '#F3F4F6'} opacity={0.5} />
+      <circle cx={sunX} cy={sunY} r={6.5} fill={isDaytime ? '#FDE68A' : '#E5E7EB'} />
       <circle cx={sunX} cy={sunY} r={3.5} fill={isDaytime ? '#F59E0B' : '#9CA3AF'} />
       {/* Horizon line */}
-      <line x1={cx - r - 8} y1={cy} x2={cx + r + 8} y2={cy} stroke="#E5E7EB" strokeWidth="1" />
+      <line x1={cx - r - 6} y1={cy} x2={cx + r + 6} y2={cy} stroke="#E5E7EB" strokeWidth="1" />
       {/* Sunrise time + label */}
-      <text x={cx - r} y={cy + 15} textAnchor="middle" fontSize="12" fill="#374151" fontWeight="600">{sunrise}</text>
-      <text x={cx - r} y={cy + 26} textAnchor="middle" fontSize="9" fill="#9CA3AF">nascer</text>
+      <text x={cx - r} y={cy + 13} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{sunrise}</text>
+      <text x={cx - r} y={cy + 23} textAnchor="middle" fontSize="8" fill="#9CA3AF">nascer</text>
       {/* Sunset time + label */}
-      <text x={cx + r} y={cy + 15} textAnchor="middle" fontSize="12" fill="#374151" fontWeight="600">{sunset}</text>
-      <text x={cx + r} y={cy + 26} textAnchor="middle" fontSize="9" fill="#9CA3AF">pôr do sol</text>
+      <text x={cx + r} y={cy + 13} textAnchor="middle" fontSize="11" fill="#374151" fontWeight="600">{sunset}</text>
+      <text x={cx + r} y={cy + 23} textAnchor="middle" fontSize="8" fill="#9CA3AF">pôr do sol</text>
       {/* Center: total daylight */}
-      <text x={cx} y={cy + 15} textAnchor="middle" fontSize="10" fill="#9CA3AF">
+      <text x={cx} y={cy + 13} textAnchor="middle" fontSize="9" fill="#9CA3AF">
         {`${dh}h${dm > 0 ? `${String(dm).padStart(2, '0')}m` : ''} de luz`}
       </text>
     </svg>
