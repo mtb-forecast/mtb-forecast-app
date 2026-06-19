@@ -141,7 +141,11 @@ export default async function DashboardPage() {
               <div className="spin-indicator" />
             </div>
           }>
-            <DashboardFavoritas favTrilhaIds={favTrilhaIds} />
+            <DashboardFavoritas
+              favTrilhaIds={favTrilhaIds}
+              userEstado={profile?.regiao ?? undefined}
+              userId={user.id}
+            />
           </Suspense>
         </section>
 
