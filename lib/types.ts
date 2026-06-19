@@ -78,6 +78,12 @@ export type Condicao = {
   temp_max?: number | null
   temp_min?: number | null
 
+  // Auditoria climática
+  cloud_pct?: number | null
+  humidity_pct?: number | null
+  temp_media_c?: number | null
+  meia_vida_base_h?: number | null
+
   // Solo
   meia_vida_h: number
   clay_pct?: number | null
