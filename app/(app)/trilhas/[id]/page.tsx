@@ -285,7 +285,7 @@ export default function TrilhaDetalhe() {
         {/* ── Card: Condição do Solo ──────────────────────────────────── */}
         {c && (
           <div style={{ marginBottom: 12 }}>
-            <CondicaoCard condicao={c} />
+            <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} />
           </div>
         )}
 

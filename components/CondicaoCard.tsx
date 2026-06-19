@@ -1,13 +1,18 @@
-import { memo, useMemo } from 'react'
+'use client'
+
+import { memo, useMemo, useState, useEffect } from 'react'
 import {
   IconAlertTriangle, IconWind, IconDroplet, IconInfoCircle,
-  IconCloud, IconCalendar,
+  IconCloud, IconCalendar, IconChevronDown,
 } from '@tabler/icons-react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { rainColor, windColor, DISPLAY_THR, emojiTempo } from '@/lib/display'
+import DiaDetalheModal from '@/components/DiaDetalheModal'
 
 type Props = {
   condicao: Condicao
+  lat?: number
+  lon?: number
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -116,7 +121,36 @@ const DIV: React.CSSProperties = { borderTop: '0.5px solid #E5E7EB' }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function CondicaoCard({ condicao }: Props) {
+function CondicaoCard({ condicao, lat, lon }: Props) {
+  // ── Estado do modal e dados solares ──────────────────────────────────────
+  type SelectedDay = {
+    date: Date
+    label: string
+    rain: number | null
+    wind: number | null
+    tmax: number | null
+    tmin: number | null
+  }
+  const [selectedDay, setSelectedDay] = useState<SelectedDay | null>(null)
+  const [solar, setSolar] = useState<{ sunrise: string; sunset: string } | null>(null)
+
+  useEffect(() => {
+    if (!lat || !lon) return
+    const ctrl = new AbortController()
+    fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset&timezone=America%2FSao_Paulo&forecast_days=1`,
+      { signal: ctrl.signal }
+    )
+      .then(r => r.json())
+      .then(data => {
+        const sr = (data.daily?.sunrise?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
+        const ss = (data.daily?.sunset?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
+        if (sr && ss) setSolar({ sunrise: sr, sunset: ss })
+      })
+      .catch(() => {})
+    return () => ctrl.abort()
+  }, [lat, lon])
+
   const veredictoDisplay = condicao.veredicto_12h?.trim() || condicao.veredicto
   const has12h      = !!condicao.veredicto_12h?.trim()
   const badge       = verdictBadge(veredictoDisplay)
@@ -229,6 +263,7 @@ function CondicaoCard({ condicao }: Props) {
   const vCfg = nivelVento > 0 ? ventoTextos[Math.min(nivelVento, 3) as 1 | 2 | 3] : null
 
   return (
+    <>
     <div style={{ background: '#FFFFFF', borderRadius: 16, border: '0.5px solid #E5E7EB', overflow: 'hidden' }}>
       <style>{`@keyframes cc-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }`}</style>
 
@@ -425,17 +460,52 @@ function CondicaoCard({ condicao }: Props) {
           )}
         </div>
 
-        {/* ── 5. Próximos 3 dias ───────────────────────────────────── */}
+        {/* ── 5. Nascer e Pôr do Sol ──────────────────────────────── */}
+        {solar && (
+          <>
+            <div style={DIV} />
+            <div>
+              <div style={{ ...SEC, marginBottom: 8 }}>Luz do dia — Hoje</div>
+              <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                <span style={{ color: '#92400E' }}>🌅 <b>{solar.sunrise}</b></span>
+                <span style={{ color: '#9A3412' }}>🌇 <b>{solar.sunset}</b></span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── 6. Próximos 3 dias ───────────────────────────────────── */}
         {hasFds && (
           <>
             <div style={DIV} />
             <div>
-              <div style={{ ...SEC, marginBottom: 10 }}>Próximos 3 dias</div>
+              <div style={{ ...SEC, marginBottom: 10 }}>
+                Próximos 3 dias
+                {lat && lon && (
+                  <span style={{ fontSize: 9, color: '#6B7280', fontWeight: 400, marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>
+                    toque para ver hora a hora
+                  </span>
+                )}
+              </div>
               <div className="fds-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                {fdsDias.map(({ label, v, rain, wind, pop, tmax, tmin }) => {
-                  const vcfg = v ? (VEREDICTO_CONFIG[v] ?? null) : null
+                {fdsDias.map(({ label, v, rain, wind, pop, tmax, tmin }, idx) => {
+                  const vcfg       = v ? (VEREDICTO_CONFIG[v] ?? null) : null
+                  const diaDate    = [d1, d2, d3][idx]
+                  const clickable  = !!(lat && lon)
+
                   return (
-                    <div key={label} style={{ background: vcfg ? vcfg.bg : '#F9FAFB', border: `0.5px solid ${vcfg ? vcfg.cor + '44' : '#E5E7EB'}`, borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+                    <div
+                      key={label}
+                      onClick={clickable ? () => setSelectedDay({ date: diaDate, label, rain: rain ?? null, wind: wind ?? null, tmax: tmax ?? null, tmin: tmin ?? null }) : undefined}
+                      style={{
+                        background: vcfg ? vcfg.bg : '#F9FAFB',
+                        border: `0.5px solid ${vcfg ? vcfg.cor + '44' : '#E5E7EB'}`,
+                        borderRadius: 8, padding: '10px 8px', textAlign: 'center',
+                        cursor: clickable ? 'pointer' : 'default',
+                        transition: 'transform 0.1s, box-shadow 0.1s',
+                        position: 'relative',
+                      }}
+                    >
                       <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>{label}</div>
                       <div style={{ fontSize: 22, marginBottom: 2 }}>{emojiTempo(rain, pop)}</div>
                       {(tmax != null || tmin != null) && (
@@ -449,6 +519,11 @@ function CondicaoCard({ condicao }: Props) {
                         {pop != null && ` (${pop}%)`}
                         {wind != null && ` · 💨 ${wind.toFixed(1)}m/s`}
                       </div>
+                      {clickable && (
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+                          <IconChevronDown size={12} style={{ color: '#9CA3AF' }} />
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -457,9 +532,23 @@ function CondicaoCard({ condicao }: Props) {
           </>
         )}
 
-
       </div>
     </div>
+
+    {/* ── Modal hora a hora ─────────────────────────────────────────── */}
+    {selectedDay && lat && lon && (
+      <DiaDetalheModal
+        lat={lat}
+        lon={lon}
+        diaDate={selectedDay.date}
+        summaryRain={selectedDay.rain}
+        summaryTmax={selectedDay.tmax}
+        summaryTmin={selectedDay.tmin}
+        summaryWind={selectedDay.wind}
+        onClose={() => setSelectedDay(null)}
+      />
+    )}
+    </>
   )
 }
 
