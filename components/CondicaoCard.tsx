@@ -275,6 +275,8 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
 
   const cx = 160, cy = 62, rx = 140, ry = 46
   const arcLen = Math.PI * Math.sqrt((rx * rx + ry * ry) / 2)
+  const sunX = cx - rx * Math.cos(progress * Math.PI)
+  const sunY = cy - ry * Math.sin(progress * Math.PI)
 
   const skyState       = getSkyState(cloudCover, isRaining, srMin, ssMin)
   const isNightState   = skyState.startsWith('night')
@@ -309,8 +311,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
 
   return (
     <div style={{
-      maxWidth: 340, margin: '0 auto', borderRadius: 12,
-      overflow: 'hidden', position: 'relative',
+      borderRadius: 12, overflow: 'hidden', position: 'relative',
       background: skyBackgrounds[skyState],
     }}>
       <style>{`
@@ -353,16 +354,6 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
         }} />
       ))}
 
-      {/* Sol (dia claro / parcialmente nublado) */}
-      {isSunState && (
-        <div style={{
-          position: 'absolute', top: 16, left: 18, width: 32, height: 32,
-          borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(circle,#fff 18%,#ffe566 48%,transparent 70%)',
-          boxShadow: '0 0 20px 10px rgba(255,210,80,0.45)',
-        }} />
-      )}
-
       {/* Lua com fase real (CSS box-shadow) */}
       {isNightState && moonPhase > 0.03 && (
         <div style={getMoonStyle(moonPhase)} />
@@ -370,13 +361,25 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
 
       {/* Arco solar SVG — fundo transparente, sobre os elementos decorativos */}
       <svg viewBox="0 0 320 92" style={{ width: '100%', height: 'auto', display: 'block', position: 'relative', zIndex: 1 }}>
+        {/* Arc track */}
         <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
           fill="none" stroke={arcColor} strokeWidth="1.5" strokeDasharray="3 4" />
+        {/* Elapsed arc */}
         {progress > 0.01 && (
           <path d={`M ${cx-rx} ${cy} A ${rx} ${ry} 0 0 1 ${cx+rx} ${cy}`}
             fill="none" stroke={elapsedColor} strokeWidth="2.5" strokeLinecap="round"
             strokeDasharray={`${progress * arcLen} ${arcLen}`} />
         )}
+        {/* Sol no arco (dia) */}
+        {isSunState && (
+          <>
+            <circle cx={sunX} cy={sunY} r={18} fill="#FEF3C7" opacity={0.3} />
+            <circle cx={sunX} cy={sunY} r={11} fill="#FDE68A" opacity={0.65} />
+            <circle cx={sunX} cy={sunY} r={6}  fill="#FCD34D" />
+            <circle cx={sunX} cy={sunY} r={3}  fill="#F59E0B" />
+          </>
+        )}
+        {/* Horizon */}
         <line x1={cx-rx-6} y1={cy} x2={cx+rx+6} y2={cy} stroke={horColor} strokeWidth="1" />
       </svg>
 
