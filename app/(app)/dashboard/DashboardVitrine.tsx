@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  IconHeart, IconMapSearch, IconMapPin, IconChevronRight, IconHourglass,
+  IconMapSearch, IconMapPin, IconChevronRight, IconHourglass,
   IconMinus, IconCircleX, IconAlertTriangle, IconCircleCheck,
   type TablerIcon,
 } from '@tabler/icons-react'
@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao, VEREDICTO_CONFIG, ESTADOS_BRASIL } from '@/lib/types'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
 import { formatLocalidade } from '@/lib/geocoding'
+import FavoritoButton from '@/components/FavoritoButton'
 
 // ── Helpers (espelham TrilhaCard) ─────────────────────────────────────────────
 
@@ -163,24 +164,12 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
               </div>
             </div>
 
-            <button
+            <FavoritoButton
+              isFavorito={false}
               onClick={handleFavoritar}
-              disabled={loading}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                border: '1px solid #bbf7d0', borderRadius: 8,
-                padding: '4px 10px',
-                background: loading ? '#f0fdf4' : '#fff',
-                color: '#15803d', fontSize: 11, fontWeight: 600,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                flexShrink: 0, marginTop: 1,
-                opacity: loading ? 0.7 : 1,
-                transition: 'opacity 0.15s',
-              }}
-            >
-              <IconHeart size={13} />
-              {loading ? 'Salvando…' : 'Favoritar'}
-            </button>
+              loading={loading}
+              size="sm"
+            />
           </div>
 
           {/* Mantenedor */}

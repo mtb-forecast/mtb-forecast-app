@@ -16,6 +16,7 @@ import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
+import FavoritoButton from '@/components/FavoritoButton'
 
 const StravaMap = dynamic(() => import('@/components/StravaMap'), {
   ssr: false,
@@ -174,17 +175,11 @@ export default function TrilhaDetalhe() {
                 </svg>
                 Compartilhar
               </button>
-              <button
+              <FavoritoButton
+                isFavorito={isFavorito}
                 onClick={toggleFavorito}
-                style={{
-                  background: 'none', border: '1px solid', cursor: 'pointer',
-                  borderColor: isFavorito ? '#f59e0b' : '#8a9280',
-                  color: isFavorito ? '#f59e0b' : '#8a9280',
-                  fontSize: 18, padding: '4px 10px', borderRadius: 4,
-                }}
-              >
-                {isFavorito ? '★' : '☆'}
-              </button>
+                size="md"
+              />
             </div>
           </div>
 
