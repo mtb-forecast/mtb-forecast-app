@@ -2430,6 +2430,20 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     else:
         ultima_chuva = om_uc
 
+    # Umidade residual de inverno: Mata Atlântica com dossel denso retém umidade
+    # estrutural no solo mesmo sem precipitação registrada — condensação noturna,
+    # serrapilheira e sombra mantêm o solo levemente úmido (≈ GRIP PERFEITO).
+    # Aplica baseline 0.3mm apenas quando acumulo_ef=0 para evitar classificação
+    # SECO em dias frios+úmidos sem chuva recente.
+    _bioma_str = (trail.get("bioma") or "").lower()
+    if (acumulo_ef == 0.0
+            and "mata atlântica" in _bioma_str
+            and 5 <= mes <= 9
+            and (hist.get("umidade_pct") or 0) >= 70):
+        acumulo_ef = 0.3
+        print(f"  [umid-residual] {trail['name']}: Mata Atlântica inverno "
+              f"umid={hist.get('umidade_pct', 0):.0f}% → ef baseline=0.3mm (GRIP PERFEITO)")
+
     # Correção de timing: se OW viu chuva hoje mas OM não capturou horário recente
     ow_hoje_raw = day_sum.get("hoje", 0.0)
     if ow_hoje_raw > 0.5 and (ultima_chuva is None or ultima_chuva > 12.0):
