@@ -4,9 +4,10 @@ import { memo, useMemo, useState, useEffect } from 'react'
 import {
   IconAlertTriangle, IconWind, IconDroplet, IconInfoCircle,
   IconCloud, IconCalendar, IconChevronDown,
+  IconSun, IconCloudRain, IconCloudStorm, IconCircleCheck, IconClockPause, IconUmbrella,
 } from '@tabler/icons-react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
-import { rainColor, windColor, DISPLAY_THR, emojiTempo } from '@/lib/display'
+import { rainColor, windColor, DISPLAY_THR } from '@/lib/display'
 import DiaDetalheModal from '@/components/DiaDetalheModal'
 
 type Props = {
@@ -36,6 +37,25 @@ function aderenciaBadge(a: string): { bg: string; color: string } {
   if (a === 'BOA ADERÊNCIA - ÚMIDO') return { bg: '#F7FEE7', color: '#4D7C0F' }   // lima
   if (a === 'BAIXA ADERÊNCIA')       return { bg: '#FEE2E2', color: '#B91C1C' }   // vermelho
   return { bg: '#F9FAFB', color: '#9CA3AF' }
+}
+
+function weatherIconName(rain: number | null | undefined, pop: number | null | undefined): { icon: string; color: string } {
+  const r = rain ?? 0
+  const p = pop ?? 0
+  if (r >= 10 || (r >= 5 && p >= 70)) return { icon: 'IconCloudStorm', color: '#64748B' }
+  if (r >= 2  || p >= 60)             return { icon: 'IconCloudRain',  color: '#64748B' }
+  if (r >= 0.5 || p >= 35)            return { icon: 'IconCloudRain',  color: '#94A3B8' }
+  if (p < 20  && r < 0.5)             return { icon: 'IconSun',        color: '#E6A817' }
+  return { icon: 'IconCloud', color: '#94A3B8' }
+}
+
+type TablerIcon = React.ComponentType<{ size?: number | string; style?: React.CSSProperties; className?: string }>
+function verdictIcon(v: string | null | undefined): { Icon: TablerIcon | null; color: string; label: string } {
+  if (!v)                           return { Icon: null,             color: '#9CA3AF', label: 'Sem dados' }
+  if (v.trim() === 'DROP LIBERADO') return { Icon: IconCircleCheck  as TablerIcon, color: '#16A34A', label: 'Drop liberado' }
+  if (v.includes('Veja os alertas'))return { Icon: IconAlertTriangle as TablerIcon, color: '#D97706', label: 'Veja os alertas' }
+  if (v.includes('MELHOR ESPERAR')) return { Icon: IconClockPause   as TablerIcon, color: '#DC2626', label: 'Melhor esperar' }
+  return { Icon: null, color: '#9CA3AF', label: v }
 }
 
 function recalcularSolo(condicao: Condicao) {
@@ -533,15 +553,6 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
   const d1 = new Date(hoje); d1.setDate(hoje.getDate() + 1)
   const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
   const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
-  const emojiTempo = (rain: number | null | undefined, pop: number | null | undefined): string => {
-    const r = rain ?? 0
-    const p = pop ?? 0
-    if (r >= 10 || (r >= 5 && p >= 70)) return '⛈'
-    if (r >= 2  || p >= 60)             return '🌧'
-    if (r >= 0.5 || p >= 35)            return '🌦'
-    if (p < 20)                         return '☀️'
-    return '🌤'
-  }
   const fdsDias = [
     { label: fmtDia(d1), v: condicao.fds_d1_veredicto, rain: condicao.fds_d1_rain, wind: condicao.fds_d1_wind, pop: condicao.fds_d1_pop, tmax: condicao.fds_d1_temp, tmin: condicao.fds_d1_temp_min },
     { label: fmtDia(d2), v: condicao.fds_d2_veredicto, rain: condicao.fds_d2_rain, wind: condicao.fds_d2_wind, pop: condicao.fds_d2_pop, tmax: condicao.fds_d2_temp, tmin: condicao.fds_d2_temp_min },
@@ -780,7 +791,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
                 sunrise={solar.sunrise}
                 sunset={solar.sunset}
                 cloudCover={condicao.cloud_pct ?? 30}
-                isRaining={(condicao.acumulo_48h ?? 0) > 0.5}
+                isRaining={(condicao.pico_3h ?? 0) > 0.5}
                 moonPhase={solar.moonPhase}
               />
             </div>
@@ -795,46 +806,89 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
               <div style={{ ...SEC, marginBottom: 10 }}>
                 Próximos 3 dias
                 {lat && lon && (
-                  <span style={{ fontSize: 9, color: '#6B7280', fontWeight: 400, marginLeft: 6, textTransform: 'none', letterSpacing: 0 }}>
+                  <span style={{ fontSize: 9, color: '#6B7280', fontWeight: 400, marginLeft: 6, textTransform: 'none' as const, letterSpacing: 0 }}>
                     toque para ver hora a hora
                   </span>
                 )}
               </div>
-              <div className="fds-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <div className="fds-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 {fdsDias.map(({ label, v, rain, wind, pop, tmax, tmin }, idx) => {
-                  const vcfg       = v ? (VEREDICTO_CONFIG[v] ?? null) : null
-                  const diaDate    = [d1, d2, d3][idx]
-                  const clickable  = !!(lat && lon)
+                  const wi = weatherIconName(rain, pop)
+                  const vi = verdictIcon(v)
+                  const iconMap: Record<string, TablerIcon> = {
+                    IconSun:        IconSun        as TablerIcon,
+                    IconCloud:      IconCloud      as TablerIcon,
+                    IconCloudRain:  IconCloudRain  as TablerIcon,
+                    IconCloudStorm: IconCloudStorm as TablerIcon,
+                  }
+                  const WeatherIcon = iconMap[wi.icon] ?? (IconCloud as TablerIcon)
+                  const diaDate = [d1, d2, d3][idx]
+                  const clickable = !!(lat && lon)
 
                   return (
                     <div
                       key={label}
                       onClick={clickable ? () => setSelectedDay({ date: diaDate, label, rain: rain ?? null, wind: wind ?? null, tmax: tmax ?? null, tmin: tmin ?? null }) : undefined}
                       style={{
-                        background: vcfg ? vcfg.bg : '#F9FAFB',
-                        border: `0.5px solid ${vcfg ? vcfg.cor + '44' : '#E5E7EB'}`,
-                        borderRadius: 8, padding: '10px 8px', textAlign: 'center',
+                        background: '#F3F4F6',
+                        borderRadius: 10,
+                        padding: '14px 12px 10px',
                         cursor: clickable ? 'pointer' : 'default',
-                        transition: 'transform 0.1s, box-shadow 0.1s',
-                        position: 'relative',
+                        transition: 'background 0.15s',
                       }}
                     >
-                      <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>{label}</div>
-                      <div style={{ fontSize: 22, marginBottom: 2 }}>{emojiTempo(rain, pop)}</div>
-                      {(tmax != null || tmin != null) && (
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151', marginBottom: 3 }} className="font-mono">
-                          {tmax != null ? `${tmax}°` : '—'}<span style={{ color: '#9CA3AF', fontWeight: 400 }}> / {tmin != null ? `${tmin}°` : '—'}</span>
-                        </div>
-                      )}
-                      <div style={{ fontSize: 10, fontWeight: 600, color: vcfg?.cor ?? '#9CA3AF', marginBottom: 4 }}>{vcfg?.emoji ?? ''} {v ?? 'SEM DADOS'}</div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF' }} className="font-mono">
-                        {rain != null && `🌧 ${rain.toFixed(1)}mm`}
-                        {pop != null && ` (${pop}%)`}
-                        {wind != null && ` · 💨 ${wind.toFixed(1)}m/s`}
+                      {/* Dia */}
+                      <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500, letterSpacing: '0.03em', marginBottom: 12 }}>
+                        {label}
                       </div>
+
+                      {/* Ícone + Temperatura hero */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                        <WeatherIcon size={22} style={{ color: wi.color, opacity: 0.7, flexShrink: 0 }} />
+                        <div>
+                          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, lineHeight: 1, color: '#111', letterSpacing: '-0.02em' }}>
+                            {tmax != null ? `${tmax}°` : '—'}
+                          </span>
+                          <span className="font-mono" style={{ fontSize: 13, fontWeight: 400, color: '#9CA3AF', marginLeft: 1 }}>
+                            / {tmin != null ? `${tmin}°` : '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Veredicto */}
+                      <div style={{ fontSize: 11, fontWeight: 600, color: vi.color, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        {vi.Icon && <vi.Icon size={12} />}
+                        {vi.label}
+                      </div>
+
+                      {/* Dados secundários */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#6B7280' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <IconDroplet size={12} style={{ opacity: 0.6 }} />Chuva
+                          </span>
+                          <span className="font-mono" style={{ color: rain != null && rain > 5 ? '#DC2626' : '#6B7280' }}>
+                            {rain != null ? `${rain.toFixed(1)}mm` : '—'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#6B7280' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <IconUmbrella size={12} style={{ opacity: 0.6 }} />Prob.
+                          </span>
+                          <span className="font-mono">{pop != null ? `${pop}%` : '—'}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: '#6B7280' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <IconWind size={12} style={{ opacity: 0.6 }} />Vento
+                          </span>
+                          <span className="font-mono">{wind != null ? `${wind.toFixed(1)} m/s` : '—'}</span>
+                        </div>
+                      </div>
+
+                      {/* Chevron hint */}
                       {clickable && (
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
-                          <IconChevronDown size={12} style={{ color: '#9CA3AF' }} />
+                        <div style={{ textAlign: 'center', marginTop: 8 }}>
+                          <IconChevronDown size={11} style={{ color: '#9CA3AF' }} />
                         </div>
                       )}
                     </div>
