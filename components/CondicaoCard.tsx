@@ -799,7 +799,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
                 sunrise={solar.sunrise}
                 sunset={solar.sunset}
                 cloudCover={liveWeather?.cloudCover ?? condicao.cloud_pct ?? 30}
-                isRaining={liveWeather ? liveWeather.precipitation > 0.5 : (condicao.pico_3h ?? 0) > 0.5}
+                isRaining={liveWeather ? liveWeather.precipitation > 0.5 : false}
                 moonPhase={solar.moonPhase}
               />
             </div>
