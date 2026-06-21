@@ -48,6 +48,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#2a2e25" />
         <meta name="mobile-web-app-capable" content="yes" />

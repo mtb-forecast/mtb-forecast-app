@@ -85,7 +85,7 @@ export default function PumpTrackDetailPage() {
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
 
           {/* Breadcrumb */}

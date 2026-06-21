@@ -44,8 +44,8 @@ export default function MantenedorContent({ mantenedor, trilhas }: Props) {
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <div style={{ background: '#2a2e25', padding: '32px 0 28px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 28px', boxSizing: 'border-box' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 0 28px' }}>
+        <div className="hero-dark-inner" style={{ maxWidth: 1200, margin: '0 auto', padding: '0 28px', boxSizing: 'border-box' }}>
 
           <button onClick={() => router.back()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             ← Trilhas
@@ -95,7 +95,7 @@ export default function MantenedorContent({ mantenedor, trilhas }: Props) {
       <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* ── Trilhas ──────────────────────────────────────────────── */}
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-main-content" style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', margin: '0 0 16px' }}>
           Trilhas
         </p>

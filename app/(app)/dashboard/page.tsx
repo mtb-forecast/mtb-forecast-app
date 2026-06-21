@@ -33,7 +33,7 @@ export default async function DashboardPage() {
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Hero — h1 é o elemento LCP; pinta antes dos cards carregarem ── */}
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h1 style={{
             fontSize: 42, fontWeight: 800,
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
 
       {/* Banner de perfil incompleto */}
       {!(profile?.nome && profile?.apelido && profile?.telefone && profile?.regiao) && (
-        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 28px' }}>
+        <div className="hero-banner" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 28px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <p style={{ fontSize: 13, color: '#92400e' }}>
               ⚠️ Complete seu perfil para aproveitar todos os recursos
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
 
       {/* Banner de notificações desativadas */}
       {profile && !profile.receber_email && !(profile.telegram_chat_id && profile.telegram_ativo) && (
-        <div style={{ background: '#2a2e25', padding: '16px 28px' }}>
+        <div className="hero-banner" style={{ background: '#2a2e25', padding: '16px 28px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
@@ -125,7 +125,7 @@ export default async function DashboardPage() {
       )}
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-main-content" style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>

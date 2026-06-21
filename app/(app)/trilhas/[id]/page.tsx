@@ -95,7 +95,7 @@ export default async function TrilhaDetalhe({ params }: { params: { id: string }
 
           {/* Nome + ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <h1 style={{
+            <h1 className="trilha-nome" style={{
               fontFamily: barlow.style.fontFamily,
               fontSize: 36, fontWeight: 800,
               textTransform: 'uppercase',

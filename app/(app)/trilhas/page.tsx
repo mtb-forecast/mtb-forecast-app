@@ -281,7 +281,7 @@ function TrilhasContent() {
       `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div style={{ background: '#2a2e25', padding: '36px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '36px 28px' }}>
         <div style={{
           maxWidth: 1200, margin: '0 auto',
           display: 'flex', alignItems: 'center',
@@ -324,7 +324,7 @@ function TrilhasContent() {
       <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* ── Filtros ─────────────────────────────────────────────────────── */}
-      <div style={{ background: '#f4f5f0', borderBottom: '0.5px solid #E5E7EB', padding: '16px 28px' }}>
+      <div className="trilhas-filter-bar" style={{ background: '#f4f5f0', borderBottom: '0.5px solid #E5E7EB', padding: '16px 28px' }}>
         <div
           className="trilhas-filtros"
           style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
@@ -437,7 +437,7 @@ function TrilhasContent() {
       </div>
 
       {/* ── Conteúdo ────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 28px' }}>
+      <div className="trilhas-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 28px' }}>
 
         {/* Onboarding — sem estado selecionado */}
         {!estadoSelecionado && (
