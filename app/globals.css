@@ -50,14 +50,26 @@ input, select, textarea, button { font-family: inherit; }
   }
 }
 
-/* ── Mobile: página de detalhe de trilha ─────────────────────────────────── */
+/* ── Mobile: responsividade geral ────────────────────────────────────────── */
 @media (max-width: 768px) {
-  /* PATCH 9 — Utilities genéricas */
+  /* Utilities genéricas — detalhe de trilha */
   .page-header   { padding: 20px 16px !important; }
+  .page-header-inner { padding-left: 0 !important; padding-right: 0 !important; }
   .content-area  { padding: 16px 16px 32px !important; }
   .section-card  { padding: 12px !important; }
 
-  /* PATCH 1 — Header: nome menor + botões com wrap */
+  /* Hero escuro — dashboard / trilhas / favoritas */
+  .hero-dark       { padding: 20px 16px !important; }
+  .hero-dark h1    { font-size: 24px !important; }
+  .hero-dark-inner { padding-left: 16px !important; padding-right: 16px !important; }
+  .hero-banner     { padding: 10px 16px !important; }
+  .page-main-content { padding: 16px 16px 32px !important; }
+
+  /* Trilhas page — filtros e conteúdo */
+  .trilhas-filter-bar { padding: 12px 16px !important; }
+  .trilhas-content    { padding: 16px 16px 32px !important; }
+
+  /* Header: nome menor + botões com wrap */
   .trilha-nome { font-size: 20px !important; }
   .trilha-header-actions { flex-wrap: wrap !important; gap: 6px !important; }
   .trilha-header-actions > button,
@@ -66,25 +78,21 @@ input, select, textarea, button { font-family: inherit; }
     font-size: 12px !important;
   }
 
-  /* PATCH 3 — Dados físicos: quebra de linha */
+  /* Dados físicos: quebra de linha */
   .dados-fisicos { flex-wrap: wrap !important; gap: 8px !important; }
 
-  /* PATCH 4 — Aderência: labels menores */
+  /* Aderência: labels menores */
   .trilha-aderencia-block { font-size: 12px !important; }
 
-  /* PATCH 7 — Mapa menor */
+  /* Mapa menor */
   .trilha-mapa-iframe { height: 180px !important; }
 
-  /* PATCH 6 — Próximos 3 dias: stack vertical */
+  /* Próximos 3 dias: stack vertical */
   .fds-grid { grid-template-columns: 1fr !important; }
 
-  /* PATCH 8 — Avaliações */
+  /* Avaliações */
   .obs-textarea        { min-height: 60px !important; }
   .star-selector-star  { font-size: 20px !important; }
-}
-
-@media (max-width: 640px) {
-  .page-header-inner { padding-left: 16px !important; padding-right: 16px !important; }
 }
 
 /* Spinner global — evita @keyframes inline em múltiplos componentes */

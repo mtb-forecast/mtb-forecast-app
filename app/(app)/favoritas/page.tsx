@@ -73,7 +73,7 @@ export default async function FavoritasPage() {
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* Header */}
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Link href="/dashboard" style={{
             fontSize: 13, color: '#a8b899', textDecoration: 'none',
@@ -81,7 +81,7 @@ export default async function FavoritasPage() {
           }}>
             ← Dashboard
           </Link>
-          <h1 style={{
+          <h1 className="trilha-nome" style={{
             fontSize: 36, fontWeight: 800, textTransform: 'uppercase',
             color: '#FFFFFF', lineHeight: 1.05, margin: 0,
           }}>
@@ -95,7 +95,7 @@ export default async function FavoritasPage() {
       </div>
 
       {/* Content */}
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-main-content" style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <FavoritasGrid
           initialTrilhas={trilhas}
           initialFavIds={ids}

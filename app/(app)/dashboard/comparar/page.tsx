@@ -103,7 +103,7 @@ function ComparacaoContent() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Link
             href="/dashboard"
@@ -127,7 +127,7 @@ function ComparacaoContent() {
         </div>
       </div>
 
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-main-content" style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <TrilhaColumn trilha={trilhaA} label="Trilha A" />
           <TrilhaColumn trilha={trilhaB} label="Trilha B" />

@@ -1,7 +1,7 @@
 export default function DashboardLoading() {
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ height: 44, width: 260, background: '#3a4035', borderRadius: 6, marginBottom: 12 }} />
           <div style={{ height: 16, width: 300, background: '#3a4035', borderRadius: 4, opacity: 0.5 }} />
@@ -9,7 +9,7 @@ export default function DashboardLoading() {
         </div>
       </div>
 
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-main-content" style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ height: 18, width: 180, background: '#e5e7eb', borderRadius: 4, marginBottom: 16 }} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
