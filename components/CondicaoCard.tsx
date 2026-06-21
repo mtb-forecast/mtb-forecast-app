@@ -288,9 +288,9 @@ function getSunPosition(sunriseStr: string, sunsetStr: string): { left: string; 
   return { left: `${(x / 340) * 100}%`, top: `${(y / 158) * 100}%` }
 }
 
-function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
+function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase, tempC }: {
   sunrise: string; sunset: string
-  cloudCover: number; isRaining: boolean; moonPhase: number
+  cloudCover: number; isRaining: boolean; moonPhase: number; tempC?: number
 }) {
   const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
   const now    = new Date()
@@ -384,6 +384,23 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase }: {
           }} />
         ))}
 
+        {/* Temperatura ao vivo — canto superior esquerdo */}
+        {tempC != null && (
+          <div style={{
+            position: 'absolute', top: 12, left: 14, zIndex: 3,
+            pointerEvents: 'none',
+          }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontWeight: 800, fontSize: 36, lineHeight: 1,
+              color: txt, letterSpacing: '-0.02em',
+              textShadow: isNightState ? '0 1px 6px rgba(0,0,0,0.5)' : '0 1px 4px rgba(0,0,0,0.15)',
+            }}>
+              {tempC}°
+            </span>
+          </div>
+        )}
+
         {/* Lua — posição fixa canto superior direito */}
         {isNightState && moonPhase > 0.03 && (
           <div style={getMoonStyle(moonPhase)} />
@@ -462,14 +479,14 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
     sunrise: string; sunset: string; moonPhase: number
   } | null>(null)
   const [liveWeather, setLiveWeather] = useState<{
-    precipitation: number; cloudCover: number
+    precipitation: number; cloudCover: number; tempC: number
   } | null>(null)
 
   useEffect(() => {
     if (!lat || !lon) return
     const ctrl = new AbortController()
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=precipitation,cloud_cover&daily=sunrise,sunset&timezone=America%2FSao_Paulo&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=precipitation,cloud_cover,temperature_2m&daily=sunrise,sunset&timezone=America%2FSao_Paulo&forecast_days=1`,
       { signal: ctrl.signal }
     )
       .then(r => r.json())
@@ -477,10 +494,11 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         const sr = (data.daily?.sunrise?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
         const ss = (data.daily?.sunset?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
         if (sr && ss) setSolar({ sunrise: sr, sunset: ss, moonPhase: calcMoonPhase(new Date()) })
-        const precip = data.current?.precipitation ?? null
-        const cloud  = data.current?.cloud_cover  ?? null
-        if (precip !== null && cloud !== null) {
-          setLiveWeather({ precipitation: precip, cloudCover: cloud })
+        const precip = data.current?.precipitation   ?? null
+        const cloud  = data.current?.cloud_cover     ?? null
+        const temp   = data.current?.temperature_2m  ?? null
+        if (precip !== null && cloud !== null && temp !== null) {
+          setLiveWeather({ precipitation: precip, cloudCover: cloud, tempC: Math.round(temp) })
         }
       })
       .catch(() => {})
@@ -801,6 +819,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
                 cloudCover={liveWeather?.cloudCover ?? condicao.cloud_pct ?? 30}
                 isRaining={liveWeather ? liveWeather.precipitation > 0.5 : false}
                 moonPhase={solar.moonPhase}
+                tempC={liveWeather?.tempC}
               />
             </div>
           </>
