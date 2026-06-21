@@ -306,7 +306,7 @@ export default function PerfilPage() {
     const { error } = await supabase.from('profiles').update({
       nome, apelido, data_nascimento: dataNascimento || null, cidade,
       telefone, telefone_whatsapp: telefoneWhatsapp,
-      regiao, telegram_username: telegram || null,
+      regiao, telegram_username: telegram ? telegram.toLowerCase() : null,
       instagram: instagram || null, facebook: facebook || null, strava_id: stravaId || null,
     }).eq('id', profile.id)
     setSaving(false)
@@ -314,7 +314,7 @@ export default function PerfilPage() {
       setProfile(prev => prev ? {
         ...prev, nome, apelido, data_nascimento: dataNascimento || null, cidade,
         telefone, telefone_whatsapp: telefoneWhatsapp, regiao,
-        telegram_username: telegram || undefined, instagram: instagram || undefined,
+        telegram_username: telegram ? telegram.toLowerCase() : undefined, instagram: instagram || undefined,
         facebook: facebook || undefined, strava_id: stravaId || undefined,
       } : prev)
       setSaveOk(true); setTimeout(() => setSaveOk(false), 3000)
