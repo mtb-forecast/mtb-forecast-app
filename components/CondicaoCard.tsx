@@ -461,12 +461,15 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
   const [solar, setSolar] = useState<{
     sunrise: string; sunset: string; moonPhase: number
   } | null>(null)
+  const [liveWeather, setLiveWeather] = useState<{
+    precipitation: number; cloudCover: number
+  } | null>(null)
 
   useEffect(() => {
     if (!lat || !lon) return
     const ctrl = new AbortController()
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset&timezone=America%2FSao_Paulo&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=precipitation,cloud_cover&daily=sunrise,sunset&timezone=America%2FSao_Paulo&forecast_days=1`,
       { signal: ctrl.signal }
     )
       .then(r => r.json())
@@ -474,6 +477,11 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         const sr = (data.daily?.sunrise?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
         const ss = (data.daily?.sunset?.[0] as string | undefined)?.split('T')[1]?.slice(0, 5)
         if (sr && ss) setSolar({ sunrise: sr, sunset: ss, moonPhase: calcMoonPhase(new Date()) })
+        const precip = data.current?.precipitation ?? null
+        const cloud  = data.current?.cloud_cover  ?? null
+        if (precip !== null && cloud !== null) {
+          setLiveWeather({ precipitation: precip, cloudCover: cloud })
+        }
       })
       .catch(() => {})
     return () => ctrl.abort()
@@ -790,8 +798,8 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
               <SolarArc
                 sunrise={solar.sunrise}
                 sunset={solar.sunset}
-                cloudCover={condicao.cloud_pct ?? 30}
-                isRaining={(condicao.pico_3h ?? 0) > 0.5}
+                cloudCover={liveWeather?.cloudCover ?? condicao.cloud_pct ?? 30}
+                isRaining={liveWeather ? liveWeather.precipitation > 0.5 : (condicao.pico_3h ?? 0) > 0.5}
                 moonPhase={solar.moonPhase}
               />
             </div>
