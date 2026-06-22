@@ -99,16 +99,19 @@ export async function GET(req: NextRequest) {
 
 
     const origin = new URL(req.url).origin
+    // Noto Sans ships bundled with @vercel/og — guaranteed compatible with this Satori version
+    let notoSans: ArrayBuffer | null = null
     let dmSansBold: ArrayBuffer | null = null
     let dmMono: ArrayBuffer | null = null
+    try {
+      notoSans = await fetch(`${origin}/fonts/noto-sans-regular.ttf`).then(r => r.arrayBuffer())
+    } catch { /* fallback handled below */ }
     try {
       ;[dmSansBold, dmMono] = await Promise.all([
         fetch(`${origin}/fonts/dm-sans-800.ttf`).then(r => r.arrayBuffer()),
         fetch(`${origin}/fonts/dm-mono-400.ttf`).then(r => r.arrayBuffer()),
       ])
-    } catch {
-      // fonts unavailable — Satori will throw; caught by outer try-catch
-    }
+    } catch { /* DM Sans optional — Noto Sans is the required fallback */ }
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
     const bg = bgUrl(categoria)
@@ -137,11 +140,13 @@ export async function GET(req: NextRequest) {
     })()
 
     const fonts: { name: string; data: ArrayBuffer; weight: 400 | 800 }[] = []
+    if (notoSans) fonts.push({ name: 'Noto Sans', data: notoSans, weight: 400 })
     if (dmSansBold) fonts.push({ name: 'DM Sans', data: dmSansBold, weight: 800 })
     if (dmMono) fonts.push({ name: 'DM Mono', data: dmMono, weight: 400 })
 
-    const fontSans = dmSansBold ? 'DM Sans' : 'sans-serif'
-    const fontMono = dmMono ? 'DM Mono' : 'monospace'
+    // DM Sans preferred, Noto Sans as guaranteed fallback
+    const fontSans = dmSansBold ? 'DM Sans' : (notoSans ? 'Noto Sans' : 'sans-serif')
+    const fontMono = dmMono ? 'DM Mono' : (notoSans ? 'Noto Sans' : 'monospace')
 
     // Satori (ImageResponse) limitations vs standard CSS:
     // - NO inset shorthand: use top/left/right/bottom separately
