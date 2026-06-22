@@ -11,7 +11,7 @@ import CondicaoCard from '@/components/CondicaoCard'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
 import TrilhaAcoes from './TrilhaAcoes'
 
-const StravaMap = dynamic(() => import('@/components/StravaMap'), {
+const TrailMap = dynamic(() => import('@/components/TrailMap'), {
   ssr: false,
   loading: () => <div style={{ height: 250, borderRadius: 8, background: '#d4dcc9' }} />,
 })
@@ -173,7 +173,7 @@ export default async function TrilhaDetalhe({ params }: { params: { id: string }
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderLeft: `3px solid ${borderCor}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
           {trilha.polyline ? (
             <>
-              <StravaMap polyline={trilha.polyline} />
+              <TrailMap polyline={trilha.polyline} />
               <div>
                 <ElevationProfile
                   elevationProfileUrl={null}

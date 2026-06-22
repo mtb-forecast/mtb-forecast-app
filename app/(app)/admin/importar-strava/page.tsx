@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { geocodeLatLon } from '@/lib/geocoding'
 
-const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
+const TrailMap = dynamic(() => import('@/components/TrailMap'), { ssr: false })
 
 type StravaSegment = {
   strava_segment_id: number
@@ -358,7 +358,7 @@ function ImportarStravaContent() {
                   >
                     {/* Mapa ou placeholder */}
                     {seg.polyline ? (
-                      <StravaMap polyline={seg.polyline} />
+                      <TrailMap polyline={seg.polyline} />
                     ) : tentouPolyline ? (
                       <div style={{
                         height: 110, background: '#f4f5f0',
