@@ -98,9 +98,17 @@ export async function GET(req: NextRequest) {
     if (!condicao) return new Response('Condicao nao encontrada', { status: 404 })
 
 
-    // Fonts disabled for now to isolate crash
-    const dmSansBold: ArrayBuffer | null = null
-    const dmMono: ArrayBuffer | null = null
+    const origin = new URL(req.url).origin
+    let dmSansBold: ArrayBuffer | null = null
+    let dmMono: ArrayBuffer | null = null
+    try {
+      ;[dmSansBold, dmMono] = await Promise.all([
+        fetch(`${origin}/fonts/dm-sans-800.ttf`).then(r => r.arrayBuffer()),
+        fetch(`${origin}/fonts/dm-mono-400.ttf`).then(r => r.arrayBuffer()),
+      ])
+    } catch {
+      // fonts unavailable — Satori will throw; caught by outer try-catch
+    }
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
     const bg = bgUrl(categoria)
