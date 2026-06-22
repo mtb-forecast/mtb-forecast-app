@@ -155,19 +155,7 @@ export async function GET(req: NextRequest) {
             background: '#2a2e25',
           }}
         >
-          {/* Background photo */}
-          <img
-            src={bg}
-            style={{
-              position: 'absolute',
-              top: -40,
-              left: -40,
-              width: 1160,
-              height: 1160,
-            }}
-          />
-
-          {/* Dark overlay — compensates for no blur/filter */}
+          {/* Dark background — img disabled until bucket is populated */}
           <div
             style={{
               position: 'absolute',
@@ -175,7 +163,7 @@ export async function GET(req: NextRequest) {
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'rgba(42,46,37,0.92)',
+              background: '#1e2218',
               display: 'flex',
             }}
           />
@@ -203,6 +191,7 @@ export async function GET(req: NextRequest) {
               bottom: 0,
               display: 'flex',
               flexDirection: 'column',
+              justifyContent: 'space-between',
               paddingTop: 56,
               paddingLeft: 72,
               paddingRight: 72,
@@ -305,12 +294,11 @@ export async function GET(req: NextRequest) {
               <div
                 style={{
                   display: 'flex',
-                  padding: '14px 32px',
-                  borderRadius: 12,
+                  paddingTop: 14,
+                  paddingBottom: 14,
+                  paddingLeft: 32,
+                  paddingRight: 32,
                   background: verdict.bg,
-                  borderWidth: 2,
-                  borderStyle: 'solid',
-                  borderColor: verdict.border,
                   fontSize: 26,
                   fontFamily: fontSans,
                   fontWeight: 700,
@@ -324,17 +312,15 @@ export async function GET(req: NextRequest) {
                 <div
                   style={{
                     display: 'flex',
-                    padding: '14px 28px',
-                    borderRadius: 12,
+                    paddingTop: 14,
+                    paddingBottom: 14,
+                    paddingLeft: 28,
+                    paddingRight: 28,
                     background: 'rgba(168,184,153,0.08)',
-                    borderWidth: 2,
-                    borderStyle: 'solid',
-                    borderColor: 'rgba(168,184,153,0.15)',
                     fontSize: 24,
                     fontFamily: fontSans,
                     fontWeight: 600,
                     color: 'rgba(168,184,153,0.7)',
-                    letterSpacing: 0,
                   }}
                 >
                   {aderenciaLabel}
@@ -343,65 +329,20 @@ export async function GET(req: NextRequest) {
             </div>
 
             {/* Metrics — 3 columns */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                gap: 2,
-                background: 'rgba(168,184,153,0.06)',
-                borderRadius: 16,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  flex: 1,
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '28px 20px',
-                  background: 'rgba(42,46,37,0.7)',
-                  borderRadius: 16,
-                  gap: 6,
-                }}
-              >
+            <div style={{ display: 'flex', flexDirection: 'row', gap: 2, background: 'rgba(168,184,153,0.06)' }}>
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, paddingLeft: 20, paddingRight: 20, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{tempLabel}</div>
-                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', letterSpacing: 1 }}>MAXIMA</div>
+                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)' }}>MAXIMA</div>
               </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  flex: 1,
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '28px 20px',
-                  background: 'rgba(42,46,37,0.7)',
-                  gap: 6,
-                }}
-              >
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, paddingLeft: 20, paddingRight: 20, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{rainLabel}</div>
-                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', letterSpacing: 1 }}>CHUVA 24H</div>
+                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)' }}>CHUVA 24H</div>
               </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  flex: 1,
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  padding: '28px 20px',
-                  background: 'rgba(42,46,37,0.7)',
-                  borderRadius: 16,
-                  gap: 6,
-                }}
-              >
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, paddingLeft: 20, paddingRight: 20, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{windLabel}</div>
-                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', letterSpacing: 1 }}>VENTO</div>
+                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)' }}>VENTO</div>
               </div>
             </div>
-
-            {/* Spacer */}
-            <div style={{ display: 'flex', flex: 1 }} />
 
             {/* Footer */}
             <div
