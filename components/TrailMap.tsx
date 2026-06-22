@@ -7,7 +7,7 @@ function dot(color: string) {
   return `<div style="width:11px;height:11px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`
 }
 
-export default function StravaMap({ polyline }: { polyline: string }) {
+export default function TrailMap({ polyline }: { polyline: string }) {
   const ref = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null)
