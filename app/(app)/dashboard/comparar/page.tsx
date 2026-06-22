@@ -3,14 +3,11 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Barlow_Condensed } from 'next/font/google'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao } from '@/lib/types'
 import CondicaoCard from '@/components/CondicaoCard'
 import { formatLocalidade } from '@/lib/geocoding'
-
-const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 function LoadingSpin() {
   return (
@@ -113,7 +110,7 @@ function ComparacaoContent() {
             Voltar ao dashboard
           </Link>
           <h1 style={{
-            fontFamily: barlow.style.fontFamily,
+            fontFamily: 'var(--font-barlow-condensed), sans-serif',
             fontSize: 36, fontWeight: 800,
             textTransform: 'uppercase', lineHeight: 1.05, margin: 0,
           }}>

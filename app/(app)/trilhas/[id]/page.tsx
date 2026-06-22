@@ -1,7 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { Barlow_Condensed } from 'next/font/google'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
@@ -16,8 +15,6 @@ const StravaMap = dynamic(() => import('@/components/StravaMap'), {
   ssr: false,
   loading: () => <div style={{ height: 250, borderRadius: 8, background: '#d4dcc9' }} />,
 })
-
-const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -96,7 +93,7 @@ export default async function TrilhaDetalhe({ params }: { params: { id: string }
           {/* Nome + ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
             <h1 className="trilha-nome" style={{
-              fontFamily: barlow.style.fontFamily,
+              fontFamily: 'var(--font-barlow-condensed), sans-serif',
               fontSize: 36, fontWeight: 800,
               textTransform: 'uppercase',
               color: '#FFFFFF', lineHeight: 1.1, flex: 1, margin: 0,

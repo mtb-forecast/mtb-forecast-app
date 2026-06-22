@@ -391,7 +391,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase, tempC }: 
             pointerEvents: 'none',
           }}>
             <span style={{
-              fontFamily: "'Barlow Condensed', sans-serif",
+              fontFamily: "var(--font-barlow-condensed), sans-serif",
               fontWeight: 800, fontSize: 36, lineHeight: 1,
               color: txt, letterSpacing: '-0.02em',
               textShadow: isNightState ? '0 1px 6px rgba(0,0,0,0.5)' : '0 1px 4px rgba(0,0,0,0.15)',
@@ -806,6 +806,8 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         </div>
 
         {/* ── 5. Nascer e Pôr do Sol ──────────────────────────────── */}
+        {/* Placeholder reserva o espaço da seção enquanto o fetch não retorna (evita CLS) */}
+        {lat && lon && !solar && <div style={{ height: 222 }} />}
         {solar && (
           <>
             <div style={DIV} />
@@ -873,7 +875,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                         <WeatherIcon size={22} style={{ color: wi.color, opacity: 0.7, flexShrink: 0 }} />
                         <div>
-                          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 32, lineHeight: 1, color: '#111', letterSpacing: '-0.02em' }}>
+                          <span style={{ fontFamily: "var(--font-barlow-condensed), sans-serif", fontWeight: 800, fontSize: 32, lineHeight: 1, color: '#111', letterSpacing: '-0.02em' }}>
                             {tmax != null ? `${tmax}°` : '—'}
                           </span>
                           <span className="font-mono" style={{ fontSize: 13, fontWeight: 400, color: '#9CA3AF', marginLeft: 1 }}>

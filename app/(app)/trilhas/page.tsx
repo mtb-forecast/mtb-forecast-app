@@ -1,6 +1,5 @@
 ﻿'use client'
 
-import { Barlow_Condensed } from 'next/font/google'
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -10,8 +9,6 @@ import TrilhaCard from '@/components/TrilhaCard'
 import PumpTrackCard from '@/components/PumpTrackCard'
 import { IconChevronDown, IconSearch, IconRoute, IconShieldCheck } from '@tabler/icons-react'
 
-
-const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 const VEREDICTO_ORDER: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -289,7 +286,7 @@ function TrilhasContent() {
         }}>
           <div>
             <h1 style={{
-              fontFamily: barlow.style.fontFamily,
+              fontFamily: 'var(--font-barlow-condensed), sans-serif',
               fontSize: 36, fontWeight: 800,
               textTransform: 'uppercase',
               color: '#FFFFFF', lineHeight: 1.1, margin: 0,
