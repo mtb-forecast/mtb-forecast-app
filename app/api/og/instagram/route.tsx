@@ -39,13 +39,6 @@ function formatLocation(
   return regiao ?? ''
 }
 
-function bgUrl(categoria: string): string {
-  const counts: Record<string, number> = { chuva: 2, garoa: 1, nublado: 1, sol: 1, tempestade: 1 }
-  const max = counts[categoria] ?? 1
-  const n = Math.floor(Math.random() * max) + 1
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/instagram-bg/${categoria}_${n}.png`
-}
-
 function trailNameFontSize(name: string): number {
   if (name.length <= 6) return 140
   if (name.length <= 12) return 100
@@ -53,84 +46,46 @@ function trailNameFontSize(name: string): number {
   return 56
 }
 
-// ─── Background via Pexels API ───────────────────────────────────────────────
-// Fotos reais de trilhas MTB buscadas por bioma + categoria climática.
-// Cacheadas no bucket instagram-bg após primeira busca.
+// ─── Backgrounds via Pollinations.ai (Flux) ─────────────────────────────────
+// Prompt fixo por categoria climática, gerado uma vez e cacheado no bucket.
+// Chave: {categoria}.jpg (5 imagens no total, compartilhadas entre trilhas).
 
-// Queries por categoria climática — foco em mood/clima, não bioma.
-// Pexels não tem acervo MTB por bioma brasileiro; queries de clima universal
-// retornam fotos de alta qualidade consistentes com as condições.
-const PEXELS_QUERIES: Record<string, string[]> = {
-  sol: [
-    'mountain bike trail sunny forest golden light',
-    'mountain bike singletrack sunny day forest',
-    'mountain biking forest trail sunshine',
-  ],
-  nublado: [
-    'mountain bike trail overcast moody forest',
-    'mountain biking forest trail cloudy grey sky',
-    'mountain bike trail dark forest moody',
-  ],
-  garoa: [
-    'mountain bike trail misty foggy forest',
-    'mountain biking forest fog mist morning',
-    'mountain bike trail wet misty trees',
-  ],
-  chuva: [
-    'mountain bike muddy trail rain wet forest',
-    'mountain biking muddy trail rain',
-    'mountain bike trail wet mud puddles forest rain',
-  ],
-  tempestade: [
-    'mountain bike trail dark storm forest dramatic',
-    'mountain biking trail storm dark clouds',
-    'mountain bike trail dramatic dark stormy sky forest',
-  ],
+const POLLINATIONS_PROMPTS: Record<string, string> = {
+  sol: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu azul intenso sem nuvens, iluminação solar brilhante de meio-dia, cores vibrantes, atmosfera agradável e convidativa. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional.',
+  nublado: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu totalmente coberto por nuvens cinzentas claras, iluminação difusa e suave, ambiente tranquilo e fresco, cores levemente dessaturadas. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional.',
+  garoa: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu nublado com garoa fina visível no ar, pequenas gotas de chuva criando reflexos sutis na superfície da trilha, atmosfera úmida e fresca, iluminação suave e natural. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional.',
+  chuva: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Chuva moderada caindo de forma visível, poças de água na trilha, vegetação molhada com reflexos brilhantes, céu cinza escuro, atmosfera realista de dia chuvoso. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional.',
+  tempestade: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu de tempestade com nuvens escuras e dramáticas, relâmpagos ao longe, chuva intensa, vento movimentando a vegetação, atmosfera poderosa e cinematográfica, contraste elevado e iluminação dramática. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional.',
 }
 
-function pexelsQuery(bioma: string | null, categoria: string): string {
-  const queries = PEXELS_QUERIES[categoria] ?? PEXELS_QUERIES['sol']
-  // Seed por bioma para variar entre biomas na mesma categoria
-  const biomaIndex: Record<string, number> = {
-    'Mata Atlântica': 0, 'Cerrado': 1, 'Amazônia': 2,
-    'Caatinga': 1, 'Pampa': 2, 'Pantanal': 0,
-  }
-  const idx = biomaIndex[bioma ?? ''] ?? 0
-  return queries[idx % queries.length]
+// Seed fixo por categoria para imagem consistente (sem variação aleatória)
+const POLLINATIONS_SEEDS: Record<string, number> = {
+  sol: 101,
+  nublado: 202,
+  garoa: 303,
+  chuva: 404,
+  tempestade: 505,
 }
 
-function trailBgStorageUrl(trilhaId: string, categoria: string): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/${trilhaId}_${categoria}.jpg`
+function bgStorageUrl(categoria: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/${categoria}.jpg`
 }
 
-async function fetchAndUploadTrailBg(trilhaId: string, categoria: string, bioma: string | null): Promise<void> {
-  const storageKey = `${trilhaId}_${categoria}.jpg`
-  const apiKey = process.env.PEXELS_API_KEY
-  if (!apiKey) return
+async function fetchAndUploadPollinations(categoria: string): Promise<void> {
+  const prompt = POLLINATIONS_PROMPTS[categoria] ?? POLLINATIONS_PROMPTS['sol']
+  const seed = POLLINATIONS_SEEDS[categoria] ?? 42
+  const encoded = encodeURIComponent(prompt)
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}`
 
   try {
-    const query = pexelsQuery(bioma, categoria)
-    // Busca 15 fotos no Pexels e escolhe uma aleatoriamente para variar
-    const searchRes = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=15&orientation=square`,
-      { headers: { Authorization: apiKey }, signal: AbortSignal.timeout(15_000) }
-    )
-    if (!searchRes.ok) return
-
-    const data = await searchRes.json() as { photos: { src: { large2x: string } }[] }
-    if (!data.photos?.length) return
-
-    // Seed determinístico por trilha para imagem consistente entre requests
-    const seed = (trilhaId.charCodeAt(0) + trilhaId.charCodeAt(4)) % data.photos.length
-    const photoUrl = data.photos[seed].src.large2x
-
-    const imgRes = await fetch(photoUrl, { signal: AbortSignal.timeout(20_000) })
+    const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
     if (!imgRes.ok) return
 
     const imgBuf = await imgRes.arrayBuffer()
+    if (!imgBuf.byteLength) return
 
     await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${storageKey}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${categoria}.jpg`,
       {
         method: 'POST',
         headers: {
@@ -141,7 +96,7 @@ async function fetchAndUploadTrailBg(trilhaId: string, categoria: string, bioma:
         body: imgBuf,
       }
     )
-  } catch { /* falha silenciosa — próxima requisição tentará novamente */ }
+  } catch { /* falha silenciosa — card usa gradiente escuro como fallback */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -246,39 +201,39 @@ export async function GET(req: NextRequest) {
     })()
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
-    const trailBgUrl = trailBgStorageUrl(trilhaId, categoria)
+    const bgUrl = bgStorageUrl(categoria)
 
     let bgDataUrl: string | null = null
 
-    // Tenta carregar imagem personalizada do bucket (já foi gerada via Pexels)
+    // 1ª tentativa: carrega do bucket (imagem já gerada anteriormente)
     try {
-      const res = await fetch(trailBgUrl)
+      const res = await fetch(bgUrl)
       if (res.ok) {
         const buf = await res.arrayBuffer()
         const bytes = new Uint8Array(buf.slice(0, 4))
         const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
         const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
-        const mime   = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
+        const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+        const mime   = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : isWebp ? 'image/webp' : 'image/jpeg'
         bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
       }
-    } catch { /* imagem ainda não existe no bucket */ }
+    } catch { /* imagem ainda não existe — gera abaixo */ }
 
-    // Se não existe ainda: busca no Pexels AGORA (aguarda antes de responder)
-    // O warm-up do script Python aceita até 120s, então podemos aguardar aqui.
-    if (!bgDataUrl && process.env.PEXELS_API_KEY) {
-      await fetchAndUploadTrailBg(trilhaId, categoria, trilha.bioma ?? null)
-      // Tenta carregar a imagem recém-gerada
+    // 2ª tentativa: gera via Pollinations e sobe para o bucket
+    if (!bgDataUrl) {
+      await fetchAndUploadPollinations(categoria)
       try {
-        const res = await fetch(trailBgUrl)
+        const res = await fetch(bgUrl)
         if (res.ok) {
           const buf = await res.arrayBuffer()
           const bytes = new Uint8Array(buf.slice(0, 4))
           const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
           const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
-          const mime   = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
+          const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+          const mime   = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : isWebp ? 'image/webp' : 'image/jpeg'
           bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
         }
-      } catch { /* Pexels falhou — usa gradiente escuro como fallback */ }
+      } catch { /* Pollinations falhou — card usa gradiente escuro */ }
     }
 
     return new ImageResponse(
