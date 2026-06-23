@@ -122,7 +122,7 @@ function buildTrailPrompt(
 }
 
 function trailBgStorageUrl(trilhaId: string, categoria: string): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/trail-og/${trilhaId}_${categoria}.jpg`
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/${trilhaId}_${categoria}.jpg`
 }
 
 async function generateAndUploadTrailBg(trilhaId: string, categoria: string, prompt: string): Promise<void> {
@@ -137,7 +137,7 @@ async function generateAndUploadTrailBg(trilhaId: string, categoria: string, pro
 
     // Upload para Supabase Storage (trail-og bucket, público)
     await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/trail-og/${storageKey}`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${storageKey}`,
       {
         method: 'POST',
         headers: {
