@@ -56,29 +56,35 @@ function trailNameFontSize(name: string): number {
 // ─── Geração on-demand via Pollinations ──────────────────────────────────────
 
 const BIOMA_EN: Record<string, string> = {
-  'Mata Atlântica': 'Atlantic Forest, dense tropical rainforest, mossy rocks, red clay soil, towering trees',
-  'Cerrado':        'Brazilian Cerrado savanna, twisted gnarled trees, red laterite soil, dry golden grass',
-  'Amazônia':       'Amazon rainforest, impossibly dense jungle, giant buttress roots, 40-meter canopy',
-  'Caatinga':       'Caatinga semi-arid scrubland, thorny cacti, leafless white-barked trees, limestone rocks',
-  'Pampa':          'Southern Pampa, rolling green hills, golden grass, wide open sky, minimal trees',
-  'Pantanal':       'Pantanal wetlands, flooded tropical forest, palm trees, vast flat landscape',
+  'Mata Atlântica': 'Atlantic Forest mountain landscape, towering trees with thick mossy trunks, green tree canopy, red clay hillside, ferns and bromeliads on steep slopes',
+  'Cerrado':        'Brazilian Cerrado savanna hillside, twisted low trees with rough bark, red laterite rocky outcrops, dry golden grass on slopes, open sky above',
+  'Amazônia':       'Amazon jungle mountain, giant tree trunks with buttress roots, layers of dense green canopy, misty humid forest interior',
+  'Caatinga':       'Caatinga semi-arid mountain, grey thorny cacti and mandacaru on rocky slopes, pale limestone outcrops, bleached sky',
+  'Pampa':          'Southern Brazilian highland, rolling grassy hills, golden pampas grass waving in wind, dramatic open sky, no trees',
+  'Pantanal':       'Pantanal highland edge, scattered palm trees on dry grassy plain, vast flat landscape, dramatic wide sky',
 }
 
 const CATEGORIA_EN: Record<string, string> = {
-  sol:        'bright sunny weather, golden light, clear blue sky',
-  nublado:    'overcast grey sky, flat diffused light, moody atmosphere',
-  garoa:      'persistent light drizzle, fine mist, glistening wet surfaces, cool blue-grey light',
-  chuva:      'heavy rainfall, rain streaks in air, puddles, dark dramatic sky',
-  tempestade: 'violent thunderstorm, lightning bolts, torrential rain, apocalyptic dark clouds',
+  sol:        'golden hour sunlight breaking through trees, warm amber rays, long shadows, clear blue sky patches',
+  nublado:    'overcast diffused grey light, moody flat sky, mist clinging to tree tops, cool atmosphere',
+  garoa:      'fine mist in the air, glistening wet leaves, cool blue-grey diffused light, low cloud',
+  chuva:      'dark dramatic storm sky, heavy clouds, wet glistening foliage, moody grey-green light',
+  tempestade: 'apocalyptic dark storm clouds, dramatic lightning in distant sky, intense moody atmosphere, deep shadows',
+}
+
+const EXPOSICAO_EN: Record<string, string> = {
+  fechada: 'enclosed by dense forest canopy overhead, green tunnel effect, roots and rocks on steep hillside',
+  aberta:  'open mountain ridgeline, panoramic view of forested valleys below, dramatic sky visible',
+  mista:   'forest opening on a steep hillside with glimpses of valley and sky between trees',
 }
 
 const SOLO_EN: Record<string, string> = {
-  terra:    'red clay dirt trail',
-  rocha:    'rocky terrain, exposed granite slabs and boulders',
-  misto:    'mixed dirt and rock surface with embedded roots',
-  misto_mg: 'iron-rich red soil mixed with quartzite slabs',
-  ferro:    'iron-rich reddish-brown soil of Quadrilátero Ferrífero',
-  preto:    'dark volcanic black soil trail',
+  terra:    'steep red clay hillside with exposed roots and dirt',
+  rocha:    'steep rocky hillside with exposed granite slabs and boulders',
+  misto:    'steep hillside of mixed red dirt and embedded rocks with roots',
+  misto_mg: 'steep iron-rich red hillside with quartzite slabs and rocks',
+  ferro:    'steep iron-rich reddish-brown rocky hillside',
+  preto:    'steep dark volcanic soil hillside with dense vegetation',
 }
 
 function buildTrailPrompt(
@@ -89,36 +95,26 @@ function buildTrailPrompt(
   categoria: string,
   veredicto: string | null,
 ): string {
-  const biomaDesc = BIOMA_EN[bioma ?? ''] ?? BIOMA_EN['Mata Atlântica']
-  const catDesc   = CATEGORIA_EN[categoria] ?? CATEGORIA_EN['sol']
-  const soloDesc  = SOLO_EN[soloType ?? ''] ?? SOLO_EN['terra']
-  const expDesc   = exposicao === 'aberta'
-    ? 'exposed open ridgeline, panoramic mountain views'
-    : exposicao === 'fechada'
-    ? 'fully enclosed by dense canopy, green tunnel of trees'
-    : 'alternating forest and open sections'
-  const altDesc = altitudeM && altitudeM >= 1200
-    ? `high altitude ${altitudeM}m, cloud forest, misty peaks`
+  const biomaDesc  = BIOMA_EN[bioma ?? '']     ?? BIOMA_EN['Mata Atlântica']
+  const catDesc    = CATEGORIA_EN[categoria]   ?? CATEGORIA_EN['sol']
+  const soloDesc   = SOLO_EN[soloType ?? '']   ?? SOLO_EN['terra']
+  const expDesc    = EXPOSICAO_EN[exposicao ?? ''] ?? EXPOSICAO_EN['mista']
+  const altDesc    = altitudeM && altitudeM >= 1200
+    ? `high altitude ${altitudeM}m, cloud forest, misty mountain peaks in background`
     : altitudeM && altitudeM >= 700
-    ? `mid-altitude mountain terrain ${altitudeM}m`
+    ? `mid-altitude ${altitudeM}m mountain terrain, valley visible below`
     : ''
-  const condDesc = veredicto?.toUpperCase().includes('ESPERAR') || veredicto?.toUpperCase().includes('EVITAR')
-    ? 'trail closed due to dangerous wet conditions'
-    : veredicto?.toUpperCase().includes('ALERTA')
-    ? 'trail open with caution, partially wet terrain'
-    : 'trail in good condition'
 
   return [
-    'Cinematic photorealistic aerial-perspective photograph of a mountain bike singletrack trail cutting through wilderness.',
-    `Biome: ${biomaDesc}.`,
-    `Trail surface: narrow dirt singletrack, ${soloDesc}, winding path through vegetation, ${expDesc}.`,
-    altDesc ? `Elevation: ${altDesc}.` : '',
-    `Atmosphere: ${catDesc}.`,
-    `Condition: ${condDesc}.`,
-    'NO rivers. NO water. NO lakes. NO streams. NO bridges. NO roads. NO people. NO bikes. NO text. NO logos. NO buildings.',
-    'The trail is the main subject — a winding singletrack path visible through the landscape.',
-    'Dramatic side lighting, dark moody shadows in corners, bright center, perfect for white text overlay.',
-    'Ultra wide angle, square 1:1 format. Brazil, South America.',
+    'Cinematic photorealistic wilderness landscape photograph.',
+    `Setting: ${biomaDesc}.`,
+    `Terrain: ${soloDesc}, ${expDesc}.`,
+    altDesc ? `Altitude: ${altDesc}.` : '',
+    `Light and weather: ${catDesc}.`,
+    'STRICT RULES: absolutely NO rivers, NO streams, NO water, NO waterfalls, NO lakes, NO flooded areas, NO mud flow, NO erosion channels.',
+    'NO people, NO bikes, NO text, NO logos, NO buildings, NO roads, NO vehicles.',
+    'Composition: dramatic wide landscape, dark vignette on edges fading to brighter center, ideal for white text overlay.',
+    'Style: National Geographic wilderness photography, ultra wide angle, square 1:1, Brazil South America.',
   ].filter(Boolean).join(' ')
 }
 
