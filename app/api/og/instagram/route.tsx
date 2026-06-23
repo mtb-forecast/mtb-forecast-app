@@ -149,23 +149,27 @@ export async function GET(req: NextRequest) {
     })()
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
-    const bgSrc = bgUrl(categoria)
 
-    // Pre-fetch background image and convert to data URL for Satori
-    // Detect real MIME type from magic bytes — Gemini exports can be WebP despite .png extension
+    // Tenta imagem específica da trilha (gerada pelo Gemini via generate_trail_og.py),
+    // depois fallback para imagem por categoria de tempo
+    const bgCandidates = [
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/trail-og/${trilhaId}.jpg`,
+      bgUrl(categoria),
+    ]
+
     let bgDataUrl: string | null = null
-    try {
-      const bgRes = await fetch(bgSrc)
-      if (bgRes.ok) {
-        const buf = await bgRes.arrayBuffer()
+    for (const src of bgCandidates) {
+      try {
+        const res = await fetch(src)
+        if (!res.ok) continue
+        const buf = await res.arrayBuffer()
         const bytes = new Uint8Array(buf.slice(0, 4))
-        const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+        const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
         const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
         const mime = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
         bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
-      }
-    } catch (e) {
-      console.error('[OG] bg fetch error:', e)
+        break
+      } catch { /* tenta próximo candidato */ }
     }
 
     return new ImageResponse(
