@@ -111,6 +111,27 @@ export async function GET(req: NextRequest) {
       return new Response('trilha_id required', { status: 400 })
     }
 
+    // Debug mode 2: JSON diagnostic for bg fetch
+    if (searchParams.get('debug') === '2') {
+      const testCategoria = searchParams.get('cat') ?? 'sol'
+      const testUrl = bgUrl(testCategoria)
+      let status = 0
+      let size = 0
+      let dataLen = 0
+      try {
+        const r = await fetch(testUrl)
+        status = r.status
+        if (r.ok) {
+          const buf = await r.arrayBuffer()
+          size = buf.byteLength
+          dataLen = Buffer.from(buf).toString('base64').length
+        }
+      } catch (e) { status = -1 }
+      return new Response(JSON.stringify({ testUrl, status, size, dataLen }), {
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+
     const [trilha, condicao] = await Promise.all([
       fetchSupabase<{
         name: string
