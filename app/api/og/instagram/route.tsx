@@ -40,7 +40,9 @@ function formatLocation(
 }
 
 function bgUrl(categoria: string): string {
-  const n = Math.floor(Math.random() * 3) + 1
+  const counts: Record<string, number> = { chuva: 2, garoa: 1, nublado: 1, sol: 1, tempestade: 1 }
+  const max = counts[categoria] ?? 1
+  const n = Math.floor(Math.random() * max) + 1
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/instagram-bg/${categoria}_${n}.png`
 }
 
