@@ -1,5 +1,5 @@
-import { ImageResponse } from 'next/og'
-import { NextRequest } from 'next/server'
+import { ImageResponse, NextRequest } from 'next/og'
+import { unstable_after as after } from 'next/server'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -53,6 +53,106 @@ function trailNameFontSize(name: string): number {
   return 56
 }
 
+// ─── Geração on-demand via Pollinations ──────────────────────────────────────
+
+const BIOMA_EN: Record<string, string> = {
+  'Mata Atlântica': 'Atlantic Forest, dense tropical rainforest, mossy rocks, red clay soil, towering trees',
+  'Cerrado':        'Brazilian Cerrado savanna, twisted gnarled trees, red laterite soil, dry golden grass',
+  'Amazônia':       'Amazon rainforest, impossibly dense jungle, giant buttress roots, 40-meter canopy',
+  'Caatinga':       'Caatinga semi-arid scrubland, thorny cacti, leafless white-barked trees, limestone rocks',
+  'Pampa':          'Southern Pampa, rolling green hills, golden grass, wide open sky, minimal trees',
+  'Pantanal':       'Pantanal wetlands, flooded tropical forest, palm trees, vast flat landscape',
+}
+
+const CATEGORIA_EN: Record<string, string> = {
+  sol:        'bright sunny weather, golden light, clear blue sky',
+  nublado:    'overcast grey sky, flat diffused light, moody atmosphere',
+  garoa:      'persistent light drizzle, fine mist, glistening wet surfaces, cool blue-grey light',
+  chuva:      'heavy rainfall, rain streaks in air, puddles, dark dramatic sky',
+  tempestade: 'violent thunderstorm, lightning bolts, torrential rain, apocalyptic dark clouds',
+}
+
+const SOLO_EN: Record<string, string> = {
+  terra:    'red clay dirt trail',
+  rocha:    'rocky terrain, exposed granite slabs and boulders',
+  misto:    'mixed dirt and rock surface with embedded roots',
+  misto_mg: 'iron-rich red soil mixed with quartzite slabs',
+  ferro:    'iron-rich reddish-brown soil of Quadrilátero Ferrífero',
+  preto:    'dark volcanic black soil trail',
+}
+
+function buildTrailPrompt(
+  bioma: string | null,
+  exposicao: string | null,
+  soloType: string | null,
+  altitudeM: number | null,
+  categoria: string,
+  veredicto: string | null,
+): string {
+  const biomaDesc = BIOMA_EN[bioma ?? ''] ?? BIOMA_EN['Mata Atlântica']
+  const catDesc   = CATEGORIA_EN[categoria] ?? CATEGORIA_EN['sol']
+  const soloDesc  = SOLO_EN[soloType ?? ''] ?? SOLO_EN['terra']
+  const expDesc   = exposicao === 'aberta'
+    ? 'exposed open ridgeline, panoramic mountain views'
+    : exposicao === 'fechada'
+    ? 'fully enclosed by dense canopy, green tunnel of trees'
+    : 'alternating forest and open sections'
+  const altDesc = altitudeM && altitudeM >= 1200
+    ? `high altitude ${altitudeM}m, cloud forest, misty peaks`
+    : altitudeM && altitudeM >= 700
+    ? `mid-altitude mountain terrain ${altitudeM}m`
+    : ''
+  const condDesc = veredicto?.toUpperCase().includes('ESPERAR') || veredicto?.toUpperCase().includes('EVITAR')
+    ? 'trail closed due to dangerous wet conditions'
+    : veredicto?.toUpperCase().includes('ALERTA')
+    ? 'trail open with caution, partially wet terrain'
+    : 'trail in good condition'
+
+  return [
+    'Cinematic photorealistic landscape photograph for mountain bike trail.',
+    `Biome: ${biomaDesc}.`,
+    `Trail: ${expDesc}, ${soloDesc}.`,
+    altDesc ? `Terrain: ${altDesc}.` : '',
+    `Weather: ${catDesc}.`,
+    `Mood: ${condDesc}.`,
+    'No people. No bikes. No text. No logos.',
+    'Ultra wide angle landscape, trail visible, dark dramatic atmosphere suitable for white text overlay.',
+    'Brazil, South America. Square 1:1.',
+  ].filter(Boolean).join(' ')
+}
+
+function trailBgStorageUrl(trilhaId: string, categoria: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/trail-og/${trilhaId}_${categoria}.jpg`
+}
+
+async function generateAndUploadTrailBg(trilhaId: string, categoria: string, prompt: string): Promise<void> {
+  const storageKey = `${trilhaId}_${categoria}.jpg`
+  try {
+    // Gera via Pollinations (Flux) — gratuito, sem API key
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1080&height=1080&nologo=true&model=flux&seed=${trilhaId.charCodeAt(0) + trilhaId.charCodeAt(4)}`
+    const imgRes = await fetch(pollinationsUrl, { signal: AbortSignal.timeout(90_000) })
+    if (!imgRes.ok) return
+
+    const imgBuf = await imgRes.arrayBuffer()
+
+    // Upload para Supabase Storage (trail-og bucket, público)
+    await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/trail-og/${storageKey}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'true',
+        },
+        body: imgBuf,
+      }
+    )
+  } catch { /* falha silenciosa — próxima requisição tentará novamente */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function fetchSupabase<T>(table: string, select: string, filter: string): Promise<T | null> {
   const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&${filter}&limit=1`
   const res = await fetch(url, {
@@ -101,10 +201,14 @@ export async function GET(req: NextRequest) {
       fetchSupabase<{
         name: string
         regiao: string
+        bioma: string | null
+        exposicao: string | null
+        solo_type: string | null
+        altitude_m: number | null
         localidades: { cidade: string; estado: string } | { cidade: string; estado: string }[] | null
       }>(
         'trilhas',
-        'name,regiao,localidades(cidade,estado)',
+        'name,regiao,bioma,exposicao,solo_type,altitude_m,localidades(cidade,estado)',
         `id=eq.${trilhaId}`
       ),
       fetchSupabase<{
@@ -150,15 +254,15 @@ export async function GET(req: NextRequest) {
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
 
-    // Tenta imagem específica da trilha (gerada pelo Gemini via generate_trail_og.py),
-    // depois fallback para imagem por categoria de tempo
-    const bgCandidates = [
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/trail-og/${trilhaId}.jpg`,
-      bgUrl(categoria),
-    ]
+    // Tenta imagem gerada on-demand para esta trilha + categoria de tempo.
+    // Se não existir: usa fallback estático e dispara geração em background com after().
+    const trailBgUrl  = trailBgStorageUrl(trilhaId, categoria)
+    const staticBgUrl = bgUrl(categoria)
 
     let bgDataUrl: string | null = null
-    for (const src of bgCandidates) {
+    let trailBgExists = false
+
+    for (const src of [trailBgUrl, staticBgUrl]) {
       try {
         const res = await fetch(src)
         if (!res.ok) continue
@@ -168,8 +272,22 @@ export async function GET(req: NextRequest) {
         const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
         const mime = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
         bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
+        if (src === trailBgUrl) trailBgExists = true
         break
       } catch { /* tenta próximo candidato */ }
+    }
+
+    // Se a imagem personalizada ainda não existe, gera em background após responder
+    if (!trailBgExists && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const prompt = buildTrailPrompt(
+        trilha.bioma ?? null,
+        trilha.exposicao ?? null,
+        trilha.solo_type ?? null,
+        trilha.altitude_m ?? null,
+        categoria,
+        condicao.veredicto,
+      )
+      after(() => generateAndUploadTrailBg(trilhaId, categoria, prompt))
     }
 
     return new ImageResponse(
