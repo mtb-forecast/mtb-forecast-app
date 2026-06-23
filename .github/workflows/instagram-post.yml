@@ -1,0 +1,50 @@
+name: Instagram Daily Post
+
+on:
+  schedule:
+    # 09h BRT = 12h UTC (segunda a sexta)
+    # 10h BRT = 13h UTC (sábado e domingo, horário de pico de trail)
+    - cron: "0 12 * * 1-5"
+    - cron: "0 13 * * 6,0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "DRY RUN (não posta de verdade)"
+        required: false
+        default: "false"
+        type: boolean
+      trail_id:
+        description: "UUID de trilha específica (opcional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL:     https://eydlkvrjopffyqpdstzh.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY:    ${{ secrets.SUPABASE_SERVICE_KEY }}
+      INSTAGRAM_ACCESS_TOKEN:       ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+      DRY_RUN: ${{ inputs.dry_run == true && '1' || '0' }}
+      TRAIL_ID: ${{ inputs.trail_id }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependências
+        run: pip install requests pillow
+
+      - name: Postar no Instagram
+        run: python scripts/post_instagram.py
