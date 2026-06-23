@@ -6,9 +6,9 @@ import { join } from 'path'
 // Node.js runtime — WASM do Satori é mais estável fora do Edge Runtime
 export const dynamic = 'force-dynamic'
 
-function bgCategoria(rain: number | null, pop: number | null): string {
+function bgCategoria(rain: number | null, pop12h: number | null): string {
   const r = rain ?? 0
-  const p = pop ?? 0
+  const p = pop12h ?? 0
   if (r >= 15 || (r >= 10 && p >= 70)) return 'tempestade'
   if (r >= 5 || p > 60) return 'chuva'
   if (r >= 0.5 || p >= 35) return 'garoa'
@@ -165,10 +165,10 @@ export async function GET(req: NextRequest) {
         rain_mm: number | null
         wind_ms: number | null
         temp_max: number | null
-        pop_48h: number | null
+        pop_12h: number | null
       }>(
         'condicoes',
-        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_48h',
+        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_12h',
         `trilha_id=eq.${trilhaId}`
       ),
     ])
@@ -200,7 +200,7 @@ export async function GET(req: NextRequest) {
       return s
     })()
 
-    const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
+    const categoria = bgCategoria(condicao.rain_mm, condicao.pop_12h)
     const bgUrl = bgStorageUrl(categoria)
 
     let bgDataUrl: string | null = null
