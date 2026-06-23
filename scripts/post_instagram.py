@@ -54,6 +54,8 @@ BUCKET        = "instagram-bg"
 GRAPH_API     = "https://graph.facebook.com/v21.0"
 OUTPUT_SIZE   = (1080, 1080)
 SITE_URL      = "mtbforecaster.com.br"
+OG_API_BASE   = os.environ.get("OG_API_BASE", "https://mtbforecaster.com.br")
+POST_BUCKET   = "instagram-posts"  # imagens finalizadas com overlay
 
 # ─── Mapeamentos para prompt de imagem ───────────────────────────────────────
 
@@ -132,8 +134,19 @@ def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
         t["cidade"] = loc.get("cidade") or ""
         t["estado"] = loc.get("estado") or ""
 
-    # Filtra só trilhas que têm pelo menos uma condição
-    return [t for t in trails if t.get("condicoes")]
+    # Filtra trilhas com condições reais (não placeholders)
+    PLACEHOLDER = "favorite esta trilha"
+    result = []
+    for t in trails:
+        conds = t.get("condicoes") or []
+        real_conds = [
+            c for c in conds
+            if c.get("veredicto") and PLACEHOLDER not in c["veredicto"].lower()
+        ]
+        if real_conds:
+            t["condicoes"] = real_conds
+            result.append(t)
+    return result
 
 
 def latest_condition(trail: dict) -> dict | None:
@@ -291,43 +304,77 @@ def to_jpeg_1080(raw: bytes) -> bytes:
     return out.getvalue()
 
 
-def upload_to_bucket(trail_id: str, categoria: str, jpeg_bytes: bytes) -> bool:
-    key = storage_key(trail_id, categoria)
-    url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET}/{key}"
+def upload_to_bucket_raw(bucket: str, key: str, data: bytes, content_type: str = "image/jpeg") -> bool:
+    url = f"{SUPABASE_URL}/storage/v1/object/{bucket}/{key}"
     headers = {
         **sb_headers(),
-        "Content-Type": "image/jpeg",
+        "Content-Type": content_type,
         "x-upsert": "true",
     }
-    r = requests.post(url, headers=headers, data=jpeg_bytes, timeout=60)
+    r = requests.post(url, headers=headers, data=data, timeout=60)
     return r.status_code in (200, 201)
 
 
-def ensure_image(trail: dict, categoria: str) -> str | None:
-    """Garante que a imagem existe no bucket e retorna a URL pública."""
-    tid = trail["id"]
+def post_image_key(trail_id: str) -> str:
+    today = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return f"{trail_id}_{today}.jpg"
 
-    if image_exists_in_bucket(tid, categoria):
-        print(f"  ✓ Imagem já existe no bucket: {storage_key(tid, categoria)}")
-        return public_image_url(tid, categoria)
 
-    print(f"  Imagem não encontrada — gerando para {trail.get('name')} / {categoria}...")
-    prompt = build_prompt(trail, categoria)
-    print(f"  Prompt: {prompt[:100]}...")
+def post_image_url(trail_id: str) -> str:
+    return f"{SUPABASE_URL}/storage/v1/object/public/{POST_BUCKET}/{post_image_key(trail_id)}"
 
-    raw = generate_via_pollinations(prompt, seed=abs(hash(tid + categoria)) % 9999)
-    if not raw:
-        return None
 
+def fetch_og_image(trail_id: str) -> bytes | None:
+    """Chama o endpoint OG Next.js e retorna o PNG renderizado com overlay."""
+    url = f"{OG_API_BASE}/api/og/instagram?trilha_id={trail_id}"
+    print(f"  Chamando endpoint OG: {url}")
     try:
-        jpeg = to_jpeg_1080(raw)
+        r = requests.get(url, timeout=120)
+        if not r.ok:
+            print(f"  ✗ OG endpoint HTTP {r.status_code}: {r.text[:200]}")
+            return None
+        ct = r.headers.get("content-type", "")
+        if "image" not in ct:
+            print(f"  ✗ OG retornou content-type inesperado: {ct}")
+            return None
+        return r.content
     except Exception as e:
-        print(f"  ✗ Conversão falhou: {e}")
+        print(f"  ✗ Erro ao chamar OG endpoint: {e}")
         return None
 
-    if upload_to_bucket(tid, categoria, jpeg):
-        print(f"  ✓ Upload concluído: {storage_key(tid, categoria)}")
-        return public_image_url(tid, categoria)
+
+def ensure_post_image(trail: dict) -> str | None:
+    """
+    Busca a imagem OG renderizada (com overlay de condições) e salva no bucket
+    instagram-posts. Retorna a URL pública pronta para o Instagram.
+    """
+    tid = trail["id"]
+    key = post_image_key(tid)
+
+    # Verifica se já postamos hoje
+    check_url = f"{SUPABASE_URL}/storage/v1/object/info/{POST_BUCKET}/{key}"
+    if requests.get(check_url, headers=sb_headers(), timeout=10).status_code == 200:
+        print(f"  ✓ Imagem de hoje já existe no bucket: {key}")
+        return post_image_url(tid)
+
+    # Busca imagem renderizada do endpoint OG
+    png_bytes = fetch_og_image(tid)
+    if not png_bytes:
+        return None
+
+    # Converte para JPEG 1080×1080
+    try:
+        jpeg = to_jpeg_1080(png_bytes)
+    except Exception as e:
+        print(f"  ✗ Conversão PNG→JPEG falhou: {e}")
+        return None
+
+    # Sobe para bucket instagram-posts
+    if upload_to_bucket_raw(POST_BUCKET, key, jpeg):
+        url = post_image_url(tid)
+        print(f"  ✓ Upload concluído: {POST_BUCKET}/{key}")
+        print(f"  URL pública: {url}")
+        return url
     else:
         print("  ✗ Upload falhou")
         return None
@@ -531,17 +578,16 @@ def main():
     ef_agora  = acumulo_agora(cond)
     print(f"  Categoria: {categoria}  |  Acúmulo efetivo agora: {ef_agora:.1f}mm")
 
-    # Garante imagem no bucket
-    print(f"\n[4/5] Verificando imagem no bucket ({BUCKET})...")
+    # Busca imagem OG renderizada (com overlay de condições)
+    print(f"\n[4/5] Gerando imagem com overlay de condições...")
     if DRY_RUN:
-        image_url = public_image_url(trail["id"], categoria)
+        image_url = post_image_url(trail["id"])
         print(f"  DRY RUN — URL esperada: {image_url}")
     else:
-        image_url = ensure_image(trail, categoria)
+        image_url = ensure_post_image(trail)
         if not image_url:
-            print("✗ Falhou ao garantir imagem. Abortando.")
+            print("✗ Falhou ao gerar imagem OG. Abortando.")
             sys.exit(1)
-        print(f"  URL pública: {image_url}")
 
     # Monta caption
     caption = build_caption(trail, cond, categoria, ef_agora)
