@@ -77,26 +77,40 @@ async function fetchAndUploadPollinations(categoria: string): Promise<void> {
   const encoded = encodeURIComponent(prompt)
   const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}`
 
+  console.log(`[OG] Pollinations fetch: categoria=${categoria} seed=${seed}`)
   try {
     const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
-    if (!imgRes.ok) return
+    if (!imgRes.ok) {
+      console.error(`[OG] Pollinations HTTP ${imgRes.status}`)
+      return
+    }
 
     const imgBuf = await imgRes.arrayBuffer()
-    if (!imgBuf.byteLength) return
+    if (!imgBuf.byteLength) {
+      console.error('[OG] Pollinations retornou buffer vazio')
+      return
+    }
+    console.log(`[OG] Pollinations OK — ${Math.round(imgBuf.byteLength / 1024)}KB`)
 
-    await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${categoria}.jpg`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-          'Content-Type': 'image/jpeg',
-          'x-upsert': 'true',
-        },
-        body: imgBuf,
-      }
-    )
-  } catch { /* falha silenciosa — card usa gradiente escuro como fallback */ }
+    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${categoria}.jpg`
+    const upRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true',
+      },
+      body: imgBuf,
+    })
+    if (!upRes.ok) {
+      const body = await upRes.text()
+      console.error(`[OG] Upload Supabase falhou: ${upRes.status} ${body}`)
+    } else {
+      console.log(`[OG] Upload OK → instagram-bg/${categoria}.jpg`)
+    }
+  } catch (e) {
+    console.error(`[OG] Pollinations erro: ${e}`)
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
