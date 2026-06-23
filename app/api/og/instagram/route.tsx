@@ -1,7 +1,10 @@
 import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
-export const runtime = 'edge'
+// Node.js runtime — WASM do Satori é mais estável fora do Edge Runtime
+export const dynamic = 'force-dynamic'
 
 function bgCategoria(rain: number | null, pop: number | null): string {
   const r = rain ?? 0
@@ -13,20 +16,16 @@ function bgCategoria(rain: number | null, pop: number | null): string {
   return 'sol'
 }
 
-function bgUrl(categoria: string): string {
-  const n = Math.floor(Math.random() * 3) + 1
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/instagram-bg/${categoria}_${n}.jpg`
-}
-
 function verdictDisplay(v: string | null) {
-  if (!v) return { label: 'SEM DADOS', color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.2)' }
-  if (v.trim() === 'DROP LIBERADO')
-    return { label: 'DROP LIBERADO', color: '#4ADE80', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.2)' }
-  if (v.includes('Veja os alertas'))
-    return { label: 'VEJA OS ALERTAS', color: '#FBBF24', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.2)' }
-  if (v.includes('MELHOR ESPERAR'))
-    return { label: 'MELHOR ESPERAR', color: '#FCA5A5', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.2)' }
-  return { label: v.toUpperCase(), color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.2)' }
+  if (!v) return { label: 'SEM DADOS', color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)' }
+  const u = v.toUpperCase()
+  if (u.includes('ESPERAR') || u.includes('EVITAR'))
+    return { label: v.toUpperCase(), color: '#FCA5A5', bg: 'rgba(239,68,68,0.12)' }
+  if (u.includes('ALERTA') || u.includes('ALERTAS'))
+    return { label: v.toUpperCase(), color: '#FBBF24', bg: 'rgba(245,158,11,0.12)' }
+  if (u.includes('LIBERADO'))
+    return { label: v.toUpperCase(), color: '#4ADE80', bg: 'rgba(34,197,94,0.12)' }
+  return { label: v.toUpperCase(), color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)' }
 }
 
 function formatLocation(
@@ -61,10 +60,45 @@ async function fetchSupabase<T>(table: string, select: string, filter: string): 
   return data[0] ?? null
 }
 
+function loadFont(filename: string): ArrayBuffer | null {
+  try {
+    const buf = readFileSync(join(process.cwd(), 'public', 'fonts', filename))
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
+  } catch {
+    return null
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const trilhaId = searchParams.get('trilha_id')
+    const debug = searchParams.get('debug') === '1'
+
+    // Fontes carregadas via fs — confiável no runtime Node.js
+    const notoSans = loadFont('noto-sans-regular.ttf')
+    const dmSansBold = loadFont('dm-sans-800.ttf')
+    const dmMono = loadFont('dm-mono-400.ttf')
+    console.log('[OG] fonts — noto:', notoSans?.byteLength ?? 'null', 'dmSans:', dmSansBold?.byteLength ?? 'null')
+
+    const fontList: { name: string; data: ArrayBuffer; weight: 400 | 800 }[] = []
+    if (notoSans) fontList.push({ name: 'Noto Sans', data: notoSans, weight: 400 })
+    if (dmSansBold) fontList.push({ name: 'DM Sans', data: dmSansBold, weight: 800 })
+    if (dmMono) fontList.push({ name: 'DM Mono', data: dmMono, weight: 400 })
+
+    const fontSans = dmSansBold ? 'DM Sans' : (notoSans ? 'Noto Sans' : 'sans-serif')
+    const fontMono = dmMono ? 'DM Mono' : (notoSans ? 'Noto Sans' : 'monospace')
+
+    if (debug) {
+      return new ImageResponse(
+        <div style={{ width: 400, height: 200, background: '#1e2218', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ color: '#a8b899', fontSize: 48, fontFamily: fontSans }}>
+            MTB TEST OK
+          </span>
+        </div>,
+        { width: 400, height: 200, fonts: fontList }
+      )
+    }
 
     if (!trilhaId) {
       return new Response('trilha_id required', { status: 400 })
@@ -97,24 +131,6 @@ export async function GET(req: NextRequest) {
     if (!trilha) return new Response('Trilha nao encontrada', { status: 404 })
     if (!condicao) return new Response('Condicao nao encontrada', { status: 404 })
 
-
-    const origin = new URL(req.url).origin
-    // Noto Sans ships bundled with @vercel/og — guaranteed compatible with this Satori version
-    let notoSans: ArrayBuffer | null = null
-    let dmSansBold: ArrayBuffer | null = null
-    let dmMono: ArrayBuffer | null = null
-    try {
-      notoSans = await fetch(`${origin}/fonts/noto-sans-regular.ttf`).then(r => r.arrayBuffer())
-    } catch { /* fallback handled below */ }
-    try {
-      ;[dmSansBold, dmMono] = await Promise.all([
-        fetch(`${origin}/fonts/dm-sans-800.ttf`).then(r => r.arrayBuffer()),
-        fetch(`${origin}/fonts/dm-mono-400.ttf`).then(r => r.arrayBuffer()),
-      ])
-    } catch { /* DM Sans optional — Noto Sans is the required fallback */ }
-
-    const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
-    const bg = bgUrl(categoria)
     const verdict = verdictDisplay(condicao.veredicto)
 
     const loc = trilha.localidades
@@ -139,24 +155,6 @@ export async function GET(req: NextRequest) {
       return s
     })()
 
-    const fonts: { name: string; data: ArrayBuffer; weight: 400 | 800 }[] = []
-    if (notoSans) fonts.push({ name: 'Noto Sans', data: notoSans, weight: 400 })
-    if (dmSansBold) fonts.push({ name: 'DM Sans', data: dmSansBold, weight: 800 })
-    if (dmMono) fonts.push({ name: 'DM Mono', data: dmMono, weight: 400 })
-
-    // DM Sans preferred, Noto Sans as guaranteed fallback
-    const fontSans = dmSansBold ? 'DM Sans' : (notoSans ? 'Noto Sans' : 'sans-serif')
-    const fontMono = dmMono ? 'DM Mono' : (notoSans ? 'Noto Sans' : 'monospace')
-
-    // Satori (ImageResponse) limitations vs standard CSS:
-    // - NO inset shorthand: use top/left/right/bottom separately
-    // - NO filter on <img>: overlay handles darkness
-    // - NO objectFit on absolute img: just size it
-    // - NO lineHeight < 1: use 1.1 minimum
-    // - NO negative letterSpacing: use 0 minimum
-    // - NO textTransform: write strings uppercase directly
-    // - gap IS supported
-
     return new ImageResponse(
       (
         <div
@@ -165,22 +163,9 @@ export async function GET(req: NextRequest) {
             height: 1080,
             display: 'flex',
             position: 'relative',
-            background: '#2a2e25',
+            background: '#1e2218',
           }}
         >
-          {/* Dark background — img disabled until bucket is populated */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: '#1e2218',
-              display: 'flex',
-            }}
-          />
-
           {/* Top stripe */}
           <div
             style={{
@@ -218,49 +203,22 @@ export async function GET(req: NextRequest) {
                 flexDirection: 'row',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: 40,
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: 24,
-                  fontFamily: fontSans,
-                  fontWeight: 800,
-                  color: '#a8b899',
-                  letterSpacing: 3,
-                }}
-              >
+              <div style={{ display: 'flex', fontSize: 24, fontFamily: fontSans, fontWeight: 800, color: '#a8b899', letterSpacing: 3 }}>
                 MTB FORECASTER
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: 22,
-                  fontFamily: fontMono,
-                  color: 'rgba(168,184,153,0.5)',
-                }}
-              >
+              <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, color: 'rgba(168,184,153,0.5)' }}>
                 {dateStr}
               </div>
             </div>
 
-            {/* Modality */}
-            <div
-              style={{
-                display: 'flex',
-                fontSize: 22,
-                fontFamily: fontSans,
-                fontWeight: 700,
-                letterSpacing: 4,
-                color: '#a8b899',
-                marginBottom: 16,
-              }}
-            >
+            {/* Trail label */}
+            <div style={{ display: 'flex', fontSize: 22, fontFamily: fontSans, fontWeight: 700, letterSpacing: 4, color: '#a8b899', marginTop: 40 }}>
               TRILHA DE MOUNTAIN BIKE
             </div>
 
-            {/* Trail name — no negative letterSpacing, lineHeight >= 1 */}
+            {/* Trail name */}
             <div
               style={{
                 display: 'flex',
@@ -270,40 +228,22 @@ export async function GET(req: NextRequest) {
                 color: '#ffffff',
                 lineHeight: 1.1,
                 letterSpacing: 0,
-                marginBottom: 24,
+                marginTop: 16,
               }}
             >
               {trilha.name ?? ''}
             </div>
 
             {/* Location */}
-            {location ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: 28,
-                  fontFamily: fontSans,
-                  fontWeight: 500,
-                  color: 'rgba(168,184,153,0.6)',
-                  marginBottom: 44,
-                }}
-              >
-                {location}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', height: 44, marginBottom: 44 }} />
-            )}
+            <div style={{ display: 'flex', fontSize: 28, fontFamily: fontSans, fontWeight: 400, color: 'rgba(168,184,153,0.6)', marginTop: 16 }}>
+              {location}
+            </div>
+
+            {/* Spacer */}
+            <div style={{ display: 'flex', flex: 1 }} />
 
             {/* Verdict + aderencia */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 16,
-                marginBottom: 44,
-              }}
-            >
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 44 }}>
               <div
                 style={{
                   display: 'flex',
@@ -332,7 +272,7 @@ export async function GET(req: NextRequest) {
                     background: 'rgba(168,184,153,0.08)',
                     fontSize: 24,
                     fontFamily: fontSans,
-                    fontWeight: 600,
+                    fontWeight: 400,
                     color: 'rgba(168,184,153,0.7)',
                   }}
                 >
@@ -342,30 +282,23 @@ export async function GET(req: NextRequest) {
             </div>
 
             {/* Metrics — 3 columns */}
-            <div style={{ display: 'flex', flexDirection: 'row', gap: 2, background: 'rgba(168,184,153,0.06)' }}>
-              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, paddingLeft: 20, paddingRight: 20, background: 'rgba(42,46,37,0.7)' }}>
+            <div style={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{tempLabel}</div>
-                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)' }}>MAXIMA</div>
+                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', marginTop: 6 }}>MAXIMA</div>
               </div>
-              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, paddingLeft: 20, paddingRight: 20, background: 'rgba(42,46,37,0.7)' }}>
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{rainLabel}</div>
-                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)' }}>CHUVA 24H</div>
+                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', marginTop: 6 }}>CHUVA 24H</div>
               </div>
-              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, paddingLeft: 20, paddingRight: 20, background: 'rgba(42,46,37,0.7)' }}>
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{windLabel}</div>
-                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)' }}>VENTO</div>
+                <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', marginTop: 6 }}>VENTO</div>
               </div>
             </div>
 
             {/* Footer */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
+            <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 32 }}>
               <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, color: 'rgba(168,184,153,0.35)' }}>
                 mtbforecaster.com.br
               </div>
@@ -376,7 +309,7 @@ export async function GET(req: NextRequest) {
           </div>
         </div>
       ),
-      { width: 1080, height: 1080, fonts }
+      { width: 1080, height: 1080, fonts: fontList }
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message + '\n' + err.stack : String(err)
