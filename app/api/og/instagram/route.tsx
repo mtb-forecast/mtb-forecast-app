@@ -187,18 +187,13 @@ export async function GET(req: NextRequest) {
             display: 'flex',
             position: 'relative',
             background: '#1e2218',
+            ...(bgDataUrl ? {
+              backgroundImage: `url("${bgDataUrl}")`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            } : {}),
           }}
         >
-          {/* Background photo */}
-          {bgDataUrl && (
-            <img
-              src={bgDataUrl}
-              alt=""
-              width={1080}
-              height={1080}
-              style={{ position: 'absolute', top: 0, left: 0, width: 1080, height: 1080 }}
-            />
-          )}
           {/* Dark overlay */}
           <div
             style={{
@@ -207,7 +202,7 @@ export async function GET(req: NextRequest) {
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'rgba(10,14,8,0.62)',
+              background: bgDataUrl ? 'rgba(10,14,8,0.62)' : '#1e2218',
               display: 'flex',
             }}
           />
