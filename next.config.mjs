@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    after: true,
+  },
   compress: true,
   poweredByHeader: false,
   images: {
