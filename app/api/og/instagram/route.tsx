@@ -57,57 +57,46 @@ function trailNameFontSize(name: string): number {
 // Fotos reais de trilhas MTB buscadas por bioma + categoria climática.
 // Cacheadas no bucket instagram-bg após primeira busca.
 
-// Queries por bioma → categoria → termo de busca no Pexels
-const PEXELS_QUERIES: Record<string, Record<string, string>> = {
-  'Mata Atlântica': {
-    sol:        'mountain bike trail atlantic forest sunny brazil',
-    nublado:    'mountain bike trail tropical forest cloudy moody',
-    garoa:      'mountain bike trail forest misty rain',
-    chuva:      'mountain bike muddy trail forest dark rain',
-    tempestade: 'mountain bike trail forest dramatic storm dark',
-  },
-  'Cerrado': {
-    sol:        'mountain bike trail savanna dry sunny',
-    nublado:    'mountain bike trail dry forest overcast',
-    garoa:      'mountain bike trail cerrado rain',
-    chuva:      'mountain bike trail dry landscape rain storm',
-    tempestade: 'mountain bike trail rocky dry storm dramatic',
-  },
-  'Amazônia': {
-    sol:        'mountain bike trail jungle tropical sunny',
-    nublado:    'mountain bike trail jungle canopy cloudy',
-    garoa:      'mountain bike trail jungle mist humid',
-    chuva:      'mountain bike trail jungle rain dark',
-    tempestade: 'mountain bike trail jungle storm dramatic dark',
-  },
-  'Caatinga': {
-    sol:        'mountain bike trail semi arid cactus dry sunny',
-    nublado:    'mountain bike trail dry rocky landscape overcast',
-    garoa:      'mountain bike trail rocky desert rain',
-    chuva:      'mountain bike trail rocky arid storm',
-    tempestade: 'mountain bike trail rocky dramatic storm lightning',
-  },
-  'Pampa': {
-    sol:        'mountain bike trail open grassland hills sunny',
-    nublado:    'mountain bike trail rolling hills cloudy',
-    garoa:      'mountain bike trail grassland misty rain',
-    chuva:      'mountain bike trail grassy hills rain dark',
-    tempestade: 'mountain bike trail open landscape storm dramatic',
-  },
-}
-
-// Fallback genérico usado quando bioma não tem entrada
-const PEXELS_FALLBACK: Record<string, string> = {
-  sol:        'mountain bike trail forest sunny',
-  nublado:    'mountain bike trail forest overcast moody',
-  garoa:      'mountain bike trail forest misty',
-  chuva:      'mountain bike muddy trail dark rain',
-  tempestade: 'mountain bike trail storm dramatic dark',
+// Queries por categoria climática — foco em mood/clima, não bioma.
+// Pexels não tem acervo MTB por bioma brasileiro; queries de clima universal
+// retornam fotos de alta qualidade consistentes com as condições.
+const PEXELS_QUERIES: Record<string, string[]> = {
+  sol: [
+    'mountain bike trail sunny forest golden light',
+    'mountain bike singletrack sunny day forest',
+    'mountain biking forest trail sunshine',
+  ],
+  nublado: [
+    'mountain bike trail overcast moody forest',
+    'mountain biking forest trail cloudy grey sky',
+    'mountain bike trail dark forest moody',
+  ],
+  garoa: [
+    'mountain bike trail misty foggy forest',
+    'mountain biking forest fog mist morning',
+    'mountain bike trail wet misty trees',
+  ],
+  chuva: [
+    'mountain bike muddy trail rain wet forest',
+    'mountain biking muddy trail rain',
+    'mountain bike trail wet mud puddles forest rain',
+  ],
+  tempestade: [
+    'mountain bike trail dark storm forest dramatic',
+    'mountain biking trail storm dark clouds',
+    'mountain bike trail dramatic dark stormy sky forest',
+  ],
 }
 
 function pexelsQuery(bioma: string | null, categoria: string): string {
-  const biomaQueries = PEXELS_QUERIES[bioma ?? ''] ?? PEXELS_FALLBACK
-  return biomaQueries[categoria] ?? PEXELS_FALLBACK[categoria] ?? 'mountain bike trail forest'
+  const queries = PEXELS_QUERIES[categoria] ?? PEXELS_QUERIES['sol']
+  // Seed por bioma para variar entre biomas na mesma categoria
+  const biomaIndex: Record<string, number> = {
+    'Mata Atlântica': 0, 'Cerrado': 1, 'Amazônia': 2,
+    'Caatinga': 1, 'Pampa': 2, 'Pantanal': 0,
+  }
+  const idx = biomaIndex[bioma ?? ''] ?? 0
+  return queries[idx % queries.length]
 }
 
 function trailBgStorageUrl(trilhaId: string, categoria: string): string {
