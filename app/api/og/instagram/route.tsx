@@ -208,13 +208,16 @@ export async function GET(req: NextRequest) {
             display: 'flex',
             position: 'relative',
             background: '#1e2218',
-            ...(bgDataUrl ? {
-              backgroundImage: `url("${bgDataUrl}")`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            } : {}),
           }}
         >
+          {/* Background photo — display:flex obrigatorio no Satori */}
+          {bgDataUrl ? (
+            <img
+              src={bgDataUrl}
+              style={{ display: 'flex', position: 'absolute', top: 0, left: 0, width: 1080, height: 1080 }}
+            />
+          ) : null}
+
           {/* Dark overlay */}
           <div
             style={{
@@ -223,7 +226,7 @@ export async function GET(req: NextRequest) {
               left: 0,
               right: 0,
               bottom: 0,
-              background: bgDataUrl ? 'rgba(10,14,8,0.62)' : '#1e2218',
+              background: 'rgba(10,14,8,0.62)',
               display: 'flex',
             }}
           />
