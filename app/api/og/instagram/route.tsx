@@ -109,15 +109,16 @@ function buildTrailPrompt(
     : 'trail in good condition'
 
   return [
-    'Cinematic photorealistic landscape photograph for mountain bike trail.',
+    'Cinematic photorealistic aerial-perspective photograph of a mountain bike singletrack trail cutting through wilderness.',
     `Biome: ${biomaDesc}.`,
-    `Trail: ${expDesc}, ${soloDesc}.`,
-    altDesc ? `Terrain: ${altDesc}.` : '',
-    `Weather: ${catDesc}.`,
-    `Mood: ${condDesc}.`,
-    'No people. No bikes. No text. No logos.',
-    'Ultra wide angle landscape, trail visible, dark dramatic atmosphere suitable for white text overlay.',
-    'Brazil, South America. Square 1:1.',
+    `Trail surface: narrow dirt singletrack, ${soloDesc}, winding path through vegetation, ${expDesc}.`,
+    altDesc ? `Elevation: ${altDesc}.` : '',
+    `Atmosphere: ${catDesc}.`,
+    `Condition: ${condDesc}.`,
+    'NO rivers. NO water. NO lakes. NO streams. NO bridges. NO roads. NO people. NO bikes. NO text. NO logos. NO buildings.',
+    'The trail is the main subject — a winding singletrack path visible through the landscape.',
+    'Dramatic side lighting, dark moody shadows in corners, bright center, perfect for white text overlay.',
+    'Ultra wide angle, square 1:1 format. Brazil, South America.',
   ].filter(Boolean).join(' ')
 }
 
