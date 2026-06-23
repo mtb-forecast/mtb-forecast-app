@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 """
 post_instagram.py — Posta automaticamente no Instagram uma trilha aleatória com condições.
 
@@ -102,12 +106,12 @@ def sb_headers() -> dict:
 
 
 def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
-    """Busca trilhas aprovadas com condições recentes (últimas 48h)."""
+    """Busca trilhas aprovadas com condições recentes do Supabase."""
     fields = (
-        "id,name,cidade,estado,regiao,bioma,exposicao,solo_type,altitude_m,trail_type,"
-        "slug,"
-        "condicoes(veredicto,acumulo_ef,meia_vida_h,chuva_24h,chuva_prevista_24h,"
-        "pop_max,vento_ms,temp_max,temp_min,umidade_pct,cloud_pct,gerado_em)"
+        "id,name,regiao,bioma,exposicao,solo_type,altitude_m,trail_type,"
+        "localidades(cidade,estado),"
+        "condicoes(veredicto,acumulo_ef,meia_vida_h,rain_mm,acumulo_48h,"
+        "pop_48h,wind_ms,temp_max,temp_min,humidity_pct,cloud_pct,gerado_em)"
     )
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
@@ -121,6 +125,12 @@ def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
     r = requests.get(url, headers=sb_headers(), timeout=30)
     r.raise_for_status()
     trails = r.json()
+
+    # Achata localidades no trail dict
+    for t in trails:
+        loc = t.pop("localidades", None) or {}
+        t["cidade"] = loc.get("cidade") or ""
+        t["estado"] = loc.get("estado") or ""
 
     # Filtra só trilhas que têm pelo menos uma condição
     return [t for t in trails if t.get("condicoes")]
@@ -150,7 +160,7 @@ def interest_score(trail: dict) -> float:
     elif "LIBERADO" in v:
         score = 1.0
     # Bônus por variação climática (chuva recente)
-    chuva = c.get("chuva_24h") or 0
+    chuva = c.get("rain_mm") or 0
     if chuva >= 10:
         score += 0.5
     elif chuva >= 3:
@@ -189,12 +199,12 @@ def acumulo_agora(c: dict) -> float:
 
 # ─── Categoria de imagem ──────────────────────────────────────────────────────
 
-def bg_categoria(chuva_24h: float, pop: float) -> str:
-    if chuva_24h >= 15 or (chuva_24h >= 10 and pop >= 70):
+def bg_categoria(rain_mm: float, pop: float) -> str:
+    if rain_mm >= 15 or (rain_mm >= 10 and pop >= 70):
         return "tempestade"
-    if chuva_24h >= 5 or pop > 60:
+    if rain_mm >= 5 or pop > 60:
         return "chuva"
-    if chuva_24h >= 0.5 or pop >= 35:
+    if rain_mm >= 0.5 or pop >= 35:
         return "garoa"
     if pop >= 20:
         return "nublado"
@@ -345,14 +355,13 @@ def build_caption(trail: dict, cond: dict, categoria: str, ef_agora: float) -> s
     name     = trail.get("name") or "Trilha"
     cidade   = trail.get("cidade") or ""
     estado   = trail.get("estado") or ""
-    slug     = trail.get("slug") or ""
     veredicto= (cond.get("veredicto") or "SEM DADOS").upper()
-    chuva_24 = cond.get("chuva_24h") or 0
-    pop      = cond.get("pop_max") or 0
-    vento    = cond.get("vento_ms") or 0
+    rain_mm  = cond.get("rain_mm") or 0
+    pop      = cond.get("pop_48h") or 0
+    vento    = cond.get("wind_ms") or 0
     temp_max = cond.get("temp_max")
     temp_min = cond.get("temp_min")
-    umidade  = cond.get("umidade_pct")
+    umidade  = cond.get("humidity_pct")
 
     # Veredicto emoji
     verd_emoji = "✅"
@@ -378,8 +387,8 @@ def build_caption(trail: dict, cond: dict, categoria: str, ef_agora: float) -> s
 
     # Linha de clima
     clima_parts = []
-    if chuva_24 > 0.3:
-        clima_parts.append(f"🌧️ {chuva_24:.1f}mm (24h)")
+    if rain_mm > 0.3:
+        clima_parts.append(f"🌧️ {rain_mm:.1f}mm (24h)")
     if vento > 0:
         clima_parts.append(f"💨 {vento:.1f}m/s")
     if temp_max is not None and temp_min is not None:
@@ -393,7 +402,7 @@ def build_caption(trail: dict, cond: dict, categoria: str, ef_agora: float) -> s
     state_tags = HASHTAGS_ESTADO.get(estado, f"#{estado}" if estado else "")
     trail_name_tag = "#" + "".join(w.capitalize() for w in name.split()[:3]) if name else ""
 
-    url_linha = f"🔗 {SITE_URL}/trilhas/{slug}" if slug else f"🔗 {SITE_URL}"
+    url_linha = f"🔗 {SITE_URL}"
 
     caption_parts = [
         f"🚵 {name}",
@@ -516,9 +525,9 @@ def main():
     print(f"  Veredicto: {cond.get('veredicto')}  |  gerado_em: {cond.get('gerado_em')}")
 
     # Categoria de imagem e acúmulo com drift
-    chuva_24 = cond.get("chuva_24h") or 0
-    pop      = cond.get("pop_max") or 0
-    categoria = bg_categoria(chuva_24, pop)
+    rain_mm   = cond.get("rain_mm") or 0
+    pop       = cond.get("pop_48h") or 0
+    categoria = bg_categoria(rain_mm, pop)
     ef_agora  = acumulo_agora(cond)
     print(f"  Categoria: {categoria}  |  Acúmulo efetivo agora: {ef_agora:.1f}mm")
 
