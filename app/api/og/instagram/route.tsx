@@ -155,6 +155,9 @@ export async function GET(req: NextRequest) {
       return s
     })()
 
+    const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
+    const bgSrc = bgUrl(categoria)
+
     return new ImageResponse(
       (
         <div
@@ -166,6 +169,26 @@ export async function GET(req: NextRequest) {
             background: '#1e2218',
           }}
         >
+          {/* Background photo */}
+          <img
+            src={bgSrc}
+            width={1080}
+            height={1080}
+            style={{ position: 'absolute', top: 0, left: 0, width: 1080, height: 1080 }}
+          />
+          {/* Dark overlay */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(10,14,8,0.62)',
+              display: 'flex',
+            }}
+          />
+
           {/* Top stripe */}
           <div
             style={{
