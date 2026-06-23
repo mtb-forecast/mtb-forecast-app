@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { unstable_after as after, NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -278,7 +278,7 @@ export async function GET(req: NextRequest) {
       } catch { /* tenta próximo candidato */ }
     }
 
-    // Se a imagem personalizada ainda não existe, gera em background após responder
+    // Se a imagem personalizada ainda não existe, gera inline e cacheia no bucket
     if (!trailBgExists && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       const prompt = buildTrailPrompt(
         trilha.bioma ?? null,
@@ -288,7 +288,8 @@ export async function GET(req: NextRequest) {
         categoria,
         condicao.veredicto,
       )
-      after(() => generateAndUploadTrailBg(trilhaId, categoria, prompt))
+      // Dispara sem await — não bloqueia a resposta, falhas são silenciosas
+      void generateAndUploadTrailBg(trilhaId, categoria, prompt)
     }
 
     return new ImageResponse(
