@@ -67,7 +67,7 @@ def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
         "id,name,regiao,bioma,exposicao,solo_type,altitude_m,trail_type,"
         "localidades(cidade,estado),"
         "condicoes(veredicto,acumulo_ef,meia_vida_h,rain_mm,"
-        "pop_48h,wind_ms,temp_max,temp_min,humidity_pct,cloud_pct,gerado_em)"
+        "wind_ms,temp_max,temp_min,humidity_pct,cloud_pct,gerado_em)"
     )
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"

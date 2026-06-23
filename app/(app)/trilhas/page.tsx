@@ -126,7 +126,7 @@ function TrilhasContent() {
               id, nome, cidade, uf, endereco, latitude, longitude,
               tipo_superficie, comprimento_estimado, iluminacao, estacionamento,
               fonte, google_maps_url, instagram, status_validacao,
-              condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_48h)
+              condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_12h)
             `)
             .eq('uf', estadoSelecionado)
             .order('nome'),
