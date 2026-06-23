@@ -163,6 +163,19 @@ export async function GET(req: NextRequest) {
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
     const bgSrc = bgUrl(categoria)
 
+    // Pre-fetch background image and convert to data URL for Satori
+    let bgDataUrl: string | null = null
+    try {
+      const bgRes = await fetch(bgSrc)
+      console.log('[OG] bg fetch', bgSrc, bgRes.status)
+      if (bgRes.ok) {
+        const buf = await bgRes.arrayBuffer()
+        bgDataUrl = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
+      }
+    } catch (e) {
+      console.error('[OG] bg fetch error:', e)
+    }
+
     return new ImageResponse(
       (
         <div
@@ -175,12 +188,15 @@ export async function GET(req: NextRequest) {
           }}
         >
           {/* Background photo */}
-          <img
-            src={bgSrc}
-            width={1080}
-            height={1080}
-            style={{ position: 'absolute', top: 0, left: 0, width: 1080, height: 1080 }}
-          />
+          {bgDataUrl && (
+            <img
+              src={bgDataUrl}
+              alt=""
+              width={1080}
+              height={1080}
+              style={{ position: 'absolute', top: 0, left: 0, width: 1080, height: 1080 }}
+            />
+          )}
           {/* Dark overlay */}
           <div
             style={{
