@@ -65,6 +65,25 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const trilhaId = searchParams.get('trilha_id')
+    const debug = searchParams.get('debug') === '1'
+
+    // Debug mode: minimal render to verify Satori + fonts work at all
+    if (debug) {
+      const origin = new URL(req.url).origin
+      let notoSansDebug: ArrayBuffer | null = null
+      try {
+        notoSansDebug = await fetch(`${origin}/fonts/noto-sans-regular.ttf`).then(r => r.arrayBuffer())
+      } catch (e) { console.error('[OG debug] font fetch failed:', e) }
+      console.log('[OG debug] notoSans bytes:', notoSansDebug?.byteLength ?? 'null')
+      return new ImageResponse(
+        <div style={{ width: 400, height: 200, background: '#1e2218', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ color: '#a8b899', fontSize: 48, fontFamily: notoSansDebug ? 'Noto Sans' : 'sans-serif' }}>
+            MTB TEST OK
+          </span>
+        </div>,
+        { width: 400, height: 200, fonts: notoSansDebug ? [{ name: 'Noto Sans', data: notoSansDebug, weight: 400 }] : [] }
+      )
+    }
 
     if (!trilhaId) {
       return new Response('trilha_id required', { status: 400 })
@@ -105,13 +124,14 @@ export async function GET(req: NextRequest) {
     let dmMono: ArrayBuffer | null = null
     try {
       notoSans = await fetch(`${origin}/fonts/noto-sans-regular.ttf`).then(r => r.arrayBuffer())
-    } catch { /* fallback handled below */ }
+    } catch (e) { console.error('[OG] noto fetch error:', e) }
     try {
       ;[dmSansBold, dmMono] = await Promise.all([
         fetch(`${origin}/fonts/dm-sans-800.ttf`).then(r => r.arrayBuffer()),
         fetch(`${origin}/fonts/dm-mono-400.ttf`).then(r => r.arrayBuffer()),
       ])
-    } catch { /* DM Sans optional — Noto Sans is the required fallback */ }
+    } catch { /* DM Sans optional */ }
+    console.log('[OG] fonts — noto:', notoSans?.byteLength ?? 'null', 'dmSans:', dmSansBold?.byteLength ?? 'null')
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
     const bg = bgUrl(categoria)
