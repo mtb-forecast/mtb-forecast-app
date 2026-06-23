@@ -39,6 +39,11 @@ function formatLocation(
   return regiao ?? ''
 }
 
+function bgUrl(categoria: string): string {
+  const n = Math.floor(Math.random() * 3) + 1
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1/object/public/instagram-bg/${categoria}_${n}.jpg`
+}
+
 function trailNameFontSize(name: string): number {
   if (name.length <= 6) return 140
   if (name.length <= 12) return 100
