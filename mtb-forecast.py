@@ -1358,6 +1358,8 @@ def _carregar_veredicto_pesos() -> list:
             {"fator": "vento_estrutural_alto", "peso": 2},
             {"fator": "vento_estrutural_med",  "peso": 1},
             {"fator": "solo_encharcado",       "peso": 1},
+            {"fator": "chuva_iminente_alta",   "peso": 2},
+            {"fator": "chuva_iminente",        "peso": 1},
         ]
 
 
@@ -1869,7 +1871,8 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
 def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 0.0,
               inclinacao: float | None = None, trail: dict | None = None,
               acumulo_ef: float = 0.0, vento_hist: dict | None = None,
-              aderencia_futura: dict = None) -> dict:
+              aderencia_futura: dict = None,
+              pico_proximas_3h: float = 0.0) -> dict:
     # NOTA: avaliação sempre acontece em Python. Adicionar fator no banco
     # sem atualizar o código não tem efeito.
     peso_por_fator = {p["fator"]: p["peso"] for p in _carregar_veredicto_pesos()}
@@ -1897,6 +1900,13 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
     elif pico_3h >= 10.0:
         risco += peso_por_fator.get("pico_3h_alto", 1)
         motivos.append("pico_3h alto")
+
+    if pico_proximas_3h >= 10.0:
+        risco += peso_por_fator.get("chuva_iminente_alta", 2)
+        motivos.append("chuva intensa iminente nas próximas 3h")
+    elif pico_proximas_3h >= 5.0:
+        risco += peso_por_fator.get("chuva_iminente", 1)
+        motivos.append("chuva iminente nas próximas 3h")
 
     if rain_mm >= 8.0:
         risco += peso_por_fator.get("rain_alto", 1)
@@ -2553,6 +2563,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         r        = round(sum(_precip_hora(h) for h in h12), 1)
         p3       = round(max((sum([_precip_hora(h) for h in h12][i:i+3])
                               for i in range(max(1, len(h12) - 2))), default=0.0), 1)
+        p3_iminente = round(sum(_precip_hora(h) for h in h12[:3]), 1)
         pp       = round(max((h.get("pop", 0) or 0 for h in h12), default=0) * 100)
         w        = round(max((h.get("wind_speed", 0) or 0 for h in h12), default=0), 1)
         tm       = round(max((h.get("temp", 0) or 0 for h in h12), default=0))
@@ -2566,7 +2577,8 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         ader = calcular_aderencia(r, trail, acumulo_ef, p3, mes, enso)
         return {
             "rain": r, "pico_3h": p3, "pop": pp, "wind": w, "temp_max": tm,
-            "veredicto": veredicto(ader, r, w, p3, inc, trail_12h, acumulo_ef),
+            "veredicto": veredicto(ader, r, w, p3, inc, trail_12h, acumulo_ef,
+                                   pico_proximas_3h=p3_iminente),
         }
 
     def calcular_blocos_24h_oc() -> list:
@@ -2738,8 +2750,9 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         return " · ".join(partes) + f" · pico {round(pop_max)}%"
 
     aderencia_futura = calcular_aderencia_futura_oc()
+    pico_iminente_3h = round(sum(_precip_hora(h) for h in hourly_oc[:3]), 1)
     vered = veredicto(aderencia, rain, wind, pico_3h, inclinacao, trail, acumulo_ef, vento_hist,
-                      aderencia_futura=aderencia_futura)
+                      aderencia_futura=aderencia_futura, pico_proximas_3h=pico_iminente_3h)
 
     resumo_12h     = resumo_12h_oc()
     fds_resumo     = {
@@ -2813,11 +2826,15 @@ def _aplicar_override_chuva_futura(resultado: dict) -> dict:
     """
     Override pós-modelo: se qualquer bloco das próximas 12h tiver rain_mm > 3mm,
     impede que o veredicto saia como DROP LIBERADO limpo.
-    Não toca em BAIXA ADERÊNCIA nem em MELHOR ESPERAR.
+    Se rain_12h total > 10mm, escala adicionalmente para MELHOR ESPERAR.
+    Não toca em BAIXA ADERÊNCIA nem em MELHOR ESPERAR já definido.
     Para remover: apagar esta função e a chamada no loop principal.
     """
-    blocos = resultado.get("previsao_24h") or []
-    if not any(b.get("rain_mm", 0) > 3.0 for b in blocos[:2]):
+    blocos   = resultado.get("previsao_24h") or []
+    rain_12h = resultado.get("veredicto_12h", {}).get("rain", 0) or 0
+
+    tem_chuva_blocos = any(b.get("rain_mm", 0) > 3.0 for b in blocos[:2])
+    if not tem_chuva_blocos and rain_12h <= 3.0:
         return resultado
 
     aderencia = resultado.get("aderencia", {})
@@ -2835,7 +2852,21 @@ def _aplicar_override_chuva_futura(resultado: dict) -> dict:
         aderencia["status"] = "BOA ADERÊNCIA - ÚMIDO"
         aderencia["desc"]   = _descricao_aderencia("BOA ADERÊNCIA - ÚMIDO", trail_mini)
 
-    if vered.get("texto") == "DROP LIBERADO":
+    texto_atual = vered.get("texto", "")
+
+    # Ângulo 1: >10mm nas próximas 12h → escala até MELHOR ESPERAR
+    if rain_12h > 10.0 and texto_atual in ("DROP LIBERADO", "DROP LIBERADO - Veja os alertas"):
+        vered["texto"]  = "MELHOR ESPERAR"
+        vered["emoji"]  = "🚫"
+        vered["cor"]    = "#dc2626"
+        vered["bg"]     = "#fef2f2"
+        alerta = f"chuva intensa prevista nas próximas 12h ({rain_12h:.0f}mm) — aguarde condições melhores"
+        motivo = vered.get("motivo") or ""
+        if alerta not in motivo:
+            vered["motivo"] = (motivo + ", " + alerta).lstrip(", ")
+        return resultado
+
+    if texto_atual == "DROP LIBERADO":
         vered["texto"]  = "DROP LIBERADO - Veja os alertas"
         vered["emoji"]  = "⚠️"
         vered["cor"]    = "#d97706"
@@ -3491,7 +3522,7 @@ def _gravar_condicao_pumptrack(pt_id: str, dados: dict) -> bool:
             "wind_kmh":     round(dados.get("wind", 0) * 3.6, 1),
             "temp_max":     dados.get("temp_max"),
             "temp_min":     dados.get("temp_min"),
-            "pop_48h":      dados.get("pop"),
+            "pop_12h":      dados.get("pop"),
         }).encode("utf-8")
 
         url_del = f"{SUPABASE_URL}/rest/v1/condicoes_pumptrack?pumptrack_id=eq.{pt_id}"
