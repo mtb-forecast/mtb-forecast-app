@@ -53,86 +53,93 @@ function trailNameFontSize(name: string): number {
   return 56
 }
 
-// ─── Geração on-demand via Pollinations ──────────────────────────────────────
+// ─── Background via Pexels API ───────────────────────────────────────────────
+// Fotos reais de trilhas MTB buscadas por bioma + categoria climática.
+// Cacheadas no bucket instagram-bg após primeira busca.
 
-const BIOMA_EN: Record<string, string> = {
-  'Mata Atlântica': 'Atlantic Forest mountain landscape, towering trees with thick mossy trunks, green tree canopy, red clay hillside, ferns and bromeliads on steep slopes',
-  'Cerrado':        'Brazilian Cerrado savanna hillside, twisted low trees with rough bark, red laterite rocky outcrops, dry golden grass on slopes, open sky above',
-  'Amazônia':       'Amazon jungle mountain, giant tree trunks with buttress roots, layers of dense green canopy, misty humid forest interior',
-  'Caatinga':       'Caatinga semi-arid mountain, grey thorny cacti and mandacaru on rocky slopes, pale limestone outcrops, bleached sky',
-  'Pampa':          'Southern Brazilian highland, rolling grassy hills, golden pampas grass waving in wind, dramatic open sky, no trees',
-  'Pantanal':       'Pantanal highland edge, scattered palm trees on dry grassy plain, vast flat landscape, dramatic wide sky',
+// Queries por bioma → categoria → termo de busca no Pexels
+const PEXELS_QUERIES: Record<string, Record<string, string>> = {
+  'Mata Atlântica': {
+    sol:        'mountain bike trail atlantic forest sunny brazil',
+    nublado:    'mountain bike trail tropical forest cloudy moody',
+    garoa:      'mountain bike trail forest misty rain',
+    chuva:      'mountain bike muddy trail forest dark rain',
+    tempestade: 'mountain bike trail forest dramatic storm dark',
+  },
+  'Cerrado': {
+    sol:        'mountain bike trail savanna dry sunny',
+    nublado:    'mountain bike trail dry forest overcast',
+    garoa:      'mountain bike trail cerrado rain',
+    chuva:      'mountain bike trail dry landscape rain storm',
+    tempestade: 'mountain bike trail rocky dry storm dramatic',
+  },
+  'Amazônia': {
+    sol:        'mountain bike trail jungle tropical sunny',
+    nublado:    'mountain bike trail jungle canopy cloudy',
+    garoa:      'mountain bike trail jungle mist humid',
+    chuva:      'mountain bike trail jungle rain dark',
+    tempestade: 'mountain bike trail jungle storm dramatic dark',
+  },
+  'Caatinga': {
+    sol:        'mountain bike trail semi arid cactus dry sunny',
+    nublado:    'mountain bike trail dry rocky landscape overcast',
+    garoa:      'mountain bike trail rocky desert rain',
+    chuva:      'mountain bike trail rocky arid storm',
+    tempestade: 'mountain bike trail rocky dramatic storm lightning',
+  },
+  'Pampa': {
+    sol:        'mountain bike trail open grassland hills sunny',
+    nublado:    'mountain bike trail rolling hills cloudy',
+    garoa:      'mountain bike trail grassland misty rain',
+    chuva:      'mountain bike trail grassy hills rain dark',
+    tempestade: 'mountain bike trail open landscape storm dramatic',
+  },
 }
 
-const CATEGORIA_EN: Record<string, string> = {
-  sol:        'golden hour sunlight breaking through trees, warm amber rays, long shadows, clear blue sky patches',
-  nublado:    'overcast diffused grey light, moody flat sky, mist clinging to tree tops, cool atmosphere',
-  garoa:      'fine mist in the air, glistening wet leaves, cool blue-grey diffused light, low cloud',
-  chuva:      'dark dramatic storm sky, heavy clouds, wet glistening foliage, moody grey-green light',
-  tempestade: 'apocalyptic dark storm clouds, dramatic lightning in distant sky, intense moody atmosphere, deep shadows',
+// Fallback genérico usado quando bioma não tem entrada
+const PEXELS_FALLBACK: Record<string, string> = {
+  sol:        'mountain bike trail forest sunny',
+  nublado:    'mountain bike trail forest overcast moody',
+  garoa:      'mountain bike trail forest misty',
+  chuva:      'mountain bike muddy trail dark rain',
+  tempestade: 'mountain bike trail storm dramatic dark',
 }
 
-const EXPOSICAO_EN: Record<string, string> = {
-  fechada: 'enclosed by dense forest canopy overhead, green tunnel effect, roots and rocks on steep hillside',
-  aberta:  'open mountain ridgeline, panoramic view of forested valleys below, dramatic sky visible',
-  mista:   'forest opening on a steep hillside with glimpses of valley and sky between trees',
-}
-
-const SOLO_EN: Record<string, string> = {
-  terra:    'steep red clay hillside with exposed roots and dirt',
-  rocha:    'steep rocky hillside with exposed granite slabs and boulders',
-  misto:    'steep hillside of mixed red dirt and embedded rocks with roots',
-  misto_mg: 'steep iron-rich red hillside with quartzite slabs and rocks',
-  ferro:    'steep iron-rich reddish-brown rocky hillside',
-  preto:    'steep dark volcanic soil hillside with dense vegetation',
-}
-
-function buildTrailPrompt(
-  bioma: string | null,
-  exposicao: string | null,
-  soloType: string | null,
-  altitudeM: number | null,
-  categoria: string,
-  veredicto: string | null,
-): string {
-  const biomaDesc  = BIOMA_EN[bioma ?? '']     ?? BIOMA_EN['Mata Atlântica']
-  const catDesc    = CATEGORIA_EN[categoria]   ?? CATEGORIA_EN['sol']
-  const soloDesc   = SOLO_EN[soloType ?? '']   ?? SOLO_EN['terra']
-  const expDesc    = EXPOSICAO_EN[exposicao ?? ''] ?? EXPOSICAO_EN['mista']
-  const altDesc    = altitudeM && altitudeM >= 1200
-    ? `high altitude ${altitudeM}m, cloud forest, misty mountain peaks in background`
-    : altitudeM && altitudeM >= 700
-    ? `mid-altitude ${altitudeM}m mountain terrain, valley visible below`
-    : ''
-
-  return [
-    'Cinematic photorealistic wilderness landscape photograph.',
-    `Setting: ${biomaDesc}.`,
-    `Terrain: ${soloDesc}, ${expDesc}.`,
-    altDesc ? `Altitude: ${altDesc}.` : '',
-    `Light and weather: ${catDesc}.`,
-    'STRICT RULES: absolutely NO rivers, NO streams, NO water, NO waterfalls, NO lakes, NO flooded areas, NO mud flow, NO erosion channels.',
-    'NO people, NO bikes, NO text, NO logos, NO buildings, NO roads, NO vehicles.',
-    'Composition: dramatic wide landscape, dark vignette on edges fading to brighter center, ideal for white text overlay.',
-    'Style: National Geographic wilderness photography, ultra wide angle, square 1:1, Brazil South America.',
-  ].filter(Boolean).join(' ')
+function pexelsQuery(bioma: string | null, categoria: string): string {
+  const biomaQueries = PEXELS_QUERIES[bioma ?? ''] ?? PEXELS_FALLBACK
+  return biomaQueries[categoria] ?? PEXELS_FALLBACK[categoria] ?? 'mountain bike trail forest'
 }
 
 function trailBgStorageUrl(trilhaId: string, categoria: string): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/${trilhaId}_${categoria}.jpg`
 }
 
-async function generateAndUploadTrailBg(trilhaId: string, categoria: string, prompt: string): Promise<void> {
+async function fetchAndUploadTrailBg(trilhaId: string, categoria: string, bioma: string | null): Promise<void> {
   const storageKey = `${trilhaId}_${categoria}.jpg`
+  const apiKey = process.env.PEXELS_API_KEY
+  if (!apiKey) return
+
   try {
-    // Gera via Pollinations (Flux) — gratuito, sem API key
-    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1080&height=1080&nologo=true&model=flux&seed=${trilhaId.charCodeAt(0) + trilhaId.charCodeAt(4)}`
-    const imgRes = await fetch(pollinationsUrl, { signal: AbortSignal.timeout(90_000) })
+    const query = pexelsQuery(bioma, categoria)
+    // Busca 15 fotos no Pexels e escolhe uma aleatoriamente para variar
+    const searchRes = await fetch(
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=15&orientation=square`,
+      { headers: { Authorization: apiKey }, signal: AbortSignal.timeout(15_000) }
+    )
+    if (!searchRes.ok) return
+
+    const data = await searchRes.json() as { photos: { src: { large2x: string } }[] }
+    if (!data.photos?.length) return
+
+    // Seed determinístico por trilha para imagem consistente entre requests
+    const seed = (trilhaId.charCodeAt(0) + trilhaId.charCodeAt(4)) % data.photos.length
+    const photoUrl = data.photos[seed].src.large2x
+
+    const imgRes = await fetch(photoUrl, { signal: AbortSignal.timeout(20_000) })
     if (!imgRes.ok) return
 
     const imgBuf = await imgRes.arrayBuffer()
 
-    // Upload para Supabase Storage (trail-og bucket, público)
     await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${storageKey}`,
       {
@@ -274,18 +281,10 @@ export async function GET(req: NextRequest) {
       } catch { /* tenta próximo candidato */ }
     }
 
-    // Se a imagem personalizada ainda não existe, gera inline e cacheia no bucket
-    if (!trailBgExists && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      const prompt = buildTrailPrompt(
-        trilha.bioma ?? null,
-        trilha.exposicao ?? null,
-        trilha.solo_type ?? null,
-        trilha.altitude_m ?? null,
-        categoria,
-        condicao.veredicto,
-      )
+    // Se a imagem personalizada ainda não existe, busca no Pexels e cacheia
+    if (!trailBgExists && process.env.PEXELS_API_KEY) {
       // Dispara sem await — não bloqueia a resposta, falhas são silenciosas
-      void generateAndUploadTrailBg(trilhaId, categoria, prompt)
+      void fetchAndUploadTrailBg(trilhaId, categoria, trilha.bioma ?? null)
     }
 
     return new ImageResponse(
