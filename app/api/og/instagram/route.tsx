@@ -107,29 +107,72 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    if (!trilhaId) {
-      return new Response('trilha_id required', { status: 400 })
+    // Debug mode 3: render only bg image to isolate Satori img rendering (no trilha_id needed)
+    if (searchParams.get('debug') === '3') {
+      const testCat = searchParams.get('cat') ?? 'sol'
+      const testUrl = bgUrl(testCat)
+      let testDataUrl: string | null = null
+      let contentType = 'unknown'
+      let magic = ''
+      try {
+        const r = await fetch(testUrl)
+        contentType = r.headers.get('content-type') ?? 'none'
+        if (r.ok) {
+          const buf = await r.arrayBuffer()
+          const bytes = new Uint8Array(buf.slice(0, 12))
+          magic = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ')
+          // Detect real format from magic bytes
+          const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+          const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
+          const isWebP = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[8] === 0x57 && bytes[9] === 0x45
+          const mime = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : isWebP ? 'image/webp' : 'image/png'
+          testDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
+        }
+      } catch { /* ignore */ }
+      return new ImageResponse(
+        <div style={{ width: 500, height: 500, display: 'flex', flexDirection: 'column', position: 'relative', background: '#ff0000' }}>
+          {testDataUrl ? (
+            <img src={testDataUrl} style={{ display: 'flex', position: 'absolute', top: 0, left: 0, width: 500, height: 500 }} />
+          ) : (
+            <div style={{ display: 'flex', color: '#fff', fontSize: 32 }}>NO DATA URL</div>
+          )}
+          <div style={{ display: 'flex', position: 'absolute', bottom: 4, left: 4, flexDirection: 'column' }}>
+            <div style={{ display: 'flex', color: '#ff0', fontSize: 14 }}>{contentType}</div>
+            <div style={{ display: 'flex', color: '#ff0', fontSize: 14 }}>{magic}</div>
+          </div>
+        </div>,
+        { width: 500, height: 500, fonts: fontList }
+      )
     }
 
-    // Debug mode 2: JSON diagnostic for bg fetch
+    // Debug mode 2: JSON diagnostic for bg fetch (includes content-type and magic bytes)
     if (searchParams.get('debug') === '2') {
       const testCategoria = searchParams.get('cat') ?? 'sol'
       const testUrl = bgUrl(testCategoria)
       let status = 0
       let size = 0
       let dataLen = 0
+      let contentType = 'unknown'
+      let magic = ''
       try {
         const r = await fetch(testUrl)
         status = r.status
+        contentType = r.headers.get('content-type') ?? 'none'
         if (r.ok) {
           const buf = await r.arrayBuffer()
           size = buf.byteLength
           dataLen = Buffer.from(buf).toString('base64').length
+          const bytes = new Uint8Array(buf.slice(0, 12))
+          magic = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ')
         }
-      } catch (e) { status = -1 }
-      return new Response(JSON.stringify({ testUrl, status, size, dataLen }), {
+      } catch { status = -1 }
+      return new Response(JSON.stringify({ testUrl, status, size, dataLen, contentType, magic }), {
         headers: { 'content-type': 'application/json' },
       })
+    }
+
+    if (!trilhaId) {
+      return new Response('trilha_id required', { status: 400 })
     }
 
     const [trilha, condicao] = await Promise.all([
@@ -187,13 +230,19 @@ export async function GET(req: NextRequest) {
     const bgSrc = bgUrl(categoria)
 
     // Pre-fetch background image and convert to data URL for Satori
+    // Detect real MIME type from magic bytes — Gemini exports can be WebP despite .png extension
     let bgDataUrl: string | null = null
     try {
       const bgRes = await fetch(bgSrc)
       console.log('[OG] bg fetch', bgSrc, bgRes.status)
       if (bgRes.ok) {
         const buf = await bgRes.arrayBuffer()
-        bgDataUrl = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
+        const bytes = new Uint8Array(buf.slice(0, 12))
+        const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+        const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
+        const mime = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
+        console.log('[OG] bg mime detected:', mime, 'bytes:', Array.from(bytes.slice(0,4)).map(b=>b.toString(16)).join(' '))
+        bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
       }
     } catch (e) {
       console.error('[OG] bg fetch error:', e)
