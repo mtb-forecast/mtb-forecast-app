@@ -5,16 +5,21 @@ generate_trail_og.py — Gera imagem de fundo OG por trilha usando Google Gemini
 Cada trilha recebe uma imagem única gerada a partir de:
   bioma, exposicao, solo_type, altitude_m, trail_type, desnivel_m, regiao
 
-Resultado armazenado em Supabase Storage, bucket "trail-og":
-  trail-og/{trilha_id}.jpg
+Modos:
+  --local [DIR]   salva em disco para revisão (padrão: scripts/trail-og-preview/)
+  --upload        envia para Supabase Storage (bucket trail-og)
+  --local --upload  faz os dois ao mesmo tempo
 
 Uso:
-    python scripts/generate_trail_og.py
-    python scripts/generate_trail_og.py --force       # regenera todas
-    python scripts/generate_trail_og.py --id UUID     # apenas uma trilha
+    python scripts/generate_trail_og.py --local               # salva localmente para ver
+    python scripts/generate_trail_og.py --local --id UUID     # testa uma trilha
+    python scripts/generate_trail_og.py --upload              # sobe para Supabase
+    python scripts/generate_trail_og.py --local --upload      # salva e sobe
+    python scripts/generate_trail_og.py --force --local       # regenera mesmo existentes
 
 Dependências: pip install google-genai pillow requests
-Env vars: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY
+Env vars: GEMINI_API_KEY (obrigatório)
+          NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (apenas se --upload)
 """
 
 import argparse
@@ -216,18 +221,43 @@ def to_jpeg_1080(raw: bytes) -> bytes:
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
+DEFAULT_LOCAL_DIR = os.path.join(os.path.dirname(__file__), "trail-og-preview")
+
+
+def local_path(out_dir: str, trail: dict) -> str:
+    """Nome do arquivo local: {bioma_slug}_{nome_slug}_{id[:8]}.jpg"""
+    bioma = (trail.get("bioma") or "desconhecido").lower()
+    bioma = bioma.replace(" ", "_").replace("â", "a").replace("ô", "o").replace("ã", "a").replace("é", "e")
+    name  = (trail.get("name") or "trilha").lower()
+    name  = "".join(c if c.isalnum() else "_" for c in name)[:30].strip("_")
+    tid   = trail["id"][:8]
+    return os.path.join(out_dir, f"{bioma}__{name}__{tid}.jpg")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Gera imagens OG por trilha via Gemini")
-    parser.add_argument("--force", action="store_true", help="Regenera mesmo se já existir")
-    parser.add_argument("--id", metavar="UUID", help="Processa apenas esta trilha")
+    parser.add_argument("--local", nargs="?", const=DEFAULT_LOCAL_DIR, metavar="DIR",
+                        help=f"Salva imagens localmente (padrão: {DEFAULT_LOCAL_DIR})")
+    parser.add_argument("--upload", action="store_true", help="Envia para Supabase Storage")
+    parser.add_argument("--force",  action="store_true", help="Regenera mesmo se já existir")
+    parser.add_argument("--id",     metavar="UUID",      help="Processa apenas esta trilha")
     args = parser.parse_args()
 
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("✗ NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios")
-        sys.exit(1)
+    if not args.local and not args.upload:
+        parser.error("Informe pelo menos --local ou --upload (ou ambos).")
+
     if not GEMINI_KEY:
         print("✗ GEMINI_API_KEY é obrigatório")
         sys.exit(1)
+
+    if args.upload and (not SUPABASE_URL or not SUPABASE_KEY):
+        print("✗ --upload requer NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY")
+        sys.exit(1)
+
+    out_dir = args.local
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+        print(f"Pasta local: {out_dir}")
 
     client = genai.Client(api_key=GEMINI_KEY)
 
@@ -245,13 +275,17 @@ def main():
         bioma = trail.get("bioma") or "?"
         print(f"[{i}/{len(trails)}] {name}  ({bioma})")
 
-        if not args.force and image_exists(tid):
-            print("    → já existe, pulando  (use --force para regenerar)")
+        # Checa se já existe (local ou remoto) antes de gerar
+        already_local  = out_dir and os.path.exists(local_path(out_dir, trail))
+        already_remote = args.upload and image_exists(tid)
+        if not args.force and (already_local or already_remote):
+            where = "local" if already_local else "Supabase"
+            print(f"    → já existe ({where}), pulando  (--force para regenerar)")
             skip += 1
             continue
 
         prompt = build_prompt(trail)
-        print(f"    prompt: {prompt[:120]}…")
+        print(f"    prompt: {prompt[:110]}…")
 
         raw = generate_image(client, prompt)
         if not raw:
@@ -265,11 +299,28 @@ def main():
             fail += 1
             continue
 
-        if upload_image(tid, jpeg):
-            print(f"    ✓ Salvo ({len(jpeg)//1024}KB)")
+        saved = False
+
+        if out_dir:
+            fpath = local_path(out_dir, trail)
+            with open(fpath, "wb") as f:
+                f.write(jpeg)
+            print(f"    ✓ Local → {os.path.basename(fpath)}  ({len(jpeg)//1024}KB)")
+            saved = True
+
+        if args.upload:
+            if upload_image(tid, jpeg):
+                print(f"    ✓ Supabase → trail-og/{tid}.jpg")
+                saved = True
+            else:
+                print("    ✗ Upload Supabase falhou")
+                if not out_dir:
+                    fail += 1
+                    continue
+
+        if saved:
             ok += 1
         else:
-            print("    ✗ Upload falhou")
             fail += 1
 
         if i < len(trails):
@@ -277,6 +328,9 @@ def main():
 
     print(f"\n─────────────────────────────")
     print(f"✓ {ok} geradas  |  → {skip} puladas  |  ✗ {fail} falhas")
+    if out_dir and ok > 0:
+        print(f"\nImagens em: {out_dir}")
+        print("Revise e depois rode com --upload para enviar ao Supabase.")
 
 if __name__ == "__main__":
     main()
