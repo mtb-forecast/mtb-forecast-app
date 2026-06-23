@@ -257,34 +257,39 @@ export async function GET(req: NextRequest) {
     })()
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_48h)
-
-    // Tenta imagem gerada on-demand para esta trilha + categoria de tempo.
-    // Se não existir: usa fallback estático e dispara geração em background com after().
-    const trailBgUrl  = trailBgStorageUrl(trilhaId, categoria)
-    const staticBgUrl = bgUrl(categoria)
+    const trailBgUrl = trailBgStorageUrl(trilhaId, categoria)
 
     let bgDataUrl: string | null = null
-    let trailBgExists = false
 
-    for (const src of [trailBgUrl, staticBgUrl]) {
-      try {
-        const res = await fetch(src)
-        if (!res.ok) continue
+    // Tenta carregar imagem personalizada do bucket (já foi gerada via Pexels)
+    try {
+      const res = await fetch(trailBgUrl)
+      if (res.ok) {
         const buf = await res.arrayBuffer()
         const bytes = new Uint8Array(buf.slice(0, 4))
         const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
         const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
-        const mime = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
+        const mime   = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
         bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
-        if (src === trailBgUrl) trailBgExists = true
-        break
-      } catch { /* tenta próximo candidato */ }
-    }
+      }
+    } catch { /* imagem ainda não existe no bucket */ }
 
-    // Se a imagem personalizada ainda não existe, busca no Pexels e cacheia
-    if (!trailBgExists && process.env.PEXELS_API_KEY) {
-      // Dispara sem await — não bloqueia a resposta, falhas são silenciosas
-      void fetchAndUploadTrailBg(trilhaId, categoria, trilha.bioma ?? null)
+    // Se não existe ainda: busca no Pexels AGORA (aguarda antes de responder)
+    // O warm-up do script Python aceita até 120s, então podemos aguardar aqui.
+    if (!bgDataUrl && process.env.PEXELS_API_KEY) {
+      await fetchAndUploadTrailBg(trilhaId, categoria, trilha.bioma ?? null)
+      // Tenta carregar a imagem recém-gerada
+      try {
+        const res = await fetch(trailBgUrl)
+        if (res.ok) {
+          const buf = await res.arrayBuffer()
+          const bytes = new Uint8Array(buf.slice(0, 4))
+          const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+          const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
+          const mime   = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : 'image/png'
+          bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
+        }
+      } catch { /* Pexels falhou — usa gradiente escuro como fallback */ }
     }
 
     return new ImageResponse(
