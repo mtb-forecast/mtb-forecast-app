@@ -26,9 +26,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      NEXT_PUBLIC_SUPABASE_URL:     https://eydlkvrjopffyqpdstzh.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY:    ${{ secrets.SUPABASE_SERVICE_KEY }}
-      INSTAGRAM_ACCESS_TOKEN:       ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      OG_API_BASE:                   https://mtbforecaster.com.br
+      NEXT_PUBLIC_SUPABASE_URL:      https://eydlkvrjopffyqpdstzh.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY:     ${{ secrets.SUPABASE_SERVICE_KEY }}
+      INSTAGRAM_ACCESS_TOKEN:        ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
       INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
       DRY_RUN: ${{ inputs.dry_run == true && '1' || '0' }}
       TRAIL_ID: ${{ inputs.trail_id }}
@@ -44,7 +45,7 @@ jobs:
           cache: "pip"
 
       - name: Instalar dependências
-        run: pip install requests pillow
+        run: pip install requests
 
       - name: Postar no Instagram
         run: python scripts/post_instagram.py
