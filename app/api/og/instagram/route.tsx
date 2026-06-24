@@ -51,20 +51,20 @@ function trailNameFontSize(name: string): number {
 // Chave: {categoria}.jpg (5 imagens no total, compartilhadas entre trilhas).
 
 const POLLINATIONS_PROMPTS: Record<string, string> = {
-  sol: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu azul intenso sem nuvens, iluminação solar brilhante de meio-dia, cores vibrantes, atmosfera agradável e convidativa. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional. Sem pessoas. Sem ciclistas. Sem bicicletas.',
-  nublado: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu totalmente coberto por nuvens cinzentas claras, iluminação difusa e suave, ambiente tranquilo e fresco, cores levemente dessaturadas. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional. Sem pessoas. Sem ciclistas. Sem bicicletas.',
-  garoa: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu nublado com garoa fina visível no ar, pequenas gotas de chuva criando reflexos sutis na superfície da trilha, atmosfera úmida e fresca, iluminação suave e natural. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional. Sem pessoas. Sem ciclistas. Sem bicicletas.',
-  chuva: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Chuva moderada caindo de forma visível, poças de água na trilha, vegetação molhada com reflexos brilhantes, céu cinza escuro, atmosfera realista de dia chuvoso. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional. Sem pessoas. Sem ciclistas. Sem bicicletas.',
-  tempestade: 'Uma trilha de bicicleta sinuosa atravessando uma área natural com vegetação verde baixa e algumas árvores espalhadas, com montanhas suaves ao fundo. Céu de tempestade com nuvens escuras e dramáticas, relâmpagos ao longe, chuva intensa, vento movimentando a vegetação, atmosfera poderosa e cinematográfica, contraste elevado e iluminação dramática. Fotografia ultrarrealista, alta definição, detalhes nítidos, perspectiva ao nível da trilha, lente grande angular, qualidade profissional. Sem pessoas. Sem ciclistas. Sem bicicletas.',
+  sol: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Bright sunny blue sky, vibrant golden midday light. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
+  nublado: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Overcast sky with soft grey clouds, diffuse gentle light, cool fresh atmosphere, slightly desaturated colors. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
+  garoa: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Cloudy sky with fine drizzle visible in the air, subtle rain reflections on trail surface, humid fresh atmosphere, soft natural light. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
+  chuva: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Moderate rain falling visibly, puddles on trail, wet shiny vegetation, dark grey sky, realistic rainy day atmosphere. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
+  tempestade: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Dramatic storm sky with dark clouds, lightning in distance, heavy rain, wind moving vegetation, powerful cinematic atmosphere, high contrast dramatic lighting. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
 }
 
 // Seed fixo por categoria para imagem consistente (sem variação aleatória)
 const POLLINATIONS_SEEDS: Record<string, number> = {
-  sol: 112,
-  nublado: 223,
-  garoa: 334,
-  chuva: 445,
-  tempestade: 556,
+  sol: 201,
+  nublado: 202,
+  garoa: 203,
+  chuva: 204,
+  tempestade: 205,
 }
 
 function bgStorageUrl(categoria: string): string {
