@@ -51,20 +51,20 @@ function trailNameFontSize(name: string): number {
 // Chave: {categoria}.jpg (5 imagens no total, compartilhadas entre trilhas).
 
 const POLLINATIONS_PROMPTS: Record<string, string> = {
-  sol: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Bright sunny blue sky, vibrant golden midday light. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
-  nublado: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Overcast sky with soft grey clouds, diffuse gentle light, cool fresh atmosphere, slightly desaturated colors. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
-  garoa: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Cloudy sky with fine drizzle visible in the air, subtle rain reflections on trail surface, humid fresh atmosphere, soft natural light. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
-  chuva: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Moderate rain falling visibly, puddles on trail, wet shiny vegetation, dark grey sky, realistic rainy day atmosphere. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
-  tempestade: 'Empty mountain bike trail winding through open natural landscape, low green vegetation and scattered trees, gentle mountains in background. Dramatic storm sky with dark clouds, lightning in distance, heavy rain, wind moving vegetation, powerful cinematic atmosphere, high contrast dramatic lighting. Close-up of trail surface with landscape stretching into distance. Cinematic landscape photography, ultra-realistic, high detail, aerial side angle view, no people, nobody, empty trail.',
+  sol: 'Aerial drone photograph of Brazilian mountain landscape, green hills and valleys, scattered trees, winding dirt path through open savanna, bright sunny blue sky, vibrant golden light, no clouds. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  nublado: 'Aerial drone photograph of Brazilian mountain landscape, green hills and valleys, scattered trees, winding dirt path through open savanna, completely overcast sky with soft grey clouds, diffuse light, cool fresh atmosphere, slightly desaturated colors. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  garoa: 'Aerial drone photograph of Brazilian mountain landscape, green hills and valleys, scattered trees, winding dirt path through open savanna, cloudy sky with fine drizzle and mist, wet ground with subtle reflections, humid fresh atmosphere, soft natural light. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  chuva: 'Aerial drone photograph of Brazilian mountain landscape, green hills and valleys, scattered trees, winding dirt path through open savanna, moderate rain falling visibly, puddles on ground, wet shiny vegetation, dark grey sky, realistic rainy day atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  tempestade: 'Aerial drone photograph of Brazilian mountain landscape, green hills and valleys, scattered trees, winding dirt path through open savanna, dramatic storm sky with dark ominous clouds, lightning in distance, heavy rain, wind bending vegetation, powerful cinematic atmosphere, high contrast dramatic lighting. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
 }
 
 // Seed fixo por categoria para imagem consistente (sem variação aleatória)
 const POLLINATIONS_SEEDS: Record<string, number> = {
-  sol: 201,
-  nublado: 202,
-  garoa: 203,
-  chuva: 204,
-  tempestade: 205,
+  sol: 301,
+  nublado: 302,
+  garoa: 303,
+  chuva: 304,
+  tempestade: 305,
 }
 
 function bgStorageUrl(categoria: string): string {
