@@ -20,10 +20,18 @@ Histórico de chuva divergia da realidade. Causa raiz tripla, confirmada em log 
 - **`chuva_penetracao` (interceptação de dossel, via `_lookup_bioma`) DEVE ser aplicado a
   TODAS as fontes antes de qualquer comparação/max()**. Comparar chuva crua de uma
   fonte com chuva interceptada de outra infla o histórico em mata fechada.
-- **Open-Meteo em batch**: 1 chamada de forecast + 1 de histórico cobrem todos os
-  grupos de clima (multi-coordenada: `latitude=a,b,c&longitude=x,y,z` → resposta
-  vira array; com 1 coordenada é objeto único — tratar ambos). Fallback para
-  chamadas individuais com retry se o batch falhar.
+- **Open-Meteo em batch**: 1 chamada de forecast + 1 de histórico (ERA5) + 1 de
+  nowcast ICON seamless cobrem todos os grupos de clima (multi-coordenada:
+  `latitude=a,b,c&longitude=x,y,z` → resposta vira array; com 1 coordenada é
+  objeto único — tratar ambos). Fallback para chamadas individuais com retry se o
+  batch falhar.
+- **Nowcast bridge ICON seamless** (`_fetch_om_nowcast_bridge`): 3ª chamada batch,
+  `past_hours=6&forecast_days=0&models=icon_seamless`. Corrige lag de 4–6h do ERA5
+  para chuva convectiva recente. Overlay: para cada hora nos últimos 6h, aplica
+  `precips[idx] = max(era5_val, nowcast_val)`. Resultado cacheado em
+  `_CACHE_OM_NOWCAST_RAW` por `local_key`. **Nunca modificar `precips` in-place**
+  — fazer `precips = list(precips)` (cópia) antes do overlay para não corromper o
+  cache ERA5 global.
 - **Clima histórico (temp/vento/nuvens/umidade)**: vem do batch histórico do OM
   (48 amostras horárias, corte em `agora`). Timemachine OW foi REMOVIDO — suas
   3 amostras caíam sempre no mesmo horário do dia, enviesando temperatura média
@@ -44,7 +52,7 @@ Histórico de chuva divergia da realidade. Causa raiz tripla, confirmada em log 
   contagem).
 
 ### Quota de API por execução (133 trilhas, 23 grupos)
-OM: 2 chamadas batch. OWM: ~46 day_summary + ~23 onecall forecast ≈ 69.
+OM: **3 chamadas batch** (forecast + histórico ERA5 + nowcast ICON). OWM: ~46 day_summary + ~23 onecall forecast ≈ 69.
 Limite One Call 3.0 free: 1.000/dia. 4 execuções/dia ≈ 284 — folga confortável.
 
 ### Validação
@@ -191,6 +199,49 @@ Nunca exibir o valor bruto de `condicoes.acumulo_ef` — sempre aplicar drift.
 
 ---
 
+## Nowcast bridge — regras de implementação (jun/2026)
+
+- **3ª chamada batch OM**: `past_hours=6&forecast_days=0&models=icon_seamless` — corrige lag ERA5 de 4–6h
+- **Overlay take-max**: `precips[idx] = max(era5_val, nowcast_val)` — nunca substituir, sempre pegar o maior
+- **NUNCA modificar o array do cache ERA5 in-place** — sempre `precips = list(precips)` antes do overlay
+- Cache separado `_CACHE_OM_NOWCAST_RAW` por `local_key` — independente do cache ERA5
+- Validado em 23/06/2026: capturou +14.3mm de chuva convectiva que o ERA5 ainda não tinha assimilado
+
+---
+
+## Biomas — calibração Mata Atlântica fechada (jun/2026)
+
+### Split por altitude_min
+A tabela `biomas` tem **duas linhas** para Mata Atlântica fechada:
+- **id=9**: `altitude_min=600`, `tolerancia_bioma=0.50`, `sol_penetracao=0.025`
+  (alto: Serra da Mantiqueira, Campos do Jordão — solo drena menos, mais conservador)
+- **id=8**: `altitude_min=NULL` (fallback <600m), `tolerancia_bioma=0.70`, `sol_penetracao=0.015`
+  (litoral/baixada — neblina marítima, umidade permanente)
+
+`_lookup_bioma()` ordena `ORDER BY altitude_min DESC NULLS LAST` → altitude-específico vence.
+
+### Regras invioláveis do bioma
+- NUNCA aumentar `tolerancia_bioma` do id=8 acima de 0.70 sem benchmarking real
+- NUNCA aumentar `sol_penetracao` do id=8 acima de 0.020 — dossel fecha quase 100% da luz
+- O split altitude_min=600 é calibrado; não alterar sem dados de campo
+
+---
+
+## Veredicto — fatores de chuva iminente (jun/2026)
+
+`veredicto()` agora aceita `pico_proximas_3h: float = 0.0` (soma das primeiras 3h do OWM forecast):
+
+| Condição | Fator | Peso |
+|---|---|---|
+| `pico_proximas_3h >= 10.0` | `chuva_iminente_alta` | +2 |
+| `pico_proximas_3h >= 5.0` | `chuva_iminente` | +1 |
+
+Override pós-modelo `_aplicar_override_chuva_futura()` escalona DROP LIBERADO:
+- `rain_12h > 10.0mm` → MELHOR ESPERAR (independente do score de aderência)
+- bloco 12h com > 3mm → ALERTA (se veredicto era LIBERADO com solo SECO/GRIP)
+
+---
+
 ## INVARIANTES DO SISTEMA — nunca regredir
 
 1. **NUNCA reintroduzir timemachine como fonte de precipitação**
@@ -205,3 +256,4 @@ Nunca exibir o valor bruto de `condicoes.acumulo_ef` — sempre aplicar drift.
 10. **NORTE/NORDESTE têm lógica ENSO inversa** — não "corrigir" multiplicadores > 1.0 em El Niño
 11. **Não recriar microclima_config como fonte ativa** — foi supersedida por `biomas`
 12. **Colunas de auditoria** (`cloud_pct`, `humidity_pct`, `temp_media_c`, `meia_vida_base_h`) devem ser gravadas em todo pipeline completo
+13. **NUNCA modificar o array ERA5 in-place no nowcast overlay** — sempre copiar com `list()` antes

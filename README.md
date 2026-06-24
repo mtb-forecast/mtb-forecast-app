@@ -521,6 +521,62 @@ TELEGRAM_BOT_TOKEN=seu_token_aqui
 
 ---
 
+## Integração Instagram
+
+O agente `scripts/post_instagram.py` publica automaticamente no Instagram Business após cada execução do pipeline principal.
+
+### Fluxo
+
+1. Busca trilhas com condições reais no Supabase (sem placeholders)
+2. Seleciona trilha por `interest_score()` — ALERTA/ESPERAR têm peso maior + bônus por chuva
+3. Chama `GET /api/og/instagram?trilha_id=UUID` para gerar/cachear imagem de fundo (Pexels API → bucket `instagram-bg`)
+4. Cria container via Facebook Graph API v21.0 e publica com caption automática
+
+### Caption gerada automaticamente
+
+```
+🚵 Nome da Trilha
+📍 Cidade — Estado
+
+✅ DROP LIBERADO
+🌿 Solo seco
+🌧️ 2.1mm (24h)   💨 3.4m/s   🌡️ 14–22°C   💧 68%
+
+🔗 mtbforecaster.com.br
+
+#mtb #mountainbike #trilha #mtbbrasil ...
+```
+
+### Workflow GitHub Actions
+
+**Arquivo:** `.github/workflows/instagram-post.yml`
+
+Disparado via `workflow_run` após conclusão do "Agent MTB Forecaster" — roda automaticamente nas 4 execuções diárias (+ finais de semana).
+
+### Variáveis de ambiente
+
+| Variável | Obrigatório | Descrição |
+|---|---|---|
+| `OG_API_BASE` | Sim | URL base do app (ex: `https://mtbforecaster.com.br`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Sim | URL do projeto Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Chave de serviço Supabase |
+| `INSTAGRAM_ACCESS_TOKEN` | Sim | Token de longa duração (60 dias) |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | Sim | ID da conta Business Instagram |
+| `DRY_RUN=1` | Não | Simula sem postar |
+| `TRAIL_ID=UUID` | Não | Força trilha específica |
+
+### Execução manual / debug
+
+```bash
+# Dry run — mostra o que seria postado
+DRY_RUN=1 python scripts/post_instagram.py
+
+# Força trilha específica
+TRAIL_ID=a5cf760b-f252-491f-829b-a5e16b238b75 DRY_RUN=1 python scripts/post_instagram.py
+```
+
+---
+
 ## Banco de dados — Supabase
 
 O banco tem **34+ tabelas** organizadas em 7 grupos (inclui pump tracks e mantenedores).
@@ -586,8 +642,10 @@ O agente usa **Open-Meteo em batch**: uma única chamada de forecast e uma de hi
 
 **OWM One Call 3.0 Timemachine foi removido em jun/2026.** Clima histórico (temperatura, vento, nuvens, umidade) vem exclusivamente do batch histórico Open-Meteo Archive (ERA5). O shortcircuit zero-rain também foi removido — com o batch OM a economia de chamadas é irrelevante.
 
+**Nowcast bridge ICON seamless (jun/2026):** 3ª chamada batch Open-Meteo — `past_hours=6&models=icon_seamless` — captura chuva convectiva recente que o ERA5 ainda não assimilou (lag ERA5: 4–6h; lag ICON seamless: ~1–2h). Overlay take-max por hora sobre os dados ERA5.
+
 **Quota por execução (133 trilhas, 23 grupos):**
-- Open-Meteo: **2 chamadas batch** (forecast + histórico) — cobre todas as trilhas
+- Open-Meteo: **3 chamadas batch** (forecast 4d + histórico ERA5 48h + nowcast ICON 6h) — cobre todas as trilhas
 - OWM: ~46 day_summary + ~23 onecall forecast ≈ **69 chamadas**
 - Limite One Call 3.0 free: 1.000/dia · 4 execuções/dia ≈ 284 — folga confortável
 
@@ -617,7 +675,8 @@ GitHub Actions (schedule + workflow_dispatch)
         │
         ▼
 5. fetch_batch_openmeteo_forecast() — 1 chamada cobre todos os grupos
-   fetch_batch_openmeteo_historico() — 1 chamada cobre todos os grupos
+   fetch_batch_openmeteo_historico() — 1 chamada ERA5 cobre todos os grupos
+   _fetch_om_nowcast_bridge() — 1 chamada ICON seamless (past_hours=6) por grupo
    Formato multi-coordenada: latitude=a,b,c&longitude=x,y,z
         │
         ▼
@@ -637,6 +696,7 @@ GitHub Actions (schedule + workflow_dispatch)
    │
    ├── fetch_historico_chuva_om() — ERA5 precipitação (do batch)
    │     Usa campo "precipitation" (= rain + showers + snow) — NUNCA só "rain"
+   │     Overlay nowcast ICON: take-max por hora nos últimos 6h (corrige lag ERA5)
    │     Calcula acumulo_ef via decaimento exponencial: Σ p × 0.5^(t/τ)
    │     Aplica chuva_penetracao do bioma em AMBAS as fontes antes de comparar
    │
@@ -752,6 +812,8 @@ Pontos de risco acumulados (pesos na tabela `veredicto_pesos`, limiares em `vere
 | Aderência futura piora 2 graus | +2 |
 | Aderência futura piora 1 grau | +1 |
 | Aderência futura melhora | −1 |
+| pico_proximas_3h ≥ 10mm (iminente alta) | +2 |
+| pico_proximas_3h ≥ 5mm (iminente) | +1 |
 
 | Total | Veredicto |
 |---|---|
@@ -802,6 +864,24 @@ env:
 
 ---
 
+### Workflow Instagram
+
+**Arquivo:** `.github/workflows/instagram-post.yml`
+
+Disparado via `workflow_run` após conclusão do "Agent MTB Forecaster". Executa `scripts/post_instagram.py` — seleciona trilha, gera imagem OG via Pexels API e publica no Instagram Business via Graph API v21.0.
+
+#### Secrets necessários
+
+```yaml
+OG_API_BASE:                   ${{ vars.OG_API_BASE }}
+NEXT_PUBLIC_SUPABASE_URL:      https://[projeto].supabase.co
+SUPABASE_SERVICE_ROLE_KEY:     ${{ secrets.SUPABASE_SERVICE_KEY }}
+INSTAGRAM_ACCESS_TOKEN:        ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+```
+
+---
+
 ### Workflow de debug
 
 **Arquivo:** `.github/workflows/mtb-forecast-debug.yml`
@@ -840,6 +920,8 @@ DEBUG_MODEL:   ${{ inputs.debug_model }}
 | `SUPABASE_SERVICE_KEY` | Sim | Leitura/gravação no Supabase (service_role) |
 | `ANTHROPIC_API_KEY` | Recomendado | Claude AI — frases de secagem contextualizadas |
 | `TELEGRAM_BOT_TOKEN` | Opcional | Notificações por Telegram (ausente no workflow de debug) |
+| `INSTAGRAM_ACCESS_TOKEN` | Opcional | Post automático Instagram (token de longa duração, 60 dias) |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | Opcional | ID da conta Business Instagram |
 
 > Credenciais de email (`email_from`, `email_password`, `email_smtp_host`, `email_smtp_port`) são armazenadas em `configuracoes_sistema` no Supabase — sem necessidade de secret no Actions.
 
