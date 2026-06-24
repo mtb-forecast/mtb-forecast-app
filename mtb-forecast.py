@@ -281,16 +281,23 @@ def threshold_bikepark_saturado(mes: int, enso: dict, trail: dict = None) -> flo
     return round(valor, 1)
 
 
-def _bikepark_saturado(trail: dict, acumulo_ef: float,
+_BIKEPARK_MIN_NORM_BUFFER = 1.5  # bikepark sempre ganha ≥1.5mm normalizado acima do threshold de BAIXA (7.0)
+_BAIXA_NORM_THRESHOLD    = 7.0  # ef_min de BAIXA ADERÊNCIA na tabela aderencia_thresholds
+
+def _bikepark_saturado(trail: dict, acumulo_ef: float, ef_normalizado: float,
                        mes: int = None, enso: dict = None) -> bool:
     if mes is None:
         mes = datetime.now(timezone(timedelta(hours=-3))).month
     if enso is None:
         enso = {"mult": 1.0, "fase": "ENSO Neutro"}
-    limite = threshold_bikepark_saturado(mes, enso, trail)
+    limite = threshold_bikepark_saturado(mes, enso, trail)  # sat × fator_tol
+    # Garante buffer mínimo: mesmo em biomas muito conservadores (fator_tol=0.5),
+    # o bikepark retém alguma vantagem de drenagem acima do threshold de BAIXA.
+    # Para biomas menos conservadores, o threshold sazonal (maior) prevalece.
+    limite = max(limite, _BAIXA_NORM_THRESHOLD + _BIKEPARK_MIN_NORM_BUFFER)
     return (
         trail.get("trail_type") == "bikepark"
-        and acumulo_ef > limite
+        and ef_normalizado > limite
     )
 
 def calcular_inclinacao(trail: dict) -> float | None:
@@ -1841,20 +1848,18 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
 
     base = calcular_score_trilha(rain_mm, acumulo_ef, pico_3h, trail, mes, enso)
     s = base["score"]
-    saturado = _bikepark_saturado(trail, acumulo_ef, mes, enso)
+
+    # ef_normalizado calculado antes de _bikepark_saturado: ambas as comparações
+    # (aderência e saturação de bikepark) precisam operar no mesmo espaço normalizado
+    # para evitar o gap onde ef_norm > 7.0 (BAIXA) mas acumulo_ef < sat×fator_tol (BOA).
+    fator_tol = fator_tolerancia(trail)
+    ef_normalizado = acumulo_ef / fator_tol if fator_tol > 0 else acumulo_ef
+
+    saturado = _bikepark_saturado(trail, acumulo_ef, ef_normalizado, mes, enso)
 
     # Thresholds carregados do Supabase (tabela aderencia_thresholds).
     # aderencia_status reflete o estado ATUAL do solo (histórico), sem pico_3h forecast.
     # pico_3h entra no veredicto como fator de risco, não na condição presente do solo.
-
-    # Ajuste microclimático: Mata Atlântica fechada de altitude retém umidade estruturalmente —
-    # o mesmo acumulo_ef causa mais degradação do que em terreno aberto.
-    # Divide pelo fator_tolerancia (0.75–1.0) para tornar os thresholds proporcionalmente mais
-    # rígidos. Reutiliza a tabela microclima_config já usada em threshold_solo_descansado.
-    # Exemplo: ef=4mm em Mata Atlântica alta (fator=0.75) → ef_norm=5.33mm → BOA ADERÊNCIA
-    # Em terreno sem ajuste (fator=1.0): ef=4mm → GRIP PERFEITO
-    fator_tol = fator_tolerancia(trail)
-    ef_normalizado = acumulo_ef / fator_tol if fator_tol > 0 else acumulo_ef
 
     status = "BAIXA ADERÊNCIA"  # default seguro caso nenhum threshold dê match
     for thr in _carregar_aderencia_thresholds():
