@@ -60,11 +60,11 @@ const POLLINATIONS_PROMPTS: Record<string, string> = {
 
 // Seed fixo por categoria para imagem consistente (sem variação aleatória)
 const POLLINATIONS_SEEDS: Record<string, number> = {
-  sol: 111,
-  nublado: 222,
-  garoa: 333,
-  chuva: 444,
-  tempestade: 555,
+  sol: 112,
+  nublado: 223,
+  garoa: 334,
+  chuva: 445,
+  tempestade: 556,
 }
 
 function bgStorageUrl(categoria: string): string {
@@ -75,7 +75,8 @@ async function fetchAndUploadPollinations(categoria: string): Promise<void> {
   const prompt = POLLINATIONS_PROMPTS[categoria] ?? POLLINATIONS_PROMPTS['sol']
   const seed = POLLINATIONS_SEEDS[categoria] ?? 42
   const encoded = encodeURIComponent(prompt)
-  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}`
+  const negativePrompt = encodeURIComponent('people, person, human, cyclist, bicycle, bike, rider, athlete, man, woman, child')
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}&negative_prompt=${negativePrompt}`
 
   console.log(`[OG] Pollinations fetch: categoria=${categoria} seed=${seed}`)
   try {
