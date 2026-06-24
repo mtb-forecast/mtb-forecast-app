@@ -1840,7 +1840,8 @@ def _descricao_aderencia(status: str, trail: dict, saturado: bool = False) -> st
 
 def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
                        pico_3h: float = 0.0, mes: int = None, enso: dict = None,
-                       garoa_ativa: bool = False) -> dict:
+                       garoa_ativa: bool = False,
+                       secagem_bloqueada: bool = False) -> dict:
     if mes is None:
         mes = datetime.now(timezone(timedelta(hours=-3))).month
     if enso is None:
@@ -1878,9 +1879,15 @@ def calcular_aderencia(rain_mm: float, trail: dict, acumulo_ef: float = 0.0,
     # 2.5x era excessivo: com base=8mm em junho (SP), bloqueava BAIXA até 18mm de ef — irreal.
     # 1.5x: em verão (base≈2mm) o guard nunca dispara (BAIXA começa em 6.3mm); em inverno
     # (base=8mm, limiar_descanso≈7.2) bloqueia até 10.8mm, deixando trilhas >11mm irem a BAIXA.
-    # Exceção: bikepark saturado mantém BAIXA — já passou do limiar de drenagem
+    # Exceções: bikepark saturado mantém BAIXA; chuva chegando ou atmosfera saturada bloqueiam
+    # a recuperação — solo úmido em dia de garoa fechada com chuva prevista NÃO está se recuperando.
     limiar_descanso = threshold_solo_descansado(mes, enso, trail)
-    if status == "BAIXA ADERÊNCIA" and acumulo_ef < limiar_descanso * 1.5 and not saturado:
+    chuva_iminente_rec = rain_mm > 3.0        # chuva prevista impede secagem real
+    if (status == "BAIXA ADERÊNCIA"
+            and acumulo_ef < limiar_descanso * 1.5
+            and not saturado
+            and not chuva_iminente_rec
+            and not secagem_bloqueada):
         status = "BOA ADERÊNCIA - ÚMIDO"
 
     if trail.get("trail_type") == "bikepark":
@@ -2570,7 +2577,14 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             bloq.append(f"cond_atmo False (umid={umidade_ref:.0f}% Δdewpt={f'{temp_m-dew_point_m:.1f}°C' if dew_point_m and temp_m else '?'})")
         print(f"  [garoa-no] {trail['name']}: {' | '.join(bloq) if bloq else 'garoa=False'}")
 
-    aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso, garoa_ativa=garoa_ativa)
+    # Atmosfera bloqueia secagem: umidade ≥85% + nebulosidade ≥70% — solo úmido não se recupera
+    # mesmo com ef abaixo do threshold de BAIXA. Passa ao fator de recuperação para impedir
+    # que condições de garoa/dia fechado gerem BOA ADERÊNCIA incorretamente.
+    _cloud_ref = hist.get("nublado_pct") or 0
+    secagem_bloqueada = umidade_ref >= 85 and _cloud_ref >= 70
+    aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso,
+                                   garoa_ativa=garoa_ativa,
+                                   secagem_bloqueada=secagem_bloqueada)
     trail["gust_max_kmh"] = gust_max_kmh
     hourly_oc = (oc_raw or {}).get("hourly", [])[:48]
 
