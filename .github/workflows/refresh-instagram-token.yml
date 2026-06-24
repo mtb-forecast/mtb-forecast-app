@@ -1,0 +1,53 @@
+name: Renovar Token Instagram
+
+on:
+  # Roda no dia 1 de cada mês às 10h UTC — token dura 60 dias, renovação mensal é segura
+  schedule:
+    - cron: "0 10 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependências
+        run: pip install requests
+
+      - name: Renovar token
+        env:
+          META_APP_ID:             ${{ secrets.META_APP_ID }}
+          META_APP_SECRET:         ${{ secrets.META_APP_SECRET }}
+          INSTAGRAM_ACCESS_TOKEN:  ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: |
+          # Executa o script e captura o novo token da última linha (NEW_TOKEN=...)
+          python scripts/refresh_instagram_token.py | tee /tmp/refresh_output.txt
+          grep "^NEW_TOKEN=" /tmp/refresh_output.txt | sed 's/^NEW_TOKEN=//' > /tmp/new_token.txt
+          if [ ! -s /tmp/new_token.txt ]; then
+            echo "✗ Novo token não encontrado na saída do script"
+            exit 1
+          fi
+          echo "✓ Novo token capturado"
+
+      - name: Atualizar secret INSTAGRAM_ACCESS_TOKEN no GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+        run: |
+          gh secret set INSTAGRAM_ACCESS_TOKEN < /tmp/new_token.txt
+          echo "✅ Secret INSTAGRAM_ACCESS_TOKEN atualizado com sucesso!"
+
+      - name: Limpar arquivo temporário
+        if: always()
+        run: rm -f /tmp/new_token.txt /tmp/refresh_output.txt
