@@ -679,6 +679,24 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         if lk:
             _CACHE_OM_CHUVA_RAW[lk] = (times, precips)
 
+    # Nowcast bridge: sobrepõe últimas 6h com ICON seamless (lag ~1-2h vs 4-6h da análise NWP).
+    # Cria cópia local — não altera _CACHE_OM_CHUVA_RAW (garoa detection usa o cache original).
+    nowcast_raw = _fetch_om_nowcast_bridge(trail)
+    if nowcast_raw:
+        precips = list(precips)
+        horas_patchadas = []
+        for i, t in enumerate(times):
+            if t in nowcast_raw and i < len(precips):
+                nw   = nowcast_raw[t]
+                orig = float(precips[i] or 0.0)
+                if nw > orig:
+                    precips[i] = nw
+                    horas_patchadas.append((t, orig, nw))
+        if horas_patchadas:
+            delta_total = sum(nw - orig for _, orig, nw in horas_patchadas)
+            print(f"  [OM nowcast] {trail['name']}: {len(horas_patchadas)}h patchadas "
+                  f"+{delta_total:.1f}mm bruto (NWP lag corrigido)")
+
     # chuva_penetracao: fração da precipitação que efetivamente chega ao solo (interceptação de dossel)
     mes              = datetime.now(BRT).month
     chuva_penetracao = _lookup_bioma(trail, mes).get("chuva_penetracao", 1.0)
@@ -723,6 +741,37 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         "efetivo":           round(efetivo, 1),
         "ultima_chuva_h":    ultima_chuva_h,
     }
+
+
+def _fetch_om_nowcast_bridge(trail: dict) -> dict:
+    """
+    Busca últimas 6h via Open-Meteo ICON seamless (past_hours=6).
+    ICON tem lag ~1-2h vs 4-6h da análise NWP — patch para chuva recente não assimilada.
+    Retorna {time_str: precip_bruto_mm}. Vazio em caso de falha (degradação elegante).
+    """
+    lk = trail.get("local_key")
+    if lk and lk in _CACHE_OM_NOWCAST_RAW:
+        return _CACHE_OM_NOWCAST_RAW[lk]
+    try:
+        url = (
+            "https://api.open-meteo.com/v1/forecast"
+            f"?latitude={trail['lat']}&longitude={trail['lon']}"
+            "&past_hours=6&forecast_days=0"
+            "&hourly=precipitation"
+            "&models=icon_seamless"
+            "&timezone=America%2FSao_Paulo"
+        )
+        with _om_urlopen(url, timeout=15) as r:
+            data = json.loads(r.read())
+        times_nc   = data.get("hourly", {}).get("time", [])
+        precips_nc = data.get("hourly", {}).get("precipitation", [])
+        result = {t: float(p or 0.0) for t, p in zip(times_nc, precips_nc)}
+        if lk:
+            _CACHE_OM_NOWCAST_RAW[lk] = result
+        return result
+    except Exception as exc:
+        print(f"  [OM nowcast] Falha para {trail['name']}: {exc}")
+        return {}
 
 
 def fetch_ow_day_summary(trail: dict) -> dict:
@@ -1063,6 +1112,7 @@ _CACHE_OW_DAY_SUMMARY: dict = {}   # local_key → {"chuva_ow_mm", "hoje", "onte
 _CACHE_OM_FORECAST: dict = {}      # local_key → raw JSON forecast
 _CACHE_OM_CHUVA_RAW: dict = {}     # local_key → (times, precips)
 _CACHE_OM_VENTO_RAW: dict = {}     # local_key → (times, speeds, gusts)
+_CACHE_OM_NOWCAST_RAW: dict = {}   # local_key → {time_str: precip_bruto_mm} — ICON seamless, past_hours=6
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
 _CACHE_ENSO_REGIONAL: dict = {}
@@ -3162,9 +3212,9 @@ def _disparar_workflows_notificacao() -> None:
 def prefetch_om_batch(trails: list) -> None:
     """
     Pré-busca dados Open-Meteo em BATCH para todos os grupos de clima antes do loop de trilhas.
-    Substitui 3×N chamadas individuais (forecast + chuva + vento) por 2 chamadas batch.
-    Popula _CACHE_OM_FORECAST, _CACHE_OM_CHUVA_RAW e _CACHE_OM_VENTO_RAW.
-    Se o batch falhar, os caches ficam vazios e as funções individuais rodam normalmente (fallback).
+    3 chamadas batch cobrem todos os grupos: forecast (4d) + histórico NWP (48h) + nowcast ICON (6h).
+    Popula _CACHE_OM_FORECAST, _CACHE_OM_CHUVA_RAW, _CACHE_OM_VENTO_RAW e _CACHE_OM_NOWCAST_RAW.
+    Se qualquer batch falhar, o cache correspondente fica vazio e as funções individuais fazem fallback.
     """
     # Deduplica grupos por local_key (usa o primeiro trail do grupo como referência de coords)
     grupos: dict[str, dict] = {}
@@ -3252,6 +3302,36 @@ def prefetch_om_batch(trails: list) -> None:
         print(f"  [OM batch histórico] OK — {len(hist_items)} grupo(s) em cache (chuva + vento + clima)")
     except Exception as exc:
         print(f"  [OM batch histórico] Falha: {exc} — chamadas individuais como fallback")
+
+    # ── 3. Nowcast bridge past_hours=6 (ICON seamless) — patch últimas 6h sem lag NWP ──────────
+    url_nowcast = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat_s}&longitude={lon_s}"
+        "&past_hours=6&forecast_days=0"
+        "&hourly=precipitation"
+        "&models=icon_seamless"
+        "&timezone=America%2FSao_Paulo"
+    )
+    try:
+        for attempt in range(3):
+            try:
+                with _om_urlopen(url_nowcast, timeout=60) as r:
+                    nowcast_items = _parse(json.loads(r.read()))
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    raise
+                wait = 5 * (attempt + 1)
+                print(f"  [OM batch nowcast] Tentativa {attempt+1} falhou: {exc} — aguardando {wait}s")
+                time.sleep(wait)
+        for lk, item in zip(keys, nowcast_items):
+            h = item.get("hourly", {})
+            times_nc   = h.get("time", [])
+            precips_nc = h.get("precipitation", [])
+            _CACHE_OM_NOWCAST_RAW[lk] = {t: float(p or 0.0) for t, p in zip(times_nc, precips_nc)}
+        print(f"  [OM batch nowcast] OK — {len(nowcast_items)} grupo(s) em cache (ICON seamless, lag ~1-2h)")
+    except Exception as exc:
+        print(f"  [OM batch nowcast] Falha: {exc} — bridge individual como fallback")
 
 
 def main() -> None:
