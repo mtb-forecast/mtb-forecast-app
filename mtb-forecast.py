@@ -3107,7 +3107,7 @@ def _narrativa_via_gemini(prompt: str, r: dict) -> tuple | None:
     )
     payload = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": 150, "temperature": 0.7},
+        "generationConfig": {"maxOutputTokens": 250, "temperature": 0.7},
     }).encode("utf-8")
     req = urllib.request.Request(url, data=payload,
                                   headers={"Content-Type": "application/json"})
@@ -3133,7 +3133,7 @@ def _narrativa_via_groq(prompt: str, r: dict) -> tuple | None:
     payload = json.dumps({
         "model": "llama-3.3-70b-versatile",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 150,
+        "max_tokens": 250,
         "temperature": 0.7,
     }).encode("utf-8")
     req = urllib.request.Request(
@@ -3215,15 +3215,17 @@ FUTURO:
 - Dia 2: {_fds_str(fds.get("d2", {}))}
 - Dia 3: {_fds_str(fds.get("d3", {}))}
 
-Regras de estilo:
-- Comece descrevendo o histórico de chuva das últimas 48h (ou ausência de chuva se bruto < 1mm)
-- Descreva o estado atual do solo e da aderência
-- Termine com perspectiva objetiva para os próximos dias
-- Se veredicto for MELHOR ESPERAR: tom claramente negativo, mencione o risco para o rider
-- Se veredicto for DROP LIBERADO - Veja os alertas: mencione o fator de cautela
-- Se veredicto for DROP LIBERADO e solo descansado: tom positivo, transmita confiança
-- Sem markdown, sem bullet points, sem título
-- Máximo 400 caracteres no total"""
+Estilo obrigatório — escreva como o exemplo abaixo, direto e com os números:
+"Choveu 31.4mm nas últimas 48h, mas a maior parte já escoou — impacto real no solo é de apenas 6.3mm, com a última chuva há 9h. Este solo drena bem. O solo está úmido — avalie as condições antes de pedalar."
+
+Regras:
+- Frase 1: chuva bruta das últimas 48h + contraste com impacto real (acumulo_ef) + tempo desde última chuva
+- Frase 2: característica do solo ou bioma (drenagem, meia-vida, dossel) — use o dado de meia-vida
+- Frase 3: estado atual da aderência + recomendação direta coerente com o veredicto
+- Se pico previsto >= 3mm: adicione frase curta alertando que chuva está chegando
+- NUNCA contradiga o veredicto. NUNCA sugira condição melhor do que os dados indicam
+- Sem markdown, sem bullet points, sem título, sem saudações
+- Máximo 500 caracteres"""
 
 
 def _gerar_narrativa_claude(r: dict) -> tuple:
@@ -3241,7 +3243,7 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
 
     payload = json.dumps({
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 150,
+        "max_tokens": 250,
         "messages": [{"role": "user", "content": prompt}]
     }).encode("utf-8")
 
