@@ -14,6 +14,11 @@ const LABEL: Record<string, string> = {
   groq:           'Groq',
   noaa:           'NOAA ONI',
   github_actions: 'GitHub Actions',
+  weatherapi:     'WeatherAPI (fallback)',
+  windy:          'Windy (fallback)',
+  resend:         'Resend (e-mail)',
+  telegram:       'Telegram Bot',
+  pollinations:   'Pollinations.ai',
 }
 
 export async function GET(req: Request) {

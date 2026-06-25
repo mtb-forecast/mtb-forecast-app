@@ -98,77 +98,12 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import time
-import uuid as _uuid_module
 from datetime import datetime, timezone, timedelta, date
+from mtb_api_logger import log_api as _log_api, gravar_uso_api as _gravar_uso_api
 
 # SSL context reutilizável para chamadas Open-Meteo — evita renegociação a cada request
 _SSL_CTX = ssl.create_default_context()
 
-# ---------------------------------------------------------------------------
-# Auditoria de consumo de APIs — acumula durante a execução e grava ao final
-# ---------------------------------------------------------------------------
-_EXECUCAO_ID: str = str(_uuid_module.uuid4())
-_API_USAGE_LOG: list[dict] = []
-
-_PRECO_USD_POR_M_TOKENS: dict[str, dict] = {
-    "anthropic": {"input": 0.80, "output": 4.00},
-    "gemini":    {"input": 0.10, "output": 0.40},
-    "groq":      {"input": 0.59, "output": 0.59},
-}
-
-def _log_api(api: str, endpoint: str, chamadas: int = 1,
-             tokens_in: int = 0, tokens_out: int = 0,
-             sucesso: int = 1, falhas: int = 0) -> None:
-    preco  = _PRECO_USD_POR_M_TOKENS.get(api, {})
-    custo  = (tokens_in * preco.get("input", 0.0) + tokens_out * preco.get("output", 0.0)) / 1_000_000
-    _API_USAGE_LOG.append({
-        "execucao_id":   _EXECUCAO_ID,
-        "api_name":      api,
-        "endpoint":      endpoint,
-        "chamadas":      chamadas,
-        "tokens_input":  tokens_in,
-        "tokens_output": tokens_out,
-        "custo_usd":     round(custo, 8),
-        "sucesso":       sucesso,
-        "falhas":        falhas,
-    })
-
-def _gravar_uso_api() -> None:
-    if not _API_USAGE_LOG or not SUPABASE_KEY:
-        return
-    agg: dict[tuple, dict] = {}
-    for e in _API_USAGE_LOG:
-        k = (e["api_name"], e["endpoint"])
-        if k not in agg:
-            agg[k] = {**e, "chamadas": 0, "tokens_input": 0, "tokens_output": 0,
-                      "custo_usd": 0.0, "sucesso": 0, "falhas": 0}
-        agg[k]["chamadas"]      += e["chamadas"]
-        agg[k]["tokens_input"]  += e["tokens_input"]
-        agg[k]["tokens_output"] += e["tokens_output"]
-        agg[k]["custo_usd"]     += e["custo_usd"]
-        agg[k]["sucesso"]       += e["sucesso"]
-        agg[k]["falhas"]        += e["falhas"]
-
-    rows = list(agg.values())
-    payload = json.dumps(rows).encode("utf-8")
-    url = f"{SUPABASE_URL}/rest/v1/api_usage_log"
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        method="POST",
-        headers={
-            "apikey":        SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type":  "application/json",
-            "Prefer":        "return=minimal",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            total_usd = sum(row["custo_usd"] for row in rows)
-            print(f"[API Usage] {len(rows)} entradas gravadas | custo_est=US${total_usd:.4f} (execucao_id={_EXECUCAO_ID})")
-    except Exception as exc:
-        print(f"[API Usage] Falha ao gravar: {exc}")
 
 def _om_urlopen(url: str, timeout: int = 60):
     """urlopen com SSL context explícito e timeout generoso para api.open-meteo.com."""
@@ -416,9 +351,11 @@ def _fetch_weatherapi_forecast_as_ow(trail: dict) -> dict | None:
                         "wind_gust":  round(h.get("gust_kph", 0.0) / 3.6, 2),
                         "pop":        h.get("chance_of_rain", 0) / 100.0,
                     })
+            _log_api("weatherapi", "forecast", sucesso=1)
             return {"hourly": hourly}
         except Exception as exc:
             if attempt == 2:
+                _log_api("weatherapi", "forecast", sucesso=0, falhas=1)
                 print(f"  [WeatherAPI forecast] Falha para {trail['name']}: {exc}")
                 return None
             time.sleep(2 ** attempt)
@@ -443,10 +380,12 @@ def _fetch_weatherapi_precip_dia(trail: dict, date_str: str) -> float:
                     .get("day", {})
                     .get("totalprecip_mm", 0.0) or 0.0
             )
+            _log_api("weatherapi", "history", sucesso=1)
             print(f"  [WeatherAPI history] {trail['name']} {date_str}: {mm:.1f}mm (fallback OW)")
             return mm
         except Exception as exc:
             if attempt == 2:
+                _log_api("weatherapi", "history", sucesso=0, falhas=1)
                 print(f"  [WeatherAPI history] Falha {date_str} para {trail['name']}: {exc}")
                 return 0.0
             time.sleep(2 ** attempt)
@@ -483,6 +422,7 @@ def _fetch_windy_forecast(trail: dict) -> dict | None:
             break
         except Exception as exc:
             if attempt == 2:
+                _log_api("windy", "point_forecast", sucesso=0, falhas=1)
                 print(f"  [Windy] Falha para {trail['name']}: {exc}")
                 return None
             time.sleep(2 ** attempt)
@@ -527,6 +467,7 @@ def _fetch_windy_forecast(trail: dict) -> dict | None:
     # 0mm→0%  | >0 e <1mm→20%(mínimo)  | ~5mm→75%  | cap 90%
     pop_est = min(90, max(20, round(pico_3h * 15))) if pico_3h > 0 else 0
 
+    _log_api("windy", "point_forecast", sucesso=1)
     print(f"  [Windy] {trail['name']}: rain={rain_mm}mm pico={pico_3h}mm pop~{pop_est}% (fallback OW+OM+WeatherAPI)")
     return {
         "rain":     rain_mm,

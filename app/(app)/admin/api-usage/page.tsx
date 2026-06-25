@@ -35,6 +35,11 @@ const API_COLOR: Record<string, string> = {
   open_meteo:     '#10b981',
   noaa:           '#6b7280',
   github_actions: '#1f2937',
+  weatherapi:     '#f59e0b',
+  windy:          '#06b6d4',
+  resend:         '#000000',
+  telegram:       '#2563eb',
+  pollinations:   '#7c3aed',
 }
 
 function fmt(n: number, decimals = 4) {
