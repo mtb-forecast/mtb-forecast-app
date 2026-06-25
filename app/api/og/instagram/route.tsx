@@ -333,10 +333,10 @@ export async function GET(req: NextRequest) {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              paddingTop: 56,
+              paddingTop: 36,
               paddingLeft: 72,
               paddingRight: 72,
-              paddingBottom: 52,
+              paddingBottom: 44,
             }}
           >
             {/* Header */}
@@ -357,7 +357,7 @@ export async function GET(req: NextRequest) {
             </div>
 
             {/* Trail label */}
-            <div style={{ display: 'flex', fontSize: 22, fontFamily: fontSans, fontWeight: 700, letterSpacing: 4, color: '#a8b899', marginTop: 40 }}>
+            <div style={{ display: 'flex', fontSize: 22, fontFamily: fontSans, fontWeight: 700, letterSpacing: 4, color: '#a8b899', marginTop: 22 }}>
               TRILHA DE MOUNTAIN BIKE
             </div>
 
@@ -371,14 +371,14 @@ export async function GET(req: NextRequest) {
                 color: '#ffffff',
                 lineHeight: 1.1,
                 letterSpacing: 0,
-                marginTop: 16,
+                marginTop: 8,
               }}
             >
               {trilha.name ?? ''}
             </div>
 
             {/* Location */}
-            <div style={{ display: 'flex', fontSize: 28, fontFamily: fontSans, fontWeight: 400, color: 'rgba(168,184,153,0.6)', marginTop: 16 }}>
+            <div style={{ display: 'flex', fontSize: 28, fontFamily: fontSans, fontWeight: 400, color: 'rgba(168,184,153,0.6)', marginTop: 8 }}>
               {location}
             </div>
 
