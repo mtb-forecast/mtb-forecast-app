@@ -21,12 +21,23 @@ create index if not exists idx_api_usage_log_execucao_id on api_usage_log(execuc
 -- Apenas admins leem; pipeline insere via service_role (sem RLS necessária para insert)
 alter table api_usage_log enable row level security;
 
-create policy "api_usage_log_admin_read"
-  on api_usage_log for select
-  using (
-    exists (
-      select 1 from profiles
-      where profiles.id = auth.uid()
-        and profiles.is_admin = true
-    )
-  );
+-- Política condicional: só cria se a tabela profiles já existir (evita erro em preview branches)
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'public' and table_name = 'profiles'
+  ) then
+    execute $policy$
+      create policy "api_usage_log_admin_read"
+        on api_usage_log for select
+        using (
+          exists (
+            select 1 from profiles
+            where profiles.id = auth.uid()
+              and profiles.is_admin = true
+          )
+        )
+    $policy$;
+  end if;
+end $$;
