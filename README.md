@@ -523,14 +523,42 @@ TELEGRAM_BOT_TOKEN=seu_token_aqui
 
 ## Integração Instagram
 
-O agente `scripts/post_instagram.py` publica automaticamente no Instagram Business após cada execução do pipeline principal.
+O agente `scripts/post_instagram.py` publica automaticamente no Instagram Business após cada execução do pipeline principal. Publica em **Feed** (1080×1080) e **Stories** (1080×1920) com cards distintos.
 
 ### Fluxo
 
 1. Busca trilhas com condições reais no Supabase (sem placeholders)
 2. Seleciona trilha por `interest_score()` — ALERTA/ESPERAR têm peso maior + bônus por chuva
-3. Chama `GET /api/og/instagram?trilha_id=UUID` para gerar/cachear imagem de fundo (Pexels API → bucket `instagram-bg`)
-4. Cria container via Facebook Graph API v21.0 e publica com caption automática
+3. Warm-up do endpoint OG Feed (`GET /api/og/instagram?trilha_id=UUID`) — gera/cacheia imagem de fundo via Pollinations.ai no bucket `instagram-bg`
+4. Publica no **Feed** via Graph API v21.0 com caption completa
+5. Warm-up do endpoint OG Stories (`GET /api/og/instagram/stories?trilha_id=UUID`)
+6. Publica no **Stories** via Graph API com card 1080×1920
+
+### Geração de imagem de fundo — Pollinations.ai (Flux)
+
+Prompts fixos por categoria climática — imagem gerada uma vez e cacheada em `instagram-bg/{categoria}.jpg` (5 imagens compartilhadas entre trilhas):
+
+| Categoria | Gatilho |
+|---|---|
+| `sol` | rain < 0.5mm e pop_12h < 20% |
+| `nublado` | pop_12h ≥ 20% |
+| `garoa` | rain ≥ 0.5mm ou pop_12h ≥ 35% |
+| `chuva` | rain ≥ 5mm ou pop_12h > 60% |
+| `tempestade` | rain ≥ 15mm ou (rain ≥ 10mm e pop_12h ≥ 70%) |
+
+Todos os prompts usam fotografia aérea (drone) de paisagem brasileira — sem pessoas, ciclistas, veículos ou objetos. `negative_prompt` reforça a exclusão de figuras humanas.
+
+### Endpoints OG (Satori / `next/og`)
+
+**`GET /api/og/instagram?trilha_id=UUID`** — Feed 1080×1080
+
+Layout: header (MTB FORECASTER + data) · label + nome da trilha + localização · badges de veredicto e aderência · alerta de vento (condicional) · 3 métricas (MAXIMA / CHUVA 24H / VENTO) · rodapé.
+
+**`GET /api/og/instagram/stories?trilha_id=UUID`** — Stories 1080×1920
+
+Layout vertical: foto de fundo cobre o topo (1080×1080) com gradiente que faz o fade para área escura na metade inferior. Área escura exibe: label "CONDICOES AGORA" · badges veredicto e aderência · alerta de vento (condicional) · 3 métricas · rodapé.
+
+Ambos os endpoints reutilizam o mesmo background do bucket `instagram-bg` — o Stories nunca re-gera a imagem de fundo.
 
 ### Caption gerada automaticamente
 
@@ -538,20 +566,31 @@ O agente `scripts/post_instagram.py` publica automaticamente no Instagram Busine
 🚵 Nome da Trilha
 📍 Cidade — Estado
 
-✅ DROP LIBERADO
-🌿 Solo seco
-🌧️ 2.1mm (24h)   💨 3.4m/s   🌡️ 14–22°C   💧 68%
+⛔ MELHOR ESPERAR
+Choveu 30.5mm nas últimas 48h. Com a secagem natural, o impacto
+efetivo no solo é de 10.8mm... (texto_dinamico do agente Claude)
+🌿 Solo muito úmido (10.7mm ef.)
+🕐 24/06 21h–23h · 25/06 15h–22h · 26/06 08h–10h · pico 100%
+🌧️ 1.5mm (24h)   💨 2.9m/s   🌡️ 9–13°C   💧 74%
 
 🔗 mtbforecaster.com.br
 
-#mtb #mountainbike #trilha #mtbbrasil ...
+#mtb #mountainbike #trilha #mtbbrasil #trailconditions ...
 ```
 
-### Workflow GitHub Actions
+Campos incluídos: `texto_dinamico` (narrativa IA), `horarios_chuva` (janelas de chuva previstas), clima e hashtags por estado.
 
-**Arquivo:** `.github/workflows/instagram-post.yml`
+### Renovação automática de token
 
-Disparado via `workflow_run` após conclusão do "Agent MTB Forecaster" — roda automaticamente nas 4 execuções diárias (+ finais de semana).
+**Arquivo:** `scripts/refresh_instagram_token.py` + `.github/workflows/refresh-instagram-token.yml`
+
+Roda no dia 1 de cada mês às 10h UTC. Chama `fb_exchange_token` com `META_APP_ID` + `META_APP_SECRET`, inspeciona o novo token via `debug_token` e atualiza o secret `INSTAGRAM_ACCESS_TOKEN` no GitHub via `gh secret set` (requer `GH_DISPATCH_TOKEN` com permissão de Secrets).
+
+### Workflows GitHub Actions
+
+**`.github/workflows/instagram-post.yml`** — disparado via `workflow_run` após conclusão do "Agent MTB Forecaster". Sem schedule próprio.
+
+**`.github/workflows/refresh-instagram-token.yml`** — cron mensal (dia 1, 10h UTC) para renovar o token de longa duração (60 dias).
 
 ### Variáveis de ambiente
 
@@ -562,6 +601,9 @@ Disparado via `workflow_run` após conclusão do "Agent MTB Forecaster" — roda
 | `SUPABASE_SERVICE_ROLE_KEY` | Sim | Chave de serviço Supabase |
 | `INSTAGRAM_ACCESS_TOKEN` | Sim | Token de longa duração (60 dias) |
 | `INSTAGRAM_BUSINESS_ACCOUNT_ID` | Sim | ID da conta Business Instagram |
+| `META_APP_ID` | Sim (renovação) | ID do app no Meta Developer Dashboard (Basic Settings) |
+| `META_APP_SECRET` | Sim (renovação) | Secret do app (Basic Settings) |
+| `GH_DISPATCH_TOKEN` | Sim (renovação) | Fine-grained PAT com permissão de Secrets read/write |
 | `DRY_RUN=1` | Não | Simula sem postar |
 | `TRAIL_ID=UUID` | Não | Força trilha específica |
 
@@ -573,6 +615,9 @@ DRY_RUN=1 python scripts/post_instagram.py
 
 # Força trilha específica
 TRAIL_ID=a5cf760b-f252-491f-829b-a5e16b238b75 DRY_RUN=1 python scripts/post_instagram.py
+
+# Renovar token manualmente
+META_APP_ID=... META_APP_SECRET=... INSTAGRAM_ACCESS_TOKEN=... python scripts/refresh_instagram_token.py
 ```
 
 ---
@@ -868,7 +913,11 @@ env:
 
 **Arquivo:** `.github/workflows/instagram-post.yml`
 
-Disparado via `workflow_run` após conclusão do "Agent MTB Forecaster". Executa `scripts/post_instagram.py` — seleciona trilha, gera imagem OG via Pexels API e publica no Instagram Business via Graph API v21.0.
+Disparado via `workflow_run` após conclusão do "Agent MTB Forecaster". Executa `scripts/post_instagram.py` — seleciona trilha, gera cards OG via Pollinations.ai + Satori e publica no Feed e Stories do Instagram Business via Graph API v21.0.
+
+**Arquivo:** `.github/workflows/refresh-instagram-token.yml`
+
+Cron mensal (dia 1, 10h UTC). Renova o `INSTAGRAM_ACCESS_TOKEN` via `fb_exchange_token` e atualiza o secret no GitHub.
 
 #### Secrets necessários
 
@@ -878,6 +927,9 @@ NEXT_PUBLIC_SUPABASE_URL:      https://[projeto].supabase.co
 SUPABASE_SERVICE_ROLE_KEY:     ${{ secrets.SUPABASE_SERVICE_KEY }}
 INSTAGRAM_ACCESS_TOKEN:        ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
 INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+META_APP_ID:                   ${{ secrets.META_APP_ID }}
+META_APP_SECRET:               ${{ secrets.META_APP_SECRET }}
+GH_DISPATCH_TOKEN:             ${{ secrets.GH_DISPATCH_TOKEN }}
 ```
 
 ---
@@ -920,8 +972,11 @@ DEBUG_MODEL:   ${{ inputs.debug_model }}
 | `SUPABASE_SERVICE_KEY` | Sim | Leitura/gravação no Supabase (service_role) |
 | `ANTHROPIC_API_KEY` | Recomendado | Claude AI — frases de secagem contextualizadas |
 | `TELEGRAM_BOT_TOKEN` | Opcional | Notificações por Telegram (ausente no workflow de debug) |
-| `INSTAGRAM_ACCESS_TOKEN` | Opcional | Post automático Instagram (token de longa duração, 60 dias) |
+| `INSTAGRAM_ACCESS_TOKEN` | Opcional | Token de longa duração (60 dias) para post no Instagram |
 | `INSTAGRAM_BUSINESS_ACCOUNT_ID` | Opcional | ID da conta Business Instagram |
+| `META_APP_ID` | Opcional | ID do app Meta (Basic Settings) — renovação mensal do token |
+| `META_APP_SECRET` | Opcional | Secret do app Meta (Basic Settings) — renovação mensal |
+| `GH_DISPATCH_TOKEN` | Opcional | Fine-grained PAT com Secrets read/write — atualiza token via `gh secret set` |
 
 > Credenciais de email (`email_from`, `email_password`, `email_smtp_host`, `email_smtp_port`) são armazenadas em `configuracoes_sistema` no Supabase — sem necessidade de secret no Actions.
 
@@ -1093,6 +1148,8 @@ ZigZag - Campos do Jordao - SP;-22.768683;-45.614767;preto;fechada;1630;natural;
 | [Nominatim (OpenStreetMap)](https://nominatim.openstreetmap.org) | Geocodificação reversa na aprovação de trilhas | Não |
 | [Telegram Bot API](https://core.telegram.org/bots/api) | Notificações personalizadas por chat_id | Sim |
 | [Stripe](https://stripe.com) | Planos de assinatura | Sim |
+| [Pollinations.ai (Flux)](https://pollinations.ai) | Geração de backgrounds para cards Instagram — 5 prompts fixos por categoria climática, cacheados em `instagram-bg` | Não |
+| [Meta Graph API v21.0](https://developers.facebook.com/docs/graph-api) | Publicação no Instagram Feed e Stories via `/{user_id}/media` + `/media_publish` | Sim |
 | [Tabler Icons](https://tabler.io/icons) | Ícones vetoriais (webfont CDN) | Não |
 
 > **Removido em jun/2026:** OpenWeather Timemachine (`/data/3.0/onecall/timemachine`) — retornava apenas 1 hora por chamada (diferente da API 2.5), causando amostras enviesadas de temperatura e meia-vida. Substituído pelo batch histórico OM.
@@ -1131,6 +1188,35 @@ Toda a lógica usa apenas stdlib Python 3.11 (`os`, `json`, `html`, `urllib`, `d
 ---
 
 ## Notas de versão
+
+### V10.2 — Instagram Feed + Stories com cards dedicados (jun/2026)
+
+**Cards OG via Satori (`next/og`):**
+- Feed 1080×1080: `/api/og/instagram` — background Pollinations.ai cacheado em `instagram-bg/{categoria}.jpg`
+- Stories 1080×1920: `/api/og/instagram/stories` — layout vertical, foto no topo com gradiente fade, condições na área escura inferior
+- 5 categorias climáticas com prompts fixos de fotografia aérea drone (sem pessoas, ciclistas ou objetos)
+- Background compartilhado entre Feed e Stories — Stories nunca re-gera a imagem
+
+**Caption aprimorada:**
+- `texto_dinamico` (narrativa Claude AI) incluído após o veredicto
+- `horarios_chuva` (janelas de chuva previstas: "24/06 21h–23h · 25/06 15h–22h...")
+- Estrutura: nome + localização → veredicto + narrativa → solo → horários → clima → link → hashtags
+
+**Renovação automática de token:**
+- `scripts/refresh_instagram_token.py` + `.github/workflows/refresh-instagram-token.yml`
+- Cron mensal (dia 1, 10h UTC) via `fb_exchange_token` com `META_APP_ID` + `META_APP_SECRET`
+- Atualiza `INSTAGRAM_ACCESS_TOKEN` no GitHub via `gh secret set` (requer `GH_DISPATCH_TOKEN`)
+
+**`pop_48h` → `pop_12h`:**
+- Campo renomeado para refletir previsão máxima de 24h (não 48h)
+- Migração adicionada em `condicoes_pumptrack`
+- Atualizado em `mtb-forecast.py`, `pump-track/[id]`, `/trilhas` e endpoint OG
+
+**Workflow:**
+- Instagram post disparado por `workflow_run` após Agent MTB Forecaster (sem schedule próprio)
+- Publica Feed → aguarda 3s → publica Stories (falha em Stories não cancela o Feed)
+
+---
 
 ### V10.1 — Unificação de nomenclatura do modelo (jun/2026)
 

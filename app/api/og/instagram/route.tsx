@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import { type NextRequest } from 'next/server'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { logApiUsage } from '@/lib/api-usage-log'
 
 // Node.js runtime — WASM do Satori é mais estável fora do Edge Runtime
 export const dynamic = 'force-dynamic'
@@ -83,14 +84,17 @@ async function fetchAndUploadPollinations(categoria: string): Promise<void> {
     const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
     if (!imgRes.ok) {
       console.error(`[OG] Pollinations HTTP ${imgRes.status}`)
+      void logApiUsage('pollinations', 'flux_image', { sucesso: 0, falhas: 1 })
       return
     }
 
     const imgBuf = await imgRes.arrayBuffer()
     if (!imgBuf.byteLength) {
       console.error('[OG] Pollinations retornou buffer vazio')
+      void logApiUsage('pollinations', 'flux_image', { sucesso: 0, falhas: 1 })
       return
     }
+    void logApiUsage('pollinations', 'flux_image')
     console.log(`[OG] Pollinations OK — ${Math.round(imgBuf.byteLength / 1024)}KB`)
 
     const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${categoria}.jpg`

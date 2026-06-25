@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { logApiUsage } from '@/lib/api-usage-log'
 
 export async function POST(request: Request) {
   try {
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     if (profile.telegram_ativo && profile.telegram_chat_id) {
       const token = process.env.TELEGRAM_BOT_TOKEN
       if (token) {
-        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -54,13 +55,14 @@ export async function POST(request: Request) {
             disable_web_page_preview: true,
           }),
         })
+        void logApiUsage('telegram', 'sendMessage', { sucesso: tgRes.ok ? 1 : 0, falhas: tgRes.ok ? 0 : 1 })
       }
     }
 
     if (profile.receber_email && profile.email) {
       const resendKey = process.env.RESEND_API_KEY
       if (resendKey) {
-        await fetch('https://api.resend.com/emails', {
+        const emailRes = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
             `,
           }),
         })
+        void logApiUsage('resend', 'emails', { sucesso: emailRes.ok ? 1 : 0, falhas: emailRes.ok ? 0 : 1 })
       }
     }
 
