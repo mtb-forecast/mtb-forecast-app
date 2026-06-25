@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-)
-
 const LABEL: Record<string, string> = {
   openweathermap: 'OpenWeatherMap',
   open_meteo:     'Open-Meteo',
@@ -22,6 +17,11 @@ const LABEL: Record<string, string> = {
 }
 
 export async function GET(req: Request) {
+  const supabaseAdmin = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  )
+
   const { searchParams } = new URL(req.url)
   const dias = Math.min(parseInt(searchParams.get('dias') ?? '7'), 90)
 
