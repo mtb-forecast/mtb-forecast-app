@@ -181,9 +181,14 @@ export async function GET(req: NextRequest) {
         wind_ms: number | null
         temp_max: number | null
         pop_12h: number | null
+        rain_12h: number | null
+        veredicto_12h: string | null
+        alerta_vento_nivel: number | null
+        alerta_vento_kmh: number | null
+        alerta_rajada_kmh: number | null
       }>(
         'condicoes',
-        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_12h',
+        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_12h,rain_12h,veredicto_12h,alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh',
         `trilha_id=eq.${trilhaId}`
       ),
     ])
@@ -214,6 +219,16 @@ export async function GET(req: NextRequest) {
       if (s === 'BAIXA') return 'Baixa Aderencia'
       return s
     })()
+
+    const rain12h = condicao.rain_12h ?? 0
+    const pop12h = condicao.pop_12h ?? 0
+    const v12h = condicao.veredicto_12h ? verdictDisplay(condicao.veredicto_12h) : null
+    const alertaVentoNivel = condicao.alerta_vento_nivel ?? 0
+    const alertaVentoKmh = condicao.alerta_vento_kmh ?? 0
+    const alertaRajadaKmh = condicao.alerta_rajada_kmh ?? 0
+    const alertaLabel = alertaVentoNivel >= 1
+      ? `VENTO FORTE ${Math.round(alertaVentoKmh)} km/h${alertaRajadaKmh > 0 ? ` · RAJADAS ${Math.round(alertaRajadaKmh)} km/h` : ''}`
+      : null
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_12h)
     const bgUrl = bgStorageUrl(categoria)
@@ -360,7 +375,7 @@ export async function GET(req: NextRequest) {
             <div style={{ display: 'flex', flex: 1 }} />
 
             {/* Verdict + aderencia */}
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 44 }}>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 }}>
               <div
                 style={{
                   display: 'flex',
@@ -398,24 +413,55 @@ export async function GET(req: NextRequest) {
               ) : null}
             </div>
 
+            {/* Próximas 24h */}
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 16 }}>
+              <div style={{ display: 'flex', fontSize: 13, fontFamily: fontSans, fontWeight: 800, color: 'rgba(168,184,153,0.35)', letterSpacing: 2, minWidth: 140 }}>
+                PROXIMAS 24H
+              </div>
+              {pop12h > 0 ? (
+                <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: 'rgba(168,184,153,0.6)' }}>
+                  {pop12h}% chuva
+                </div>
+              ) : null}
+              {rain12h > 0.1 ? (
+                <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: '#7DD3FC' }}>
+                  {rain12h.toFixed(1)}mm
+                </div>
+              ) : null}
+              {v12h ? (
+                <div style={{ display: 'flex', paddingTop: 7, paddingBottom: 7, paddingLeft: 18, paddingRight: 18, background: v12h.bg, fontSize: 17, fontFamily: fontSans, fontWeight: 700, color: v12h.color }}>
+                  {v12h.label}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Alertas */}
+            {alertaLabel ? (
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 16, paddingTop: 12, paddingBottom: 12, paddingLeft: 20, paddingRight: 20, background: 'rgba(251,191,36,0.08)' }}>
+                <div style={{ display: 'flex', fontSize: 18, fontFamily: fontSans, fontWeight: 700, color: '#FBBF24', letterSpacing: 1 }}>
+                  {alertaLabel}
+                </div>
+              </div>
+            ) : null}
+
             {/* Metrics — 3 columns */}
             <div style={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
-              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, background: 'rgba(42,46,37,0.7)' }}>
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 22, paddingBottom: 22, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{tempLabel}</div>
                 <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', marginTop: 6 }}>MAXIMA</div>
               </div>
-              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, background: 'rgba(42,46,37,0.7)' }}>
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 22, paddingBottom: 22, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{rainLabel}</div>
                 <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', marginTop: 6 }}>CHUVA 24H</div>
               </div>
-              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 28, paddingBottom: 28, background: 'rgba(42,46,37,0.7)' }}>
+              <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', paddingTop: 22, paddingBottom: 22, background: 'rgba(42,46,37,0.7)' }}>
                 <div style={{ display: 'flex', fontSize: 40, fontFamily: fontMono, color: '#ffffff', fontWeight: 400 }}>{windLabel}</div>
                 <div style={{ display: 'flex', fontSize: 16, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.4)', marginTop: 6 }}>VENTO</div>
               </div>
             </div>
 
             {/* Footer */}
-            <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 32 }}>
+            <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
               <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, color: 'rgba(168,184,153,0.35)' }}>
                 mtbforecaster.com.br
               </div>

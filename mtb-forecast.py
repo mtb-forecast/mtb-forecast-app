@@ -111,6 +111,8 @@ TRAILS = []
 
 OPENWEATHER_KEY  = os.getenv("OPENWEATHER_API_KEY")
 ANTHROPIC_KEY    = os.getenv("ANTHROPIC_API_KEY")
+GEMINI_KEY       = os.getenv("GEMINI_API_KEY")
+GROQ_KEY         = os.getenv("GROQ_API_KEY")
 DEBUG_MODEL      = os.getenv("DEBUG_MODEL", "false").lower() == "true"
 WEATHERAPI_KEY   = os.getenv("WEATHERAPI_KEY", "")
 WINDY_API_KEY    = os.getenv("WINDY_API_KEY", "")
@@ -2847,6 +2849,10 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "trail_name":       trail["name"],
         "bioma":            trail.get("bioma", ""),
     })
+    _SUFIXO = " — avalie as condições antes de pedalar"
+    _CHECK   = "avalie as condições antes de pedalar"
+    if narrativa and not narrativa.rstrip().rstrip(".").rstrip().endswith(_CHECK):
+        narrativa = narrativa.rstrip().rstrip(".") + _SUFIXO
     vered["texto_dinamico"] = narrativa
 
     return {
@@ -3083,19 +3089,89 @@ def _resumo_secagem_local(r: dict) -> str:
     return f"{parte_chuva}{parte_tempo}. {parte_secagem}. {conclusao}", cor, bg
 
 
-def _gerar_narrativa_claude(r: dict) -> tuple:
-    if not ANTHROPIC_KEY:
-        return _resumo_secagem_local(r)
+def _narrativa_cor_bg(r: dict) -> tuple:
+    descansado      = r.get("acumulo_ef", 0) < r.get("limiar_descanso", 5.0)
+    pico_3h         = r.get("pico_3h", 0)
+    efetivo         = r.get("acumulo_ef", 0)
+    limiar_descanso = r.get("limiar_descanso", 5.0)
+    if descansado and pico_3h < 3:
+        return "#16a34a", "#f0fdf4"
+    elif efetivo > limiar_descanso * 2 or pico_3h >= 10:
+        return "#dc2626", "#fef2f2"
+    return "#d97706", "#fffbeb"
 
+
+def _narrativa_via_gemini(prompt: str, r: dict) -> tuple | None:
+    """Gemini 2.0 Flash fallback — retorna (texto, cor, bg) ou None se falhar."""
+    if not GEMINI_KEY:
+        return None
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
+    )
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 250, "temperature": 0.7},
+    }).encode("utf-8")
+    req = urllib.request.Request(url, data=payload,
+                                  headers={"Content-Type": "application/json"})
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read())
+                texto = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                cor, bg = _narrativa_cor_bg(r)
+                print("[Gemini Narrativa] OK")
+                return texto, cor, bg
+        except Exception as exc:
+            print(f"[Gemini Narrativa] Erro (tentativa {attempt+1}): {exc}")
+            if attempt < 1:
+                time.sleep(2)
+    return None
+
+
+def _narrativa_via_groq(prompt: str, r: dict) -> tuple | None:
+    """Groq llama-3.3-70b fallback — retorna (texto, cor, bg) ou None se falhar."""
+    if not GROQ_KEY:
+        return None
+    payload = json.dumps({
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 250,
+        "temperature": 0.7,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GROQ_KEY}",
+        },
+    )
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read())
+                texto = data["choices"][0]["message"]["content"].strip()
+                cor, bg = _narrativa_cor_bg(r)
+                print("[Groq Narrativa] OK")
+                return texto, cor, bg
+        except Exception as exc:
+            print(f"[Groq Narrativa] Erro (tentativa {attempt+1}): {exc}")
+            if attempt < 1:
+                time.sleep(2)
+    return None
+
+
+def _build_narrativa_prompt(r: dict) -> str:
     bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
     efetivo         = r.get("acumulo_ef", 0)
     ult_h           = r.get("ultima_chuva_h")
     meia_vida       = r.get("meia_vida_h", 24)
     limiar_descanso = r.get("limiar_descanso", 5.0)
     pico_3h         = r.get("pico_3h", 0)
-    descansado = efetivo < limiar_descanso
-
-    ult_h_str = f"{round(ult_h)}h atrás" if ult_h is not None else "não identificada"
+    descansado      = efetivo < limiar_descanso
+    ult_h_str       = f"{round(ult_h)}h atrás" if ult_h is not None else "não identificada"
 
     aderencia_status = r.get("aderencia", {}).get("status", "")
     ader_futura      = r.get("aderencia_futura") or {}
@@ -3114,7 +3190,7 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
         rn = dia.get("rain", 0)
         return f"{vt} · {rn}mm"
 
-    prompt = f"""Você é especialista em trilhas de mountain bike DH e Enduro no Brasil.
+    return f"""Você é especialista em trilhas de mountain bike DH e Enduro no Brasil.
 Escreva uma análise (3 a 5 frases) em português do Brasil contando a história completa das condições desta trilha: o que aconteceu nas últimas 48h, como está o solo agora e o que esperar nos próximos dias.
 
 REGRA CRÍTICA: seja 100% consistente com os dados abaixo — eles são a verdade absoluta.
@@ -3143,19 +3219,35 @@ FUTURO:
 - Dia 2: {_fds_str(fds.get("d2", {}))}
 - Dia 3: {_fds_str(fds.get("d3", {}))}
 
-Regras de estilo:
-- Comece descrevendo o histórico de chuva das últimas 48h (ou ausência de chuva se bruto < 1mm)
-- Descreva o estado atual do solo e da aderência
-- Termine com perspectiva objetiva para os próximos dias
-- Se veredicto for MELHOR ESPERAR: tom claramente negativo, mencione o risco para o rider
-- Se veredicto for DROP LIBERADO - Veja os alertas: mencione o fator de cautela
-- Se veredicto for DROP LIBERADO e solo descansado: tom positivo, transmita confiança
-- Sem markdown, sem bullet points, sem título
-- Máximo 400 caracteres no total"""
+Estilo obrigatório — escreva como o exemplo abaixo, direto e com os números:
+"Choveu 31.4mm nas últimas 48h, mas a maior parte já escoou — impacto real no solo é de apenas 6.3mm, com a última chuva há 9h. Este solo drena bem. O solo está úmido — avalie as condições antes de pedalar."
+
+Regras:
+- Frase 1: chuva bruta das últimas 48h + contraste com impacto real (acumulo_ef) + tempo desde última chuva
+- Frase 2: característica do solo ou bioma (drenagem, meia-vida, dossel) — use o dado de meia-vida
+- Frase 3: estado atual da aderência + recomendação direta coerente com o veredicto
+- Se pico previsto >= 3mm: adicione frase curta alertando que chuva está chegando
+- NUNCA contradiga o veredicto. NUNCA sugira condição melhor do que os dados indicam
+- Sem markdown, sem bullet points, sem título, sem saudações
+- Máximo 500 caracteres"""
+
+
+def _gerar_narrativa_claude(r: dict) -> tuple:
+    prompt = _build_narrativa_prompt(r)
+
+    def _fallback():
+        return (
+            _narrativa_via_gemini(prompt, r)
+            or _narrativa_via_groq(prompt, r)
+            or _resumo_secagem_local(r)
+        )
+
+    if not ANTHROPIC_KEY:
+        return _fallback()
 
     payload = json.dumps({
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 150,
+        "max_tokens": 250,
         "messages": [{"role": "user", "content": prompt}]
     }).encode("utf-8")
 
@@ -3173,22 +3265,19 @@ Regras de estilo:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
                 narrativa = data["content"][0]["text"].strip()
-                if descansado and pico_3h < 3:
-                    cor, bg = "#16a34a", "#f0fdf4"
-                elif efetivo > limiar_descanso * 2 or pico_3h >= 10:
-                    cor, bg = "#dc2626", "#fef2f2"
-                else:
-                    cor, bg = "#d97706", "#fffbeb"
+                cor, bg = _narrativa_cor_bg(r)
                 return narrativa, cor, bg
         except urllib.error.HTTPError as exc:
-            print(f"[Claude Narrativa] HTTP {exc.code}: {exc.read().decode('utf-8', errors='replace')}")
-            if attempt == 2:
-                return _resumo_secagem_local(r)
+            body = exc.read().decode("utf-8", errors="replace")
+            print(f"[Claude Narrativa] HTTP {exc.code}: {body}")
+            # 400 = crédito esgotado ou request inválido — não adianta retry
+            if exc.code == 400 or attempt == 2:
+                return _fallback()
             time.sleep(2 ** attempt)
         except Exception as exc:
             print(f"[Claude Narrativa] Erro: {exc}")
             if attempt == 2:
-                return _resumo_secagem_local(r)
+                return _fallback()
             time.sleep(2 ** attempt)
 
 

@@ -67,7 +67,8 @@ def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
         "id,name,regiao,bioma,exposicao,solo_type,altitude_m,trail_type,"
         "localidades(cidade,estado),"
         "condicoes(veredicto,acumulo_ef,meia_vida_h,rain_mm,"
-        "wind_ms,temp_max,temp_min,humidity_pct,cloud_pct,gerado_em)"
+        "wind_ms,temp_max,temp_min,humidity_pct,cloud_pct,gerado_em,"
+        "texto_dinamico,horarios_chuva)"
     )
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
@@ -207,15 +208,17 @@ VEREDICTO_EMOJI = {
 
 
 def build_caption(trail: dict, cond: dict, ef_agora: float) -> str:
-    name     = trail.get("name") or "Trilha"
-    cidade   = trail.get("cidade") or ""
-    estado   = trail.get("estado") or ""
-    veredicto= (cond.get("veredicto") or "SEM DADOS").upper()
-    rain_mm  = cond.get("rain_mm") or 0
-    vento    = cond.get("wind_ms") or 0
-    temp_max = cond.get("temp_max")
-    temp_min = cond.get("temp_min")
-    umidade  = cond.get("humidity_pct")
+    name         = trail.get("name") or "Trilha"
+    cidade       = trail.get("cidade") or ""
+    estado       = trail.get("estado") or ""
+    veredicto    = (cond.get("veredicto") or "SEM DADOS").upper()
+    rain_mm      = cond.get("rain_mm") or 0
+    vento        = cond.get("wind_ms") or 0
+    temp_max     = cond.get("temp_max")
+    temp_min     = cond.get("temp_min")
+    umidade      = cond.get("humidity_pct")
+    texto_din    = (cond.get("texto_dinamico") or "").strip()
+    horarios     = (cond.get("horarios_chuva") or "").strip()
 
     verd_emoji = "✅"
     for key, emoji in VEREDICTO_EMOJI.items():
@@ -255,8 +258,12 @@ def build_caption(trail: dict, cond: dict, ef_agora: float) -> str:
     lines += [
         "",
         f"{verd_emoji} {veredicto}",
-        f"🌿 {solo_status}",
     ]
+    if texto_din:
+        lines.append(texto_din)
+    lines.append(f"🌿 {solo_status}")
+    if horarios:
+        lines.append(f"🕐 {horarios}")
     if clima_parts:
         lines.append("   ".join(clima_parts))
     lines += [
