@@ -2849,6 +2849,10 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "trail_name":       trail["name"],
         "bioma":            trail.get("bioma", ""),
     })
+    _SUFIXO = " — avalie as condições antes de pedalar"
+    _CHECK   = "avalie as condições antes de pedalar"
+    if narrativa and not narrativa.rstrip().rstrip(".").rstrip().endswith(_CHECK):
+        narrativa = narrativa.rstrip().rstrip(".") + _SUFIXO
     vered["texto_dinamico"] = narrativa
 
     return {
