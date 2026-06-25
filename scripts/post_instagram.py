@@ -182,8 +182,33 @@ def warmup_og_image(trail_id: str) -> bool:
 
 
 def og_image_url(trail_id: str) -> str:
-    """URL pública do endpoint OG — usada diretamente no container do Instagram."""
+    """URL pública do endpoint OG (Feed 1080x1080)."""
     return f"{OG_API_BASE}/api/og/instagram?trilha_id={trail_id}"
+
+
+def og_stories_url(trail_id: str) -> str:
+    """URL pública do endpoint OG (Stories 1080x1920)."""
+    return f"{OG_API_BASE}/api/og/instagram/stories?trilha_id={trail_id}"
+
+
+def warmup_og_stories(trail_id: str) -> bool:
+    url = og_stories_url(trail_id)
+    print(f"  Chamando OG Stories (warm-up): {url}")
+    try:
+        r = requests.get(url, timeout=120)
+        if not r.ok:
+            print(f"  ✗ OG Stories HTTP {r.status_code}")
+            return False
+        ct = r.headers.get("content-type", "")
+        if "image" not in ct:
+            print(f"  ✗ OG Stories retornou content-type inesperado: {ct}")
+            return False
+        size_kb = len(r.content) // 1024
+        print(f"  ✓ Stories recebido ({size_kb}KB)")
+        return True
+    except Exception as e:
+        print(f"  ✗ Erro no warm-up Stories: {e}")
+        return False
 
 
 # ─── Caption ─────────────────────────────────────────────────────────────────
@@ -418,10 +443,14 @@ def main():
     print(f"   Imagem:   {image_url}")
     print(f"   media_id: {media_id}")
 
-    # Stories — mesma imagem (Instagram adiciona barras 9:16 automaticamente)
-    print("\n  Postando no Stories...")
+    # Stories — card 1080x1920 dedicado
+    print("\n  Aquecendo imagem Stories (1080x1920)...")
+    stories_image_url = og_stories_url(trail["id"])
+    warmup_og_stories(trail["id"])
+
+    print("  Postando no Stories...")
     time.sleep(3)
-    sid = create_ig_stories_container(image_url)
+    sid = create_ig_stories_container(stories_image_url)
     if sid:
         time.sleep(5)
         stories_id = publish_ig_container(sid)
