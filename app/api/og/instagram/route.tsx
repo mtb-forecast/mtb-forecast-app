@@ -186,9 +186,10 @@ export async function GET(req: NextRequest) {
         alerta_vento_nivel: number | null
         alerta_vento_kmh: number | null
         alerta_rajada_kmh: number | null
+        horarios_chuva: string | null
       }>(
         'condicoes',
-        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_12h,rain_12h,veredicto_12h,alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh',
+        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_12h,rain_12h,veredicto_12h,alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh,horarios_chuva',
         `trilha_id=eq.${trilhaId}`
       ),
     ])
@@ -222,13 +223,23 @@ export async function GET(req: NextRequest) {
 
     const rain12h = condicao.rain_12h ?? 0
     const pop12h = condicao.pop_12h ?? 0
-    const v12h = condicao.veredicto_12h ? verdictDisplay(condicao.veredicto_12h) : null
+    // Só mostra veredicto_12h se diferente do veredicto atual (evita duplicata)
+    const v12hRaw = condicao.veredicto_12h ?? ''
+    const v12hDiferente = v12hRaw && v12hRaw.toUpperCase() !== (condicao.veredicto ?? '').toUpperCase()
+    const v12h = v12hDiferente ? verdictDisplay(v12hRaw) : null
     const alertaVentoNivel = condicao.alerta_vento_nivel ?? 0
     const alertaVentoKmh = condicao.alerta_vento_kmh ?? 0
     const alertaRajadaKmh = condicao.alerta_rajada_kmh ?? 0
     const alertaLabel = alertaVentoNivel >= 1
       ? `VENTO FORTE ${Math.round(alertaVentoKmh)} km/h${alertaRajadaKmh > 0 ? ` · RAJADAS ${Math.round(alertaRajadaKmh)} km/h` : ''}`
       : null
+    // Trunca horários para caber no card (máx 2 janelas)
+    const horariosLabel = (() => {
+      const h = condicao.horarios_chuva ?? ''
+      if (!h) return null
+      const parts = h.split(' · ')
+      return parts.length <= 2 ? h : parts.slice(0, 2).join(' · ') + '...'
+    })()
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_12h)
     const bgUrl = bgStorageUrl(categoria)
@@ -414,23 +425,30 @@ export async function GET(req: NextRequest) {
             </div>
 
             {/* Próximas 24h */}
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 16 }}>
-              <div style={{ display: 'flex', fontSize: 13, fontFamily: fontSans, fontWeight: 800, color: 'rgba(168,184,153,0.35)', letterSpacing: 2, minWidth: 140 }}>
-                PROXIMAS 24H
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                <div style={{ display: 'flex', fontSize: 13, fontFamily: fontSans, fontWeight: 800, color: 'rgba(168,184,153,0.35)', letterSpacing: 2, minWidth: 140 }}>
+                  PROXIMAS 24H
+                </div>
+                {pop12h > 0 ? (
+                  <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: 'rgba(168,184,153,0.6)' }}>
+                    {pop12h}% chuva
+                  </div>
+                ) : null}
+                {rain12h > 0.1 ? (
+                  <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: '#7DD3FC' }}>
+                    {rain12h.toFixed(1)}mm
+                  </div>
+                ) : null}
+                {v12h ? (
+                  <div style={{ display: 'flex', paddingTop: 7, paddingBottom: 7, paddingLeft: 18, paddingRight: 18, background: v12h.bg, fontSize: 17, fontFamily: fontSans, fontWeight: 700, color: v12h.color }}>
+                    {v12h.label}
+                  </div>
+                ) : null}
               </div>
-              {pop12h > 0 ? (
-                <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: 'rgba(168,184,153,0.6)' }}>
-                  {pop12h}% chuva
-                </div>
-              ) : null}
-              {rain12h > 0.1 ? (
-                <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: '#7DD3FC' }}>
-                  {rain12h.toFixed(1)}mm
-                </div>
-              ) : null}
-              {v12h ? (
-                <div style={{ display: 'flex', paddingTop: 7, paddingBottom: 7, paddingLeft: 18, paddingRight: 18, background: v12h.bg, fontSize: 17, fontFamily: fontSans, fontWeight: 700, color: v12h.color }}>
-                  {v12h.label}
+              {horariosLabel ? (
+                <div style={{ display: 'flex', fontSize: 17, fontFamily: fontMono, color: 'rgba(168,184,153,0.45)', paddingLeft: 140 }}>
+                  {horariosLabel}
                 </div>
               ) : null}
             </div>
