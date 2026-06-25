@@ -8,6 +8,7 @@ import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
+import { encodePolyline } from '@/lib/polyline'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
@@ -100,6 +101,13 @@ function EditarAprovadaContent() {
   const [extracting, setExtracting] = useState(false)
   const geoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // GPX
+  const [polyline, setPolyline]       = useState<string | null>(null)
+  const [gpxImporting, setGpxImporting] = useState(false)
+  const [gpxErro, setGpxErro]         = useState<string | null>(null)
+  const [gpxOk, setGpxOk]             = useState<string | null>(null)
+  const gpxInputRef = useRef<HTMLInputElement | null>(null)
+
   // Options
   const [soloTypes, setSoloTypes]   = useState<string[]>([])
   const [biomas, setBiomas]         = useState<string[]>([])
@@ -142,6 +150,7 @@ function EditarAprovadaContent() {
       setMantenedorId(t.mantenedor_id || '')
       setMantenedores((mants as { id: string; nome: string }[]) ?? [])
       setSensibilidade(t.sensibilidade != null ? String(t.sensibilidade) : '1')
+      setPolyline(t.polyline ?? null)
 
       setSoloTypes(sts)
       setBiomas(bio)
@@ -190,6 +199,70 @@ function EditarAprovadaContent() {
     else setErro('Não foi possível extrair as coordenadas.')
   }
 
+  // ── GPX ─────────────────────────────────────────────────────────────────────
+  function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
+  async function handleGpxImport(file: File) {
+    setGpxErro(null); setGpxOk(null); setGpxImporting(true)
+    try {
+      const text = await file.text()
+      const doc = new DOMParser().parseFromString(text, 'application/xml')
+      if (doc.querySelector('parsererror')) throw new Error('Arquivo GPX inválido ou corrompido.')
+
+      const pts = [
+        ...Array.from(doc.querySelectorAll('trkpt')),
+        ...Array.from(doc.querySelectorAll('rtept')),
+      ]
+      if (pts.length === 0) throw new Error('Nenhum ponto de trilha encontrado no arquivo GPX.')
+
+      const lats: number[] = [], lons: number[] = [], eles: number[] = []
+      pts.forEach(pt => {
+        const la = parseFloat(pt.getAttribute('lat') || '')
+        const lo = parseFloat(pt.getAttribute('lon') || '')
+        const el = parseFloat(pt.querySelector('ele')?.textContent || '')
+        if (!isNaN(la) && !isNaN(lo)) { lats.push(la); lons.push(lo) }
+        if (!isNaN(el)) eles.push(el)
+      })
+      if (lats.length === 0) throw new Error('Pontos de GPS sem coordenadas válidas.')
+
+      setPolyline(encodePolyline(lats.map((la, i) => ({ lat: la, lng: lons[i] }))))
+
+      const centLat = lats.reduce((s, v) => s + v, 0) / lats.length
+      const centLon = lons.reduce((s, v) => s + v, 0) / lons.length
+      setLat(centLat.toFixed(6))
+      setLon(centLon.toFixed(6))
+
+      let distKm = 0
+      for (let i = 1; i < lats.length; i++) distKm += haversineKm(lats[i-1], lons[i-1], lats[i], lons[i])
+
+      let altMedia = 0, ganho = 0
+      if (eles.length > 0) {
+        altMedia = eles.reduce((s, v) => s + v, 0) / eles.length
+        for (let i = 1; i < eles.length; i++) { const d = eles[i] - eles[i-1]; if (d > 0) ganho += d }
+        setAltitude(Math.round(altMedia).toString())
+        if (ganho > 1) setDesnivel(Math.round(ganho).toString())
+      }
+      if (distKm > 0.01) setExtensao(distKm.toFixed(2))
+
+      const parts = [`${pts.length} pontos`]
+      if (distKm > 0.01) parts.push(`${distKm.toFixed(1)} km`)
+      if (ganho > 1) parts.push(`${Math.round(ganho)}m desnível`)
+      setGpxOk(`✓ GPX importado — ${parts.join(' · ')}`)
+    } catch (e) {
+      setGpxErro(e instanceof Error ? e.message : 'Erro ao processar o arquivo GPX.')
+    } finally {
+      setGpxImporting(false)
+      if (gpxInputRef.current) gpxInputRef.current.value = ''
+    }
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
   async function getOrCreateLocalidade(geo: GeoResult): Promise<string | null> {
     let query = supabase.from('localidades').select('id')
@@ -230,6 +303,7 @@ function EditarAprovadaContent() {
       desnivel_m: desnivel ? parseFloat(desnivel) : null,
       extensao_km: extensao ? parseFloat(extensao) : null,
       mantenedor_id: mantenedorId || null,
+      polyline: polyline ?? null,
       ...(localidadeId ? { localidade_id: localidadeId } : {}),
       ...(isAdmin ? { sensibilidade: sensibilidade ? parseFloat(sensibilidade) : 1.0 } : {}),
     }
@@ -429,6 +503,47 @@ function EditarAprovadaContent() {
                   placeholder="Ex: 8.5" style={inputStyle} />
               </Field>
             </div>
+          </SectionCard>
+
+          {/* ── Rota GPX ── */}
+          <SectionCard title={isAdmin ? '6. Rota GPX' : '6. Rota GPX (opcional)'}>
+            {polyline ? (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#15803d', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>✓</span>
+                <span>{gpxOk ?? 'Rota disponível — importe um novo GPX para substituir'}</span>
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Sem rota — importe um arquivo GPX para adicionar o traçado à trilha.</p>
+            )}
+            {gpxErro && (
+              <p style={{ fontSize: 12, color: '#dc2626', margin: 0 }}>{gpxErro}</p>
+            )}
+            <input
+              ref={gpxInputRef}
+              type="file"
+              accept=".gpx,application/gpx+xml"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleGpxImport(f) }}
+            />
+            <button
+              type="button"
+              disabled={gpxImporting}
+              onClick={() => gpxInputRef.current?.click()}
+              style={{
+                background: gpxImporting ? '#8a9280' : '#2a2e25', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                cursor: gpxImporting ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
+              }}
+            >
+              {gpxImporting
+                ? <><span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Processando…</>
+                : polyline ? 'Substituir GPX' : 'Importar arquivo GPX'
+              }
+            </button>
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>
+              Ao importar, coordenadas, altitude, desnível e extensão são atualizados automaticamente a partir do arquivo.
+            </p>
           </SectionCard>
 
           {/* ── Calibração (admin only) ── */}
