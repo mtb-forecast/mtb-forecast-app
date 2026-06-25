@@ -98,10 +98,77 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import time
+import uuid as _uuid_module
 from datetime import datetime, timezone, timedelta, date
 
 # SSL context reutilizável para chamadas Open-Meteo — evita renegociação a cada request
 _SSL_CTX = ssl.create_default_context()
+
+# ---------------------------------------------------------------------------
+# Auditoria de consumo de APIs — acumula durante a execução e grava ao final
+# ---------------------------------------------------------------------------
+_EXECUCAO_ID: str = str(_uuid_module.uuid4())
+_API_USAGE_LOG: list[dict] = []
+
+_PRECO_USD_POR_M_TOKENS: dict[str, dict] = {
+    "anthropic": {"input": 0.80, "output": 4.00},
+    "gemini":    {"input": 0.10, "output": 0.40},
+    "groq":      {"input": 0.59, "output": 0.59},
+}
+
+def _log_api(api: str, endpoint: str, chamadas: int = 1,
+             tokens_in: int = 0, tokens_out: int = 0,
+             sucesso: int = 1, falhas: int = 0) -> None:
+    preco  = _PRECO_USD_POR_M_TOKENS.get(api, {})
+    custo  = (tokens_in * preco.get("input", 0.0) + tokens_out * preco.get("output", 0.0)) / 1_000_000
+    _API_USAGE_LOG.append({
+        "execucao_id":   _EXECUCAO_ID,
+        "api_name":      api,
+        "endpoint":      endpoint,
+        "chamadas":      chamadas,
+        "tokens_input":  tokens_in,
+        "tokens_output": tokens_out,
+        "custo_usd":     round(custo, 8),
+        "sucesso":       sucesso,
+        "falhas":        falhas,
+    })
+
+def _gravar_uso_api() -> None:
+    if not _API_USAGE_LOG or not SUPABASE_KEY:
+        return
+    agg: dict[tuple, dict] = {}
+    for e in _API_USAGE_LOG:
+        k = (e["api_name"], e["endpoint"])
+        if k not in agg:
+            agg[k] = {**e, "chamadas": 0, "tokens_input": 0, "tokens_output": 0,
+                      "custo_usd": 0.0, "sucesso": 0, "falhas": 0}
+        agg[k]["chamadas"]      += e["chamadas"]
+        agg[k]["tokens_input"]  += e["tokens_input"]
+        agg[k]["tokens_output"] += e["tokens_output"]
+        agg[k]["custo_usd"]     += e["custo_usd"]
+        agg[k]["sucesso"]       += e["sucesso"]
+        agg[k]["falhas"]        += e["falhas"]
+
+    rows = list(agg.values())
+    payload = json.dumps(rows).encode("utf-8")
+    url = f"{SUPABASE_URL}/rest/v1/api_usage_log"
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "apikey":        SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type":  "application/json",
+            "Prefer":        "return=minimal",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            total_usd = sum(row["custo_usd"] for row in rows)
+            print(f"[API Usage] {len(rows)} entradas gravadas | custo_est=US${total_usd:.4f} (execucao_id={_EXECUCAO_ID})")
+    except Exception as exc:
+        print(f"[API Usage] Falha ao gravar: {exc}")
 
 def _om_urlopen(url: str, timeout: int = 60):
     """urlopen com SSL context explícito e timeout generoso para api.open-meteo.com."""
@@ -185,9 +252,11 @@ def fetch_oni_atual() -> float:
 
         _CACHE_ONI["oni"] = oni_val
         _CACHE_ONI["ts"]  = time.time()
+        _log_api("noaa", "oni_ascii", sucesso=1)
         return oni_val
     except Exception as exc:
         print(f"[ENSO] Falha ao buscar ONI: {exc} — usando neutro (0.0)")
+        _log_api("noaa", "oni_ascii", sucesso=0, falhas=1)
         _CACHE_ONI["oni"] = 0.0
         _CACHE_ONI["ts"]  = time.time()
         return 0.0
@@ -495,6 +564,9 @@ def fetch_onecall(trail: dict) -> dict | None:
                 resultado = None
             else:
                 time.sleep(2 ** attempt)
+    _log_api("openweathermap", "onecall",
+             sucesso=1 if resultado is not None else 0,
+             falhas=0 if resultado is not None else 1)
     if lk and resultado is not None:
         _CACHE_OW_ONECALL[lk] = resultado
     return resultado
@@ -799,6 +871,8 @@ def fetch_ow_day_summary(trail: dict) -> dict:
     agora  = datetime.now(BRT)
     totais: dict[str, float] = {}
     ow_falhou: set[str] = set()
+    _ow_day_ok = 0
+    _ow_day_fail = 0
 
     for delta in range(2):          # 0 = hoje, 1 = ontem
         dia = (agora - timedelta(days=delta)).strftime("%Y-%m-%d")
@@ -815,14 +889,20 @@ def fetch_ow_day_summary(trail: dict) -> dict:
                 with urllib.request.urlopen(url, timeout=20) as r:
                     data = json.loads(r.read())
                 totais[dia] = float(data.get("precipitation", {}).get("total", 0.0) or 0.0)
+                _ow_day_ok += 1
                 break
             except Exception as exc:
                 if attempt == 2:
                     totais[dia] = 0.0
                     ow_falhou.add(dia)
+                    _ow_day_fail += 1
                     print(f"  [OW day_summary] Falha {dia} para {trail['name']}: {exc}")
                 else:
                     time.sleep(2 ** attempt)
+
+    _log_api("openweathermap", "day_summary",
+             chamadas=_ow_day_ok + _ow_day_fail,
+             sucesso=_ow_day_ok, falhas=_ow_day_fail)
 
     for dia in ow_falhou:
         totais[dia] = _fetch_weatherapi_precip_dia(trail, dia)
@@ -3120,12 +3200,19 @@ def _narrativa_via_gemini(prompt: str, r: dict) -> tuple | None:
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read())
                 texto = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                meta = data.get("usageMetadata", {})
+                _log_api("gemini", "generateContent",
+                         tokens_in=meta.get("promptTokenCount", 0),
+                         tokens_out=meta.get("candidatesTokenCount", 0),
+                         sucesso=1)
                 cor, bg = _narrativa_cor_bg(r)
                 print("[Gemini Narrativa] OK")
                 return texto, cor, bg
         except Exception as exc:
             print(f"[Gemini Narrativa] Erro (tentativa {attempt+1}): {exc}")
-            if attempt < 1:
+            if attempt == 1:
+                _log_api("gemini", "generateContent", sucesso=0, falhas=1)
+            else:
                 time.sleep(2)
     return None
 
@@ -3153,12 +3240,19 @@ def _narrativa_via_groq(prompt: str, r: dict) -> tuple | None:
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read())
                 texto = data["choices"][0]["message"]["content"].strip()
+                usage = data.get("usage", {})
+                _log_api("groq", "chat_completions",
+                         tokens_in=usage.get("prompt_tokens", 0),
+                         tokens_out=usage.get("completion_tokens", 0),
+                         sucesso=1)
                 cor, bg = _narrativa_cor_bg(r)
                 print("[Groq Narrativa] OK")
                 return texto, cor, bg
         except Exception as exc:
             print(f"[Groq Narrativa] Erro (tentativa {attempt+1}): {exc}")
-            if attempt < 1:
+            if attempt == 1:
+                _log_api("groq", "chat_completions", sucesso=0, falhas=1)
+            else:
                 time.sleep(2)
     return None
 
@@ -3265,6 +3359,11 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read())
                 narrativa = data["content"][0]["text"].strip()
+                usage = data.get("usage", {})
+                _log_api("anthropic", "messages",
+                         tokens_in=usage.get("input_tokens", 0),
+                         tokens_out=usage.get("output_tokens", 0),
+                         sucesso=1)
                 cor, bg = _narrativa_cor_bg(r)
                 return narrativa, cor, bg
         except urllib.error.HTTPError as exc:
@@ -3272,11 +3371,13 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
             print(f"[Claude Narrativa] HTTP {exc.code}: {body}")
             # 400 = crédito esgotado ou request inválido — não adianta retry
             if exc.code == 400 or attempt == 2:
+                _log_api("anthropic", "messages", sucesso=0, falhas=1)
                 return _fallback()
             time.sleep(2 ** attempt)
         except Exception as exc:
             print(f"[Claude Narrativa] Erro: {exc}")
             if attempt == 2:
+                _log_api("anthropic", "messages", sucesso=0, falhas=1)
                 return _fallback()
             time.sleep(2 ** attempt)
 
@@ -3310,11 +3411,14 @@ def _disparar_workflows_notificacao() -> None:
             with urllib.request.urlopen(req, timeout=10) as r:
                 # 204 No Content = sucesso
                 print(f"  [GitHub] {workflow} disparado (HTTP {r.status})")
+                _log_api("github_actions", "workflow_dispatch", sucesso=1)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             print(f"  [GitHub] Erro ao disparar {workflow}: HTTP {exc.code} — {body}")
+            _log_api("github_actions", "workflow_dispatch", sucesso=0, falhas=1)
         except Exception as exc:
             print(f"  [GitHub] Erro ao disparar {workflow}: {exc}")
+            _log_api("github_actions", "workflow_dispatch", sucesso=0, falhas=1)
 
 
 def prefetch_om_batch(trails: list) -> None:
@@ -3367,8 +3471,10 @@ def prefetch_om_batch(trails: list) -> None:
         for lk, item in zip(keys, fc_items):
             _CACHE_OM_FORECAST[lk] = item
         print(f"  [OM batch forecast] OK — {len(fc_items)} grupo(s) em cache")
+        _log_api("open_meteo", "forecast_batch", sucesso=1)
     except Exception as exc:
         print(f"  [OM batch forecast] Falha: {exc} — chamadas individuais como fallback")
+        _log_api("open_meteo", "forecast_batch", sucesso=0, falhas=1)
 
     # ── 2. Histórico past_days=2 — alimenta fetch_historico_chuva_om + fetch_vento_historico + fetch_onecall_historico
     url_hist = (
@@ -3408,8 +3514,10 @@ def prefetch_om_batch(trails: list) -> None:
                 "weather_codes": h.get("weather_code", []),
             }
         print(f"  [OM batch histórico] OK — {len(hist_items)} grupo(s) em cache (chuva + vento + clima)")
+        _log_api("open_meteo", "historico_era5_batch", sucesso=1)
     except Exception as exc:
         print(f"  [OM batch histórico] Falha: {exc} — chamadas individuais como fallback")
+        _log_api("open_meteo", "historico_era5_batch", sucesso=0, falhas=1)
 
     # ── 3. Nowcast bridge past_hours=6 (ICON seamless) — patch últimas 6h sem lag NWP ──────────
     url_nowcast = (
@@ -3438,8 +3546,10 @@ def prefetch_om_batch(trails: list) -> None:
             precips_nc = h.get("precipitation", [])
             _CACHE_OM_NOWCAST_RAW[lk] = {t: float(p or 0.0) for t, p in zip(times_nc, precips_nc)}
         print(f"  [OM batch nowcast] OK — {len(nowcast_items)} grupo(s) em cache (ICON seamless, lag ~1-2h)")
+        _log_api("open_meteo", "nowcast_icon_batch", sucesso=1)
     except Exception as exc:
         print(f"  [OM batch nowcast] Falha: {exc} — bridge individual como fallback")
+        _log_api("open_meteo", "nowcast_icon_batch", sucesso=0, falhas=1)
 
 
 def main() -> None:
@@ -3596,6 +3706,7 @@ def main() -> None:
 
     print("\n[MTBForecaster] Concluído.")
     _disparar_workflows_notificacao()
+    _gravar_uso_api()
 
 def _carregar_trilhas_supabase(ids: set | None = None) -> list:
     """
