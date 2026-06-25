@@ -305,6 +305,20 @@ def create_ig_container(image_url: str, caption: str) -> str | None:
     return cid
 
 
+def create_ig_stories_container(image_url: str) -> str | None:
+    r = requests.post(
+        f"{GRAPH_API}/{IG_USER_ID}/media",
+        data={"image_url": image_url, "media_type": "STORIES", "access_token": IG_TOKEN},
+        timeout=30,
+    )
+    if not r.ok:
+        print(f"  ✗ Erro ao criar container de Stories: {r.status_code} {r.text}")
+        return None
+    cid = r.json().get("id")
+    print(f"  ✓ Container Stories criado: {cid}")
+    return cid
+
+
 def publish_ig_container(creation_id: str) -> str | None:
     r = requests.post(
         f"{GRAPH_API}/{IG_USER_ID}/media_publish",
@@ -403,6 +417,20 @@ def main():
     print(f"   Trilha:   {trail.get('name')}")
     print(f"   Imagem:   {image_url}")
     print(f"   media_id: {media_id}")
+
+    # Stories — mesma imagem (Instagram adiciona barras 9:16 automaticamente)
+    print("\n  Postando no Stories...")
+    time.sleep(3)
+    sid = create_ig_stories_container(image_url)
+    if sid:
+        time.sleep(5)
+        stories_id = publish_ig_container(sid)
+        if stories_id:
+            print(f"✅ Stories publicado! media_id={stories_id}")
+        else:
+            print("⚠ Stories: falha ao publicar (feed já postado com sucesso)")
+    else:
+        print("⚠ Stories: falha ao criar container (feed já postado com sucesso)")
 
 
 if __name__ == "__main__":
