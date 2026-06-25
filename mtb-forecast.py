@@ -3122,10 +3122,21 @@ def _narrativa_cor_bg(r: dict) -> tuple:
     return "#d97706", "#fffbeb"
 
 
+_GEMINI_LAST_CALL: float = 0.0
+_GEMINI_MIN_INTERVAL = 1.2  # segundos entre chamadas — evita 429 no free tier
+
+
 def _narrativa_via_gemini(prompt: str, r: dict) -> tuple | None:
     """Gemini 2.0 Flash fallback — retorna (texto, cor, bg) ou None se falhar."""
+    global _GEMINI_LAST_CALL
     if not GEMINI_KEY:
         return None
+
+    # Throttle global: garante intervalo mínimo entre chamadas consecutivas
+    elapsed = time.time() - _GEMINI_LAST_CALL
+    if elapsed < _GEMINI_MIN_INTERVAL:
+        time.sleep(_GEMINI_MIN_INTERVAL - elapsed)
+
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"gemini-2.0-flash:generateContent?key={GEMINI_KEY}"
@@ -3138,6 +3149,7 @@ def _narrativa_via_gemini(prompt: str, r: dict) -> tuple | None:
                                   headers={"Content-Type": "application/json"})
     for attempt in range(2):
         try:
+            _GEMINI_LAST_CALL = time.time()
             with urllib.request.urlopen(req, timeout=20) as resp:
                 data = json.loads(resp.read())
                 texto = data["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -3154,7 +3166,7 @@ def _narrativa_via_gemini(prompt: str, r: dict) -> tuple | None:
             if attempt == 1:
                 _log_api("gemini", "generateContent", sucesso=0, falhas=1)
             else:
-                time.sleep(2)
+                time.sleep(4)  # backoff maior no retry após 429
     return None
 
 
