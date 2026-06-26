@@ -505,16 +505,18 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
           setLiveWeather({ precipitation: precip, cloudCover: cloud, tempC: Math.round(temp) })
         }
 
-        // Accumulate rain that fell after the last pipeline run.
+        // Accumulate rain that fell after the last pipeline run, up to now only.
         // OM timestamps are in BRT (America/Sao_Paulo = UTC-3, no DST).
+        // Must exclude future forecast hours — forecast_days=1 appends tomorrow's data.
         const times   = data.hourly?.time        as string[] | undefined
         const precips = data.hourly?.precipitation as number[] | undefined
         if (times && precips) {
+          const now = new Date()
           let acc = 0
           for (let i = 0; i < times.length; i++) {
             // Append BRT offset so Date.parse is timezone-aware
             const t = new Date(times[i] + ':00.000-03:00')
-            if (t > geradoEm) acc += precips[i] ?? 0
+            if (t > geradoEm && t <= now) acc += precips[i] ?? 0
           }
           setRainSincePipeline(Math.round(acc * 10) / 10)
         }

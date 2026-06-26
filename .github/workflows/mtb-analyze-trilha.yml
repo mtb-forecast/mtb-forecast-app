@@ -1,0 +1,368 @@
+name: Análise de Trilha
+
+on:
+  workflow_dispatch:
+    inputs:
+      trilha_id:
+        description: 'UUID da trilha (ex: 6ea9272a-fbaf-4f86-aaad-46d7ba75b8dd)'
+        required: true
+        type: string
+      send_telegram:
+        description: 'Enviar resultado no Telegram'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY:          ${{ secrets.SUPABASE_KEY }}
+      TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ADMIN_TELEGRAM_CHAT_ID: ${{ secrets.ADMIN_TELEGRAM_CHAT_ID }}
+      TRILHA_ID:             ${{ github.event.inputs.trilha_id }}
+      SEND_TELEGRAM:         ${{ github.event.inputs.send_telegram }}
+
+    steps:
+      - name: Analisar trilha
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, math, urllib.request, urllib.parse, urllib.error
+          from datetime import datetime, timezone, timedelta
+
+          SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
+          SUPABASE_KEY = os.environ["SUPABASE_KEY"]
+          TRILHA_ID    = os.environ["TRILHA_ID"].strip()
+          TG_TOKEN     = os.getenv("TELEGRAM_BOT_TOKEN", "")
+          TG_CHAT      = os.getenv("ADMIN_TELEGRAM_CHAT_ID", "")
+          SEND_TG      = os.getenv("SEND_TELEGRAM", "true").lower() == "true"
+          BRT          = timezone(timedelta(hours=-3))
+
+          # ── Helpers ────────────────────────────────────────────────────────
+
+          def sb_get(table, qs=""):
+              url = f"{SUPABASE_URL}/rest/v1/{table}{qs}"
+              req = urllib.request.Request(url, headers={
+                  "apikey":        SUPABASE_KEY,
+                  "Authorization": f"Bearer {SUPABASE_KEY}",
+              })
+              with urllib.request.urlopen(req, timeout=15) as r:
+                  return json.loads(r.read())
+
+          def om_get(url):
+              with urllib.request.urlopen(url, timeout=15) as r:
+                  return json.loads(r.read())
+
+          def fmt_h(h):
+              if h <= 0:   return "agora"
+              if h < 24:   return f"~{round(h)}h"
+              d = int(h // 24); hh = round(h % 24)
+              return f"~{d}d {hh}h" if hh else f"~{d}d"
+
+          def fmt_drift(acumulo, mv, horas_since):
+              return round(acumulo * (0.5 ** (horas_since / mv)), 2) if mv > 0 else 0.0
+
+          def horas_para_limiar(acumulo, mv, limiar):
+              if acumulo <= limiar or mv <= 0:
+                  return 0.0
+              return mv * math.log2(acumulo / limiar)
+
+          # ── 1. Trilha ──────────────────────────────────────────────────────
+
+          trilhas = sb_get("trilhas",
+              f"?id=eq.{urllib.parse.quote(TRILHA_ID)}"
+              f"&select=id,name,lat,lon,solo_type,exposicao,trail_type,regiao,altitude_m,bioma")
+          if not trilhas:
+              print(f"ERRO: Trilha '{TRILHA_ID}' não encontrada.")
+              exit(1)
+          trilha = trilhas[0]
+          lat, lon = trilha["lat"], trilha["lon"]
+
+          # ── 2. Última condição ─────────────────────────────────────────────
+
+          conds = sb_get("condicoes",
+              f"?trilha_id=eq.{urllib.parse.quote(TRILHA_ID)}"
+              f"&order=gerado_em.desc&limit=1"
+              f"&select=acumulo_ef,meia_vida_h,meia_vida_base_h,cloud_pct,humidity_pct"
+              f",temp_media_c,wind_ms,gerado_em,aderencia_status,veredicto"
+              f",limiar_descanso,grip_threshold_ef,chuva_solo_48h")
+          if not conds:
+              print(f"ERRO: Nenhuma condição encontrada para a trilha.")
+              exit(1)
+          cond = conds[0]
+
+          # ── 3. Tabelas de multiplicadores ──────────────────────────────────
+
+          mult_rows = sb_get("meia_vida_clima_mult",
+              "?select=variavel,valor_min,valor_max,exposicao,multiplicador"
+              "&ativo=eq.true&order=id.asc")
+
+          ttc_rows = sb_get("trail_type_config",
+              "?select=trail_type,exposicao,meia_vida_mult&order=id.asc")
+
+          bioma_rows = sb_get("biomas",
+              "?select=bioma,exposicao,altitude_min,vento_penetracao,sol_penetracao"
+              "&ativo=eq.true&order=altitude_min.desc.nullslast")
+
+          mv_min_row = sb_get("configuracoes_sistema", "?chave=eq.meia_vida_min&select=valor&limit=1")
+          mv_max_row = sb_get("configuracoes_sistema", "?chave=eq.meia_vida_max&select=valor&limit=1")
+          MV_MIN = float(mv_min_row[0]["valor"]) if mv_min_row else 4.0
+          MV_MAX = float(mv_max_row[0]["valor"]) if mv_max_row else 72.0
+
+          # ── 4. Tempo atual (Open-Meteo) ────────────────────────────────────
+
+          om_url = (
+              f"https://api.open-meteo.com/v1/forecast"
+              f"?latitude={lat}&longitude={lon}"
+              f"&current=temperature_2m,relative_humidity_2m,cloud_cover,wind_speed_10m,precipitation"
+              f"&timezone=America%2FSao_Paulo"
+          )
+          om = om_get(om_url)
+          cur         = om.get("current", {})
+          live_temp   = cur.get("temperature_2m")
+          live_hum    = cur.get("relative_humidity_2m")
+          live_cloud  = cur.get("cloud_cover")
+          live_wind   = cur.get("wind_speed_10m")   # km/h (OM default)
+          live_precip = cur.get("precipitation", 0.0)
+          live_wind_ms = live_wind / 3.6 if live_wind is not None else None
+
+          # ── 5. Bioma lookup ────────────────────────────────────────────────
+
+          def lookup_bioma(trail, rows):
+              b_trail  = (trail.get("bioma") or "").lower()
+              exp      = trail.get("exposicao", "")
+              alt      = trail.get("altitude_m") or 0
+              for row in rows:
+                  b_row = (row.get("bioma") or "").lower()
+                  if not b_row or (b_row not in b_trail and b_trail not in b_row):
+                      continue
+                  if row.get("altitude_min") and alt < row["altitude_min"]:
+                      continue
+                  if row.get("exposicao") and row["exposicao"] != exp:
+                      continue
+                  return row
+              return {"vento_penetracao": 1.0, "sol_penetracao": 1.0}
+
+          bioma_cfg = lookup_bioma(trilha, bioma_rows)
+          vento_pen = float(bioma_cfg.get("vento_penetracao") or 1.0)
+          sol_pen   = float(bioma_cfg.get("sol_penetracao")   or 1.0)
+
+          # ── 6. Multiplicador trail_type ────────────────────────────────────
+
+          def lookup_ttc(trail, rows):
+              tt  = trail.get("trail_type", "natural")
+              exp = trail.get("exposicao", "")
+              exact = next((r for r in rows if r["trail_type"] == tt and r.get("exposicao") == exp), None)
+              if exact:
+                  return float(exact["meia_vida_mult"])
+              gen = next((r for r in rows if r["trail_type"] == tt and r.get("exposicao") is None), None)
+              return float(gen["meia_vida_mult"]) if gen else 1.0
+
+          ttc_mult = lookup_ttc(trilha, ttc_rows)
+
+          # ── 7. Cálculo de cada fator ───────────────────────────────────────
+
+          def calc_mult(value, variavel, rows):
+              """Retorna (mult, descricao_faixa)."""
+              if value is None:
+                  return 1.0, "—"
+              for r in rows:
+                  if r["variavel"] != variavel:
+                      continue
+                  v_min = r["valor_min"]
+                  v_max = r["valor_max"]
+                  if (v_min is None or value >= v_min) and (v_max is None or value <= v_max):
+                      return float(r["multiplicador"]), f"× {r['multiplicador']:.2f}"
+              return 1.0, "× 1.00 (fora de faixas)"
+
+          def combo_garoa(hum, cloud, rows):
+              if hum is not None and hum >= 85 and cloud is not None and cloud >= 70:
+                  r = next((x for x in rows if x["variavel"] == "umidade_nebulosidade_combo"), None)
+                  if r:
+                      return float(r["multiplicador"])
+              return 1.0
+
+          # Pipeline (dados históricos 48h gravados)
+          pip_temp_c  = cond.get("temp_media_c")
+          pip_hum     = cond.get("humidity_pct")
+          pip_cloud   = cond.get("cloud_pct")
+          pip_wind_ms = cond.get("wind_ms")
+
+          pip_temp_mult,  _ = calc_mult(pip_temp_c, "temperatura", mult_rows)
+          pip_wind_eff      = (pip_wind_ms * 3.6 * vento_pen) if pip_wind_ms is not None else None
+          pip_wind_mult,  _ = calc_mult(pip_wind_eff, "vento", mult_rows)
+          pip_cloud_ef      = (100.0 - (100.0 - pip_cloud) * sol_pen) if pip_cloud is not None else None
+          pip_cloud_mult, _ = calc_mult(pip_cloud_ef, "nebulosidade", mult_rows)
+          pip_hum_mult,   _ = calc_mult(pip_hum, "umidade", mult_rows)
+          pip_combo         = combo_garoa(pip_hum, pip_cloud, mult_rows)
+
+          # Agora (Open-Meteo current)
+          now_temp_mult,  _ = calc_mult(live_temp, "temperatura", mult_rows)
+          now_wind_eff      = (live_wind_ms * 3.6 * vento_pen) if live_wind_ms is not None else None
+          now_wind_mult,  _ = calc_mult(now_wind_eff, "vento", mult_rows)
+          now_cloud_ef      = (100.0 - (100.0 - live_cloud) * sol_pen) if live_cloud is not None else None
+          now_cloud_mult, _ = calc_mult(now_cloud_ef, "nebulosidade", mult_rows)
+          now_hum_mult,   _ = calc_mult(live_hum, "umidade", mult_rows)
+          now_combo         = combo_garoa(live_hum, live_cloud, mult_rows)
+
+          # Meia_vida final
+          mv_base      = float(cond.get("meia_vida_base_h") or 36.0)
+          mv_pipeline  = float(cond.get("meia_vida_h")      or 72.0)
+
+          pip_uncapped = mv_base * pip_temp_mult * pip_wind_mult * pip_cloud_mult * pip_hum_mult * pip_combo * ttc_mult
+          now_uncapped = mv_base * now_temp_mult * now_wind_mult * now_cloud_mult * now_hum_mult * now_combo * ttc_mult
+          now_mv       = round(max(MV_MIN, min(MV_MAX, now_uncapped)), 1)
+
+          # ── 8. Drift do acúmulo ────────────────────────────────────────────
+
+          gerado_em = datetime.fromisoformat(cond["gerado_em"].replace("Z", "+00:00"))
+          now_utc   = datetime.now(timezone.utc)
+          horas_since = max(0.0, (now_utc - gerado_em).total_seconds() / 3600)
+
+          acumulo_ef  = float(cond.get("acumulo_ef") or 0.0)
+          limiar      = float(cond.get("limiar_descanso") or 4.0)
+          grip_thr    = float(cond.get("grip_threshold_ef") or 3.0)
+
+          ef_agora_pip = fmt_drift(acumulo_ef, mv_pipeline, horas_since)
+          ef_agora_now = fmt_drift(acumulo_ef, now_mv,      horas_since)
+
+          # Projeção futura (a partir de agora, usando meia_vida atual)
+          def projecao(base_ef, mv, h):
+              return round(base_ef * (0.5 ** (h / mv)), 2) if mv > 0 else 0.0
+
+          proj_12 = projecao(ef_agora_now, now_mv, 12)
+          proj_24 = projecao(ef_agora_now, now_mv, 24)
+          proj_48 = projecao(ef_agora_now, now_mv, 48)
+          proj_72 = projecao(ef_agora_now, now_mv, 72)
+
+          h_liberado_pip = horas_para_limiar(ef_agora_pip, mv_pipeline, limiar)
+          h_liberado_now = horas_para_limiar(ef_agora_now, now_mv, limiar)
+
+          # ── 9. Report text ─────────────────────────────────────────────────
+
+          hora_brt = gerado_em.astimezone(BRT).strftime("%d/%m %H:%M")
+          now_brt  = now_utc.astimezone(BRT).strftime("%d/%m %H:%M")
+
+          def mv_str(uncapped, capped):
+              s = f"{capped}h"
+              if round(uncapped, 1) != capped:
+                  s += f" (cap de {MV_MAX:.0f}h; calculado {round(uncapped,1)}h)"
+              return s
+
+          def fator_row(nome, pip_val, pip_str, now_val, now_str, pip_mult, now_mult):
+              pip_v = f"{pip_val:.1f}" if pip_val is not None else "—"
+              now_v = f"{now_val:.1f}" if now_val is not None else "—"
+              return f"  {nome:<22} {pip_v:<10} {now_v:<10} × {pip_mult:.2f}       × {now_mult:.2f}"
+
+          combo_pip_str = f"× {pip_combo:.2f}" if pip_combo != 1.0 else "× 1.00 (inativo)"
+          combo_now_str = f"× {now_combo:.2f}" if now_combo != 1.0 else "× 1.00 (inativo)"
+
+          lines = [
+              f"╔══════════════════════════════════════════════════════════╗",
+              f"  🏔️  ANÁLISE: {trilha['name']}",
+              f"  📍  {trilha.get('trail_type','?').upper()} · {trilha.get('solo_type','?')} · {trilha.get('exposicao','?')} · {trilha.get('altitude_m','?')}m",
+              f"  🕐  Report: {hora_brt} ({horas_since:.1f}h atrás)   |   Agora: {now_brt} BRT",
+              f"╚══════════════════════════════════════════════════════════╝",
+              "",
+              "━━━ CONDIÇÕES: Pipeline vs Agora ━━━━━━━━━━━━━━━━━━━━━━━━━",
+              f"  {'Fator':<22} {'Pipeline':>10} {'Agora':>10}",
+              f"  {'-'*44}",
+              f"  {'Temperatura':<22} {f'{pip_temp_c:.1f}°C' if pip_temp_c else '—':>10} {f'{live_temp:.1f}°C' if live_temp else '—':>10}",
+              f"  {'Umidade':<22} {f'{pip_hum:.1f}%' if pip_hum else '—':>10} {f'{live_hum:.1f}%' if live_hum else '—':>10}",
+              f"  {'Nebulosidade':<22} {f'{pip_cloud:.0f}%' if pip_cloud is not None else '—':>10} {f'{live_cloud:.0f}%' if live_cloud is not None else '—':>10}",
+              f"  {'Vento (ef. solo)':<22} {f'{pip_wind_eff:.1f}km/h' if pip_wind_eff else '—':>10} {f'{now_wind_eff:.1f}km/h' if now_wind_eff else '—':>10}",
+              f"  {'Chuva agora':<22} {'—':>10} {f'{live_precip:.1f}mm':>10}",
+              "",
+              "━━━ MEIA_VIDA: CADEIA DE MULTIPLICADORES ━━━━━━━━━━━━━━━━",
+              f"  {'Fator':<22} {'Pip value':>10} {'Now value':>10}  mult Pip     mult Now",
+              f"  {'-'*60}",
+              fator_row("Temperatura",       pip_temp_c,    "",  live_temp,   "",  pip_temp_mult,  now_temp_mult),
+              fator_row("Vento ef. solo",     pip_wind_eff,  "",  now_wind_eff,"",  pip_wind_mult,  now_wind_mult),
+              fator_row("Nebulosidade ef.",   pip_cloud_ef,  "",  now_cloud_ef,"",  pip_cloud_mult, now_cloud_mult),
+              fator_row("Umidade",           pip_hum,       "",  live_hum,    "",  pip_hum_mult,   now_hum_mult),
+              f"  {'Combo garoa':<22} {'':>10} {'':>10} {combo_pip_str:<14} {combo_now_str}",
+              f"  {'trail_type_config':<22} {'':>10} {'':>10} × {ttc_mult:.2f}       × {ttc_mult:.2f}",
+              "",
+              f"  Base:       {mv_base}h",
+              f"  Pipeline:   {mv_base} × {pip_temp_mult:.2f} × {pip_wind_mult:.2f} × {pip_cloud_mult:.2f} × {pip_hum_mult:.2f} × {pip_combo:.2f} × {ttc_mult:.2f} = {pip_uncapped:.1f}h  →  {mv_str(pip_uncapped, mv_pipeline)}",
+              f"  Agora:      {mv_base} × {now_temp_mult:.2f} × {now_wind_mult:.2f} × {now_cloud_mult:.2f} × {now_hum_mult:.2f} × {now_combo:.2f} × {ttc_mult:.2f} = {now_uncapped:.1f}h  →  {mv_str(now_uncapped, now_mv)}",
+              "",
+              "━━━ ACÚMULO EF (DRIFT) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+              f"  acumulo_ef @ {hora_brt}:       {acumulo_ef:.2f}mm",
+              f"  acumulo_ef agora (mv {mv_pipeline}h):  {ef_agora_pip:.2f}mm  (meia_vida pipeline)",
+              f"  acumulo_ef agora (mv {now_mv}h):   {ef_agora_now:.2f}mm  (meia_vida atual)",
+              f"  limiar_descanso:          {limiar:.2f}mm",
+              "",
+              "━━━ PROJEÇÃO A PARTIR DE AGORA (mv atual) ━━━━━━━━━━━━━━",
+              f"  Em 12h:  {proj_12:.2f}mm",
+              f"  Em 24h:  {proj_24:.2f}mm",
+              f"  Em 48h:  {proj_48:.2f}mm",
+              f"  Em 72h:  {proj_72:.2f}mm",
+              f"  Limiar descanso ({limiar}mm):",
+              f"    - com mv pipeline ({mv_pipeline}h): {fmt_h(h_liberado_pip)} para LIBERADO",
+              f"    - com mv atual    ({now_mv}h): {fmt_h(h_liberado_now)} para LIBERADO",
+              "",
+              "━━━ STATUS PIPELINE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+              f"  Veredicto:    {cond.get('veredicto','')}",
+              f"  Aderência:    {cond.get('aderencia_status','')}",
+              f"  Chuva solo 48h: {cond.get('chuva_solo_48h',0):.2f}mm",
+          ]
+
+          report = "\n".join(lines)
+          print(report)
+
+          # ── 10. Telegram ───────────────────────────────────────────────────
+
+          if not (SEND_TG and TG_TOKEN and TG_CHAT):
+              print("\n[Telegram] não configurado ou desativado — pulando.")
+              exit(0)
+
+          # Veredicto emoji
+          v = (cond.get("veredicto") or "").upper()
+          v_emoji = "✅" if "LIBERADO" in v and "ESPERAR" not in v else ("🛑" if "ESPERAR" in v else "⚠️")
+          a = (cond.get("aderencia_status") or "").upper()
+          a_emoji = "🟢" if a in ("GRIP PERFEITO","SECO") else ("🟠" if "BOA" in a else "🔴")
+
+          delta_mv = round(mv_pipeline - now_mv, 1)
+          mv_arrow = f"↓ {delta_mv}h mais rápido" if delta_mv > 0 else (f"↑ {abs(delta_mv)}h mais lento" if delta_mv < 0 else "inalterada")
+
+          msg = (
+              f"<b>🏔️ Análise: {trilha['name']}</b>\n"
+              f"<i>{trilha.get('trail_type','?').upper()} · {trilha.get('solo_type','?')} · {trilha.get('exposicao','?')} · {trilha.get('regiao','?')}</i>\n\n"
+              f"🕐 Report: <code>{hora_brt}</code> ({horas_since:.1f}h atrás)\n\n"
+              f"<b>📊 Condições agora</b>\n"
+              f"  🌡️ Temp: {f'{live_temp:.1f}°C' if live_temp else '—'}   (era {f'{pip_temp_c:.1f}°C' if pip_temp_c else '—'})\n"
+              f"  💧 Umid: {f'{live_hum:.0f}%' if live_hum else '—'}   (era {f'{pip_hum:.0f}%' if pip_hum else '—'})\n"
+              f"  ☁️ Nuvem: {f'{live_cloud:.0f}%' if live_cloud is not None else '—'}   (era {f'{pip_cloud:.0f}%' if pip_cloud is not None else '—'})\n"
+              f"  🌧️ Chuva: {f'{live_precip:.1f}mm' if live_precip else '0mm'}\n\n"
+              f"<b>⏱️ Meia-vida de secagem</b>\n"
+              f"  Pipeline: <code>{mv_pipeline}h</code>\n"
+              f"  Agora:    <code>{now_mv}h</code>  ({mv_arrow})\n\n"
+              f"<b>💧 Acúmulo ef agora</b>  <code>{ef_agora_now:.2f}mm</code>  (limiar {limiar:.1f}mm)\n"
+              f"→ {fmt_h(h_liberado_now)} para LIBERADO (mv atual)\n\n"
+              f"<b>📅 Projeção (mv atual {now_mv}h)</b>\n"
+              f"  12h: {proj_12:.2f}mm  |  24h: {proj_24:.2f}mm\n"
+              f"  48h: {proj_48:.2f}mm  |  72h: {proj_72:.2f}mm\n\n"
+              f"{v_emoji} <b>{cond.get('veredicto','')}</b>   {a_emoji} {cond.get('aderencia_status','')}"
+          )
+
+          payload = json.dumps({
+              "chat_id": TG_CHAT, "text": msg,
+              "parse_mode": "HTML", "disable_web_page_preview": True,
+          }).encode()
+          tg_req = urllib.request.Request(
+              f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+              data=payload,
+              headers={"Content-Type": "application/json"},
+          )
+          try:
+              with urllib.request.urlopen(tg_req, timeout=10) as r:
+                  print(f"\n[Telegram] ✅ Enviado para chat {TG_CHAT}")
+          except Exception as exc:
+              print(f"\n[Telegram] ⚠️ Falha: {exc}")
+
+          PYEOF
