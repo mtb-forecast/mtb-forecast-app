@@ -81,27 +81,28 @@ const PROMPTS: Record<string, Record<Paisagem, string>> = {
   },
 }
 
-// Seeds Stories: 4xx — mesma paisagem do Feed (3xx) mas composição diferente
-const SEEDS: Record<string, Record<Paisagem, number>> = {
-  sol:        { mata: 401, cerrado: 402, montanha: 403 },
-  nublado:    { mata: 411, cerrado: 412, montanha: 413 },
-  garoa:      { mata: 421, cerrado: 422, montanha: 423 },
-  chuva:      { mata: 431, cerrado: 432, montanha: 433 },
-  tempestade: { mata: 441, cerrado: 442, montanha: 443 },
+// Seed determinístico por trilha — mesmo algoritmo do Feed
+function trailSeed(trilhaId: string): number {
+  let h = 5381
+  for (let i = 0; i < trilhaId.length; i++) {
+    h = ((h << 5) + h + trilhaId.charCodeAt(i)) & 0x7FFFFFFF
+  }
+  return (h % 9000) + 1000
 }
 
-function bgStorageUrl(categoria: string, paisagem: Paisagem): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/${categoria}_${paisagem}_s.jpg`
+// Mesma chave do Feed — Feed e Stories compartilham o mesmo background por trilha
+function bgStorageUrl(trilhaId: string, categoria: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
 }
 
-async function fetchAndUploadPollinations(categoria: string, paisagem: Paisagem): Promise<void> {
+async function fetchAndUploadPollinations(trilhaId: string, categoria: string, paisagem: Paisagem): Promise<void> {
   const prompt = (PROMPTS[categoria] ?? PROMPTS['sol'])[paisagem]
-  const seed = (SEEDS[categoria] ?? SEEDS['sol'])[paisagem]
+  const seed = trailSeed(trilhaId)
   const encoded = encodeURIComponent(prompt)
   const negativePrompt = encodeURIComponent(NEG)
   const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}&negative_prompt=${negativePrompt}`
 
-  console.log(`[OG Stories] Pollinations fetch: ${categoria}_${paisagem}_s seed=${seed}`)
+  console.log(`[OG Stories] Pollinations fetch: trail_${trilhaId}_${categoria} (${paisagem}) seed=${seed}`)
   try {
     const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
     if (!imgRes.ok) { console.error(`[OG Stories] Pollinations HTTP ${imgRes.status}`); return }
@@ -109,13 +110,13 @@ async function fetchAndUploadPollinations(categoria: string, paisagem: Paisagem)
     if (!imgBuf.byteLength) { console.error('[OG Stories] Buffer vazio'); return }
     console.log(`[OG Stories] Pollinations OK — ${Math.round(imgBuf.byteLength / 1024)}KB`)
 
-    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${categoria}_${paisagem}_s.jpg`
+    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
     const upRes = await fetch(uploadUrl, {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
       body: imgBuf,
     })
-    if (upRes.ok) console.log(`[OG Stories] Upload OK → instagram-bg/${categoria}_${paisagem}_s.jpg`)
+    if (upRes.ok) console.log(`[OG Stories] Upload OK → instagram-bg/trail_${trilhaId}_${categoria}.jpg`)
     else console.error(`[OG Stories] Upload falhou: ${upRes.status} ${await upRes.text()}`)
   } catch (e) {
     console.error(`[OG Stories] Pollinations erro: ${e}`)
@@ -238,7 +239,7 @@ export async function GET(req: NextRequest) {
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_12h)
     const paisagem  = landscapeType(trilha.bioma ?? null)
-    const bgUrl = bgStorageUrl(categoria, paisagem)
+    const bgUrl = bgStorageUrl(trilhaId, categoria)
 
     const toDataUrl = async (url: string): Promise<string | null> => {
       try {
@@ -256,7 +257,7 @@ export async function GET(req: NextRequest) {
 
     let bgDataUrl: string | null = await toDataUrl(bgUrl)
     if (!bgDataUrl) {
-      await fetchAndUploadPollinations(categoria, paisagem)
+      await fetchAndUploadPollinations(trilhaId, categoria, paisagem)
       bgDataUrl = await toDataUrl(bgUrl)
     }
 

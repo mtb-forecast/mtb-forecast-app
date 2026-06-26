@@ -92,27 +92,28 @@ const PROMPTS: Record<string, Record<Paisagem, string>> = {
   },
 }
 
-// Seeds Feed: 3xx  |  Seeds Stories: 4xx  (mesma paisagem, composição diferente)
-const SEEDS: Record<string, Record<Paisagem, number>> = {
-  sol:        { mata: 301, cerrado: 302, montanha: 303 },
-  nublado:    { mata: 311, cerrado: 312, montanha: 313 },
-  garoa:      { mata: 321, cerrado: 322, montanha: 323 },
-  chuva:      { mata: 331, cerrado: 332, montanha: 333 },
-  tempestade: { mata: 341, cerrado: 342, montanha: 343 },
+// Seed determinístico por trilha — cada trilha tem composição única, mesma trilha = mesmo seed
+function trailSeed(trilhaId: string): number {
+  let h = 5381
+  for (let i = 0; i < trilhaId.length; i++) {
+    h = ((h << 5) + h + trilhaId.charCodeAt(i)) & 0x7FFFFFFF
+  }
+  return (h % 9000) + 1000 // range 1000–9999
 }
 
-function bgStorageUrl(categoria: string, paisagem: Paisagem): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/${categoria}_${paisagem}.jpg`
+// Chave de cache por trilha+categoria — Feed e Stories compartilham o mesmo arquivo
+function bgStorageUrl(trilhaId: string, categoria: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
 }
 
-async function fetchAndUploadPollinations(categoria: string, paisagem: Paisagem): Promise<void> {
+async function fetchAndUploadPollinations(trilhaId: string, categoria: string, paisagem: Paisagem): Promise<void> {
   const prompt = (PROMPTS[categoria] ?? PROMPTS['sol'])[paisagem]
-  const seed = (SEEDS[categoria] ?? SEEDS['sol'])[paisagem]
+  const seed = trailSeed(trilhaId)
   const encoded = encodeURIComponent(prompt)
   const negativePrompt = encodeURIComponent(NEG)
   const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}&negative_prompt=${negativePrompt}`
 
-  console.log(`[OG] Pollinations fetch: ${categoria}_${paisagem} seed=${seed}`)
+  console.log(`[OG] Pollinations fetch: trail_${trilhaId}_${categoria} (${paisagem}) seed=${seed}`)
   try {
     const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
     if (!imgRes.ok) {
@@ -130,7 +131,7 @@ async function fetchAndUploadPollinations(categoria: string, paisagem: Paisagem)
     void logApiUsage('pollinations', 'flux_image')
     console.log(`[OG] Pollinations OK — ${Math.round(imgBuf.byteLength / 1024)}KB`)
 
-    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/${categoria}_${paisagem}.jpg`
+    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
     const upRes = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -144,7 +145,7 @@ async function fetchAndUploadPollinations(categoria: string, paisagem: Paisagem)
       const body = await upRes.text()
       console.error(`[OG] Upload Supabase falhou: ${upRes.status} ${body}`)
     } else {
-      console.log(`[OG] Upload OK → instagram-bg/${categoria}_${paisagem}.jpg`)
+      console.log(`[OG] Upload OK → instagram-bg/trail_${trilhaId}_${categoria}.jpg`)
     }
   } catch (e) {
     console.error(`[OG] Pollinations erro: ${e}`)
@@ -276,7 +277,7 @@ export async function GET(req: NextRequest) {
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_12h)
     const paisagem  = landscapeType(trilha.bioma)
-    const bgUrl = bgStorageUrl(categoria, paisagem)
+    const bgUrl = bgStorageUrl(trilhaId, categoria)
 
     let bgDataUrl: string | null = null
 
@@ -296,7 +297,7 @@ export async function GET(req: NextRequest) {
 
     bgDataUrl = await toDataUrl(bgUrl)
     if (!bgDataUrl) {
-      await fetchAndUploadPollinations(categoria, paisagem)
+      await fetchAndUploadPollinations(trilhaId, categoria, paisagem)
       bgDataUrl = await toDataUrl(bgUrl)
     }
 
