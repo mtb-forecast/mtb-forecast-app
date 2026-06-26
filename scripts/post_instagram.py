@@ -65,6 +65,7 @@ def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
     """Busca trilhas aprovadas com condições reais (sem placeholders)."""
     fields = (
         "id,name,regiao,bioma,exposicao,solo_type,altitude_m,trail_type,"
+        "ultimo_ig_post,"
         "localidades(cidade,estado),"
         "condicoes(veredicto,acumulo_ef,meia_vida_h,rain_mm,"
         "wind_ms,temp_max,temp_min,humidity_pct,cloud_pct,gerado_em,"
@@ -72,7 +73,7 @@ def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
     )
     url = (
         f"{SUPABASE_URL}/rest/v1/trilhas"
-        f"?select={fields}&aprovada=eq.true&order=name.asc"
+        f"?select={fields}&aprovada=eq.true&order=ultimo_ig_post.asc.nullsfirst"
     )
     if trail_id:
         url += f"&id=eq.{trail_id}"
@@ -133,9 +134,28 @@ def interest_score(trail: dict) -> float:
 def pick_trail(trails: list[dict]) -> dict:
     if len(trails) == 1:
         return trails[0]
-    scores = [interest_score(t) for t in trails]
+    # Já vêm ordenadas por ultimo_ig_post ASC NULLS FIRST — pegamos o 1º terço
+    # para sortear entre as menos postadas recentemente, evitando repetição.
+    pool_size = max(5, len(trails) // 3)
+    pool = trails[:pool_size]
+    scores = [interest_score(t) for t in pool]
     total = sum(scores)
-    return random.choices(trails, weights=[s / total for s in scores], k=1)[0]
+    return random.choices(pool, weights=[s / total for s in scores], k=1)[0]
+
+
+def mark_trail_posted(trail_id: str) -> None:
+    """Registra o momento do post em trilhas.ultimo_ig_post."""
+    url = f"{SUPABASE_URL}/rest/v1/trilhas?id=eq.{trail_id}"
+    r = requests.patch(
+        url,
+        headers={**sb_headers(), "Content-Type": "application/json", "Prefer": "return=minimal"},
+        json={"ultimo_ig_post": datetime.now(timezone.utc).isoformat()},
+        timeout=15,
+    )
+    if r.ok:
+        print(f"  ✓ ultimo_ig_post atualizado para trilha {trail_id}")
+    else:
+        print(f"  ⚠ Falha ao atualizar ultimo_ig_post: {r.status_code} {r.text}")
 
 
 # ─── Drift de acumulo_ef ──────────────────────────────────────────────────────
@@ -456,6 +476,8 @@ def main():
     print(f"   Trilha:   {trail.get('name')}")
     print(f"   Imagem:   {image_url}")
     print(f"   media_id: {media_id}")
+
+    mark_trail_posted(trail["id"])
 
     # Stories — card 1080x1920 dedicado
     print("\n  Aquecendo imagem Stories (1080x1920)...")
