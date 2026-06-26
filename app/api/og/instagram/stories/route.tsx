@@ -41,8 +41,86 @@ function trailNameFontSize(name: string): number {
   return 68
 }
 
-function bgStorageUrl(categoria: string): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/${categoria}.jpg`
+type Paisagem = 'mata' | 'cerrado' | 'montanha'
+
+function landscapeType(bioma: string | null): Paisagem {
+  if (!bioma) return 'cerrado'
+  const b = bioma.toLowerCase()
+  if (b.includes('atlântica') || b.includes('atlantica') || b.includes('amazônia') || b.includes('amazonia')) return 'mata'
+  if (b.includes('serra') || b.includes('campo') || b.includes('rupestre') || b.includes('araucária') || b.includes('araucaria')) return 'montanha'
+  return 'cerrado'
+}
+
+const NEG = 'people, person, human, cyclist, bicycle, bike, rider, athlete, man, woman, child'
+
+const PROMPTS: Record<string, Record<Paisagem, string>> = {
+  sol: {
+    mata:     'Aerial drone photograph, lush Brazilian Atlantic forest, dense green jungle canopy, narrow dirt trail winding through tropical trees, bright sunny blue sky visible in clearings, vibrant golden light filtering through leaves. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    cerrado:  'Aerial drone photograph, Brazilian cerrado savanna, twisted trees and shrubs on red laterite earth, winding dirt trail through open landscape, bright sunny blue sky, vibrant golden light, no clouds, expansive view. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    montanha: 'Aerial drone photograph, Brazilian mountain highland, rocky terrain with alpine meadows and cliff faces, winding trail along dramatic escarpments, bright sunny blue sky, vibrant golden light, spectacular mountain views. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  },
+  nublado: {
+    mata:     'Aerial drone photograph, lush Brazilian Atlantic forest, dense green jungle canopy, narrow dirt trail winding through tropical trees, completely overcast grey sky above the treetops, soft diffuse light filtering through canopy, cool misty atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    cerrado:  'Aerial drone photograph, Brazilian cerrado savanna, twisted trees and shrubs on red earth, winding dirt trail through open landscape, completely overcast sky with grey clouds, diffuse soft light, cool desaturated colors. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    montanha: 'Aerial drone photograph, Brazilian mountain highland, rocky terrain with alpine meadows, winding trail along dramatic escarpments, completely overcast grey sky with low clouds clinging to mountain tops, cool misty highland atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  },
+  garoa: {
+    mata:     'Aerial drone photograph, lush Brazilian Atlantic forest, dense green jungle canopy glistening with fine rain, narrow dirt trail winding through tropical trees, cloudy misty sky, fine drizzle visible, wet leaves and ground, humid foggy atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    cerrado:  'Aerial drone photograph, Brazilian cerrado savanna, twisted trees and shrubs on wet red earth, winding dirt trail through open landscape, cloudy sky with fine drizzle and mist, wet red soil with subtle puddles, humid fresh atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    montanha: 'Aerial drone photograph, Brazilian mountain highland, rocky terrain with wet alpine meadows, winding trail along dramatic escarpments with mist and fine drizzle, low clouds around mountain peaks, foggy humid highland atmosphere, wet rocks glistening. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  },
+  chuva: {
+    mata:     'Aerial drone photograph, lush Brazilian Atlantic forest, dense green jungle canopy with heavy rain falling, narrow dirt trail with puddles winding through tropical trees, dark grey stormy sky, wet shiny vegetation, streams of water forming on path. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    cerrado:  'Aerial drone photograph, Brazilian cerrado savanna, twisted trees and shrubs with rain falling, winding muddy trail through open landscape, dark grey sky with heavy rain, puddles on red earth, wet vegetation, realistic rainy day atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    montanha: 'Aerial drone photograph, Brazilian mountain highland, rocky terrain with rain-soaked alpine meadows, winding muddy trail along dramatic escarpments, dark grey sky with heavy rain falling on mountain peaks, waterfalls visible on cliffs, dramatic wet atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  },
+  tempestade: {
+    mata:     'Aerial drone photograph, lush Brazilian Atlantic forest, dense jungle canopy battered by storm, narrow trail flooding through tropical trees, dramatic dark storm sky with lightning above the forest, heavy rain and strong wind bending trees, dramatic high contrast light. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    cerrado:  'Aerial drone photograph, Brazilian cerrado savanna, twisted trees and shrubs in storm, winding muddy trail through open landscape, dramatic dark storm sky with lightning, heavy rain and strong wind bending the sparse cerrado vegetation, powerful cinematic atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+    montanha: 'Aerial drone photograph, Brazilian mountain highland, rocky terrain in dramatic storm, winding trail along escarpments with lightning striking nearby peaks, powerful dark storm clouds swirling around mountains, heavy rain and wind, spectacular mountain storm atmosphere. Cinematic nature photography, ultra-realistic, wide angle, high detail. No people, no animals, no vehicles, no objects.',
+  },
+}
+
+// Seed determinístico por trilha — mesmo algoritmo do Feed
+function trailSeed(trilhaId: string): number {
+  let h = 5381
+  for (let i = 0; i < trilhaId.length; i++) {
+    h = ((h << 5) + h + trilhaId.charCodeAt(i)) & 0x7FFFFFFF
+  }
+  return (h % 9000) + 1000
+}
+
+// Mesma chave do Feed — Feed e Stories compartilham o mesmo background por trilha
+function bgStorageUrl(trilhaId: string, categoria: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
+}
+
+async function fetchAndUploadPollinations(trilhaId: string, categoria: string, paisagem: Paisagem): Promise<void> {
+  const prompt = (PROMPTS[categoria] ?? PROMPTS['sol'])[paisagem]
+  const seed = trailSeed(trilhaId)
+  const encoded = encodeURIComponent(prompt)
+  const negativePrompt = encodeURIComponent(NEG)
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}&negative_prompt=${negativePrompt}`
+
+  console.log(`[OG Stories] Pollinations fetch: trail_${trilhaId}_${categoria} (${paisagem}) seed=${seed}`)
+  try {
+    const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
+    if (!imgRes.ok) { console.error(`[OG Stories] Pollinations HTTP ${imgRes.status}`); return }
+    const imgBuf = await imgRes.arrayBuffer()
+    if (!imgBuf.byteLength) { console.error('[OG Stories] Buffer vazio'); return }
+    console.log(`[OG Stories] Pollinations OK — ${Math.round(imgBuf.byteLength / 1024)}KB`)
+
+    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
+    const upRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+      body: imgBuf,
+    })
+    if (upRes.ok) console.log(`[OG Stories] Upload OK → instagram-bg/trail_${trilhaId}_${categoria}.jpg`)
+    else console.error(`[OG Stories] Upload falhou: ${upRes.status} ${await upRes.text()}`)
+  } catch (e) {
+    console.error(`[OG Stories] Pollinations erro: ${e}`)
+  }
 }
 
 async function fetchSupabase<T>(table: string, select: string, filter: string): Promise<T | null> {
@@ -90,10 +168,11 @@ export async function GET(req: NextRequest) {
       fetchSupabase<{
         name: string
         regiao: string
+        bioma: string | null
         localidades: { cidade: string; estado: string } | { cidade: string; estado: string }[] | null
       }>(
         'trilhas',
-        'name,regiao,localidades(cidade,estado)',
+        'name,regiao,bioma,localidades(cidade,estado)',
         `id=eq.${trilhaId}`
       ),
       fetchSupabase<{
@@ -159,21 +238,28 @@ export async function GET(req: NextRequest) {
       : null
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_12h)
-    const bgUrl = bgStorageUrl(categoria)
+    const paisagem  = landscapeType(trilha.bioma ?? null)
+    const bgUrl = bgStorageUrl(trilhaId, categoria)
 
-    let bgDataUrl: string | null = null
-    try {
-      const res = await fetch(bgUrl)
-      if (res.ok) {
+    const toDataUrl = async (url: string): Promise<string | null> => {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return null
         const buf = await res.arrayBuffer()
         const bytes = new Uint8Array(buf.slice(0, 4))
-        const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
-        const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF
-        const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
-        const mime   = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : isWebp ? 'image/webp' : 'image/jpeg'
-        bgDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
-      }
-    } catch { /* usa fundo escuro */ }
+        const isPng  = bytes[0] === 0x89 && bytes[1] === 0x50
+        const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8
+        const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49
+        const mime = isPng ? 'image/png' : isJpeg ? 'image/jpeg' : isWebp ? 'image/webp' : 'image/jpeg'
+        return `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
+      } catch { return null }
+    }
+
+    let bgDataUrl: string | null = await toDataUrl(bgUrl)
+    if (!bgDataUrl) {
+      await fetchAndUploadPollinations(trilhaId, categoria, paisagem)
+      bgDataUrl = await toDataUrl(bgUrl)
+    }
 
     return new ImageResponse(
       (
