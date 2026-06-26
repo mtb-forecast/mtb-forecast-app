@@ -52,6 +52,7 @@ jobs:
     name: "Processar ${{ github.event.inputs.estado }}"
 
     env:
+      DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
       OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
       DEEPSEEK_API_KEY:          ${{ secrets.DEEPSEEK_API_KEY }}
@@ -65,7 +66,6 @@ jobs:
       GH_DISPATCH_TOKEN:         ${{ secrets.GH_DISPATCH_TOKEN }}
       MTB_ESTADO:                ${{ github.event.inputs.estado }}
       SKIP_PUMPTRACKS:           "true"
-      DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
 
     steps:
       - uses: actions/checkout@v4
