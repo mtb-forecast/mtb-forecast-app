@@ -1,6 +1,8 @@
 name: Verificar APIs
 
 on:
+  schedule:
+    - cron: "0 9 * * *"  # 06h BRT (UTC-3)
   workflow_dispatch:
 
 permissions:
