@@ -20,8 +20,8 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     env:
-      SUPABASE_URL:          ${{ secrets.SUPABASE_URL }}
-      SUPABASE_KEY:          ${{ secrets.SUPABASE_KEY }}
+      SUPABASE_URL:          https://eydlkvrjopffyqpdstzh.supabase.co
+      SUPABASE_KEY:          ${{ secrets.SUPABASE_SERVICE_KEY }}
       TELEGRAM_BOT_TOKEN:    ${{ secrets.TELEGRAM_BOT_TOKEN }}
       ADMIN_TELEGRAM_CHAT_ID: ${{ secrets.ADMIN_TELEGRAM_CHAT_ID }}
       TRILHA_ID:             ${{ github.event.inputs.trilha_id }}
