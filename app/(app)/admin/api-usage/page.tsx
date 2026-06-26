@@ -40,6 +40,9 @@ const API_COLOR: Record<string, string> = {
   resend:         '#000000',
   telegram:       '#2563eb',
   pollinations:   '#7c3aed',
+  stripe:         '#635bff',
+  strava:         '#fc4c02',
+  openlandmap:    '#15803d',
 }
 
 function fmt(n: number, decimals = 4) {
@@ -269,7 +272,9 @@ export default function ApiUsagePage() {
               <strong>Preços de referência:</strong> Claude Haiku 4.5 — US$0,80/MTok in · US$4,00/MTok out &nbsp;|&nbsp;
               Gemini 2.0 Flash — US$0,10/MTok in · US$0,40/MTok out &nbsp;|&nbsp;
               Groq Llama-3.3-70b — US$0,59/MTok &nbsp;|&nbsp;
-              OWM, Open-Meteo, NOAA — planos gratuitos.
+              Resend — US$0,001/e-mail acima de 3.000/mês &nbsp;|&nbsp;
+              OWM, Open-Meteo, NOAA, Strava, OpenLandMap, Pollinations, Telegram — gratuitos.
+              Stripe não cobra por chamada de API (cobra % por transação).
               Custos são estimativas calculadas na hora da execução.
             </div>
           </>

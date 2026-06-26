@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { stripe, PLANOS } from '@/lib/stripe'
+import { logApiUsage } from '@/lib/api-usage-log'
 
 export async function POST(req: NextRequest) {
   const cookieStore = cookies()
@@ -58,5 +59,6 @@ export async function POST(req: NextRequest) {
     cancel_url: `${appUrl}/planos`,
   })
 
+  void logApiUsage('stripe', 'checkout.sessions.create', { sucesso: 1 })
   return NextResponse.json({ url: session.url })
 }
