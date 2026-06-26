@@ -677,7 +677,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
                     fallback = _buscar_ultima_condicao_supabase(trail)
                     if fallback:
                         ef_prev   = float(fallback.get("acumulo_ef")   or 0.0)
-                        b48_prev  = float(fallback.get("acumulo_48h")  or 0.0)
+                        b48_prev  = float(fallback.get("chuva_solo_48h")  or 0.0)
                         uc_prev   = fallback.get("ultima_chuva_h")
                         ref_str   = fallback.get("historico_atualizado_em") or fallback.get("gerado_em")
                         horas_delta = 0.0
@@ -2233,7 +2233,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "temp_max":           resultado.get("temp_max"),
             "temp_min":           resultado.get("temp_min"),
             "pico_3h":            resultado.get("pico_3h"),
-            "acumulo_48h":        resultado.get("acumulo_48h"),
+            "chuva_solo_48h":        resultado.get("chuva_solo_48h"),
             "acumulo_ef":         resultado.get("acumulo_ef"),
             "ultima_chuva_h":     resultado.get("ultima_chuva_h"),
             "meia_vida_base_h":   resultado.get("meia_vida_base_h"),
@@ -2392,7 +2392,7 @@ def _buscar_ultima_condicao_supabase(trail: dict) -> dict | None:
         return None
     try:
         campos = (
-            "acumulo_ef,acumulo_48h,meia_vida_h,ultima_chuva_h,gerado_em,"
+            "acumulo_ef,chuva_solo_48h,meia_vida_h,ultima_chuva_h,gerado_em,"
             "alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh,"
             "historico_atualizado_em"
         )
@@ -2505,7 +2505,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     om_ef         = hist_om["efetivo"]
     om_uc         = hist_om["ultima_chuva_h"]
 
-    acumulo_48h    = max(om_chuva_solo_48h_mm, ow_chuva_solo_mm)
+    chuva_solo_48h    = max(om_chuva_solo_48h_mm, ow_chuva_solo_mm)
     chuva_bruta_mm = round(max(hist_om.get("chuva_ceu_48h_mm", om_chuva_ceu_mm), ow_chuva_ceu_mm), 1)
 
     # Comparação de lag usa janela alinhada (ambas cobrem hoje+ontem)
@@ -2782,7 +2782,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             "fonte_dia": fonte_dia,
             "veredicto": veredicto(ader, r, w, p3, inc, trail, ef_pos_chuva, vento_hist),
             "debug_model": {
-                "acumulo_48h": acumulo_48h,
+                "chuva_solo_48h": chuva_solo_48h,
                 "acumulo_ef": acumulo_ef,
                 "limiar_descanso": limiar_descanso,
                 "solo_descansado": aderencia["solo_descansado"],
@@ -2856,7 +2856,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     horarios_chuva = calcular_horarios_chuva_oc()
 
     narrativa, cor_n, bg_n = _gerar_narrativa_claude({
-        "acumulo_48h":      acumulo_48h,
+        "chuva_solo_48h":      chuva_solo_48h,
         "chuva_bruta_mm":   chuva_bruta_mm,   # chuva sem interceptação de dossel (texto humano)
         "acumulo_ef":       acumulo_ef,
         "ultima_chuva_h":   ultima_chuva,
@@ -2885,7 +2885,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "solo_type_raw":  trail["solo_type"],
         "rain":           rain, "pop": pop, "temp_max": tmax, "temp_min": tmin, "wind": wind,
         "pico_3h":        pico_3h,
-        "acumulo_48h":    acumulo_48h,
+        "chuva_solo_48h":    chuva_solo_48h,
         "acumulo_ef":     acumulo_ef,
         "ultima_chuva_h": ultima_chuva,
         "meia_vida_base_h": hist.get("meia_vida_base_h"),
@@ -3063,7 +3063,7 @@ def ajustar_por_observacoes(resultado: dict, trail: dict) -> dict:
 
 
 def _resumo_secagem_local(r: dict) -> str:
-    bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
+    bruto           = r.get("chuva_bruta_mm") or r.get("chuva_solo_48h", 0)
     efetivo         = r.get("acumulo_ef", 0)
     ult_h           = r.get("ultima_chuva_h")
     meia_vida       = r.get("meia_vida_h", 24)
@@ -3262,7 +3262,7 @@ def _narrativa_via_deepseek(prompt: str, r: dict) -> tuple | None:
 
 
 def _build_narrativa_prompt(r: dict) -> str:
-    bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
+    bruto           = r.get("chuva_bruta_mm") or r.get("chuva_solo_48h", 0)
     efetivo         = r.get("acumulo_ef", 0)
     ult_h           = r.get("ultima_chuva_h")
     meia_vida       = r.get("meia_vida_h", 24)
@@ -3787,7 +3787,7 @@ def main() -> None:
                     dbg = dados["fds"]["d1"].get("debug_model", {})
                     print(
                         f"  [DEBUG] {trail['name']} | "
-                        f"bruto={dbg.get('acumulo_48h')} | "
+                        f"bruto={dbg.get('chuva_solo_48h')} | "
                         f"ef={dbg.get('acumulo_ef')} | "
                         f"th={dbg.get('limiar_descanso')} | "
                         f"solo_desc={dbg.get('solo_descansado')} | "

@@ -61,7 +61,7 @@ export default async function DashboardFavoritas({
         condicoes(
           veredicto, veredicto_12h,
           aderencia_status, aderencia_futura_status, aderencia_futura_label,
-          pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+          pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
           texto_dinamico, frase_secagem, gerado_em
         )
       `)
@@ -172,7 +172,7 @@ async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondic
           veredicto, veredicto_12h,
           aderencia_status, aderencia_score,
           aderencia_futura_status, aderencia_futura_label,
-          pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+          pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
           texto_dinamico, frase_secagem, gerado_em
         ),
         favoritos_agg:favoritos(count)
