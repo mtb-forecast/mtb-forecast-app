@@ -36,6 +36,12 @@ on:
           - AC
           - RR
           - AP
+      debug_model:
+        description: "Ativar DEBUG_MODEL"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 permissions:
   contents: read
@@ -60,6 +66,7 @@ jobs:
       GH_DISPATCH_TOKEN:         ${{ secrets.GH_DISPATCH_TOKEN }}
       MTB_ESTADO:                ${{ github.event.inputs.estado }}
       SKIP_PUMPTRACKS:           "true"
+      DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
 
     steps:
       - uses: actions/checkout@v4

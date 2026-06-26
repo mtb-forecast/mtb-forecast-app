@@ -1,6 +1,8 @@
 name: Verificar APIs
 
 on:
+  schedule:
+    - cron: "0 9 * * *"  # 06h BRT (UTC-3)
   workflow_dispatch:
 
 permissions:
@@ -18,8 +20,9 @@ jobs:
       SUPABASE_URL:         https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       WEATHERAPI_KEY:       ${{ secrets.WEATHERAPI_KEY }}
-      TELEGRAM_BOT_TOKEN:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      GH_DISPATCH_TOKEN:    ${{ secrets.GH_DISPATCH_TOKEN }}
+      TELEGRAM_BOT_TOKEN:       ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ADMIN_TELEGRAM_CHAT_ID:   ${{ secrets.ADMIN_TELEGRAM_CHAT_ID }}
+      GH_DISPATCH_TOKEN:        ${{ secrets.GH_DISPATCH_TOKEN }}
 
     steps:
       - name: Verificar APIs e gerar painel
@@ -207,78 +210,59 @@ jobs:
               else:
                   add("Anthropic API (Claude)", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 8. DeepSeek API (narrativa primária) ─────────────────────────
+          # ── 8. DeepSeek API (narrativa primária) — GET /models, sem tokens ─
           ds_key = os.getenv("DEEPSEEK_API_KEY", "")
           if not ds_key:
               add("DeepSeek API (narrativa primária)", "⚠️", "—", 0, "DEEPSEEK_API_KEY ausente nos secrets", False)
           else:
-              payload = json.dumps({
-                  "model": "deepseek-chat",
-                  "messages": [{"role": "user", "content": "ping"}],
-                  "max_tokens": 5,
-              }).encode("utf-8")
               sc, body, ms, err = req(
-                  "https://api.deepseek.com/chat/completions",
-                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {ds_key}"},
-                  method="POST", data=payload,
+                  "https://api.deepseek.com/models",
+                  headers={"Authorization": f"Bearer {ds_key}"},
               )
               if sc == 200 and body:
-                  model = body.get("model", "deepseek-chat")
-                  usage = body.get("usage", {})
-                  detail = f"Modelo: **{model}** · tokens prompt = {usage.get('prompt_tokens', '?')}"
+                  models = [m.get("id", "") for m in body.get("data", [])]
+                  has_chat = any("chat" in m for m in models)
+                  detail = f"{len(models)} modelos · deepseek-chat = **{'sim' if has_chat else 'não'}**"
                   add("DeepSeek API (narrativa primária)", "🟢", sc, ms, detail, True)
               elif sc == 402:
                   add("DeepSeek API (narrativa primária)", "🔴", sc, ms, "Saldo insuficiente — recarregar créditos", False)
               elif sc == 401:
                   add("DeepSeek API (narrativa primária)", "🔴", sc, ms, "Chave inválida", False)
               else:
-                  add("DeepSeek API (narrativa primária)", "🔴", sc, ms, err or body or "erro desconhecido", False)
+                  add("DeepSeek API (narrativa primária)", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 9. Gemini 2.0 Flash (narrativa fallback 2) ──────────────────
+          # ── 9. Gemini 2.0 Flash (narrativa fallback 2) — GET /models ────
           gm_key = os.getenv("GEMINI_API_KEY", "")
           if not gm_key:
               add("Gemini 2.0 Flash (narrativa fallback 2)", "⚠️", "—", 0, "GEMINI_API_KEY ausente nos secrets", False)
           else:
-              url = (
-                  "https://generativelanguage.googleapis.com/v1beta/models/"
-                  f"gemini-2.0-flash:generateContent?key={gm_key}"
-              )
-              payload = json.dumps({
-                  "contents": [{"parts": [{"text": "ping"}]}],
-                  "generationConfig": {"maxOutputTokens": 5},
-              }).encode("utf-8")
-              sc, body, ms, err = req(url, headers={"Content-Type": "application/json"}, method="POST", data=payload)
+              url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gm_key}"
+              sc, body, ms, err = req(url)
               if sc == 200 and body:
-                  meta = body.get("usageMetadata", {})
-                  tokens_out = meta.get("candidatesTokenCount", "?")
-                  detail = f"Modelo: **gemini-2.0-flash** · tokens saída = {tokens_out}"
+                  models = [m.get("name", "") for m in body.get("models", [])]
+                  has_flash = any("gemini-2.0-flash" in m for m in models)
+                  detail = f"{len(models)} modelos · gemini-2.0-flash = **{'sim' if has_flash else 'não'}**"
                   add("Gemini 2.0 Flash (narrativa fallback 2)", "🟢", sc, ms, detail, True)
               elif sc == 400:
                   add("Gemini 2.0 Flash (narrativa fallback 2)", "🔴", sc, ms, "Chave inválida ou projeto sem acesso", False)
-              elif sc == 429:
-                  add("Gemini 2.0 Flash (narrativa fallback 2)", "🟡", sc, ms, "Rate limit atingido", True)
+              elif sc == 403:
+                  add("Gemini 2.0 Flash (narrativa fallback 2)", "🔴", sc, ms, "Chave inválida ou API não habilitada", False)
               else:
                   add("Gemini 2.0 Flash (narrativa fallback 2)", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 10. Groq llama-3.3-70b (narrativa fallback 3) ───────────────
+          # ── 10. Groq llama-3.3-70b (narrativa fallback 3) — GET /models ─
           groq_key = os.getenv("GROQ_API_KEY", "")
           if not groq_key:
               add("Groq llama-3.3-70b (narrativa fallback 3)", "⚠️", "—", 0, "GROQ_API_KEY ausente nos secrets", False)
           else:
-              payload = json.dumps({
-                  "model": "llama-3.3-70b-versatile",
-                  "messages": [{"role": "user", "content": "ping"}],
-                  "max_tokens": 5,
-              }).encode("utf-8")
               sc, body, ms, err = req(
-                  "https://api.groq.com/openai/v1/chat/completions",
-                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
-                  method="POST", data=payload,
+                  "https://api.groq.com/openai/v1/models",
+                  headers={"Authorization": f"Bearer {groq_key}"},
               )
               if sc == 200 and body:
-                  model = body.get("model", "llama-3.3-70b-versatile")
-                  usage = body.get("usage", {})
-                  detail = f"Modelo: **{model}** · tokens prompt = {usage.get('prompt_tokens', '?')}"
+                  models = [m.get("id", "") for m in body.get("data", [])]
+                  has_llama = any("llama-3.3-70b" in m for m in models)
+                  detail = f"{len(models)} modelos · llama-3.3-70b = **{'sim' if has_llama else 'não'}**"
                   add("Groq llama-3.3-70b (narrativa fallback 3)", "🟢", sc, ms, detail, True)
               elif sc == 401:
                   add("Groq llama-3.3-70b (narrativa fallback 3)", "🔴", sc, ms, "Chave inválida", False)
@@ -422,6 +406,41 @@ jobs:
                   f.write(summary)
 
           print(summary)
+
+          # ── Enviar resumo ao Telegram ────────────────────────────────────
+          tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+          tg_chat  = os.getenv("ADMIN_TELEGRAM_CHAT_ID", "")
+          if tg_token and tg_chat:
+              lines_tg = [
+                  f"{header_emoji} <b>Verificação de APIs — MTB Forecaster</b>",
+                  f"<i>{agora} · {ok_count}/{total} operacionais</i>",
+                  "",
+              ]
+              for r in results:
+                  detail_short = r["detail"].replace("**", "").replace("*", "")
+                  http_str = f" · HTTP {r['status']}" if r["status"] and r["status"] != 200 else ""
+                  lines_tg.append(f"{r['emoji']} {r['name']}{http_str}")
+                  if not r["ok"] or r["emoji"] in ("🔴", "🟡"):
+                      lines_tg.append(f"   <i>{detail_short}</i>")
+
+              tg_msg = "\n".join(lines_tg)
+              try:
+                  tg_payload = json.dumps({
+                      "chat_id": tg_chat,
+                      "text": tg_msg,
+                      "parse_mode": "HTML",
+                  }).encode("utf-8")
+                  tg_req = urllib.request.Request(
+                      f"https://api.telegram.org/bot{tg_token}/sendMessage",
+                      data=tg_payload,
+                      headers={"Content-Type": "application/json"},
+                  )
+                  with urllib.request.urlopen(tg_req, timeout=10) as resp:
+                      print(f"[Telegram] Resumo enviado (HTTP {resp.status})")
+              except Exception as e:
+                  print(f"[Telegram] Falha ao enviar resumo: {e}")
+          else:
+              print("[Telegram] TELEGRAM_BOT_TOKEN ou ADMIN_TELEGRAM_CHAT_ID ausente — resumo não enviado")
 
           if fail > 0:
               raise SystemExit(1)
