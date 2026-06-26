@@ -68,6 +68,7 @@ export default function ApiUsagePage() {
   const [dias, setDias] = useState(7)
   const [report, setReport] = useState<Report | null>(null)
   const [fetching, setFetching] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
@@ -83,9 +84,17 @@ export default function ApiUsagePage() {
 
   const load = useCallback(async (d: number) => {
     setFetching(true)
+    setFetchError(null)
     try {
       const res = await fetch(`/api/admin/api-usage?dias=${d}`)
-      if (res.ok) setReport(await res.json())
+      if (res.ok) {
+        setReport(await res.json())
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setFetchError(body.error ?? `HTTP ${res.status}`)
+      }
+    } catch (e) {
+      setFetchError(String(e))
     } finally {
       setFetching(false)
     }
@@ -135,6 +144,12 @@ export default function ApiUsagePage() {
 
         {fetching && !report && (
           <div style={{ textAlign: 'center', padding: 64, color: '#888' }}>Carregando...</div>
+        )}
+
+        {fetchError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '16px 20px', color: '#dc2626', fontSize: 13 }}>
+            <strong>Erro ao carregar dados:</strong> {fetchError}
+          </div>
         )}
 
         {report && (
