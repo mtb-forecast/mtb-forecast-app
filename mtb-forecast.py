@@ -3805,9 +3805,12 @@ def main() -> None:
                 except Exception:
                     pass
 
-    # Processa pump tracks — apenas previsão do tempo, sem cálculo de solo
-    print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
-    _processar_pumptracks()
+    # Processa pump tracks — apenas no workflow principal (SKIP_PUMPTRACKS bloqueia debug/estado)
+    if not os.getenv("SKIP_PUMPTRACKS"):
+        print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
+        _processar_pumptracks()
+    else:
+        print("\n[Pump Tracks] Ignorado (SKIP_PUMPTRACKS=true).")
 
     print("\n[MTBForecaster] Concluído.")
     _pipeline_run_concluir(_run_id, "ok", _n_ok, _n_erro)

@@ -58,6 +58,7 @@ jobs:
       WEATHERAPI_KEY:            ${{ secrets.WEATHERAPI_KEY }}
       GH_DISPATCH_TOKEN:         ${{ secrets.GH_DISPATCH_TOKEN }}
       MTB_ESTADO:                ${{ github.event.inputs.estado }}
+      SKIP_PUMPTRACKS:           "true"
 
     steps:
       - uses: actions/checkout@v4
