@@ -647,7 +647,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         </div>
       </div>
 
-      {/* Alerta: choveu após o último report do pipeline */}
+      {/* Alerta: choveu após o último report */}
       {rainSincePipeline !== null && rainSincePipeline >= 0.5 && (
         <div style={{
           margin: '8px 18px 0',
@@ -665,6 +665,30 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
           <IconCloudRain size={14} style={{ color: '#D97706', flexShrink: 0 }} />
           <span>
             <strong>{rainSincePipeline.toFixed(1)}mm</strong> de chuva após o último report — solo pode estar mais úmido
+          </span>
+        </div>
+      )}
+
+      {/* Banner positivo: sol e sem chuva — trilha secando mais rápido */}
+      {rainSincePipeline !== null && rainSincePipeline < 0.5 &&
+       liveWeather !== null && liveWeather.cloudCover < 40 && liveWeather.precipitation < 0.1 &&
+       aderenciaStr !== 'SECO' && (
+        <div style={{
+          margin: '8px 18px 0',
+          background: '#F0FDF4',
+          border: '1px solid #86EFAC',
+          borderRadius: 8,
+          padding: '8px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 12,
+          color: '#166534',
+          fontWeight: 500,
+        }}>
+          <IconSun size={14} style={{ color: '#16A34A', flexShrink: 0 }} />
+          <span>
+            Tempo aberto desde o último report — trilha secando mais rápido que o previsto
           </span>
         </div>
       )}
