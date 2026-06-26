@@ -19,7 +19,9 @@ jobs:
       GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
       SUPABASE_URL:         https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-      WEATHERAPI_KEY:       ${{ secrets.WEATHERAPI_KEY }}
+      WEATHERAPI_KEY:           ${{ secrets.WEATHERAPI_KEY }}
+      WINDY_API_KEY:            ${{ secrets.WINDY_API_KEY }}
+      RESEND_API_KEY:           ${{ secrets.RESEND_API_KEY }}
       TELEGRAM_BOT_TOKEN:       ${{ secrets.TELEGRAM_BOT_TOKEN }}
       ADMIN_TELEGRAM_CHAT_ID:   ${{ secrets.ADMIN_TELEGRAM_CHAT_ID }}
       GH_DISPATCH_TOKEN:        ${{ secrets.GH_DISPATCH_TOKEN }}
@@ -271,7 +273,77 @@ jobs:
               else:
                   add("Groq llama-3.3-70b (narrativa fallback 3)", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 11. WeatherAPI (fallback vento) ──────────────────────────────
+          # ── 11. Resend (email) — GET /domains, zero custo ────────────────
+          rs_key = os.getenv("RESEND_API_KEY", "")
+          if not rs_key:
+              add("Resend (email)", "⚠️", "—", 0, "RESEND_API_KEY ausente nos secrets", False)
+          else:
+              sc, body, ms, err = req(
+                  "https://api.resend.com/domains",
+                  headers={"Authorization": f"Bearer {rs_key}"},
+              )
+              if sc == 200 and body:
+                  domains = body.get("data", [])
+                  names = ", ".join(d.get("name", "?") for d in domains[:3])
+                  detail = f"{len(domains)} domínio(s): *{names or 'nenhum'}*"
+                  add("Resend (email)", "🟢", sc, ms, detail, True)
+              elif sc == 401:
+                  add("Resend (email)", "🔴", sc, ms, "Chave inválida", False)
+              else:
+                  add("Resend (email)", "🔴", sc, ms, err or "erro desconhecido", False)
+
+          # ── 12. Windy Point Forecast — POST mínimo (1 de 500 calls/dia) ─
+          windy_key = os.getenv("WINDY_API_KEY", "")
+          if not windy_key:
+              add("Windy Point Forecast", "⚠️", "—", 0, "WINDY_API_KEY ausente nos secrets", False)
+          else:
+              payload = json.dumps({
+                  "lat": LAT, "lon": LON,
+                  "model": "gfs",
+                  "parameters": ["temp"],
+                  "levels": ["surface"],
+                  "key": windy_key,
+              }).encode("utf-8")
+              sc, body, ms, err = req(
+                  "https://api.windy.com/api/point-forecast/v2",
+                  headers={"Content-Type": "application/json"},
+                  method="POST", data=payload,
+              )
+              if sc == 200 and body:
+                  ts = body.get("ts", [])
+                  detail = f"GFS · {len(ts)} timestamps retornados"
+                  add("Windy Point Forecast", "🟢", sc, ms, detail, True)
+              elif sc == 401:
+                  add("Windy Point Forecast", "🔴", sc, ms, "Chave inválida", False)
+              elif sc == 400:
+                  detail = (body or {}).get("message", "parâmetros inválidos") if body else "parâmetros inválidos"
+                  add("Windy Point Forecast", "🔴", sc, ms, detail, False)
+              else:
+                  add("Windy Point Forecast", "🔴", sc, ms, err or "erro desconhecido", False)
+
+          # ── 13. Pollinations.ai (imagens) — público, sem chave ───────────
+          sc, body, ms, err = req("https://image.pollinations.ai/models")
+          if sc == 200 and body:
+              models = body if isinstance(body, list) else []
+              detail = f"{len(models)} modelos disponíveis"
+              add("Pollinations.ai (imagens)", "🟢", sc, ms, detail, True)
+          elif sc is not None:
+              add("Pollinations.ai (imagens)", "🟡", sc, ms, f"HTTP {sc} — verificar disponibilidade", True)
+          else:
+              add("Pollinations.ai (imagens)", "🔴", None, ms, err or "sem resposta", False)
+
+          # ── 14. Vercel (produção) — GET na URL do app ─────────────────────
+          sc, _, ms, err = req("https://www.mtbforecaster.com.br", timeout=20)
+          if sc == 200:
+              add("Vercel (produção)", "🟢", sc, ms, "App respondendo em mtbforecaster.com.br", True)
+          elif sc in (301, 302, 307, 308):
+              add("Vercel (produção)", "🟢", sc, ms, f"Redirect {sc} — app online", True)
+          elif sc is not None:
+              add("Vercel (produção)", "🔴", sc, ms, f"HTTP {sc} inesperado", False)
+          else:
+              add("Vercel (produção)", "🔴", None, ms, err or "timeout ou DNS failure", False)
+
+          # ── 16. WeatherAPI (fallback vento) ──────────────────────────────
           wa_key = os.getenv("WEATHERAPI_KEY", "")
           if not wa_key:
               add("WeatherAPI (fallback vento)", "⚠️", "—", 0, "WEATHERAPI_KEY ausente nos secrets", False)
@@ -294,7 +366,7 @@ jobs:
               else:
                   add("WeatherAPI (fallback vento)", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 12. Supabase REST ────────────────────────────────────────────
+          # ── 17. Supabase REST ────────────────────────────────────────────
           sb_url = os.getenv("SUPABASE_URL", "")
           sb_key = os.getenv("SUPABASE_SERVICE_KEY", "")
           if not sb_url or not sb_key:
@@ -314,7 +386,7 @@ jobs:
               else:
                   add("Supabase REST", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 13. Telegram Bot ─────────────────────────────────────────────
+          # ── 18. Telegram Bot ─────────────────────────────────────────────
           tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
           if not tg_token:
               add("Telegram Bot", "⚠️", "—", 0, "TELEGRAM_BOT_TOKEN ausente nos secrets", False)
@@ -332,7 +404,7 @@ jobs:
               else:
                   add("Telegram Bot", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 14. GitHub API (dispatch token) ──────────────────────────────
+          # ── 19. GitHub API (dispatch token) ──────────────────────────────
           gh_token = os.getenv("GH_DISPATCH_TOKEN", "")
           if not gh_token:
               add("GitHub API (dispatch)", "⚠️", "—", 0, "GH_DISPATCH_TOKEN ausente nos secrets", False)
