@@ -18,8 +18,9 @@ jobs:
       SUPABASE_URL:         https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       WEATHERAPI_KEY:       ${{ secrets.WEATHERAPI_KEY }}
-      TELEGRAM_BOT_TOKEN:   ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      GH_DISPATCH_TOKEN:    ${{ secrets.GH_DISPATCH_TOKEN }}
+      TELEGRAM_BOT_TOKEN:       ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ADMIN_TELEGRAM_CHAT_ID:   ${{ secrets.ADMIN_TELEGRAM_CHAT_ID }}
+      GH_DISPATCH_TOKEN:        ${{ secrets.GH_DISPATCH_TOKEN }}
 
     steps:
       - name: Verificar APIs e gerar painel
@@ -422,6 +423,41 @@ jobs:
                   f.write(summary)
 
           print(summary)
+
+          # ── Enviar resumo ao Telegram ────────────────────────────────────
+          tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+          tg_chat  = os.getenv("ADMIN_TELEGRAM_CHAT_ID", "")
+          if tg_token and tg_chat:
+              lines_tg = [
+                  f"{header_emoji} <b>Verificação de APIs — MTB Forecaster</b>",
+                  f"<i>{agora} · {ok_count}/{total} operacionais</i>",
+                  "",
+              ]
+              for r in results:
+                  detail_short = r["detail"].replace("**", "").replace("*", "")
+                  http_str = f" · HTTP {r['status']}" if r["status"] and r["status"] != 200 else ""
+                  lines_tg.append(f"{r['emoji']} {r['name']}{http_str}")
+                  if not r["ok"] or r["emoji"] in ("🔴", "🟡"):
+                      lines_tg.append(f"   <i>{detail_short}</i>")
+
+              tg_msg = "\n".join(lines_tg)
+              try:
+                  tg_payload = json.dumps({
+                      "chat_id": tg_chat,
+                      "text": tg_msg,
+                      "parse_mode": "HTML",
+                  }).encode("utf-8")
+                  tg_req = urllib.request.Request(
+                      f"https://api.telegram.org/bot{tg_token}/sendMessage",
+                      data=tg_payload,
+                      headers={"Content-Type": "application/json"},
+                  )
+                  with urllib.request.urlopen(tg_req, timeout=10) as resp:
+                      print(f"[Telegram] Resumo enviado (HTTP {resp.status})")
+              except Exception as e:
+                  print(f"[Telegram] Falha ao enviar resumo: {e}")
+          else:
+              print("[Telegram] TELEGRAM_BOT_TOKEN ou ADMIN_TELEGRAM_CHAT_ID ausente — resumo não enviado")
 
           if fail > 0:
               raise SystemExit(1)
