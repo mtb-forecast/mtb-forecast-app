@@ -26,7 +26,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DEBUG_MODEL:              "true"
       OPENWEATHER_API_KEY:      ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:        ${{ secrets.ANTHROPIC_API_KEY }}
       DEEPSEEK_API_KEY:         ${{ secrets.DEEPSEEK_API_KEY }}
