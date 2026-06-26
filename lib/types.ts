@@ -7,6 +7,19 @@ export type PrevisaoBloco = {
   temp_med: number
 }
 
+export type Mantenedor = {
+  id: string
+  nome: string
+  nome_primario: string | null
+  nome_secundario: string | null
+  cor_primaria: string
+  cor_secundaria: string | null
+  logo_url: string | null
+  site_url: string | null
+  ativo: boolean
+  criado_em: string
+}
+
 export type Trilha = {
   id: string
   name: string
@@ -25,6 +38,7 @@ export type Trilha = {
   polyline?: string | null
   localidades?: { cidade: string; estado: string; localidade: string | null } | null
   previsao_blocos?: PrevisaoBloco[] | null
+  mantenedor?: Mantenedor | null
 }
 
 export type Condicao = {
@@ -37,7 +51,7 @@ export type Condicao = {
   aderencia_score: number
   aderencia_desc?: string | null
   solo_descansado?: boolean | null
-  thresh_desc?: number | null
+  limiar_descanso?: number | null
   grip_threshold_ef?: number | null
 
   // Veredictos
@@ -64,6 +78,12 @@ export type Condicao = {
   temp_max?: number | null
   temp_min?: number | null
 
+  // Auditoria climática
+  cloud_pct?: number | null
+  humidity_pct?: number | null
+  temp_media_c?: number | null
+  meia_vida_base_h?: number | null
+
   // Solo
   meia_vida_h: number
   clay_pct?: number | null
@@ -75,8 +95,7 @@ export type Condicao = {
   enso_fase?: string | null
   enso_oni?: number | null
 
-  // Janela / frase
-  janela: string
+  // Frase de secagem
   frase_secagem: string
 
   // Fonte
@@ -125,12 +144,16 @@ export type Profile = {
   email: string
   nome?: string
   apelido?: string
+  data_nascimento?: string | null
+  cidade?: string
   telefone?: string
   telefone_whatsapp?: boolean
   telegram_username?: string
   telegram_chat_id?: string | null
   telegram_ativo?: boolean
   instagram?: string
+  facebook?: string
+  strava_id?: string
   regiao?: string
   is_admin: boolean
   plano?: string

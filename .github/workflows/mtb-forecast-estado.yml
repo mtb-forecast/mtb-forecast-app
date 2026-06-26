@@ -52,6 +52,7 @@ jobs:
       SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       TELEGRAM_BOT_TOKEN:        ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ADMIN_TELEGRAM_CHAT_ID:    ${{ secrets.ADMIN_TELEGRAM_CHAT_ID }}
       SEND_EMAIL_SECRET:         ${{ secrets.SEND_EMAIL_SECRET }}
       WEATHERAPI_KEY:            ${{ secrets.WEATHERAPI_KEY }}
       GH_DISPATCH_TOKEN:         ${{ secrets.GH_DISPATCH_TOKEN }}
@@ -59,6 +60,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:

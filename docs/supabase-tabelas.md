@@ -1,8 +1,10 @@
 # MTB Forecast — Inventário Completo de Tabelas Supabase
 
 > Documento de referência gerado a partir de `mtb-forecast.py`, migrations SQL e código Next.js.
-> Cobre todas as **31 tabelas** do sistema, seus campos, valores válidos e onde cada uma é consumida.
-> Atualizado em 2026-06 com Grupo 6 (Pump Tracks), coluna `historico_atualizado_em` e campo `condicao_encontrada` em `observacoes_trilha`.
+> Cobre todas as **34+ tabelas** do sistema, seus campos, valores válidos e onde cada uma é consumida.
+> Atualizado em jun/2026 com: tabela `mantenedores`, tabela `enso_regional_mult`, coluna `regiao`
+> em `meia_vida_secagem`, entradas macro-regionais em `threshold_sazonal`, colunas de auditoria
+> em `condicoes`, multiplicadores de garoa atualizados em `meia_vida_clima_mult`.
 
 ---
 
@@ -10,12 +12,13 @@
 
 | Grupo | Tabelas | Propósito |
 |---|---|---|
-| [Configuração do Modelo](#grupo-1--configuração-do-modelo) | 15 | Dados de negócio que alimentam o algoritmo Python |
-| [Trilhas e Condições](#grupo-2--trilhas-e-condições) | 4 | Cadastro de trilhas e resultados de previsão |
+| [Configuração do Modelo](#grupo-1--configuração-do-modelo) | 16 | Dados de negócio que alimentam o algoritmo Python |
+| [Trilhas e Condições](#grupo-2--trilhas-e-condições) | 5 | Cadastro de trilhas, resultados de previsão e mantenedores |
 | [Strava](#grupo-3--strava) | 4 | Segmentos pessoais via integração Strava |
 | [Usuários](#grupo-4--usuários) | 2 | Perfis e preferências de usuários |
 | [Interações](#grupo-5--interações) | 2 | Avaliações de riders e aprovações administrativas |
 | [Pump Tracks](#grupo-6--pump-tracks) | 4 | Locais pump track com previsão, fotos e avaliações |
+| [Strava Condições](#grupo-7--strava-condições) | 1 | Condições calculadas para segmentos Strava |
 
 ---
 
@@ -55,9 +58,8 @@ Chave-valor central do sistema. Absorveu `score_config` na Fase 5, categorizada 
 | `coef_acumulo` | `0.3` | `scoring` | `impacto = rain + acumulo_ef × 0.3` (solo saturado, pico < 10) |
 | `coef_base` | `10.0` | `scoring` | `score = impacto × 10.0` — escala 0–100 |
 | `pico_threshold` | `10.0` | `scoring` | Limiar de ativação da lógica de pico (mm) |
-| `bikepark_acumulo_threshold` | `5.0` | `scoring` | Gatilho de saturação para o desconto de score do bikepark. Se `acumulo_ef < 5.0mm`, a drenagem projetada ainda está funcionando e o `score_mult` de `trail_type_config` (0.90) é aplicado — reduzindo 10% do impacto calculado. Se `acumulo_ef >= 5.0mm`, o bikepark está saturado, a drenagem perdeu eficácia e o desconto não é aplicado (score cheio). Calibrável: valores menores = desconto só em bikeparks muito secos; valores maiores = desconto mais liberal. |
-| ~~`bikepark_score_mult`~~ | ~~`0.90`~~ | `scoring` | **Obsoleto** — migrado para `trail_type_config.score_mult` (ainda no banco, não é mais lido) |
-| `bikepark_saturado_threshold` | `10.0` | `scoring` | Limiar de saturação de emergência para bikepark — usado como fallback quando a tabela `threshold_sazonal` está indisponível no Supabase. Quando `acumulo_ef > 10.0mm`, o bikepark é considerado saturado: libera BAIXA ADERÊNCIA (normalmente bloqueada para bikeparks) e adiciona pontos extras de risco no veredicto. Em operação normal este valor nunca é atingido pois `threshold_sazonal` fornece o limiar real ajustado por mês e região. |
+| `bikepark_acumulo_threshold` | `5.0` | `scoring` | Gatilho de saturação para o desconto de score do bikepark |
+| `bikepark_saturado_threshold` | `10.0` | `scoring` | Fallback de saturação quando `threshold_sazonal` indisponível |
 | `email_from` | endereço | `sistema` | Remetente dos alertas por e-mail |
 | `email_password` | senha/app-pw | `sistema` | Credencial do remetente |
 | `telegram_token` | token | `sistema` | Token do bot Telegram |
@@ -74,70 +76,93 @@ Chave-valor central do sistema. Absorveu `score_config` na Fase 5, categorizada 
 
 ### `tabela_solo`
 
-Tabela mestra de composição do solo por tipo, bioma e região. Base para `clay_pct` e `sand_pct`.
+Tabela mestra de composição do solo por tipo, bioma e região.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
-| `solo_type` | text | Tipo de solo: `terra`, `preto`, `misto`, `misto_mg`, `pedra`, `ferro` |
-| `bioma` | text | Ex: `Mata Atlântica`, `Cerrado` — `NULL` = wildcard (qualquer bioma) |
-| `regiao` | text | Sigla do estado: `SP`, `MG` — `NULL` = wildcard (qualquer região) |
+| `solo_type` | text | `terra`, `preto`, `misto`, `misto_mg`, `pedra`, `ferro` |
+| `bioma` | text | Ex: `Mata Atlântica`, `Cerrado` — `NULL` = wildcard |
+| `regiao` | text | Sigla do estado: `SP`, `MG` — `NULL` = wildcard |
 | `clay_pct` | numeric | % de argila (0–100) |
 | `sand_pct` | numeric | % de areia (0–100) |
 | `texture_class` | text | Ex: `Franco-argiloso`, `Argiloso` |
 
 **Prioridade de lookup (3 níveis):**
 1. Match exato: `solo_type + bioma + regiao`
-2. Match: `solo_type + bioma + regiao=NULL` (wildcard de região)
-3. Fallback: `solo_type + bioma=NULL + regiao=NULL` (wildcard universal)
-
-**Nota:** `bioma` e `regiao` são nullable (NOT NULL removido na Fase 5). Índice único usa `COALESCE(bioma,'')` e `COALESCE(regiao,'')` para tratar NULLs como wildcards únicos.
-
-**Crítica:** Sem fallback hardcoded — se indisponível, `clay_pct` não será calculado (`[ERRO CRÍTICO]`).
+2. Match: `solo_type + bioma + regiao=NULL`
+3. Fallback: `solo_type + bioma=NULL + regiao=NULL`
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_tabela_solo()` / `_lookup_solo()` → `buscar_solo_openlandmap()`
-- `mtb-forecast.py` → `fator_absorcao()` — `clay_pct` define a base de absorção
-- `mtb-forecast.py` → `gravar_supabase()` — grava `clay_pct`, `sand_pct`, `texture_class` em `condicoes`
 - `app/(app)/admin/tabelas/page.tsx` → painel admin de edição com dupla aprovação
 
 ---
 
 ### `threshold_sazonal`
 
-Thresholds mensais de saturação por região. Define quando o solo está "descansado" vs. "saturado".
+Thresholds mensais de saturação por região. **Atualizado em jun/2026**: adicionadas entradas para macro-regiões além de UFs específicos.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
-| `regiao` | text | Sigla do estado: `SP`, `MG`, `RJ`, etc. |
+| `regiao` | text | Sigla do estado (`SP`, `MG`, `RJ`, `SC`, `RS`, `PR`) OU macro-região (`SUDESTE`, `SUL`, `NORTE`, `NORDESTE`, `CENTRO-OESTE`) OU `DEFAULT` |
 | `mes` | integer | Mês (1–12) |
 | `threshold_descansado` | numeric | mm de `acumulo_ef` acima do qual o solo está saturado |
 | `threshold_saturado` | numeric | mm para considerar bikepark saturado |
 
-**Crítica:** Sem fallback hardcoded — se indisponível, retorna `{}` e usa `(5.0, 10.0)` como última saída.
+**Cascata de lookup Python `_threshold_tabela(regiao, mes)`:**
+1. Busca por UF exata (ex: `SP`)
+2. Se não encontrado: busca pela macro-região (`_macro_regiao(uf)` → `SUDESTE`)
+3. Se não encontrado: busca `DEFAULT`
+
+**Entradas por macro-região (valores de referência — dados reais no Supabase):**
+
+| regiao | jan | abr | jul | out |
+|---|---|---|---|---|
+| SUDESTE | 3.0mm / 7.0mm | 5.0mm / 10.0mm | 8.0mm / 15.0mm | 5.0mm / 10.0mm |
+| SUL | 4.0mm / 9.0mm | 6.0mm / 12.0mm | 9.0mm / 17.0mm | 6.0mm / 12.0mm |
+| NORTE | 1.5mm / 5.0mm | 1.5mm / 5.0mm | 3.0mm / 8.0mm | 2.0mm / 6.0mm |
+| NORDESTE | 5.0mm / 11.0mm | 4.0mm / 10.0mm | 6.0mm / 13.0mm | 5.0mm / 11.0mm |
+| CENTRO-OESTE | 2.5mm / 6.0mm | 4.5mm / 9.0mm | 8.0mm / 15.0mm | 4.0mm / 9.0mm |
+
+**Formato:** `threshold_descansado / threshold_saturado`
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_threshold_sazonal()` → `threshold_solo_descansado()`
-- `mtb-forecast.py` → `threshold_bikepark_saturado()` — limiar de saturação do bikepark
-- `mtb-forecast.py` → `calcular_score_trilha()` — define `solo_descansado`
-- `mtb-forecast.py` → `calcular_aderencia()` — fator de recuperação usa `thresh_local`
+- `mtb-forecast.py` → `threshold_bikepark_saturado()`
 - `app/(app)/admin/tabelas/page.tsx` → painel admin de edição
 
 ---
 
 ### `meia_vida_secagem`
 
-Taxa de secagem base por tipo de solo e exposição ao sol. Ponto de partida do pipeline de meia-vida.
+Taxa de secagem base por tipo de solo, exposição e região. **Atualizado em jun/2026**: adicionada coluna `regiao`.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
 | `solo_type` | text | `terra`, `preto`, `misto`, `misto_mg`, `pedra`, `ferro` |
 | `exposicao` | text | `aberta` ou `fechada` |
+| `regiao` | text | `DEFAULT` ou macro-região: `SUDESTE`, `SUL`, `NORTE`, `NORDESTE`, `CENTRO-OESTE` |
 | `meia_vida_h` | numeric | Horas para perder 50% da umidade (base, antes de ajustes) |
 
-**Valores atuais:**
+**Cascata de lookup Python `_meia_vida(trail)`:**
+1. Busca por `(solo_type, exposicao, macro_regiao_exata)`
+2. Se não encontrado: busca por `(solo_type, exposicao, "DEFAULT")`
+3. Se não encontrado: usa `24` com log `[ERRO CRÍTICO]`
+
+**Valores regionais para `terra/fechada` (tipo mais comum):**
+
+| regiao | meia_vida_h | Fator vs DEFAULT | Razão |
+|---|---|---|---|
+| DEFAULT / SUDESTE | 36h | × 1.00 | Referência calibrada para SP/MG/RJ/ES |
+| SUL | 46h | × 1.28 | Inverno frio + alta umidade relativa |
+| NORTE | 56h | × 1.55 | Umidade amazônica permanente — solo quase nunca seca |
+| NORDESTE | 23h | × 0.64 | Clima seco e quente — secagem acelerada |
+| CENTRO-OESTE | 31h | × 0.86 | Cerrado — seco na estiagem, úmido no verão |
+
+**Valores DEFAULT (terra/misto) por exposição:**
 
 | solo_type | aberta | fechada |
 |---|---|---|
@@ -148,10 +173,8 @@ Taxa de secagem base por tipo de solo e exposição ao sol. Ponto de partida do 
 | `misto` | 18h | 28h |
 | `terra` | 24h | 36h |
 
-**Crítica:** Sem fallback hardcoded — se indisponível retorna `{}`, `_meia_vida()` usa literal `24` (`[ERRO CRÍTICO]`).
-
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_meia_vida()` → `_meia_vida(trail)` — busca `tabela[(solo_type, exposicao)]`
+- `mtb-forecast.py` → `_carregar_meia_vida()` → `_meia_vida(trail)`
 - `mtb-forecast.py` → `calcular_acumulo_ef()` — `meia_vida_h` alimenta o peso exponencial
 - `app/(app)/admin/tabelas/page.tsx` → painel admin de edição
 
@@ -159,7 +182,7 @@ Taxa de secagem base por tipo de solo e exposição ao sol. Ponto de partida do 
 
 ### `enso_config`
 
-Fases do ENSO (El Niño / La Niña) e seus multiplicadores sobre o threshold sazonal.
+Fases do ENSO (El Niño / La Niña) e multiplicadores genéricos (não-regionais). Usado como fallback quando `enso_regional_mult` não tem entrada para a região.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
@@ -167,12 +190,12 @@ Fases do ENSO (El Niño / La Niña) e seus multiplicadores sobre o threshold saz
 | `fase` | text | `el_nino_forte`, `el_nino`, `neutro`, `la_nina`, `la_nina_forte` |
 | `oni_min` | numeric | Limite inferior do ONI (null = sem limite) |
 | `oni_max` | numeric | Limite superior do ONI (null = sem limite) |
-| `multiplicador` | numeric | Fator aplicado sobre o threshold sazonal |
+| `multiplicador` | numeric | Fator aplicado sobre o threshold sazonal (genérico, não-regional) |
 | `emoji` | text | Emoji exibido no resultado |
 | `ativo` | boolean | Controle de ativação |
 | `created_at` | timestamptz | Timestamp de criação |
 
-**Valores atuais (avaliados em ordem de id):**
+**Valores atuais:**
 
 | fase | oni_min | oni_max | mult | emoji |
 |---|---|---|---|---|
@@ -182,13 +205,52 @@ Fases do ENSO (El Niño / La Niña) e seus multiplicadores sobre o threshold saz
 | `la_nina` | -1.5 | -0.5 | 1.15 | 🌧️ |
 | `la_nina_forte` | — | -1.5 | 1.25 | ⛈️ |
 
-**Nota:** El Niño usa `lower-inclusive`, La Niña usa `upper-inclusive` — espelha o if/elif original.
+**Nota:** `classificar_enso()` agora retorna `fase_raw` (`"el_nino"`, `"la_nina"`, `"neutro"` etc.) além dos campos existentes — usado como chave de lookup em `enso_regional_mult`.
 
 **Fallback:** `[{"fase": "neutro", "multiplicador": 1.00, ...}]`
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_enso_config()` → `classificar_enso(oni)`
-- `mtb-forecast.py` → `threshold_solo_descansado()` → `thresh = base * enso["mult"] * fator_microclima()`
+- `mtb-forecast.py` → `threshold_solo_descansado()` — fallback quando `enso_regional_mult` não tem entrada
+
+---
+
+### `enso_regional_mult`
+
+**NOVA tabela (jun/2026).** Multiplicadores ENSO específicos por fase × macro-região. NORTE e NORDESTE têm lógica **inversa** (El Niño = seca = threshold sobe = rider mais conservador).
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | serial PK | Auto-incremento |
+| `fase_raw` | text | `el_nino_forte`, `el_nino`, `neutro`, `la_nina`, `la_nina_forte` |
+| `macro_regiao` | text | `NORTE`, `NORDESTE`, `CENTRO-OESTE`, `SUDESTE`, `SUL` |
+| `multiplicador` | numeric | Fator sobre o threshold sazonal. > 1.0 = mais conservador (seco); < 1.0 = mais permissivo (chuva) |
+| `descricao` | text | Explicação da lógica climática regional |
+| `ativo` | boolean DEFAULT true | Controle de ativação |
+
+**Valores por macro-região:**
+
+| macro_regiao | el_nino_forte | el_nino | neutro | la_nina | la_nina_forte |
+|---|---|---|---|---|---|
+| SUDESTE | 0.72 | 0.82 | 1.00 | 1.18 | 1.30 |
+| SUL | 0.69 | 0.79 | 1.00 | 1.22 | 1.37 |
+| NORTE | 1.25 | 1.18 | 1.00 | 0.82 | 0.75 |
+| NORDESTE | 1.35 | 1.25 | 1.00 | 0.78 | 0.70 |
+| CENTRO-OESTE | 0.90 | 0.94 | 1.00 | 1.06 | 1.12 |
+
+**Lógica inversa NORTE/NORDESTE:**
+- El Niño = padrão seco no Norte/Nordeste → threshold SOBE → modelo mais conservador (mult > 1.0)
+- La Niña = padrão chuvoso no Norte/Nordeste → threshold DESCE → modelo mais permissivo (mult < 1.0)
+
+**Função Python `_enso_mult_regional(enso, uf)`:**
+```python
+macro = _macro_regiao(uf)  # converte UF → macro-região
+chave = (enso["fase_raw"], macro)
+mult = _CACHE_ENSO_REGIONAL.get(chave, enso["mult"])  # fallback para enso_config
+```
+
+**Usado em:**
+- `mtb-forecast.py` → `_enso_mult_regional()` → `threshold_solo_descansado()`
 - `mtb-forecast.py` → `threshold_bikepark_saturado()`
 
 ---
@@ -201,39 +263,37 @@ Faixas de `efetivo_combinado` que mapeiam para os status de aderência do rider.
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
 | `status` | text | `SECO`, `GRIP PERFEITO`, `BOA ADERÊNCIA`, `BAIXA ADERÊNCIA` |
-| `ef_min` | numeric | Limite inferior do efetivo_threshold (null = desde 0) |
+| `ef_min` | numeric | Limite inferior (null = desde 0) |
 | `ef_max` | numeric | Limite superior (null = sem teto) |
 | `ativo` | boolean | Controle de ativação |
 
-**Nota:** o campo `ordem` foi removido na Fase 5 — redundante com os intervalos naturais de `ef_min`. A query ordena por `ef_min asc nulls first`.
+**Valores atuais** (`efetivo_threshold = efetivo_combinado / fator_microclima`):
 
-**Valores atuais** (`efetivo_threshold = efetivo_combinado / fator_microclima`):**
-
-| status | ef_min | ef_max | Semântica |
-|---|---|---|---|
-| SECO | — | 0.0 | `ef <= 0.0` (inclusivo — captura ef==0) |
-| GRIP PERFEITO | 0.0 | **3.0** | `0 ≤ ef < 3.0` |
-| BOA ADERÊNCIA | **3.0** | 7.0 | `3.0 ≤ ef < 7.0` |
-| BAIXA ADERÊNCIA | 7.0 | — | `ef ≥ 7.0` |
+| status | ef_min | ef_max |
+|---|---|---|
+| SECO | — | 0.0 |
+| GRIP PERFEITO | 0.0 | 3.0 |
+| BOA ADERÊNCIA | 3.0 | 7.0 |
+| BAIXA ADERÊNCIA | 7.0 | — |
 
 **Thresholds efetivos por bioma** (após divisão por `fator_threshold`):
 
-| Bioma / config | fator_threshold | GRIP→BOA em | BOA→BAIXA em |
+| Bioma / config | fator_threshold | GRIP→BOA | BOA→BAIXA |
 |---|---|---|---|
 | Outros (padrão) | 1.00 | 3.0 mm | 7.0 mm |
 | Mata Atlântica geral | 0.90 | 2.7 mm | 6.3 mm |
 | Mata Atlântica alta fechada | 0.50 | 1.5 mm | 3.5 mm |
 
-**Fallback:** lista hardcoded com os valores atuais (3.0 / 3.0 / 7.0).
+**Fallback:** lista hardcoded com os valores acima.
 
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_aderencia_thresholds()` → `calcular_aderencia()` — loop sobre thresholds
+- `mtb-forecast.py` → `_carregar_aderencia_thresholds()` → `calcular_aderencia()`
 
 ---
 
 ### `veredicto_pesos`
 
-Pesos de risco do sistema de pontuação que gera o veredicto final. Separada de `veredicto_limiares` na Fase 5.
+Pesos de risco do sistema de pontuação que gera o veredicto final.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
@@ -259,8 +319,6 @@ Pesos de risco do sistema de pontuação que gera o veredicto final. Separada de
 | `vento_estrutural_med` | gust_max_kmh > 65 | +1 |
 | `solo_encharcado` | solo saturado + BAIXA ADERÊNCIA | +1 |
 
-**Nota:** a condição de ativação de cada fator é avaliada integralmente no Python — alterar `fator` no banco sem atualizar o código não tem efeito.
-
 **Fallback:** lista hardcoded com os 12 registros acima.
 
 **Usado em:**
@@ -270,7 +328,7 @@ Pesos de risco do sistema de pontuação que gera o veredicto final. Separada de
 
 ### `veredicto_limiares`
 
-Limiares de decisão que mapeiam o risco acumulado para o texto de veredicto. Separada de `veredicto_pesos` na Fase 5.
+Limiares de decisão que mapeiam o risco acumulado para o texto de veredicto.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
@@ -280,13 +338,13 @@ Limiares de decisão que mapeiam o risco acumulado para o texto de veredicto. Se
 | `ordem` | integer | Ordem de avaliação (menor limiar primeiro) |
 | `ativo` | boolean | Controle de ativação |
 
-**Registros atuais (2 linhas — avaliados em ordem crescente de `limiar_max`):**
+**Registros atuais:**
 
 | ordem | limiar_max | texto_veredicto |
 |---|---|---|
 | 1 | 1 | DROP LIBERADO |
 | 2 | 3 | DROP LIBERADO - Veja os alertas |
-| — | > 3 | MELHOR ESPERAR (implícito, sem linha necessária) |
+| — | > 3 | MELHOR ESPERAR (implícito) |
 
 **Fallback:** `[{"limiar_max": 1, ...}, {"limiar_max": 3, ...}]`
 
@@ -297,45 +355,55 @@ Limiares de decisão que mapeiam o risco acumulado para o texto de veredicto. Se
 
 ### `meia_vida_clima_mult`
 
-Multiplicadores climáticos que ajustam a meia-vida de secagem com base no clima histórico das últimas 48h.
+Multiplicadores climáticos que ajustam a meia-vida de secagem. **Atualizado em jun/2026**: valores de umidade e nebulosidade aumentados para capturar dias de garoa; nova linha `umidade_nebulosidade_combo`.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `id` | serial PK | Auto-incremento — define a ordem de avaliação |
-| `variavel` | text | `temperatura`, `vento`, `nebulosidade`, `umidade`, `combo`, `bikepark` |
-| `valor_min` | numeric | Limite inferior da variável (null = sem limite) |
-| `valor_max` | numeric | Limite superior da variável (null = sem limite) |
+| `id` | serial PK | Ordem de avaliação |
+| `variavel` | text | `temperatura`, `vento`, `nebulosidade`, `umidade`, `combo`, `umidade_nebulosidade_combo`, `bikepark` |
+| `valor_min` | numeric | Limite inferior (null = sem limite) |
+| `valor_max` | numeric | Limite superior (null = sem limite) |
 | `exposicao` | text | `aberta` / `fechada` — só relevante para `variavel=bikepark` |
 | `multiplicador` | numeric | Fator multiplicado sobre a meia_vida atual |
 | `ativo` | boolean | Controle de ativação |
 
-**Nota:** o campo `condicao` (documentação textual) foi removido na Fase 5 — nunca era lido pelo código. A linha `temp <= 10` (ativo=false) também foi deletada. As linhas `variavel=bikepark` foram desativadas (`ativo=false`) ao criar `trail_type_config` — os multiplicadores de bikepark agora vivem nessa nova tabela.
+**Registros ativos por variável (16 linhas após jun/2026):**
 
-**Registros ativos por variável (15 linhas):**
-
-| variavel | valor_min | valor_max | exposicao | mult |
+| variavel | valor_min | valor_max | mult | Observação |
 |---|---|---|---|---|
-| `temperatura` | 35 | — | — | 0.65 |
-| `temperatura` | 30 | 35 | — | 0.75 |
-| `temperatura` | 26 | 30 | — | 0.86 |
-| `temperatura` | — | 16 | — | 1.12 |
-| `vento` | 40 | — | — | 0.75 |
-| `vento` | 20 | 40 | — | 0.85 |
-| `vento` | 10.8 | 20 | — | 0.92 |
-| `vento` | — | 3.6 | — | 1.05 |
-| `combo` | — | — | — | 0.80 |
-| `nebulosidade` | 90 | — | — | 1.12 |
-| `nebulosidade` | 70 | 90 | — | 1.06 |
-| `nebulosidade` | — | 25 | — | 0.94 |
-| `umidade` | 95 | — | — | 1.15 |
-| `umidade` | 85 | 95 | — | 1.08 |
-| `umidade` | — | 45 | — | 0.93 |
-| ~~`bikepark`~~ | — | — | `fechada` | ~~0.60~~ | desativado — ver `trail_type_config` |
-| ~~`bikepark`~~ | — | — | `aberta` | ~~0.35~~ | desativado — ver `trail_type_config` |
+| `temperatura` | 35 | — | 0.65 | Seca muito rápido |
+| `temperatura` | 30 | 35 | 0.75 | |
+| `temperatura` | 26 | 30 | 0.86 | |
+| `temperatura` | — | 16 | 1.12 | Frio — seca devagar |
+| `vento` | 40 | — | 0.75 | Vento forte |
+| `vento` | 20 | 40 | 0.85 | |
+| `vento` | 10.8 | 20 | 0.92 | |
+| `vento` | — | 3.6 | 1.05 | Calmo |
+| `combo` | — | — | 0.80 | Calor + vento simultâneos |
+| `nebulosidade` | 90 | — | **1.20** | Atualizado (era 1.12) |
+| `nebulosidade` | 70 | 90 | 1.06 | |
+| `nebulosidade` | — | 25 | 0.94 | Céu limpo |
+| `umidade` | 95 | — | **1.25** | Atualizado (era 1.15) |
+| `umidade` | 85 | 95 | **1.18** | Atualizado (era 1.08) |
+| `umidade` | — | 45 | 0.93 | Ar seco |
+| `umidade_nebulosidade_combo` | — | — | **1.10** | **NOVA linha** — combo garoa |
 
-**Nota:** Vento em km/h (`wind_ms × 3.6`). `combo` é condição multi-variável tratada separadamente.
+**Linha `umidade_nebulosidade_combo`** — aplicação especial:
+```python
+# Avaliada APÓS os multiplicadores individuais
+if humidity_pct >= 85 and cloud_pct >= 70:
+    combo_garoa = next((r["multiplicador"] for r in registros
+                        if r["variavel"] == "umidade_nebulosidade_combo"), None)
+    if combo_garoa is not None:
+        meia_vida *= combo_garoa  # × 1.10 adicional
+```
 
-**Fallback:** lista hardcoded com os 15 registros ativos.
+**Efeito máximo empilhado em dia de garoa fria:**
+`base × 1.25 (umidade≥95%) × 1.20 (nuvem≥90%) × 1.10 (combo) ≈ × 1.65`
+
+**Nota:** Vento em km/h (`wind_ms × 3.6`). As linhas `variavel=bikepark` estão desativadas (`ativo=false`) — ver `trail_type_config`.
+
+**Fallback:** lista hardcoded com os 16 registros ativos.
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_meia_vida_clima_mult()` → `_ajustar_meia_vida_clima()`
@@ -344,23 +412,23 @@ Multiplicadores climáticos que ajustam a meia-vida de secagem com base no clima
 
 ### `biomas`
 
-Fonte única de verdade para coeficientes físicos de dossel por bioma e exposição. Substituiu `microclima_config` como fonte lida pelo Python.
+Fonte única de verdade para coeficientes físicos de dossel por bioma e exposição.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | serial PK | Auto-incremento |
-| `bioma` | text | Ex: `Mata Atlântica`, `Cerrado`, `Amazônia`, `Caatinga`, `Pantanal`, `Pampa` |
+| `bioma` | text | `Mata Atlântica`, `Cerrado`, `Amazônia`, `Caatinga`, `Pantanal`, `Pampa` |
 | `exposicao` | text | `aberta` ou `fechada` |
 | `altitude_min` | int | NULL = qualquer altitude; preenchido quando há linha específica para altitude |
-| `chuva_pct` | float | Fração da chuva da estação que atinge o solo (0–1) — interceptação de dossel |
-| `vento_pct` | float | Fração do vento da estação que prevalece ao nível do solo (0–1) |
-| `sol_pct` | float | Fração da radiação solar que chega ao solo (0–1) — modula nebulosidade efetiva |
-| `mes_sazonal_inicio` | int | Mês de início da sazonalidade (1–12) — NULL se sem sazonalidade |
+| `chuva_pct` | float | Fração da chuva que atravessa o dossel e chega ao solo (0–1). Deve ser aplicado a AMBAS as fontes de precipitação antes de qualquer comparação |
+| `vento_pct` | float | Fração do vento medido na estação ao nível do solo (0–1) |
+| `sol_pct` | float | Fração da radiação solar que chega ao solo (0–1) |
+| `mes_sazonal_inicio` | int | Mês de início da sazonalidade |
 | `mes_sazonal_fim` | int | Mês de fim da sazonalidade |
 | `chuva_pct_sazonal` | float | Valor de `chuva_pct` durante a estação seca |
-| `vento_pct_sazonal` | float | Valor de `vento_pct` durante a estação seca |
-| `sol_pct_sazonal` | float | Valor de `sol_pct` durante a estação seca |
-| `fator_threshold` | float DEFAULT 1.0 | Divisor do `efetivo_combinado` antes dos thresholds de aderência — < 1.0 = mais rígido |
+| `vento_pct_sazonal` | float | |
+| `sol_pct_sazonal` | float | |
+| `fator_threshold` | float DEFAULT 1.0 | Divisor do `efetivo_combinado` antes dos thresholds de aderência |
 | `ativo` | boolean DEFAULT true | Controle de ativação |
 
 **13 registros (6 abertas + 7 fechadas):**
@@ -381,67 +449,25 @@ Fonte única de verdade para coeficientes físicos de dossel por bioma e exposi�
 | Pantanal | fechada | — | 0.400 | 0.175 | 0.100 | 1.00 |
 | Pampa | fechada | — | 0.450 | 0.225 | 0.140 | 1.00 |
 
-**Sazonalidade:** Cerrado fechado (abr–set): chuva=0.75, vento=0.55, sol=0.45. Caatinga fechada (jun–set): chuva=0.85, vento=0.65, sol=0.55.
-
-**Lookup Python `_lookup_bioma(trail, mes)`:**
-1. Filtra por bioma + exposicao
-2. Prioriza linha com `altitude_min` preenchido quando `trail.altitude_m >= altitude_min`
-3. Se mês atual está no intervalo sazonal, sobrescreve os três coeficientes pelos valores sazonais
-4. Fallback: `{chuva_pct: 1.0, vento_pct: 1.0, sol_pct: 1.0, fator_threshold: 1.0}` (neutro)
-
-**Fallback Python:** valores de Mata Atlântica fechada hardcoded se Supabase indisponível.
+**Regra crítica:** `chuva_pct` DEVE ser aplicado a AMBAS as fontes de precipitação (Open-Meteo e OWM) antes de qualquer comparação. Comparar chuva crua de uma fonte com chuva interceptada de outra infla o histórico em mata fechada.
 
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_biomas()` / `_lookup_bioma()` — lookup por trilha no pipeline
-- `mtb-forecast.py` → `fetch_historico_chuva_om()` — aplica `chuva_pct` sobre precipitação bruta
+- `mtb-forecast.py` → `_carregar_biomas()` / `_lookup_bioma()`
+- `mtb-forecast.py` → `fetch_historico_chuva_om()` — aplica `chuva_pct`
 - `mtb-forecast.py` → `_ajustar_meia_vida_clima()` — aplica `vento_pct` e `sol_pct`
-- `mtb-forecast.py` → `fator_microclima()` — retorna `fator_threshold` para ajuste de thresholds
-- `app/(app)/admin/tabelas/page.tsx` → aba "Biomas" com dupla aprovação
+- `app/(app)/admin/tabelas/page.tsx` → aba "Biomas"
 
 ---
 
 ### `microclima_config`
 
-Fatores de retenção de umidade por bioma, altitude e exposição. Afeta threshold e meia-vida.
-
-> ⚠️ **Esta tabela foi supersedida pela tabela `biomas`.** O Python não lê mais `microclima_config` — todas as funções que usavam esta tabela (`fator_microclima()`, `_meia_vida()`) foram migradas para `_lookup_bioma()`. A tabela é **mantida no banco por conservadorismo** mas não tem efeito no modelo.
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | serial PK | Auto-incremento — define a ordem de avaliação |
-| `bioma` | text | Ex: `Mata Atlântica` |
-| `altitude_min` | integer | Altitude mínima (null = sem requisito) |
-| `exposicao` | text | `aberta` / `fechada` (null = qualquer) |
-| `fator_threshold` | numeric | Divisor aplicado ao `efetivo_combinado` antes da comparação com thresholds — valores < 1.0 tornam os limites mais rígidos |
-| `fator_secagem` | numeric | Multiplicador aplicado à `meia_vida` base — valores > 1.0 = seca mais devagar |
-| `ativo` | boolean | Controle de ativação |
-
-**Nota:** renomeado de `mult_threshold`/`mult_meia_vida` na Fase 5 para deixar explícito que `fator_threshold` é um divisor e `fator_secagem` é um multiplicador — sentidos opostos com nomes anteriores simétricos criavam confusão.
-
-**Valores atuais:**
-
-| bioma | altitude_min | exposicao | fator_threshold | fator_secagem |
-|---|---|---|---|---|
-| Mata Atlântica | 600m | fechada | **0.50** | 1.20 |
-| Mata Atlântica | — | — | 0.90 | 1.10 |
-
-**Semântica:** primeiro match vence (mais restritivo primeiro). Biomas não cadastrados → neutro (fator_threshold=1.0, sem divisão).
-
-**Guia de calibração:**
-- `fator_threshold` menor → thresholds efetivos mais apertados → GRIP PERFEITO em menos mm
-- `fator_secagem` maior → meia-vida mais longa → solo demora mais para "descansar"
-
-**Fallback:** lista hardcoded com as 2 linhas acima (fator_threshold=0.50/0.90, fator_secagem=1.20/1.10).
-
-**Usado em:**
-- `mtb-forecast.py` → `_carregar_microclima_config()` → `fator_microclima()` — retorna `fator_threshold`
-- `mtb-forecast.py` → `_carregar_microclima_config()` → `_meia_vida()` — multiplica base por `fator_secagem`
+> **Esta tabela foi supersedida pela tabela `biomas`.** O Python não lê mais `microclima_config` — mantida no banco por conservadorismo. Não tem efeito no modelo.
 
 ---
 
 ### `trail_type_config`
 
-Multiplicadores de meia-vida de secagem e de score de impacto por `trail_type` × `exposicao`. Centraliza valores que antes estavam espalhados em `meia_vida_clima_mult` (variavel=bikepark, agora desativadas) e `configuracoes_sistema` (natural_meia_vida_mult, removida).
+Multiplicadores de meia-vida e de score por `trail_type` × `exposicao`.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
@@ -455,36 +481,18 @@ Multiplicadores de meia-vida de secagem e de score de impacto por `trail_type` �
 
 **Valores atuais (6 linhas):**
 
-| trail_type | exposicao | meia_vida_mult | score_mult | Interpretação |
-|---|---|---|---|---|
-| `natural` | `aberta` | 1.08 | 1.00 | Sem drenagem, mas sol/vento diretos — leve penalização |
-| `natural` | `mista` | 1.15 | 1.00 | Cobertura parcial, retém mais umidade |
-| `natural` | `fechada` | 1.30 | 1.00 | Mata densa sem drenagem — secagem muito lenta (ex: trilha Macaco) |
-| `bikepark` | `aberta` | 0.35 | 0.90 | Terra compactada + sol/vento diretos — seca muito rápido |
-| `bikepark` | `mista` | 0.48 | 0.90 | Drenagem projetada com alguma sombra |
-| `bikepark` | `fechada` | 0.60 | 0.90 | Drenagem projetada + cobertura vegetal |
-
-**Os dois `score_mult` — origens distintas, propósitos distintos:**
-
-O campo `score_mult` existe em duas tabelas com significados diferentes:
-
-| Tabela | Representa | Condição de aplicação |
-|---|---|---|
-| `solo_type_config.score_mult` | Quanto o **material do solo** amplifica o impacto da chuva (pedra drena melhor que terra) | Apenas quando `clay_pct` ausente na trilha |
-| `trail_type_config.score_mult` | Desconto de **infraestrutura de drenagem** do bikepark (valetas projetadas reduzem impacto real) | Apenas bikepark + solo não saturado (`acumulo_ef < bk_acumulo_thr`) |
-
-São mantidas em tabelas separadas porque representam conceitos independentes: um admin que quer calibrar "pedra drena melhor" não deve mexer na mesma tabela que controla "bikepark tem infraestrutura". Os dois podem se acumular para bikepark/terra sem `clay_pct`: `impacto × 1.05 (terra) × 0.90 (bikepark) = × 0.945`.
-
-**Prioridade de lookup Python `_lookup_trail_type(trail)`:**
-1. Match exato: `trail_type + exposicao`
-2. Fallback: row com `exposicao = NULL` (genérico por trail_type)
-3. Padrão neutro: `{meia_vida_mult: 1.0, score_mult: 1.0}`
-
-**Fallback:** lista hardcoded com os 6 registros acima.
+| trail_type | exposicao | meia_vida_mult | score_mult |
+|---|---|---|---|
+| `natural` | `aberta` | 1.08 | 1.00 |
+| `natural` | `mista` | 1.15 | 1.00 |
+| `natural` | `fechada` | 1.30 | 1.00 |
+| `bikepark` | `aberta` | 0.35 | 0.90 |
+| `bikepark` | `mista` | 0.48 | 0.90 |
+| `bikepark` | `fechada` | 0.60 | 0.90 |
 
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_trail_type_config()` / `_lookup_trail_type()` → `_ajustar_meia_vida_clima()` e `calcular_score_trilha()`
-- `app/(app)/admin/tabelas/page.tsx` → aba "Trail Type" com dupla aprovação
+- `mtb-forecast.py` → `_carregar_trail_type_config()` / `_lookup_trail_type()`
+- `app/(app)/admin/tabelas/page.tsx` → aba "Trail Type"
 
 ---
 
@@ -500,8 +508,6 @@ Parâmetros de absorção e multiplicadores de score por tipo de solo quando `cl
 | `score_mult` | numeric | Multiplicador de impacto no score (apenas sem `clay_pct`) |
 | `ativo` | boolean | Controle de ativação |
 
-**Nota:** `altitude_bonus_min` e `altitude_bonus` foram removidos na Fase 5 — idênticos em todos os 6 tipos, eram constantes globais repetidas. Agora vivem em `configuracoes_sistema` como `altitude_bonus_min=1200` e `altitude_bonus=0.05`.
-
 **Valores atuais:**
 
 | solo_type | fator_absorcao_base | score_mult |
@@ -513,10 +519,8 @@ Parâmetros de absorção e multiplicadores de score por tipo de solo quando `cl
 | `pedra` | 0.25 | 0.80 |
 | `ferro` | 0.30 | 0.85 |
 
-**Fallback:** lista hardcoded com os 6 registros acima.
-
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_solo_type_config()` → `fator_absorcao()` — `fator_absorcao_base`
+- `mtb-forecast.py` → `_carregar_solo_type_config()` → `fator_absorcao()`
 - `mtb-forecast.py` → `calcular_score_trilha()` — `score_mult` quando `clay_pct is None`
 
 ---
@@ -529,38 +533,24 @@ Penalizadores do fator de absorção conforme a inclinação da trilha.
 |---|---|---|
 | `id` | serial PK | Ordem de avaliação — menor id avaliado primeiro |
 | `tipo` | text | `inclinacao` (graus %) ou `desnivel` (metros brutos, fallback) |
-| `valor_min` | numeric | Limite inferior — graus % quando `tipo=inclinacao`, metros quando `tipo=desnivel` |
+| `valor_min` | numeric | Limite inferior |
 | `valor_max` | numeric | Limite superior (null = sem limite) |
 | `delta_fator` | numeric | Valor subtraído da base (negativo = penalizador) |
 | `ativo` | boolean | Controle de ativação |
 
-**Nota:** renomeado de `grau_min`/`grau_max` na Fase 5 — o nome anterior sugeria graus em ambos os tipos, mas para `desnivel` a unidade é metros. `valor_min`/`valor_max` é agnóstico à unidade.
-
 **Valores atuais:**
 
-| tipo | valor_min | valor_max | delta_fator | Condição |
-|---|---|---|---|---|
-| `inclinacao` | 30 | — | −0.22 | inclinacao% >= 30 |
-| `inclinacao` | 20 | 30 | −0.15 | 20 <= inclinacao% < 30 |
-| `inclinacao` | 10 | 20 | −0.08 | 10 <= inclinacao% < 20 |
-| `desnivel` | 800 | — | −0.18 | desnivel_m >= 800 |
-| `desnivel` | 500 | 800 | −0.10 | 500 <= desnivel_m < 800 |
-| `desnivel` | 300 | 500 | −0.05 | 300 <= desnivel_m < 500 |
-
-**Semântica:** `tipo=inclinacao` prioritário quando `extensao_km` disponível; `tipo=desnivel` é fallback.
-
-**Fallback:** lista hardcoded com os 6 registros acima.
+| tipo | valor_min | valor_max | delta_fator |
+|---|---|---|---|
+| `inclinacao` | 30 | — | −0.22 |
+| `inclinacao` | 20 | 30 | −0.15 |
+| `inclinacao` | 10 | 20 | −0.08 |
+| `desnivel` | 800 | — | −0.18 |
+| `desnivel` | 500 | 800 | −0.10 |
+| `desnivel` | 300 | 500 | −0.05 |
 
 **Usado em:**
 - `mtb-forecast.py` → `_carregar_inclinacao_config()` → `fator_absorcao()`
-
----
-
-### ~~`score_config`~~ — absorvida pela Fase 5
-
-> **Esta tabela foi eliminada.** Os 9 coeficientes de score foram migrados para `configuracoes_sistema` com `grupo='scoring'`. Ver seção `configuracoes_sistema` acima para os valores atuais.
->
-> `_carregar_score_config()` agora consulta `configuracoes_sistema?grupo=eq.scoring`.
 
 ---
 
@@ -575,26 +565,49 @@ Textos descritivos de condição de solo exibidos no card do rider.
 | `solo_type` | text | `terra`, `preto`, `misto`, `misto_mg`, `pedra`, `ferro`, `default` |
 | `texto` | text | Descrição exibida ao rider |
 | `ativo` | boolean | Controle de ativação |
-| — | UNIQUE | `(status, solo_type)` — garante idempotência |
+| — | UNIQUE | `(status, solo_type)` |
 
 **25 registros:** 4 status × 6 solo_types + 1 entrada `BIKEPARK_SATURADO/default`.
 
-**Cadeia de lookup:**
-```
-1. (status, solo_type)         → match exato
-2. (status, "default")         → fallback genérico
-3. f"Solo em condição de ..."  → fallback literal
-```
-
-**Fallback:** `{}` — `_descricao_aderencia()` usa a cadeia acima + fallback string.
-
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_aderencia_descricoes()` → `_descricao_aderencia()` → `calcular_aderencia()`
-- `mtb-forecast.py` → `gravar_supabase()` — grava `aderencia_desc` em `condicoes`
+- `mtb-forecast.py` → `_carregar_aderencia_descricoes()` → `_descricao_aderencia()`
 
 ---
 
 ## Grupo 2 — Trilhas e Condições
+
+---
+
+### `mantenedores`
+
+**NOVA tabela (jun/2026).** Entidades que mantêm e operam trilhas (bike parks, associações).
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | uuid PK | Gerado via `gen_random_uuid()` |
+| `nome` | text | Nome completo da organização |
+| `nome_primario` | text | Primeira parte do nome exibido (ex: "Reserva Natural") — cor_primaria |
+| `nome_secundario` | text | Segunda parte do nome exibido (ex: "Park") — cor_secundaria |
+| `cor_primaria` | text | Cor hex para `nome_primario` (ex: `#FFE000`) |
+| `cor_secundaria` | text | Cor hex para `nome_secundario` (ex: `#FFFFFF`) |
+| `logo_url` | text | URL pública da logo no bucket `logos` (Supabase Storage). Renderizar sempre com `<img>` nativo — NUNCA `next/image` |
+| `site_url` | text | URL do site do mantenedor (exibida como link `↗` no contexto de página) |
+| `ativo` | boolean DEFAULT true | Controle de visibilidade |
+| `created_at` | timestamptz | Timestamp de criação |
+
+**Regras:**
+- `logo_url` pode ser NULL — exibe apenas o nome sem elemento gráfico
+- `site_url` pode ser NULL — link `↗` não é exibido quando ausente
+- Mantenedor sempre opcional em trilhas — `mantenedor_id = NULL` nunca quebra card
+
+**Bucket Storage:** `logos` — público, aceita jpeg/png/webp. Upload via `POST /api/admin/upload-logo` (canvas comprime para WebP antes do envio).
+
+**Usado em:**
+- `mtb-forecast.py` → JOIN em `_carregar_trilhas_supabase()` — carrega para gravar `local_key`
+- `app/(app)/trilhas/page.tsx` → `select('*, condicoes(*), localidades(*), mantenedores(*)')`
+- `app/(app)/trilhas/[id]/page.tsx` → `LogoMantenedor` no header da trilha
+- `app/(app)/mantenedores/[id]/page.tsx` → hero + grid de TrilhaCards
+- `components/LogoMantenedor.tsx` → exibição com cores dinâmicas
 
 ---
 
@@ -619,16 +632,14 @@ Tabela principal de trilhas aprovadas e visíveis no app.
 | `aprovada` | boolean | `true` = visível no app |
 | `polyline` | text | Encoded polyline para exibição no mapa |
 | `localidade_id` | uuid FK | Referência para `localidades.id` |
+| `mantenedor_id` | uuid FK | Referência para `mantenedores.id` (opcional) |
 | `created_at` | timestamptz | Timestamp de criação |
 
 **Usado em:**
-- `mtb-forecast.py` → `_carregar_trilhas_supabase()` — carrega trilhas aprovadas para o agente processar
-- `mtb-forecast.py` → `gravar_supabase()` — busca `trilha_id` pelo nome para gravar `condicoes`
-- `app/(app)/trilhas/page.tsx` — listagem pública com filtros
-- `app/(app)/trilhas/[id]/page.tsx` — página de detalhe com `condicoes(*)`
-- `app/(app)/dashboard/page.tsx` — trilhas favoritas do usuário com `condicoes(*)`
-- `app/(app)/admin/page.tsx` → `insert` na aprovação de `trilhas_pendentes`
-- `app/(app)/dashboard/comparar/page.tsx` — comparação de trilhas
+- `mtb-forecast.py` → `_carregar_trilhas_supabase()` — carrega trilhas aprovadas
+- `app/(app)/trilhas/page.tsx` — listagem com filtros
+- `app/(app)/trilhas/[id]/page.tsx` — página de detalhe
+- `app/(app)/mantenedores/[id]/page.tsx` — grid de trilhas do mantenedor
 
 ---
 
@@ -636,68 +647,36 @@ Tabela principal de trilhas aprovadas e visíveis no app.
 
 Trilhas submetidas por usuários aguardando aprovação pelo admin.
 
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | uuid PK | Gerado via `gen_random_uuid()` |
-| `name` | text | Nome da trilha |
-| `lat` | numeric | Latitude |
-| `lon` | numeric | Longitude |
-| `solo_type` | text | Tipo de solo |
-| `exposicao` | text | `aberta` ou `fechada` |
-| `altitude_m` | integer | Altitude em metros |
-| `trail_type` | text | `natural` ou `bikepark` |
-| `regiao` | text | Sigla do estado |
-| `desnivel_m` | numeric | Desnível (opcional) |
-| `extensao_km` | numeric | Extensão (opcional) |
-| `bioma` | text | Bioma (opcional) |
-| `polyline` | text | Encoded polyline |
-| `localidade_id` | uuid FK | Referência para `localidades.id` |
-| `status` | text | `pendente`, `aprovada`, `rejeitada` |
-| `motivo_rejeicao` | text | Motivo da rejeição (opcional) |
-| `user_id` | uuid FK | Usuário que submeteu |
-| `created_at` | timestamptz | Timestamp de criação |
+Mesmos campos de `trilhas` + `status` (pendente/aprovada/rejeitada) + `motivo_rejeicao` + `user_id`.
 
 **Usado em:**
 - `app/(app)/trilhas/cadastrar/page.tsx` → `insert` ao cadastrar nova trilha
-- `app/(app)/admin/page.tsx` → listagem, aprovação (`status=aprovada`) e rejeição (`status=rejeitada`)
-- `app/(app)/admin/importar-strava/page.tsx` → importação de segmentos Strava como trilha pendente
+- `app/(app)/admin/page.tsx` → listagem, aprovação e rejeição
 - `app/(app)/perfil/page.tsx` → trilhas pendentes do usuário logado
 
 ---
 
 ### `localidades`
 
-Resultado do geocoding reverso — garante consistência de cidade/estado entre trilhas.
+Cache de geocodificação reversa (Nominatim / OpenStreetMap).
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | uuid PK | Gerado via `gen_random_uuid()` |
 | `pais` | text DEFAULT `Brasil` | País |
-| `estado` | text | Sigla do estado (ex: `SP`) |
+| `estado` | text | Sigla UF (ISO 3166-2) |
 | `cidade` | text DEFAULT `''` | Nome da cidade |
-| `localidade` | text | Sub-distrito / bairro (opcional) |
+| `localidade` | text | Bairro, vila, subdistrito (opcional) |
 | `created_at` | timestamptz | Timestamp de criação |
 | — | UNIQUE INDEX | `(estado, cidade, COALESCE(localidade, ''))` |
 
-**RLS:** leitura pública + insert autenticado.
-
-**Comportamento de fallback na aprovação:** se o geocoding Nominatim falhar, `admin/page.tsx` cria uma entrada mínima com `estado = trilha.regiao` e `cidade = ''` para garantir que `localidade_id` nunca fique nulo. Trilhas com essa entrada mínima aparecem no filtro por estado (via `t.localidades?.estado || t.regiao`) mas sem cidade/localidade.
-
-**Usado em:**
-- `mtb-forecast.py` → `geocodeLatLon()` → salva `localidade_id` ao aprovar trilha
-- `app/(app)/trilhas/page.tsx` → filtro por estado com fallback `|| t.regiao`
-- `app/(app)/trilhas/[id]/page.tsx` → exibe cidade/estado no card
-- `app/(app)/dashboard/page.tsx` → cidade/estado das trilhas favoritas
-- `app/(app)/admin/page.tsx` → lookup/criação de localidade na aprovação (com fallback mínimo se Nominatim falhar)
-- `app/(app)/admin/importar-strava/page.tsx` → geocoding ao importar segmento
-- `app/(app)/trilhas/cadastrar/page.tsx` → geocoding ao cadastrar
-- `scripts/migrate-localidades.ts` → script de migração retroativa
+**Comportamento de fallback na aprovação:** se o geocoding Nominatim falhar, `admin/page.tsx` cria uma entrada mínima com `estado = trilha.regiao` e `cidade = ''`.
 
 ---
 
 ### `condicoes`
 
-Resultado do processamento do agente Python por trilha. Uma linha por trilha (DELETE + INSERT a cada rodada).
+Resultado do processamento do agente Python por trilha. Uma linha por trilha (DELETE + INSERT a cada rodada). **Atualizado em jun/2026**: 4 novas colunas de auditoria.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
@@ -707,64 +686,59 @@ Resultado do processamento do agente Python por trilha. Uma linha por trilha (DE
 | `aderencia_status` | text | `SECO` / `GRIP PERFEITO` / `BOA ADERÊNCIA` / `BAIXA ADERÊNCIA` |
 | `aderencia_score` | numeric | Score numérico 0–100 |
 | `aderencia_desc` | text | Texto descritivo do status |
+| `aderencia_futura_status` | text | Status do pior bloco futuro de 6h |
+| `aderencia_futura_label` | text | Rótulo do bloco (ex: `12h→18h`) |
+| `aderencia_futura_rain` | numeric | Chuva prevista no bloco futuro (mm) |
 | `veredicto` | text | `DROP LIBERADO` / `DROP LIBERADO - Veja os alertas` / `MELHOR ESPERAR` |
-| `veredicto_12h` | text | Veredicto para janela de 12h |
-| `rain_mm` | numeric | Precipitação prevista 24h (mm) |
-| `rain_12h` | numeric | Precipitação prevista 12h (mm) |
-| `wind_ms` | numeric | Vento sustentado previsto 24h (m/s) |
-| `wind_12h` | numeric | Vento sustentado previsto 12h (m/s) |
-| `pop_48h` | numeric | Prob. máxima de chuva 24h (%) — nome legado |
-| `pop_12h` | numeric | Prob. máxima de chuva 12h (%) |
-| `temp_max` | numeric | Temperatura máxima prevista (°C) |
-| `pico_3h` | numeric | Maior acumulado em 3h consecutivas nas próximas 48h (mm) |
-| `acumulo_48h` | numeric | Precipitação bruta das últimas 48h (mm) |
-| `acumulo_ef` | numeric | Umidade efetiva retida no solo agora (mm) |
-| `ultima_chuva_h` | numeric | Horas desde última chuva >= 0.5mm |
-| `meia_vida_h` | numeric | Meia-vida de secagem calculada (horas) |
+| `veredicto_12h` | text | Veredicto para as próximas 12h |
+| `texto_dinamico` | text | Frase contextual do veredicto |
+| `motivo_veredicto` | text | Fatores de risco que levaram ao veredicto |
+| `previsao_24h` | jsonb | Array de 4 blocos de 6h: `{label, rain_mm, pop_max, wind_max, temp_med}` |
+| `rain_mm` | numeric | Chuva prevista 24h (mm) — fusão OWM 70% + OM 30% |
+| `rain_12h` | numeric | Chuva prevista 12h (mm) |
+| `pico_3h` | numeric | Maior acumulado em janela deslizante de 3h nas próximas 48h (mm) |
+| `acumulo_48h` | numeric | Precipitação bruta das últimas 48h (mm) — Open-Meteo Archive |
+| `acumulo_ef` | numeric | Acúmulo efetivo com decaimento exponencial (mm) |
+| `wind_ms` | numeric | Vento sustentado máximo previsto 24h (m/s) |
+| `wind_12h` | numeric | Vento sustentado máximo previsto 12h (m/s) |
 | `gust_max_kmh` | numeric | Rajada máxima prevista 24h (km/h) |
-| `janela` | integer | Maior bloco limpo (horas) nas próximas 48h |
-| `horarios_chuva` | text | Horários previstos de chuva |
-| `frase_secagem` | text | Texto resumo de secagem |
-| `solo_descansado` | boolean | Se o solo estava descansado no momento do cálculo |
-| `thresh_desc` | numeric | Threshold de solo descansado usado |
-| `clay_pct` | numeric | % de argila do solo |
-| `sand_pct` | numeric | % de areia do solo |
-| `texture_class` | text | Classe textural do solo |
-| `inclinacao` | numeric | Inclinação calculada (% de graus) |
-| `enso_fase` | text | Fase ENSO no momento do cálculo |
-| `enso_oni` | numeric | Valor ONI no momento do cálculo |
-| `fonte` | text | APIs usadas no cálculo |
-| `alerta_vento_nivel` | integer | Nível de vento histórico (0–3) |
-| `alerta_vento_kmh` | numeric | Vento sustentado histórico máx. 48h (km/h) |
-| `alerta_rajada_kmh` | numeric | Rajada histórica máx. 48h (km/h) |
-| `aderencia_futura_status` | text | Status de aderência previsto próximas 24h |
-| `aderencia_futura_label` | text | Label do bloco de aderência futura |
-| `aderencia_futura_rain` | numeric | Chuva prevista no bloco de aderência futura |
-| `texto_dinamico` | text | Texto contextual dinâmico do veredicto |
-| `motivo_veredicto` | text | Fatores que elevaram o risco (ex: "Pico 3h elevado, BOA ADERÊNCIA") — exibido como "Fatores de atenção" quando não há alertas específicos no CondicaoCard |
-| `previsao_24h` | jsonb | Blocos de previsão hora a hora |
-| `fds_d1_veredicto` | text | Veredicto para sábado próximo |
-| `fds_d1_rain` | numeric | Chuva prevista no sábado |
-| `fds_d1_wind` | numeric | Vento previsto no sábado |
-| `fds_d1_temp` | numeric | Temp. máxima no sábado |
-| `fds_d2_veredicto` | text | Veredicto para domingo |
-| `fds_d2_rain` | numeric | Chuva prevista no domingo |
-| `fds_d2_wind` | numeric | Vento previsto no domingo |
-| `fds_d2_temp` | numeric | Temp. máxima no domingo |
-| `fds_d3_veredicto` | text | Veredicto para segunda-feira |
-| `fds_d3_rain` | numeric | Chuva prevista na segunda |
-| `fds_d3_wind` | numeric | Vento previsto na segunda |
-| `fds_d3_temp` | numeric | Temp. máxima na segunda |
-| `dados_json` | jsonb | `{bioma, trail_type, exposicao}` — metadados da trilha no momento do cálculo |
-| `historico_atualizado_em` | timestamptz | Timestamp do último **pipeline completo** (OWM timemachine + OM archive). Atualizado apenas quando `_usou_shortcircuit = False`. Shortcircuit preserva o valor anterior. NULL = trilha nunca processada por pipeline completo |
+| `temp_max` | numeric | Temperatura máxima prevista (°C) |
+| `pop_48h` | numeric | Probabilidade máxima de chuva 24h (%) — nome legado |
+| `pop_12h` | numeric | Probabilidade máxima de chuva 12h (%) |
+| `janela` | text | Melhor janela para pedal calculada pelo agente |
+| `horarios_chuva` | text | Blocos com chuva prevista (JSON) |
+| `frase_secagem` | text | Frase descritiva do estado do solo (Claude AI) |
+| `solo_descansado` | boolean | `true` se `acumulo_ef < threshold` |
+| `limiar_descanso` | numeric | Threshold de solo descansado calculado (mm) |
+| `meia_vida_h` | numeric | Meia-vida de secagem ajustada (horas) |
+| `clay_pct` | numeric | Teor de argila via tabela_solo (%) |
+| `sand_pct` | numeric | Teor de areia (%) |
+| `texture_class` | text | Classificação textural USDA (ex: Argiloso) |
+| `inclinacao` | numeric | Inclinação média calculada: `desnivel / (extensao × 1000) × 100` (%) |
+| `ultima_chuva_h` | numeric | Horas desde a última chuva significativa (≥ 0.5mm) |
+| `enso_fase` | text | Fase ENSO atual |
+| `enso_oni` | numeric | Anomalia ONI da NOAA |
+| `fonte` | text | Fonte meteorológica: OpenWeather + Open-Meteo |
+| `alerta_vento_nivel` | integer | Nível histórico de vento 1 (55–65) / 2 (65–90) / 3 (> 90 km/h) |
+| `alerta_vento_kmh` | numeric | Vento sustentado máximo histórico ERA5 (km/h) |
+| `alerta_rajada_kmh` | numeric | Rajada máxima futura prevista (km/h) |
+| `fds_d1_veredicto` / `fds_d1_rain` / `fds_d1_wind` / `fds_d1_temp` | text/numeric | Previsão D+1 |
+| `fds_d2_*` | text/numeric | Previsão D+2 |
+| `fds_d3_*` | text/numeric | Previsão D+3 |
+| `dados_json` | jsonb | `{bioma, trail_type, exposicao}` — metadados no momento do cálculo |
+| **`cloud_pct`** | NUMERIC(5,1) | **NOVA (jun/2026)** — cobertura de nuvens média no período histórico (%) |
+| **`humidity_pct`** | NUMERIC(5,1) | **NOVA (jun/2026)** — umidade relativa média no período histórico (%) |
+| **`temp_media_c`** | NUMERIC(5,1) | **NOVA (jun/2026)** — temperatura média no período histórico (°C) |
+| **`meia_vida_base_h`** | NUMERIC(5,1) | **NOVA (jun/2026)** — meia-vida base antes dos multiplicadores climáticos (auditoria) |
 
-> **Gatilho 72h:** quando `historico_atualizado_em ≥ 72h` atrás E forecast = 0mm, o agente força pipeline completo para recalibrar `meia_vida` com as condições climáticas atuais. Ver seção "Otimização zero-chuva" em `docs/formulas-modelo.md`.
+> **Remoção de referências obsoletas:**
+> - `historico_atualizado_em` — coluna de rastreamento do zero-rain shortcircuit. O shortcircuit foi removido em jun/2026; a coluna pode permanecer no banco mas não é mais atualizada nem consultada pelo agente.
+> - Não há mais referência a OWM timemachine nesta tabela — histórico de clima vem exclusivamente do batch OM.
 
 **Usado em:**
-- `mtb-forecast.py` → `gravar_supabase()` — DELETE + INSERT a cada execução (07h e 13h BRT)
+- `mtb-forecast.py` → `gravar_supabase()` — DELETE + INSERT a cada execução
 - `app/(app)/trilhas/[id]/page.tsx` → via join: `trilhas.select("*, condicoes(*)")`
-- `app/(app)/dashboard/page.tsx` → condicoes das trilhas favoritas
-- `app/(app)/dashboard/comparar/page.tsx` — comparação lado a lado
+- `app/(app)/dashboard/page.tsx` → condições das trilhas favoritas
 
 ---
 
@@ -774,16 +748,14 @@ Resultado do processamento do agente Python por trilha. Uma linha por trilha (DE
 
 ### `strava_segmentos_config`
 
-Configuração de solo/exposição/tipo para cada segmento Strava. Compartilhada entre riders do mesmo segmento.
+Configuração de solo/exposição/tipo para cada segmento Strava.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `id` | serial / uuid PK | Identificador |
 | `strava_segment_id` | bigint UNIQUE | ID do segmento na API Strava |
 | `owner_user_id` | uuid FK | Usuário que cadastrou primeiro |
 | `name` | text | Nome do segmento |
-| `lat` | numeric | Latitude do ponto inicial |
-| `lon` | numeric | Longitude do ponto inicial |
+| `lat` / `lon` | numeric | Latitude e longitude do ponto inicial |
 | `extensao_km` | numeric | Extensão em km |
 | `desnivel_m` | numeric | Desnível total (opcional) |
 | `altitude_m` | integer | Altitude máxima |
@@ -794,89 +766,21 @@ Configuração de solo/exposição/tipo para cada segmento Strava. Compartilhada
 | `regiao` | text | Sigla do estado |
 | `created_at` | timestamptz | Timestamp de criação |
 
-**Usado em:**
-- `mtb-forecast.py` → `buscar_segmentos_strava_unicos()` — carrega lista para processar condições
-- `app/(app)/perfil/strava/page.tsx` → insert ao vincular segmento (verifica duplicata)
-- `app/(app)/admin/page.tsx` → update ao aprovar sugestão de configuração
-- `lib/domain.ts` → lookup de configuração por `strava_segment_id`
-
 ---
 
 ### `trilhas_pessoais`
 
-Trilhas Strava vinculadas a um usuário específico. Um rider pode ter vários segmentos vinculados.
+Segmentos Strava vinculados a um usuário específico.
 
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | uuid PK | Gerado via `gen_random_uuid()` |
-| `user_id` | uuid FK | Usuário dono |
-| `strava_segment_id` | bigint | ID do segmento Strava |
-| `name` | text | Nome exibido |
-| `lat` | numeric | Latitude |
-| `lon` | numeric | Longitude |
-| `extensao_km` | numeric | Extensão em km |
-| `desnivel_m` | numeric | Desnível (opcional) |
-| `altitude_m` | integer | Altitude |
-| `solo_type` | text | Tipo de solo |
-| `exposicao` | text | `aberta` ou `fechada` |
-| `trail_type` | text | `natural` ou `bikepark` |
-| `bioma` | text | Bioma |
-| `regiao` | text | Sigla do estado |
-| `strava_url` | text | URL do segmento no Strava |
-| `polyline` | text | Encoded polyline |
-| `strava_elevation_profile` | jsonb | Perfil de elevação |
-| `created_at` | timestamptz | Timestamp de criação |
-
-**Usado em:**
-- `mtb-forecast.py` → `_buscar_strava_com_condicoes()` — recupera trilhas Strava do usuário para notificações
-- `mtb-forecast.py` → `_buscar_strava_usuario()` — busca para envio de e-mail
-- `app/(app)/perfil/strava/page.tsx` → insert ao vincular, listagem
-- `app/(app)/perfil/page.tsx` → listagem e deleção
-- `app/(app)/dashboard/page.tsx` → trilhas Strava do usuário com condições
-
----
-
-### `condicoes_strava`
-
-Resultado do agente para segmentos Strava. Atualizado a cada rodada via upsert por `strava_segment_id`.
-
-Campos idênticos à tabela `condicoes`, mas com chave primária diferente:
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | serial PK | Auto-incremento |
-| `strava_segment_id` | bigint UNIQUE | Chave de negócio — um registro por segmento |
-| *(demais campos)* | — | Idênticos a `condicoes` — ver tabela acima |
-
-**Diferença de gravação:** `condicoes` faz DELETE+INSERT por `trilha_id`; `condicoes_strava` faz DELETE+INSERT por `strava_segment_id`.
-
-**Usado em:**
-- `mtb-forecast.py` → `gravar_condicoes_strava()` — DELETE + INSERT a cada execução
-- `mtb-forecast.py` → `_buscar_strava_com_condicoes()` — lê condições para notificações Telegram
-- `app/(app)/trilhas/[id]/page.tsx` → condições do segmento Strava no detalhe
-- `app/(app)/dashboard/page.tsx` → condições das trilhas Strava do usuário
+Campos: `id`, `user_id`, `strava_segment_id`, `name`, `lat`, `lon`, `extensao_km`, `desnivel_m`, `altitude_m`, `solo_type`, `exposicao`, `trail_type`, `bioma`, `regiao`, `strava_url`, `polyline`, `strava_elevation_profile`, `created_at`.
 
 ---
 
 ### `strava_config_sugestoes`
 
-Sugestões de alteração de configuração de segmento enviadas por riders não-donos.
+Sugestões de alteração de configuração de segmento enviadas por riders.
 
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | uuid PK | Gerado via `gen_random_uuid()` |
-| `strava_segment_id` | bigint | Segmento alvo |
-| `user_id` | uuid FK | Usuário que sugeriu |
-| `solo_type` | text | Novo tipo de solo sugerido |
-| `exposicao` | text | Nova exposição sugerida |
-| `trail_type` | text | Novo tipo de trilha sugerido |
-| `bioma` | text | Novo bioma sugerido |
-| `status` | text | `pendente`, `aprovada`, `rejeitada` |
-| `created_at` | timestamptz | Timestamp de criação |
-
-**Usado em:**
-- `app/(app)/perfil/strava/sugestao/[segment_id]/page.tsx` → insert ao sugerir alteração
-- `app/(app)/admin/page.tsx` → listagem, aprovação (update `strava_segmentos_config`) e rejeição
+Campos: `id`, `strava_segment_id`, `user_id`, `solo_type`, `exposicao`, `trail_type`, `bioma`, `status` (pendente/aprovada/rejeitada), `created_at`.
 
 ---
 
@@ -886,15 +790,14 @@ Sugestões de alteração de configuração de segmento enviadas por riders não
 
 ### `profiles`
 
-Perfil estendido de cada usuário autenticado. Espelha `auth.users` com dados adicionais do app.
+Perfil estendido de cada usuário autenticado.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | uuid PK | Mesmo UUID do `auth.users` |
 | `email` | text | E-mail do usuário |
-| `nome` | text | Nome completo |
-| `apelido` | text | Apelido exibido no app |
-| `regiao` | text | Sigla do estado preferida |
+| `nome` / `apelido` | text | Dados do rider |
+| `regiao` | text | Sigla UF preferida |
 | `plano` | text | `gratuito`, `pro`, `elite` |
 | `is_admin` | boolean | Acesso ao painel admin |
 | `receber_email` | boolean | Opt-in de alertas por e-mail |
@@ -902,23 +805,10 @@ Perfil estendido de cada usuário autenticado. Espelha `auth.users` com dados ad
 | `email_trilhas_strava` | boolean | Inclui trilhas Strava no e-mail |
 | `telegram_ativo` | boolean | Opt-in de alertas Telegram |
 | `telegram_chat_id` | text | Chat ID do usuário no Telegram |
-| `avatar_url` | text | URL pública da foto de perfil no bucket `avatars` · inclui `?t=<timestamp>` para cache-bust |
+| `avatar_url` | text | URL pública da foto de perfil no bucket `avatars` |
 | `stripe_customer_id` | text | ID do cliente no Stripe |
 | `stripe_subscription_id` | text | ID da assinatura no Stripe |
-| `promo_code_used` | text | Código promocional usado |
 | `created_at` | timestamptz | Timestamp de criação |
-
-**Usado em:**
-- `mtb-forecast.py` → `_buscar_usuarios_telegram()` — busca riders com Telegram ativo
-- `mtb-forecast.py` → `_buscar_usuarios_email()` — busca riders com e-mail ativo
-- `app/(app)/dashboard/page.tsx` → perfil do usuário logado
-- `app/(app)/perfil/page.tsx` → exibição e edição do perfil
-- `app/(app)/admin/page.tsx` → listagem de usuários e verificação `is_admin`
-- `app/auth/callback/route.ts` → upsert no primeiro login (OAuth)
-- `app/(auth)/cadastro/page.tsx` → upsert no cadastro por e-mail
-- `app/api/stripe/webhook/route.ts` → atualiza `plano` e IDs do Stripe
-- `app/api/telegram/webhook/route.ts` → salva `telegram_chat_id`
-- `components/Navbar.tsx` → exibe nome/apelido e verifica admin
 
 ---
 
@@ -928,20 +818,12 @@ Trilhas marcadas como favoritas por cada usuário.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `id` | uuid PK | Gerado via `gen_random_uuid()` |
+| `id` | uuid PK | Auto |
 | `user_id` | uuid FK | Referência para `profiles.id` |
 | `trilha_id` | uuid FK | Referência para `trilhas.id` |
-| `created_at` | timestamptz | Timestamp de criação |
+| `created_at` | timestamptz | Auto |
 
 **Regra de negócio:** plano `gratuito` limitado a 5 favoritos.
-
-**Usado em:**
-- `mtb-forecast.py` → `_buscar_favoritos_usuario()` — favoritos para filtrar notificações
-- `app/(app)/trilhas/page.tsx` → toggle de favorito na listagem
-- `app/(app)/trilhas/[id]/page.tsx` → verifica se é favorito para exibir formulário de avaliação
-- `app/(app)/dashboard/page.tsx` → trilhas favoritas do usuário
-- `app/(app)/perfil/page.tsx` → contagem e listagem de favoritos
-- `components/TrailObservations.tsx` → favoritar via observações
 
 ---
 
@@ -951,39 +833,31 @@ Trilhas marcadas como favoritas por cada usuário.
 
 ### `observacoes_trilha`
 
-Avaliações de riders sobre condições reais da trilha. Pode referenciar trilha pública ou segmento Strava.
+Avaliações de riders sobre condições reais da trilha.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `id` | uuid PK | Gerado via `gen_random_uuid()` |
+| `id` | uuid PK | Auto |
 | `trilha_id` | uuid FK | Referência para `trilhas.id` (null se Strava) |
 | `strava_segment_id` | bigint | ID do segmento Strava (null se trilha pública) |
 | `user_id` | uuid FK | Referência para `profiles.id` |
-| `condicao_encontrada` | text | Condição objetiva da trilha no momento do ride: `seco` · `grip` · `boa` · `baixa` · `lama`. Campo obrigatório no formulário. CHECK constraint garante apenas esses valores. **Usado pelo agente Python** para ajuste de veredicto |
-| `estrelas` | integer | Nota da experiência do ride (1–5). **Não usada pelo algoritmo** — apenas exibição |
+| `condicao_encontrada` | text | `seco`, `grip`, `boa`, `baixa`, `lama`. Obrigatório. Usado pelo agente Python em `ajustar_por_observacoes()` |
+| `estrelas` | integer | Nota da experiência do ride (1–5). Apenas exibição |
 | `texto` | text | Comentário livre (máx. 150 caracteres) |
-| `veredicto_sistema` | text | Snapshot do veredicto no momento da publicação — usado para calcular divergência |
-| `created_at` | timestamptz | Timestamp de criação |
-
-**Regra:** rider pode avaliar apenas trilhas favoritas ou que é `isOwner` (no caso Strava). Avaliações são imutáveis após publicação.
+| `veredicto_sistema` | text | Snapshot do veredicto no momento da publicação |
+| `created_at` | timestamptz | Auto |
 
 **Mapeamento de risco (`ajustar_por_observacoes`):**
 
 | condicao_encontrada | delta_risco |
 |---|---|
-| `seco` | −1 (confirma ou melhora) |
-| `grip` | 0 (neutro) |
-| `boa` | 0 (neutro) |
-| `baixa` | +1 (piora leve) |
-| `lama` | +2 (piora forte) |
+| `seco` | −1 |
+| `grip` | 0 |
+| `boa` | 0 |
+| `baixa` | +1 |
+| `lama` | +2 |
 
-Cap: máximo +2 por execução do agente (evita que poucos relatos sobrescrevam a física).
-
-**Usado em:**
-- `components/TrailObservations.tsx` → list e insert (sem update — imutável)
-- `mtb-forecast.py` → `ajustar_por_observacoes()` — consulta observações das últimas 24h por `trilha_id` para ajuste pós-modelo do veredicto
-- `app/(app)/dashboard/page.tsx` → avaliações do usuário
-- Join com `profiles` para exibir `apelido`, `nome`, `email`
+Cap: máximo +2 por execução do agente.
 
 ---
 
@@ -993,7 +867,7 @@ Workflow de dupla aprovação para alterações nas tabelas de configuração do
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `id` | uuid PK | Gerado via `gen_random_uuid()` |
+| `id` | uuid PK | Auto |
 | `solicitante_id` | uuid FK | Admin que solicitou a alteração |
 | `aprovador_id` | uuid FK | Outro admin que deve aprovar |
 | `tabela` | text | Tabela alvo: `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `biomas`, `trail_type_config` |
@@ -1003,119 +877,67 @@ Workflow de dupla aprovação para alterações nas tabelas de configuração do
 | `status` | text | `pendente`, `aprovada`, `rejeitada` |
 | `motivo_rejeicao` | text | Motivo (opcional) |
 | `motivo` | text | Justificativa do solicitante (mín. 20 chars) |
-| `created_at` | timestamptz | Timestamp de criação |
-
-**Fluxo:** Admin A edita tabela → cria `admin_aprovacoes` (status=pendente) → Admin B aprova → alteração aplicada na tabela alvo.
-
-**Usado em:**
-- `app/(app)/admin/tabelas/page.tsx` → CRUD completo do workflow
-- Tabelas que requerem aprovação: `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `biomas`, `trail_type_config`
+| `created_at` | timestamptz | Auto |
 
 ---
 
-## Grupo 6 — Pump Tracks (4 tabelas)
-
-Todas com RLS: `SELECT` público, `INSERT/UPDATE/DELETE` apenas para `auth.uid() = user_id` (onde aplicável).
+## Grupo 6 — Pump Tracks
 
 ---
 
 ### `trilhas_pumptrack`
 
-Cadastro de pump tracks do Brasil. Populado via CSV inicial (`pumptracks_brasil.csv`) + formulário `/trilhas/cadastrar` (tipo "Pump Track").
+Cadastro de pump tracks do Brasil.
 
 | Coluna | Tipo | Valores / Notas |
 |---|---|---|
 | `id` | text PK | `BR-001` a `BR-015` (dados iniciais) · `PT-<timestamp>` (cadastros de riders) |
 | `nome` | text NOT NULL | Nome do pump track |
 | `cidade` | text | Cidade do município |
-| `uf` | text | Sigla do estado (SP, RJ, MG...) — usado como chave de filtro no web app |
+| `uf` | text | Sigla do estado |
 | `endereco` | text | Endereço completo (opcional) |
-| `latitude` / `longitude` | numeric(10,6) | Coordenadas decimais — usadas no mapa Leaflet e link Waze |
-| `tipo_superficie` | text | Asfalto · Terra · Terra/Saibro · Concreto · Asfalto/Terra · Terra/Madeira · Concreto/Asf. |
+| `latitude` / `longitude` | numeric(10,6) | Coordenadas decimais |
+| `tipo_superficie` | text | Asfalto · Terra · Terra/Saibro · Concreto · etc. |
 | `comprimento_estimado` | text | Ex: `200m` · `350m (03 pistas)` |
 | `iluminacao` | text | Sim · Não |
-| `estacionamento` | text | Sim · Não · Na Rua · Sim (Parque) · Sim (Privado) · Sim (Camping) · Sim (Hotel) · Sim (Complexo) |
-| `fonte` | text | Velosolutions · Blue Pump Tracks · Governo SP · Mobai · Sesc SC · etc. |
-| `google_maps_url` | text | Link direto (ex: `https://maps.google.com/?q=-23.5992,-46.6575`) |
-| `instagram` | text | Handle `@nome` · `N/I` quando não identificado |
+| `estacionamento` | text | Sim · Não · Na Rua · Sim (Parque) · etc. |
+| `fonte` | text | Velosolutions · Blue Pump Tracks · Governo SP · etc. |
+| `google_maps_url` | text | Link direto ao Google Maps |
+| `instagram` | text | Handle `@nome` · `N/I` |
 | `status_validacao` | text | `Ativo - Homologado` · `Ativo - Base de Dados` · `Pendente - Revisão` |
 | `created_at` | timestamptz | Auto |
-
-**Políticas RLS:**
-```
-SELECT: público (leitura livre)
-INSERT: usuário autenticado (qualquer) — status = 'Pendente - Revisão'
-```
-
-**Usado em:**
-- `mtb-forecast.py` → `_carregar_pumptracks_supabase()` — carrega todos para o loop do agente
-- `app/(app)/trilhas/page.tsx` → query com `condicoes_pumptrack(...)` — listagem
-- `app/(app)/pump-track/[id]/page.tsx` → query individual
-- `app/(app)/mapa/page.tsx` → marcadores roxo "P" no Leaflet
-- `app/(app)/trilhas/cadastrar/page.tsx` → INSERT novos pump tracks
 
 ---
 
 ### `condicoes_pumptrack`
 
-Previsão do tempo por pump track, gerada pelo agente Python. **Sem modelo de solo** — apenas dados meteorológicos das próximas 24–48h.
+Previsão do tempo por pump track, gerada pelo agente Python. Sem modelo de solo.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
-| `id` | uuid PK | Auto (`gen_random_uuid()`) |
+| `id` | uuid PK | Auto |
 | `pumptrack_id` | text FK | → `trilhas_pumptrack.id` CASCADE DELETE |
 | `gerado_em` | timestamptz | Momento da última execução |
-| `rain_mm` | numeric(6,1) | Chuva prevista **próximas 24h** (mm) — `resumo_onecall(data["hourly"][:24])` |
+| `rain_mm` | numeric(6,1) | Chuva prevista próximas 24h (mm) |
 | `pico_3h` | numeric(6,1) | Maior acumulado em janela de 3h nas próximas 48h (mm) |
-| `wind_kmh` | numeric(6,1) | Vento máximo previsto 24h (km/h) — `wind_ms × 3.6` |
+| `wind_kmh` | numeric(6,1) | Vento máximo previsto 24h (km/h) |
 | `temp_max` | numeric(5,1) | Temperatura máxima prevista 24h (°C) |
 | `temp_min` | numeric(5,1) | Temperatura mínima prevista 24h (°C) |
 | `pop_48h` | integer | Probabilidade máxima de chuva 48h (%) |
-
-> Índice UNIQUE por `pumptrack_id` → estratégia DELETE + INSERT a cada execução.
-> **Não existe otimização zero-chuva** para pump tracks — pipeline sempre completo (sem modelo de solo a economizar).
-
-**Fluxo de escrita (Python):**
-```
-fetch_onecall({"lat": pt["latitude"], "lon": pt["longitude"]})
-fetch_openmeteo({"lat": ..., "lon": ...})
-Fusão 70/30
-_gravar_condicao_pumptrack(pt["id"], dados)
-  DELETE condicoes_pumptrack WHERE pumptrack_id = pt_id
-  POST   condicoes_pumptrack (INSERT novo)
-```
-
-**Usado em:**
-- `app/(app)/trilhas/page.tsx` → `PumpTrackCard` exibe rain/wind/temp
-- `app/(app)/pump-track/[id]/page.tsx` → grid 3 colunas: Chuva 24h · Vento 24h · Temperatura
-- `app/(app)/mapa/page.tsx` → emoji de tempo no popup do marcador
 
 ---
 
 ### `fotos_pumptrack`
 
-Galeria de fotos enviadas por riders via `/pump-track/[id]`.
+Galeria de fotos enviadas por riders.
 
 | Coluna | Tipo | Descrição |
 |---|---|---|
 | `id` | uuid PK | Auto |
 | `pumptrack_id` | text FK | → `trilhas_pumptrack.id` CASCADE DELETE |
 | `user_id` | uuid FK | → `profiles.id` CASCADE DELETE |
-| `url` | text NOT NULL | URL pública no bucket `pumptrack-photos` (Supabase Storage) |
+| `url` | text NOT NULL | URL pública no bucket `pumptrack-photos` |
 | `created_at` | timestamptz | Auto |
-
-**Bucket Storage:** `pumptrack-photos` — público, 5 MB máx, jpeg/png/webp.
-
-**Path de upload:** `{user_id}/{pumptrack_id}_{timestamp}.{ext}`
-
-**RLS:**
-```
-SELECT: público
-INSERT: authenticated, auth.uid() = user_id
-DELETE: authenticated, auth.uid() = user_id
-```
-
-**API route:** `POST /api/pump-track/foto` — valida tipo/tamanho, faz upload via service role, insere referência.
 
 ---
 
@@ -1129,19 +951,27 @@ Avaliações de riders com estrelas, texto e veredicto rápido.
 | `pumptrack_id` | text FK | → `trilhas_pumptrack.id` CASCADE DELETE |
 | `user_id` | uuid FK | → `profiles.id` CASCADE DELETE |
 | `estrelas` | integer | 1–5 (CHECK) |
-| `texto` | text | Máx. 200 caracteres (CHECK `char_length <= 200`) |
+| `texto` | text | Máx. 200 caracteres |
 | `veredicto_rider` | text | `ROLOU TOP` · `ESTAVA MOLHADO` · `SECO E RÁPIDO` · `CHEIO DE PEDAL` · `BOM PRA FAMÍLIA` |
 | `created_at` | timestamptz | Auto |
 
-**RLS:**
-```
-SELECT: público
-INSERT: authenticated, auth.uid() = user_id
-UPDATE: authenticated, auth.uid() = user_id AND created_at > now() - interval '24 hours'
-DELETE: authenticated, auth.uid() = user_id
-```
+---
 
-**Usado em:** `components/PumpTrackObservacoes.tsx` — tabs Avaliações / Fotos na página de detalhe.
+## Grupo 7 — Strava Condições
+
+---
+
+### `condicoes_strava`
+
+Resultado do agente para segmentos Strava. Campos idênticos à tabela `condicoes`, com chave por `strava_segment_id`.
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | serial PK | Auto-incremento |
+| `strava_segment_id` | bigint UNIQUE | Chave de negócio — um registro por segmento |
+| *(demais campos)* | — | Idênticos a `condicoes` — incluindo as 4 novas colunas de auditoria (jun/2026) |
+
+**Diferença de gravação:** `condicoes` faz DELETE+INSERT por `trilha_id`; `condicoes_strava` faz DELETE+INSERT por `strava_segment_id`.
 
 ---
 
@@ -1149,20 +979,23 @@ DELETE: authenticated, auth.uid() = user_id
 
 | Arquivo | Tabelas acessadas |
 |---|---|
-| `mtb-forecast.py` | `configuracoes_sistema`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `biomas`, `trail_type_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais`, `trilhas_pumptrack`, `condicoes_pumptrack`, **`observacoes_trilha`** (leitura em `ajustar_por_observacoes`) |
+| `mtb-forecast.py` | `configuracoes_sistema`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `enso_config`, `enso_regional_mult`, `aderencia_thresholds`, `veredicto_pesos`, `veredicto_limiares`, `meia_vida_clima_mult`, `biomas`, `trail_type_config`, `solo_type_config`, `inclinacao_config`, `aderencia_descricoes`, `trilhas`, `localidades`, `mantenedores`, `condicoes`, `strava_segmentos_config`, `condicoes_strava`, `profiles`, `favoritos`, `trilhas_pessoais`, `trilhas_pumptrack`, `condicoes_pumptrack`, `observacoes_trilha` |
 | `app/(app)/dashboard/page.tsx` | `profiles`, `favoritos`, `trilhas` + `condicoes`, `trilhas_pessoais`, `condicoes_strava`, `observacoes_trilha` |
-| `app/(app)/trilhas/[id]/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `profiles`, `trilhas_pessoais`, `condicoes_strava` |
-| `app/(app)/trilhas/page.tsx` | `trilhas`, `favoritos`, `profiles`, `localidades`, `trilhas_pumptrack` + `condicoes_pumptrack` |
+| `app/(app)/trilhas/[id]/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `profiles`, `trilhas_pessoais`, `condicoes_strava`, `mantenedores` |
+| `app/(app)/trilhas/page.tsx` | `trilhas`, `favoritos`, `profiles`, `localidades`, `trilhas_pumptrack` + `condicoes_pumptrack`, `mantenedores` |
+| `app/(app)/mantenedores/[id]/page.tsx` | `mantenedores`, `trilhas` + `condicoes` |
 | `app/(app)/pump-track/[id]/page.tsx` | `trilhas_pumptrack`, `condicoes_pumptrack`, `fotos_pumptrack`, `observacoes_pumptrack`, `profiles` |
 | `app/(app)/mapa/page.tsx` | `trilhas` + `condicoes`, `favoritos`, `trilhas_pumptrack` + `condicoes_pumptrack` |
-| `app/(app)/trilhas/cadastrar/page.tsx` | `trilhas_pendentes` (trilha MTB) · `trilhas_pumptrack` (pump track) · `localidades` |
+| `app/(app)/trilhas/cadastrar/page.tsx` | `trilhas_pendentes`, `trilhas_pumptrack`, `localidades` |
 | `app/(app)/admin/page.tsx` | `profiles`, `trilhas_pendentes`, `trilhas`, `strava_segmentos_config`, `strava_config_sugestoes`, `localidades`, `admin_aprovacoes` |
 | `app/(app)/admin/tabelas/page.tsx` | `profiles`, `tabela_solo`, `threshold_sazonal`, `meia_vida_secagem`, `biomas`, `trail_type_config`, `admin_aprovacoes` |
-| `app/(app)/perfil/page.tsx` | `profiles` (inclui `avatar_url`), `trilhas_pendentes`, `favoritos`, `trilhas` |
+| `app/(app)/perfil/page.tsx` | `profiles`, `trilhas_pendentes`, `favoritos`, `trilhas` |
 | `app/(app)/perfil/strava/page.tsx` | `trilhas_pessoais`, `strava_segmentos_config` |
 | `components/TrailObservations.tsx` | `observacoes_trilha`, `favoritos`, `profiles` |
+| `components/LogoMantenedor.tsx` | `mantenedores` (via props da trilha) |
 | `components/PumpTrackObservacoes.tsx` | `observacoes_pumptrack`, `fotos_pumptrack`, `profiles` |
-| `components/Navbar.tsx` | `profiles` (inclui `avatar_url`) |
-| `app/api/profile/avatar/route.ts` | `profiles` (avatar_url) · Storage bucket `avatars` |
+| `components/Navbar.tsx` | `profiles` |
+| `app/api/profile/avatar/route.ts` | `profiles` · Storage bucket `avatars` |
+| `app/api/admin/upload-logo/route.ts` | `mantenedores` · Storage bucket `logos` |
 | `app/api/pump-track/foto/route.ts` | `fotos_pumptrack` · Storage bucket `pumptrack-photos` |
-| `lib/domain.ts` | `tabela_solo`, `strava_segmentos_config` |
+| `app/api/telegram/webhook/route.ts` | `profiles` |

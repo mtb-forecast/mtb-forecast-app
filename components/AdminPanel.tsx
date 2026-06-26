@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes, getRegioes } from '@/lib/domain'
 import { geocodeLatLon } from '@/lib/geocoding'
 
-const StravaMap = dynamic(() => import('@/components/StravaMap'), { ssr: false })
+const TrailMap = dynamic(() => import('@/components/TrailMap'), { ssr: false })
 
 export type TrilhaPendente = {
   id: string
@@ -171,7 +171,7 @@ export default function AdminPanel({ trilhas, onAprovar, onRejeitar }: Props) {
           return (
             <div key={trilha.id} style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
 
-              {trilha.polyline && <StravaMap polyline={trilha.polyline} />}
+              {trilha.polyline && <TrailMap polyline={trilha.polyline} />}
 
               {/* Header */}
               <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

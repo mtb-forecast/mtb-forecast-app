@@ -1,5 +1,9 @@
 import { memo } from 'react'
 import Link from 'next/link'
+import {
+  IconDroplet, IconWind, IconTemperature,
+  IconBulb, IconParking, IconBrandInstagram, IconArrowRight,
+} from '@tabler/icons-react'
 import { PumpTrack } from '@/lib/types'
 import { rainColor, windColor } from '@/lib/display'
 
@@ -90,21 +94,21 @@ function PumpTrackCard({ pt }: Props) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {c.rain_mm != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                <i className="ti ti-droplet" style={{ fontSize: 12, color: rainColor(c.rain_mm) }} />
+                <IconDroplet size={12} style={{ color: rainColor(c.rain_mm) }} />
                 <span style={{ fontSize: 11, fontWeight: 500, color: rainColor(c.rain_mm) }} className="font-mono">{c.rain_mm.toFixed(1)}mm</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>chuva 24h</span>
               </div>
             )}
             {c.wind_kmh != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                <i className="ti ti-wind" style={{ fontSize: 12, color: windColor(c.wind_kmh) }} />
+                <IconWind size={12} style={{ color: windColor(c.wind_kmh) }} />
                 <span style={{ fontSize: 11, fontWeight: 500, color: windColor(c.wind_kmh) }} className="font-mono">{c.wind_kmh.toFixed(0)} km/h</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>vento 24h</span>
               </div>
             )}
             {c.temp_max != null && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F9FAFB', border: '0.5px solid #E5E7EB', borderRadius: 20, padding: '4px 10px' }}>
-                <i className="ti ti-temperature" style={{ fontSize: 12, color: '#F59E0B' }} />
+                <IconTemperature size={12} style={{ color: '#F59E0B' }} />
                 <span style={{ fontSize: 11, fontWeight: 500, color: '#374151' }} className="font-mono">{Math.round(c.temp_max)}°C</span>
                 {c.temp_min != null && <span style={{ fontSize: 10, color: '#9CA3AF' }} className="font-mono">/ {Math.round(c.temp_min)}°</span>}
               </div>
@@ -120,13 +124,13 @@ function PumpTrackCard({ pt }: Props) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {pt.iluminacao && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#6B7280' }}>
-              <i className="ti ti-bulb" style={{ fontSize: 12 }} />
+              <IconBulb size={12} />
               Iluminação: {pt.iluminacao}
             </span>
           )}
           {pt.estacionamento && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#6B7280' }}>
-              <i className="ti ti-parking" style={{ fontSize: 12 }} />
+              <IconParking size={12} />
               {pt.estacionamento}
             </span>
           )}
@@ -165,7 +169,7 @@ function PumpTrackCard({ pt }: Props) {
                   fontSize: 11, color: '#6B7280', textDecoration: 'none',
                 }}
               >
-                <i className="ti ti-brand-instagram" style={{ fontSize: 14 }} />
+                <IconBrandInstagram size={14} />
                 <span>{pt.instagram}</span>
               </a>
             )}
@@ -185,7 +189,7 @@ function PumpTrackCard({ pt }: Props) {
             >
               <span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#111111' }}>Ver detalhes</span>
               <span style={{ background: '#EDE9FE', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#7C3AED' }} />
+                <IconArrowRight size={13} style={{ color: '#7C3AED' }} />
               </span>
             </Link>
           </div>

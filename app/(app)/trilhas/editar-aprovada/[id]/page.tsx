@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useEffect, useRef, useState, Suspense } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { IconCircleCheck, IconArrowLeft } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
+import { encodePolyline } from '@/lib/polyline'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
@@ -58,15 +60,23 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function EditarAprovadaPage() {
-  const router = useRouter()
-  const { id } = useParams<{ id: string }>()
+function EditarAprovadaContent() {
+  const router      = useRouter()
+  const { id }      = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
+  const fromAdmin   = searchParams.get('from') === 'admin'
+  const adminEstado = searchParams.get('estado') ?? ''
+  const adminCidade = searchParams.get('cidade') ?? ''
+  const backUrl     = fromAdmin
+    ? `/admin/trilhas${adminEstado ? `?estado=${encodeURIComponent(adminEstado)}${adminCidade ? `&cidade=${encodeURIComponent(adminCidade)}` : ''}` : ''}`
+    : '/perfil/minhas-trilhas'
 
   const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
   const [erro, setErro]         = useState<string | null>(null)
+  const [isAdmin, setIsAdmin]   = useState(false)
 
   // Form fields
   const [nome, setNome]           = useState('')
@@ -78,15 +88,25 @@ export default function EditarAprovadaPage() {
   const [soloType, setSoloType]   = useState('')
   const [exposicao, setExposicao] = useState('')
   const [trailType, setTrailType] = useState('')
-  const [bioma, setBioma]         = useState('')
-  const [desnivel, setDesnivel]   = useState('')
-  const [extensao, setExtensao]   = useState('')
+  const [bioma, setBioma]               = useState('')
+  const [desnivel, setDesnivel]         = useState('')
+  const [extensao, setExtensao]         = useState('')
+  const [mantenedorId, setMantenedorId] = useState<string>('')
+  const [mantenedores, setMantenedores] = useState<{ id: string; nome: string }[]>([])
+  const [sensibilidade, setSensibilidade] = useState('')
 
   // Geocoding
   const [geoResult, setGeoResult]   = useState<GeoResult | null>(null)
   const [geocoding, setGeocoding]   = useState(false)
   const [extracting, setExtracting] = useState(false)
   const geoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // GPX
+  const [polyline, setPolyline]       = useState<string | null>(null)
+  const [gpxImporting, setGpxImporting] = useState(false)
+  const [gpxErro, setGpxErro]         = useState<string | null>(null)
+  const [gpxOk, setGpxOk]             = useState<string | null>(null)
+  const gpxInputRef = useRef<HTMLInputElement | null>(null)
 
   // Options
   const [soloTypes, setSoloTypes]   = useState<string[]>([])
@@ -100,9 +120,18 @@ export default function EditarAprovadaPage() {
       const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
 
-      const [{ data: t }, sts, bio, exp, tty] = await Promise.all([
-        supabase.from('trilhas').select('*').eq('id', id).eq('created_by', user.id).maybeSingle(),
+      const { data: profile } = await supabase
+        .from('profiles').select('is_admin').eq('id', user.id).single()
+      const admin = !!profile?.is_admin
+      setIsAdmin(admin)
+
+      let trilhaQuery = supabase.from('trilhas').select('*').eq('id', id)
+      if (!admin) trilhaQuery = trilhaQuery.eq('created_by', user.id)
+
+      const [{ data: t }, sts, bio, exp, tty, { data: mants }] = await Promise.all([
+        trilhaQuery.maybeSingle(),
         getSoloTypes(), getBiomas(), getExposicoes(), getTrailTypes(),
+        supabase.from('mantenedores').select('id, nome').eq('ativo', true).order('nome'),
       ])
 
       if (!t) { setNotFound(true); setLoading(false); return }
@@ -118,6 +147,10 @@ export default function EditarAprovadaPage() {
       setBioma(t.bioma || '')
       setDesnivel(t.desnivel_m ? String(t.desnivel_m) : '')
       setExtensao(t.extensao_km ? String(t.extensao_km) : '')
+      setMantenedorId(t.mantenedor_id || '')
+      setMantenedores((mants as { id: string; nome: string }[]) ?? [])
+      setSensibilidade(t.sensibilidade != null ? String(t.sensibilidade) : '1')
+      setPolyline(t.polyline ?? null)
 
       setSoloTypes(sts)
       setBiomas(bio)
@@ -166,19 +199,102 @@ export default function EditarAprovadaPage() {
     else setErro('Não foi possível extrair as coordenadas.')
   }
 
+  // ── GPX ─────────────────────────────────────────────────────────────────────
+  function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  }
+
+  async function handleGpxImport(file: File) {
+    setGpxErro(null); setGpxOk(null); setGpxImporting(true)
+    try {
+      const text = await file.text()
+      const doc = new DOMParser().parseFromString(text, 'application/xml')
+      if (doc.querySelector('parsererror')) throw new Error('Arquivo GPX inválido ou corrompido.')
+
+      const pts = [
+        ...Array.from(doc.querySelectorAll('trkpt')),
+        ...Array.from(doc.querySelectorAll('rtept')),
+      ]
+      if (pts.length === 0) throw new Error('Nenhum ponto de trilha encontrado no arquivo GPX.')
+
+      const lats: number[] = [], lons: number[] = [], eles: number[] = []
+      pts.forEach(pt => {
+        const la = parseFloat(pt.getAttribute('lat') || '')
+        const lo = parseFloat(pt.getAttribute('lon') || '')
+        const el = parseFloat(pt.querySelector('ele')?.textContent || '')
+        if (!isNaN(la) && !isNaN(lo)) { lats.push(la); lons.push(lo) }
+        if (!isNaN(el)) eles.push(el)
+      })
+      if (lats.length === 0) throw new Error('Pontos de GPS sem coordenadas válidas.')
+
+      setPolyline(encodePolyline(lats.map((la, i) => ({ lat: la, lng: lons[i] }))))
+
+      const centLat = lats.reduce((s, v) => s + v, 0) / lats.length
+      const centLon = lons.reduce((s, v) => s + v, 0) / lons.length
+      setLat(centLat.toFixed(6))
+      setLon(centLon.toFixed(6))
+
+      let distKm = 0
+      for (let i = 1; i < lats.length; i++) distKm += haversineKm(lats[i-1], lons[i-1], lats[i], lons[i])
+
+      let altMedia = 0, ganho = 0
+      if (eles.length > 0) {
+        altMedia = eles.reduce((s, v) => s + v, 0) / eles.length
+        for (let i = 1; i < eles.length; i++) { const d = eles[i] - eles[i-1]; if (d > 0) ganho += d }
+        setAltitude(Math.round(altMedia).toString())
+        if (ganho > 1) setDesnivel(Math.round(ganho).toString())
+      }
+      if (distKm > 0.01) setExtensao(distKm.toFixed(2))
+
+      const parts = [`${pts.length} pontos`]
+      if (distKm > 0.01) parts.push(`${distKm.toFixed(1)} km`)
+      if (ganho > 1) parts.push(`${Math.round(ganho)}m desnível`)
+      setGpxOk(`✓ GPX importado — ${parts.join(' · ')}`)
+    } catch (e) {
+      setGpxErro(e instanceof Error ? e.message : 'Erro ao processar o arquivo GPX.')
+    } finally {
+      setGpxImporting(false)
+      if (gpxInputRef.current) gpxInputRef.current.value = ''
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+  async function getOrCreateLocalidade(geo: GeoResult): Promise<string | null> {
+    let query = supabase.from('localidades').select('id')
+      .eq('estado', geo.estado).eq('cidade', geo.cidade)
+    if (geo.localidade) query = query.eq('localidade', geo.localidade)
+    else query = query.is('localidade', null)
+    const { data: existing } = await query.maybeSingle()
+    if (existing) return (existing as { id: string }).id
+    const { data: inserted } = await supabase
+      .from('localidades')
+      .insert({ pais: geo.pais, estado: geo.estado, cidade: geo.cidade, localidade: geo.localidade })
+      .select('id').single()
+    return inserted ? (inserted as { id: string }).id : null
+  }
+
   // ── Save ────────────────────────────────────────────────────────────────────
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) return setErro('Nome obrigatório.')
     if (!regiao)       return setErro('Região obrigatória.')
     if (!lat || !lon)  return setErro('Coordenadas obrigatórias.')
-    if (!altitude)     return setErro('Altitude obrigatória.')
+    if (!altitude || parseInt(altitude) <= 0) return setErro('Altitude obrigatória e deve ser maior que zero.')
     if (!soloType)     return setErro('Tipo de solo obrigatório.')
     if (!exposicao)    return setErro('Exposição obrigatória.')
     if (!trailType)    return setErro('Tipo de trilha obrigatório.')
 
     setSaving(true); setErro(null)
-    const { error } = await supabase.from('trilhas').update({
+
+    let localidadeId: string | null = null
+    if (geoResult) localidadeId = await getOrCreateLocalidade(geoResult)
+
+    const payload = {
       name: nome.trim(), regiao,
       lat: parseFloat(lat), lon: parseFloat(lon),
       altitude_m: parseInt(altitude),
@@ -186,12 +302,29 @@ export default function EditarAprovadaPage() {
       bioma: bioma || null,
       desnivel_m: desnivel ? parseFloat(desnivel) : null,
       extensao_km: extensao ? parseFloat(extensao) : null,
-    }).eq('id', id)
+      mantenedor_id: mantenedorId || null,
+      polyline: polyline ?? null,
+      ...(localidadeId ? { localidade_id: localidadeId } : {}),
+      ...(isAdmin ? { sensibilidade: sensibilidade ? parseFloat(sensibilidade) : 1.0 } : {}),
+    }
 
-    setSaving(false)
-    if (error) { setErro('Erro ao salvar. Tente novamente.'); return }
+    if (isAdmin) {
+      const res  = await fetch('/api/admin/editar-trilha', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...payload }),
+      })
+      const json = await res.json()
+      setSaving(false)
+      if (!res.ok) { setErro(json.error ?? 'Erro ao salvar.'); return }
+    } else {
+      const { error } = await supabase.from('trilhas').update(payload).eq('id', id)
+      setSaving(false)
+      if (error) { setErro('Erro ao salvar. Tente novamente.'); return }
+    }
+
     setSaved(true)
-    setTimeout(() => router.push('/perfil/minhas-trilhas'), 1200)
+    setTimeout(() => router.push(backUrl), 1200)
   }
 
   // ── Loading / Not found / Saved ─────────────────────────────────────────────
@@ -205,8 +338,7 @@ export default function EditarAprovadaPage() {
   if (notFound) return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 32 }}>
       <p style={{ fontSize: 16, color: '#2a2e25', fontWeight: 600 }}>Trilha não encontrada</p>
-      <p style={{ fontSize: 13, color: '#888' }}>Esta trilha não pertence à sua conta.</p>
-      <Link href="/perfil/minhas-trilhas" style={{ fontSize: 13, color: '#6d745f', textDecoration: 'underline' }}>← Voltar</Link>
+      <Link href={backUrl} style={{ fontSize: 13, color: '#6d745f', textDecoration: 'underline' }}>← Voltar</Link>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -214,7 +346,7 @@ export default function EditarAprovadaPage() {
   if (saved) return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
       <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <i className="ti ti-circle-check" style={{ fontSize: 28, color: '#16a34a' }} />
+        <IconCircleCheck size={28} style={{ color: '#16a34a' }} />
       </div>
       <p style={{ fontSize: 16, fontWeight: 700, color: '#2a2e25' }}>Alterações salvas!</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -229,11 +361,16 @@ export default function EditarAprovadaPage() {
       {/* Header */}
       <div style={{ background: '#2a2e25', padding: '32px 20px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <Link href="/perfil/minhas-trilhas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#888', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
-            <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
-            Minhas trilhas
+          <Link href={backUrl} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#888', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
+            <IconArrowLeft size={14} />
+            {fromAdmin ? 'Admin / Trilhas' : 'Minhas trilhas'}
           </Link>
-          <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Editar trilha</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, letterSpacing: '-0.03em' }}>Editar trilha</h1>
+            {isAdmin && (
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '1px', background: '#6d745f', color: '#fff', borderRadius: 2, padding: '3px 8px' }}>ADMIN</span>
+            )}
+          </div>
           <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{nome}</p>
         </div>
       </div>
@@ -344,6 +481,14 @@ export default function EditarAprovadaPage() {
                 {biomas.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </Field>
+            {mantenedores.length > 0 && (
+              <Field label="Mantenedor">
+                <select value={mantenedorId} onChange={e => setMantenedorId(e.target.value)} style={selectStyle}>
+                  <option value="">Nenhum</option>
+                  {mantenedores.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                </select>
+              </Field>
+            )}
           </SectionCard>
 
           {/* ── Métricas ── */}
@@ -360,9 +505,92 @@ export default function EditarAprovadaPage() {
             </div>
           </SectionCard>
 
+          {/* ── Rota GPX ── */}
+          <SectionCard title={isAdmin ? '6. Rota GPX' : '6. Rota GPX (opcional)'}>
+            {polyline ? (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#15803d', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>✓</span>
+                <span>{gpxOk ?? 'Rota disponível — importe um novo GPX para substituir'}</span>
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>Sem rota — importe um arquivo GPX para adicionar o traçado à trilha.</p>
+            )}
+            {gpxErro && (
+              <p style={{ fontSize: 12, color: '#dc2626', margin: 0 }}>{gpxErro}</p>
+            )}
+            <input
+              ref={gpxInputRef}
+              type="file"
+              accept=".gpx,application/gpx+xml"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleGpxImport(f) }}
+            />
+            <button
+              type="button"
+              disabled={gpxImporting}
+              onClick={() => gpxInputRef.current?.click()}
+              style={{
+                background: gpxImporting ? '#8a9280' : '#2a2e25', color: '#fff', border: 'none',
+                borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                cursor: gpxImporting ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
+              }}
+            >
+              {gpxImporting
+                ? <><span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /> Processando…</>
+                : polyline ? 'Substituir GPX' : 'Importar arquivo GPX'
+              }
+            </button>
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: 0 }}>
+              Ao importar, coordenadas, altitude, desnível e extensão são atualizados automaticamente a partir do arquivo.
+            </p>
+          </SectionCard>
+
+          {/* ── Calibração (admin only) ── */}
+          {isAdmin && (
+            <SectionCard title="6. Calibração do modelo (admin)">
+              <Field label="Sensibilidade (padrão 1.0)">
+                <input
+                  type="number" step="0.05" min="0.1" max="3.0"
+                  value={sensibilidade}
+                  onChange={e => setSensibilidade(e.target.value)}
+                  placeholder="1.0"
+                  style={inputStyle}
+                />
+              </Field>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#f4f5f0' }}>
+                      <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5', whiteSpace: 'nowrap' }}>Valor</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5' }}>Efeito</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#6d745f', borderBottom: '1px solid #e5e5e5' }}>Uso típico</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { val: '0.6 – 0.7', efeito: 'BAIXA com ≈60–70% da chuva normal', uso: 'Solo muito argiloso, sem drenagem', cor: '#fef2f2' },
+                      { val: '0.8 – 0.9', efeito: 'Modelo mais restritivo que o bioma',  uso: 'Solo sensível, sombra permanente', cor: '#fff7ed' },
+                      { val: '1.0',       efeito: 'Padrão do bioma — sem ajuste',        uso: 'Maioria das trilhas naturais',     cor: '#f0fdf4' },
+                      { val: '1.2 – 1.3', efeito: 'BAIXA precisa de 20–30% mais chuva', uso: 'Bikepark com boa drenagem',        cor: '#eff6ff' },
+                      { val: '1.5 – 1.8', efeito: 'BAIXA precisa de 50–80% mais chuva', uso: 'Bikepark com drenagem profissional', cor: '#eff6ff' },
+                      { val: '2.0 +',     efeito: 'BAIXA muito difícil de atingir',      uso: 'Bikepark com drenagem de alto nível', cor: '#eff6ff' },
+                    ].map(row => (
+                      <tr key={row.val} style={{ background: row.cor, borderBottom: '1px solid #e5e5e5' }}>
+                        <td style={{ padding: '7px 10px', fontFamily: 'var(--font-dm-mono)', fontWeight: 700, whiteSpace: 'nowrap', color: '#2a2e25' }}>{row.val}</td>
+                        <td style={{ padding: '7px 10px', color: '#374151' }}>{row.efeito}</td>
+                        <td style={{ padding: '7px 10px', color: '#6b7280' }}>{row.uso}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          )}
+
           {/* ── Actions ── */}
           <div style={{ display: 'flex', gap: 10 }}>
-            <Link href="/perfil/minhas-trilhas" style={{
+            <Link href={backUrl} style={{
               flex: '0 0 auto', padding: '13px 20px', borderRadius: 10,
               background: '#fff', border: '1.5px solid #e5e5e5', color: '#555',
               fontSize: 14, fontWeight: 600, textDecoration: 'none',
@@ -386,5 +614,13 @@ export default function EditarAprovadaPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function EditarAprovadaPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f4f5f0' }} />}>
+      <EditarAprovadaContent />
+    </Suspense>
   )
 }

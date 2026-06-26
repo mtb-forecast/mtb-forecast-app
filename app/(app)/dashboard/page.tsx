@@ -1,128 +1,39 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { TrilhaComCondicao } from '@/lib/types'
-import DashboardTrailCard from '@/components/DashboardTrailCard'
+import DashboardFavoritas from './DashboardFavoritas'
+import DashboardFrase from './DashboardFrase'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
-
-const RANKING_VEREDICTO: Record<string, number> = {
-  'DROP LIBERADO': 0,
-  'DROP LIBERADO - Veja os alertas': 1,
-  'MELHOR ESPERAR': 2,
-}
-
-const RANKING_ADERENCIA: Record<string, number> = {
-  'GRIP PERFEITO': 0,
-  'SECO': 1,
-  'BOA ADERÊNCIA': 2,
-  'BAIXA ADERÊNCIA': 3,
-}
 
 export default async function DashboardPage() {
   const supabase = createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession() lê do cookie sem round-trip de rede — o middleware já validou
+  // o token contra o servidor de Auth (getUser()) para esta mesma requisição.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user
   if (!user) redirect('/login')
 
-  // Todas as queries rodam em paralelo no servidor
-  const [
-    { data: profileData },
-    { data: favIds },
-    { data: frases },
-  ] = await Promise.all([
+  // Rodada 1 — apenas perfil + favoritos (críticos para o LCP).
+  // frases_motivacionais é buscada em DashboardFrase via Suspense, sem bloquear o LCP.
+  const [{ data: profileData }, { data: favIds }] = await Promise.all([
     supabase
       .from('profiles')
       .select('id, email, is_admin, nome, apelido, telefone, regiao, receber_email, telegram_username, telegram_chat_id, telegram_ativo')
       .eq('id', user.id)
       .single(),
     supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-    supabase.from('frases_motivacionais').select('frase').eq('ativo', true),
   ])
-
-  const frase = frases && frases.length > 0
-    ? (() => {
-        const now = new Date()
-        const dayOfYear = Math.floor(
-          (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000
-        )
-        return frases[dayOfYear % frases.length].frase
-      })()
-    : null
-
-  let favoritas: TrilhaComCondicao[] = []
-  let avaliacoesPorTrilha: Record<string, { count: number; media: number }> = {}
-
-  if (favIds && favIds.length > 0) {
-    const favTrilhaIds = favIds.map((f: { trilha_id: string }) => f.trilha_id)
-    const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-
-    const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
-      supabase
-        .from('trilhas')
-        .select(`
-          id, name, bioma, trail_type, regiao,
-          localidades(cidade, estado, localidade),
-          condicoes(
-            veredicto, veredicto_12h,
-            aderencia_status, aderencia_futura_status, aderencia_futura_label,
-            pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
-            texto_dinamico, frase_secagem, janela, gerado_em
-          )
-        `)
-        .in('id', favTrilhaIds)
-        .eq('aprovada', true)
-        .order('gerado_em', { foreignTable: 'condicoes', ascending: false }),
-      supabase
-        .from('observacoes_trilha')
-        .select('trilha_id, estrelas')
-        .gte('created_at', h48atras)
-        .in('trilha_id', favTrilhaIds),
-    ])
-
-    if (trilhasData) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapped = (trilhasData as any[]).map((t) => {
-        const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-        return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
-      })
-      favoritas = [...mapped].sort((a, b) => {
-        const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
-        const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
-        if (vA !== vB) return vA - vB
-        const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
-        const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
-        return aA - aB
-      })
-    }
-
-    const porTrilha: Record<string, { count: number; media: number }> = {}
-    for (const av of avaliacoes48h || []) {
-      if (av.trilha_id) {
-        if (!porTrilha[av.trilha_id]) porTrilha[av.trilha_id] = { count: 0, media: 0 }
-        porTrilha[av.trilha_id].count++
-        porTrilha[av.trilha_id].media += av.estrelas
-      }
-    }
-    Object.values(porTrilha).forEach(d => { d.media = Math.round(d.media / d.count * 10) / 10 })
-    avaliacoesPorTrilha = porTrilha
-  }
 
   const profile = profileData
   const name = profile?.apelido || profile?.nome?.split(' ')[0] || user.email?.split('@')[0]
-
-  let liberadas = 0, comAlerta = 0, aguardando = 0
-  for (const t of favoritas) {
-    const v = t.condicao?.veredicto_12h?.trim() || t.condicao?.veredicto?.trim() || ''
-    if (v === 'DROP LIBERADO') liberadas++
-    else if (v === 'DROP LIBERADO - Veja os alertas' || v === 'MELHOR ESPERAR') comAlerta++
-    else aguardando++
-  }
-  const summary = favoritas.length > 0 ? { liberadas, comAlerta, aguardando } : null
+  const favTrilhaIds = (favIds ?? []).map((f: { trilha_id: string }) => f.trilha_id)
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
-      {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      {/* ── Hero — h1 é o elemento LCP; pinta antes dos cards carregarem ── */}
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <h1 style={{
             fontSize: 42, fontWeight: 800,
@@ -140,40 +51,9 @@ export default async function DashboardPage() {
             )}
           </h1>
 
-          {frase && (
-            <p style={{
-              marginTop: 10, marginBottom: 0,
-              fontSize: 13, fontStyle: 'italic',
-              color: 'rgba(168,184,153,0.85)',
-              lineHeight: 1.5, maxWidth: 480,
-            }}>
-              &ldquo;{frase}&rdquo;
-            </p>
-          )}
-
-          {summary ? (
-            <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
-              {summary.liberadas > 0 && (
-                <span style={{ fontSize: 13, color: '#4ADE80', fontWeight: 500 }}>
-                  ✅ {summary.liberadas} liberada{summary.liberadas !== 1 ? 's' : ''}
-                </span>
-              )}
-              {summary.comAlerta > 0 && (
-                <span style={{ fontSize: 13, color: '#FCD34D', fontWeight: 500 }}>
-                  ⚠️ {summary.comAlerta} com alerta
-                </span>
-              )}
-              {summary.aguardando > 0 && (
-                <span style={{ fontSize: 13, color: '#9CA3AF', fontWeight: 500 }}>
-                  ⏳ {summary.aguardando} sem dados
-                </span>
-              )}
-            </div>
-          ) : (
-            <p style={{ color: '#9CA3AF', fontSize: 14, marginTop: 8 }}>
-              Confira as condições de hoje nas suas trilhas
-            </p>
-          )}
+          <Suspense fallback={null}>
+            <DashboardFrase />
+          </Suspense>
 
           <div style={{ background: '#a8b899', height: 3, marginTop: 20 }} />
         </div>
@@ -181,7 +61,7 @@ export default async function DashboardPage() {
 
       {/* Banner de perfil incompleto */}
       {!(profile?.nome && profile?.apelido && profile?.telefone && profile?.regiao) && (
-        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 28px' }}>
+        <div className="hero-banner" style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '12px 28px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <p style={{ fontSize: 13, color: '#92400e' }}>
               ⚠️ Complete seu perfil para aproveitar todos os recursos
@@ -203,7 +83,7 @@ export default async function DashboardPage() {
 
       {/* Banner de notificações desativadas */}
       {profile && !profile.receber_email && !(profile.telegram_chat_id && profile.telegram_ativo) && (
-        <div style={{ background: '#2a2e25', padding: '16px 28px' }}>
+        <div className="hero-banner" style={{ background: '#2a2e25', padding: '16px 28px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
@@ -245,39 +125,32 @@ export default async function DashboardPage() {
       )}
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-main-content" style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <h2 style={{ fontSize: 15, fontWeight: 500, color: '#2a2e25' }}>Minhas trilhas favoritas</h2>
-            <Link href="/trilhas" style={{ fontSize: 13, color: '#6B7280', fontWeight: 400, textDecoration: 'none' }}>
+            <Link href="/favoritas" style={{
+              fontSize: 12, fontWeight: 700, color: '#1A1A1A',
+              background: '#FFE000', borderRadius: 999,
+              padding: '4px 12px', textDecoration: 'none',
+            }}>
               Ver todas →
             </Link>
           </div>
 
-          {favoritas.length === 0 ? (
-            <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 40, textAlign: 'center' }}>
-              <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>Você ainda não tem trilhas favoritas.</p>
-              <Link href="/trilhas" style={{
-                background: '#6d745f', color: '#fff',
-                border: 'none', borderRadius: 4,
-                padding: '10px 20px', fontSize: 13, fontWeight: 500,
-                textDecoration: 'none',
-              }}>
-                Explorar trilhas
-              </Link>
+          {/* Cards streamados — o browser já pintou o h1 (LCP) antes de chegar aqui */}
+          <Suspense fallback={
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+              <div className="spin-indicator" />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {favoritas.map(t => (
-                <DashboardTrailCard
-                  key={t.id}
-                  trilha={t}
-                  avaliacao={avaliacoesPorTrilha[t.id]}
-                />
-              ))}
-            </div>
-          )}
+          }>
+            <DashboardFavoritas
+              favTrilhaIds={favTrilhaIds}
+              userEstado={profile?.regiao ?? undefined}
+              userId={user.id}
+            />
+          </Suspense>
         </section>
 
         {/* ── Banner Pump Tracks ────────────────────────────────────── */}

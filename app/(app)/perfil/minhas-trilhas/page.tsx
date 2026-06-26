@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import {
+  IconArrowLeft, IconPlus, IconSearch, IconX, IconMapPin,
+  IconFilterOff, IconPencil, IconMap, IconTrash,
+} from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -12,9 +16,7 @@ type TrilhaMTB = {
   regiao: string
   cidade: string | null
   status: string
-  motivo_rejeicao?: string | null
   created_at: string
-  source: 'pendentes' | 'catalogo'
 }
 
 type PumpTrack = {
@@ -68,15 +70,10 @@ export default function MinhasTrilhasPage() {
       const user = await getClientUser()
       if (!user) { window.location.href = '/login'; return }
 
-      const [{ data: mtb }, { data: catalogo }, { data: pt }] = await Promise.all([
-        supabase
-          .from('trilhas_pendentes')
-          .select('id, name, regiao, status, motivo_rejeicao, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
+      const [{ data: catalogo }, { data: pt }] = await Promise.all([
         supabase
           .from('trilhas')
-          .select('id, name, regiao, created_at')
+          .select('id, name, regiao, created_at, localidade:localidades(estado, cidade)')
           .eq('created_by', user.id)
           .order('created_at', { ascending: false }),
         supabase
@@ -86,34 +83,26 @@ export default function MinhasTrilhasPage() {
           .order('created_at', { ascending: false }),
       ])
 
-      // IDs já em trilhas_pendentes — não duplicar
-      const pendentesIds = new Set((mtb || []).map((t: { id: string }) => t.id))
+      type LocRaw = { estado: string; cidade: string | null }
+      function resolveLoc(raw: unknown): LocRaw | null {
+        if (!raw) return null
+        if (Array.isArray(raw)) return (raw as LocRaw[])[0] ?? null
+        return raw as LocRaw
+      }
 
-      const mtbItems: TrilhaMTB[] = [
-        ...(mtb || []).map((t: { id: string; name: string; regiao: string; status: string; motivo_rejeicao?: string | null; created_at: string }) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mtbItems: TrilhaMTB[] = (catalogo || []).map((t: any) => {
+        const loc = resolveLoc(t.localidade)
+        return {
           kind: 'mtb' as const,
-          id: t.id,
-          name: t.name,
-          regiao: t.regiao || '',
-          cidade: null,
-          status: t.status,
-          motivo_rejeicao: t.motivo_rejeicao,
-          created_at: t.created_at,
-          source: 'pendentes' as const,
-        })),
-        ...(catalogo || [])
-          .filter((t: { id: string }) => !pendentesIds.has(t.id))
-          .map((t: { id: string; name: string; regiao: string; created_at: string }) => ({
-            kind: 'mtb' as const,
-            id: t.id,
-            name: t.name,
-            regiao: t.regiao || '',
-            cidade: null,
-            status: 'aprovada',
-            created_at: t.created_at,
-            source: 'catalogo' as const,
-          })),
-      ]
+          id: t.id as string,
+          name: t.name as string,
+          regiao: loc?.estado || (t.regiao as string) || '',
+          cidade: loc?.cidade ?? null,
+          status: 'aprovada',
+          created_at: t.created_at as string,
+        }
+      })
 
       const ptItems: PumpTrack[] = (pt || []).map((p: { id: string; nome: string; uf: string | null; cidade: string | null; status_validacao: string | null; created_at: string }) => ({
         kind: 'pumptrack',
@@ -170,9 +159,7 @@ export default function MinhasTrilhasPage() {
   // ── Delete ─────────────────────────────────────────────────────────────────
   async function handleDelete(item: Item) {
     setDeleting(true)
-    const kind = item.kind === 'pumptrack'
-      ? 'pumptrack'
-      : item.source === 'catalogo' ? 'mtb_catalogo' : 'mtb_pendente'
+    const kind = item.kind === 'pumptrack' ? 'pumptrack' : 'mtb_catalogo'
     const res = await fetch('/api/delete-item', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -201,7 +188,7 @@ export default function MinhasTrilhasPage() {
       {/* Header */}
       <div style={{ padding: '20px 16px 0', maxWidth: 640, margin: '0 auto' }}>
         <Link href="/perfil" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.muted, fontSize: 13, textDecoration: 'none', marginBottom: 20 }}>
-          <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
+          <IconArrowLeft size={14} />
           Perfil
         </Link>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
@@ -218,7 +205,7 @@ export default function MinhasTrilhasPage() {
             background: T.primary, color: '#fff', borderRadius: 12,
             padding: '9px 14px', fontSize: 13, fontWeight: 800, textDecoration: 'none', flexShrink: 0,
           }}>
-            <i className="ti ti-plus" style={{ fontSize: 14 }} />
+            <IconPlus size={14} />
             Novo
           </Link>
         </div>
@@ -283,7 +270,7 @@ export default function MinhasTrilhasPage() {
 
         {/* Search */}
         <div style={{ position: 'relative', marginBottom: 16 }}>
-          <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: T.muted }} />
+          <IconSearch size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.muted }} />
           <input
             type="text"
             placeholder="Buscar por nome…"
@@ -298,7 +285,7 @@ export default function MinhasTrilhasPage() {
           />
           {busca && (
             <button onClick={() => setBusca('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 14, padding: 2 }}>
-              <i className="ti ti-x" />
+              <IconX size={14} />
             </button>
           )}
         </div>
@@ -310,7 +297,7 @@ export default function MinhasTrilhasPage() {
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(109,116,95,0.08)', border: '1px solid rgba(109,116,95,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
                 {estadoFiltro}
                 <button onClick={() => { setEstadoFiltro(''); setCidadeFiltro('') }} style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', padding: 0, fontSize: 12, display: 'flex' }}>
-                  <i className="ti ti-x" />
+                  <IconX size={14} />
                 </button>
               </span>
             )}
@@ -318,7 +305,7 @@ export default function MinhasTrilhasPage() {
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(109,116,95,0.08)', border: '1px solid rgba(109,116,95,0.2)', borderRadius: 20, padding: '4px 10px', fontSize: 12, color: T.primary }}>
                 {cidadeFiltro}
                 <button onClick={() => setCidadeFiltro('')} style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', padding: 0, fontSize: 12, display: 'flex' }}>
-                  <i className="ti ti-x" />
+                  <IconX size={14} />
                 </button>
               </span>
             )}
@@ -331,7 +318,7 @@ export default function MinhasTrilhasPage() {
         {items.length === 0 ? (
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 20, padding: '48px 32px', textAlign: 'center' }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-map-pin" style={{ fontSize: 24, color: T.muted }} />
+              <IconMapPin size={24} style={{ color: T.muted }} />
             </div>
             <p style={{ fontSize: 15, color: T.text, fontWeight: 600, margin: '0 0 8px' }}>Nenhum cadastro ainda</p>
             <p style={{ fontSize: 13, color: T.muted, margin: '0 0 24px' }}>Compartilhe suas trilhas e pump tracks com a comunidade MTB.</p>
@@ -340,13 +327,13 @@ export default function MinhasTrilhasPage() {
               background: T.primary, color: '#fff', borderRadius: 14,
               padding: '12px 24px', fontSize: 14, fontWeight: 800, textDecoration: 'none',
             }}>
-              <i className="ti ti-plus" style={{ fontSize: 16 }} />
+              <IconPlus size={16} />
               Cadastrar agora
             </Link>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: '32px', textAlign: 'center' }}>
-            <i className="ti ti-filter-off" style={{ fontSize: 28, color: T.muted }} />
+            <IconFilterOff size={28} style={{ color: T.muted }} />
             <p style={{ fontSize: 14, color: T.muted, marginTop: 12 }}>Nenhum resultado para os filtros aplicados.</p>
           </div>
         ) : (
@@ -357,9 +344,7 @@ export default function MinhasTrilhasPage() {
               const isPTActive = isPumptrack && item.status === 'Ativo - Base de Dados'
               const editHref = isPumptrack
                 ? `/trilhas/editar-pumptrack/${item.id}`
-                : item.kind === 'mtb' && item.source === 'catalogo'
-                  ? `/trilhas/editar-aprovada/${item.id}`
-                  : `/trilhas/editar/${item.id}`
+                : `/trilhas/editar-aprovada/${item.id}`
 
               return (
                 <div key={`${item.kind}-${item.id}`} style={{
@@ -389,22 +374,13 @@ export default function MinhasTrilhasPage() {
                     {/* Meta */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                       <span style={{ fontSize: 12, color: T.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <i className="ti ti-map-pin" style={{ fontSize: 12 }} />
+                        <IconMapPin size={12} />
                         {item.regiao}{item.cidade ? ` · ${item.cidade}` : ''}
                       </span>
                       <span style={{ fontSize: 12, color: T.muted }}>
                         {new Date(item.created_at).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
-
-                    {/* Rejection reason (MTB only) */}
-                    {item.kind === 'mtb' && item.status === 'rejeitada' && item.motivo_rejeicao && (
-                      <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
-                        <p style={{ fontSize: 12, color: '#f87171', margin: 0, lineHeight: 1.6 }}>
-                          <strong>Motivo:</strong> {item.motivo_rejeicao}
-                        </p>
-                      </div>
-                    )}
 
                     {/* Actions */}
                     {confirmDeleteId === `${item.kind}-${item.id}` ? (
@@ -433,7 +409,7 @@ export default function MinhasTrilhasPage() {
                           padding: '8px 16px', fontSize: 13, fontWeight: 600,
                           textDecoration: 'none', border: `1px solid ${T.border}`,
                         }}>
-                          <i className="ti ti-pencil" style={{ fontSize: 14, color: T.primary }} />
+                          <IconPencil size={14} style={{ color: T.primary }} />
                           Editar
                         </Link>
 
@@ -444,7 +420,7 @@ export default function MinhasTrilhasPage() {
                             padding: '8px 16px', fontSize: 13, fontWeight: 600,
                             textDecoration: 'none', border: `1px solid ${T.border}`,
                           }}>
-                            <i className="ti ti-map" style={{ fontSize: 14 }} />
+                            <IconMap size={14} />
                             Ver no mapa
                           </Link>
                         )}
@@ -457,7 +433,7 @@ export default function MinhasTrilhasPage() {
                             padding: '8px 12px', fontSize: 13, fontWeight: 600,
                             border: '1px solid rgba(248,113,113,0.2)', cursor: 'pointer',
                           }}>
-                          <i className="ti ti-trash" style={{ fontSize: 14 }} />
+                          <IconTrash size={14} />
                           Excluir
                         </button>
                       </div>

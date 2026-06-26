@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-type Kind = 'mtb_pendente' | 'mtb_catalogo' | 'pumptrack'
+type Kind = 'mtb_catalogo' | 'pumptrack'
 
 export async function POST(req: NextRequest) {
   const cookieStore = cookies()
@@ -44,11 +44,7 @@ export async function POST(req: NextRequest) {
 
   // Verify ownership if not admin
   if (!isAdmin) {
-    if (kind === 'mtb_pendente') {
-      const { data } = await admin.from('trilhas_pendentes').select('user_id').eq('id', id).maybeSingle()
-      if (!data || data.user_id !== user.id)
-        return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
-    } else if (kind === 'mtb_catalogo') {
+    if (kind === 'mtb_catalogo') {
       const { data } = await admin.from('trilhas').select('created_by').eq('id', id).maybeSingle()
       if (!data || data.created_by !== user.id)
         return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
@@ -61,10 +57,7 @@ export async function POST(req: NextRequest) {
 
   // Execute delete
   let error: unknown = null
-  if (kind === 'mtb_pendente') {
-    const res = await admin.from('trilhas_pendentes').delete().eq('id', id)
-    error = res.error
-  } else if (kind === 'mtb_catalogo') {
+  if (kind === 'mtb_catalogo') {
     const res = await admin.from('trilhas').delete().eq('id', id)
     error = res.error
   } else if (kind === 'pumptrack') {

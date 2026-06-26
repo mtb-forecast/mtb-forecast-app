@@ -3,13 +3,11 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Barlow_Condensed } from 'next/font/google'
+import { IconArrowLeft } from '@tabler/icons-react'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao } from '@/lib/types'
 import CondicaoCard from '@/components/CondicaoCard'
 import { formatLocalidade } from '@/lib/geocoding'
-
-const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 function LoadingSpin() {
   return (
@@ -102,17 +100,17 @@ function ComparacaoContent() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Link
             href="/dashboard"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#9CA3AF', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}
           >
-            <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
+            <IconArrowLeft size={14} />
             Voltar ao dashboard
           </Link>
           <h1 style={{
-            fontFamily: barlow.style.fontFamily,
+            fontFamily: 'var(--font-barlow-condensed), sans-serif',
             fontSize: 36, fontWeight: 800,
             textTransform: 'uppercase', lineHeight: 1.05, margin: 0,
           }}>
@@ -126,7 +124,7 @@ function ComparacaoContent() {
         </div>
       </div>
 
-      <div style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
+      <div className="page-main-content" style={{ padding: '28px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <TrilhaColumn trilha={trilhaA} label="Trilha A" />
           <TrilhaColumn trilha={trilhaB} label="Trilha B" />

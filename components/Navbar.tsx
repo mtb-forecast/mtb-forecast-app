@@ -75,6 +75,9 @@ export default function Navbar() {
           transition: color 0.15s;
         }
         .nb-btn:hover { color: #f4f5f0; }
+        @media (max-width: 480px) {
+          .nb-inner { padding-left: 12px !important; padding-right: 12px !important; }
+        }
       `}</style>
 
       <nav style={{
@@ -85,7 +88,7 @@ export default function Navbar() {
         height: 56,
         borderBottom: '1px solid #3a4035',
       }}>
-        <div style={{
+        <div className="nb-inner" style={{
           maxWidth: 1200,
           margin: '0 auto',
           padding: '0 32px',

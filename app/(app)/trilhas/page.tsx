@@ -1,6 +1,5 @@
 ﻿'use client'
 
-import { Barlow_Condensed } from 'next/font/google'
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -8,9 +7,8 @@ import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import TrilhaCard from '@/components/TrilhaCard'
 import PumpTrackCard from '@/components/PumpTrackCard'
+import { IconChevronDown, IconSearch, IconRoute, IconShieldCheck } from '@tabler/icons-react'
 
-
-const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
 
 const VEREDICTO_ORDER: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -39,7 +37,9 @@ function TrilhasContent() {
   const [mounted, setMounted] = useState(false)
   const [trilhasAll, setTrilhasAll] = useState<TrilhaComCondicao[]>([])
   const [pumptracksAll, setPumptracksAll] = useState<PumpTrack[]>([])
+  const [pumptracksCount, setPumptracksCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingTrilhas, setLoadingTrilhas] = useState(false)
   const [search, setSearch] = useState('')
 
   const [estadoSelecionado, setEstadoSelecionado] = useState(estadoInicial)
@@ -47,14 +47,13 @@ function TrilhasContent() {
   const [localidadeSelecionada, setLocalidadeSelecionada] = useState('')
 
   const [estados, setEstados] = useState<string[]>([])
-  const [cidades, setCidades] = useState<string[]>([])
-  const [localidadesOpts, setLocalidadesOpts] = useState<string[]>([])
+  const [mantenedoresList, setMantenedoresList] = useState<{ id: string; nome: string; nome_primario: string | null; nome_secundario: string | null }[]>([])
 
   const [userId, setUserId] = useState<string | null>(null)
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
   useEffect(() => { setMounted(true) }, [])
 
-  // Carrega todas as trilhas + estados na montagem
+  // Init leve: auth + estados + count de pumptracks + mantenedores
   useEffect(() => {
     async function init() {
       try {
@@ -62,37 +61,78 @@ function TrilhasContent() {
         if (!user) { window.location.href = '/login'; return }
         setUserId(user.id)
 
-        const [{ data: favData }, { data: trilhasData }, { data: estadosData }, { data: ptData }] =
+        const [{ data: favData }, { data: estadosData }, { data: ptCountData }, { data: mantData }] =
           await Promise.all([
             supabase.from('favoritos').select('trilha_id').eq('user_id', user.id),
-            supabase
-              .from('trilhas')
-              .select(`
-                id, name, bioma, trail_type, regiao,
-                localidades(cidade, estado, localidade),
-                condicoes(
-                  veredicto, veredicto_12h,
-                  aderencia_status, aderencia_futura_status, aderencia_futura_label,
-                  pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
-                  texto_dinamico, frase_secagem, janela, gerado_em
-                )
-              `)
-              .eq('aprovada', true)
-              .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-              .order('name'),
             supabase.from('localidades').select('estado').order('estado'),
-            supabase
-              .from('trilhas_pumptrack')
-              .select(`
-                id, nome, cidade, uf, endereco, latitude, longitude,
-                tipo_superficie, comprimento_estimado, iluminacao, estacionamento,
-                fonte, google_maps_url, instagram, status_validacao,
-                condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_48h)
-              `)
-              .order('nome'),
+            supabase.from('trilhas_pumptrack').select('id, uf'),
+            supabase.from('mantenedores').select('id, nome, nome_primario, nome_secundario').eq('ativo', true).order('nome'),
           ])
 
         if (favData) setFavoritos(new Set(favData.map((f: { trilha_id: string }) => f.trilha_id)))
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ptRows = (ptCountData as any[] | null) ?? []
+        setPumptracksCount(ptRows.length)
+
+        const trailStates = (estadosData || []).map((r: { estado: string }) => r.estado).filter(Boolean)
+        const ptStates = ptRows.map((pt: { uf: string }) => pt.uf).filter(Boolean)
+        setEstados([...new Set([...trailStates, ...ptStates])].sort() as string[])
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (mantData) setMantenedoresList(mantData as any[])
+      } catch (err) {
+        console.error('Erro ao carregar dados iniciais:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    init()
+  }, [])
+
+  // Fetch pesado: trilhas + pumptracks do estado selecionado
+  useEffect(() => {
+    if (!estadoSelecionado || !userId) {
+      setTrilhasAll([])
+      setPumptracksAll([])
+      return
+    }
+    let cancelled = false
+    setLoadingTrilhas(true)
+
+    async function fetchTrilhas() {
+      try {
+        const [{ data: trilhasData }, { data: ptData }] = await Promise.all([
+          supabase
+            .from('trilhas')
+            .select(`
+              id, name, bioma, trail_type, regiao,
+              localidades(cidade, estado, localidade),
+              mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
+              condicoes(
+                veredicto, veredicto_12h,
+                aderencia_status, aderencia_futura_status, aderencia_futura_label,
+                pico_3h, wind_ms, acumulo_48h, ultima_chuva_h,
+                texto_dinamico, frase_secagem, gerado_em
+              )
+            `)
+            .eq('aprovada', true)
+            .eq('regiao', estadoSelecionado)
+            .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+            .order('name'),
+          supabase
+            .from('trilhas_pumptrack')
+            .select(`
+              id, nome, cidade, uf, endereco, latitude, longitude,
+              tipo_superficie, comprimento_estimado, iluminacao, estacionamento,
+              fonte, google_maps_url, instagram, status_validacao,
+              condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_12h)
+            `)
+            .eq('uf', estadoSelecionado)
+            .order('nome'),
+        ])
+
+        if (cancelled) return
 
         if (trilhasData) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,60 +151,52 @@ function TrilhasContent() {
           })
           setPumptracksAll(mapped)
         }
-
-        if (estadosData || ptData) {
-          const trailStates = (estadosData || []).map((r: { estado: string }) => r.estado).filter(Boolean)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const ptStates = ptData ? (ptData as any[]).map((pt) => pt.uf).filter(Boolean) : []
-          const distinct = [...new Set([...trailStates, ...ptStates])].sort() as string[]
-          setEstados(distinct)
-        }
       } catch (err) {
-        console.error('Erro ao carregar trilhas:', err)
+        if (!cancelled) console.error('Erro ao carregar trilhas:', err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoadingTrilhas(false)
       }
     }
-    init()
-  }, [router])
+    fetchTrilhas()
+    return () => { cancelled = true }
+  }, [estadoSelecionado, userId])
 
-  // Carrega cidades quando estado muda — inclui cidades de pump tracks
+  // Reseta seleções em cascata quando filtros pai mudam
   useEffect(() => {
     setCidadeSelecionada('')
     setLocalidadeSelecionada('')
-    setLocalidadesOpts([])
-    if (!estadoSelecionado) { setCidades([]); return }
-    Promise.all([
-      supabase.from('localidades').select('cidade').eq('estado', estadoSelecionado).order('cidade'),
-      supabase.from('trilhas_pumptrack').select('cidade').eq('uf', estadoSelecionado),
-    ]).then(([{ data: locData }, { data: ptData }]) => {
-      const locCidades = locData ? locData.map((r: { cidade: string }) => r.cidade).filter(Boolean) : []
-      const ptCidades = ptData ? ptData.map((r: { cidade: string | null }) => r.cidade).filter(Boolean) : []
-      const distinct = [...new Set([...locCidades, ...ptCidades as string[]])].sort() as string[]
-      setCidades(distinct)
-    })
   }, [estadoSelecionado])
 
-  // Carrega localidades quando cidade muda
   useEffect(() => {
     setLocalidadeSelecionada('')
-    if (!estadoSelecionado || !cidadeSelecionada) { setLocalidadesOpts([]); return }
-    supabase
-      .from('localidades')
-      .select('localidade')
-      .eq('estado', estadoSelecionado)
-      .eq('cidade', cidadeSelecionada)
-      .not('localidade', 'is', null)
-      .order('localidade')
-      .then(({ data }) => {
-        if (data) {
-          const distinct = [...new Set(
-            data.map((r: { localidade: string | null }) => r.localidade).filter(Boolean)
-          )] as string[]
-          setLocalidadesOpts(distinct)
-        }
-      })
-  }, [estadoSelecionado, cidadeSelecionada])
+  }, [cidadeSelecionada])
+
+  // Cidades disponíveis — derivadas das trilhas já carregadas (evita mostrar cidades sem trilhas)
+  const cidades = useMemo(() => {
+    if (!estadoSelecionado) return []
+    const set = new Set<string>()
+    for (const t of trilhasAll) {
+      const estado = t.localidades?.estado || t.regiao
+      if (estado === estadoSelecionado && t.localidades?.cidade) set.add(t.localidades.cidade)
+    }
+    for (const pt of pumptracksAll) {
+      if (pt.uf === estadoSelecionado && pt.cidade) set.add(pt.cidade)
+    }
+    return [...set].sort()
+  }, [trilhasAll, pumptracksAll, estadoSelecionado])
+
+  // Localidades disponíveis — derivadas das trilhas da cidade selecionada
+  const localidadesOpts = useMemo(() => {
+    if (!estadoSelecionado || !cidadeSelecionada) return []
+    const set = new Set<string>()
+    for (const t of trilhasAll) {
+      const estado = t.localidades?.estado || t.regiao
+      if (estado === estadoSelecionado && t.localidades?.cidade === cidadeSelecionada && t.localidades?.localidade) {
+        set.add(t.localidades.localidade)
+      }
+    }
+    return [...set].sort()
+  }, [trilhasAll, estadoSelecionado, cidadeSelecionada])
 
   function handleEstadoChange(estado: string) {
     setEstadoSelecionado(estado)
@@ -183,15 +215,15 @@ function TrilhasContent() {
     }
   }, [userId, favoritos])
 
-  // Filtragem client-side — memoizado para evitar recálculo a cada render
-  const trilhasFiltradas = useMemo(() => trilhasAll.filter(t => {
-    if (!estadoSelecionado) return false
-    const estadoTrilha = t.localidades?.estado || t.regiao || ''
-    if (estadoTrilha !== estadoSelecionado) return false
-    if (cidadeSelecionada && t.localidades?.cidade !== cidadeSelecionada) return false
-    if (localidadeSelecionada && t.localidades?.localidade !== localidadeSelecionada) return false
-    return true
-  }), [trilhasAll, estadoSelecionado, cidadeSelecionada, localidadeSelecionada])
+  // Filtragem client-side — estado já filtrado no banco; apenas cidade/localidade aqui
+  const trilhasFiltradas = useMemo(() => {
+    if (!estadoSelecionado) return []
+    return trilhasAll.filter(t => {
+      if (cidadeSelecionada && t.localidades?.cidade !== cidadeSelecionada) return false
+      if (localidadeSelecionada && t.localidades?.localidade !== localidadeSelecionada) return false
+      return true
+    })
+  }, [trilhasAll, estadoSelecionado, cidadeSelecionada, localidadeSelecionada])
 
   const ranked = useMemo(() => rankTrilhas(trilhasFiltradas), [trilhasFiltradas])
 
@@ -246,7 +278,7 @@ function TrilhasContent() {
       `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div style={{ background: '#2a2e25', padding: '36px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '36px 28px' }}>
         <div style={{
           maxWidth: 1200, margin: '0 auto',
           display: 'flex', alignItems: 'center',
@@ -254,7 +286,7 @@ function TrilhasContent() {
         }}>
           <div>
             <h1 style={{
-              fontFamily: barlow.style.fontFamily,
+              fontFamily: 'var(--font-barlow-condensed), sans-serif',
               fontSize: 36, fontWeight: 800,
               textTransform: 'uppercase',
               color: '#FFFFFF', lineHeight: 1.1, margin: 0,
@@ -289,11 +321,36 @@ function TrilhasContent() {
       <div style={{ background: '#a8b899', height: 3 }} />
 
       {/* ── Filtros ─────────────────────────────────────────────────────── */}
-      <div style={{ background: '#f4f5f0', borderBottom: '0.5px solid #E5E7EB', padding: '16px 28px' }}>
+      <div className="trilhas-filter-bar" style={{ background: '#f4f5f0', borderBottom: '0.5px solid #E5E7EB', padding: '16px 28px' }}>
         <div
           className="trilhas-filtros"
           style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
         >
+
+          {/* Select — Mantenedor / Bike Park */}
+          {mantenedoresList.length > 0 && (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <select
+                value=""
+                onChange={e => { if (e.target.value) router.push(`/mantenedores/${e.target.value}`) }}
+                className="trilhas-select"
+                style={{
+                  ...fieldBase,
+                  appearance: 'none', WebkitAppearance: 'none',
+                  padding: '10px 40px 10px 14px',
+                  color: '#9CA3AF',
+                  cursor: 'pointer', width: 220,
+                }}
+              >
+                <option value="">Mantenedores / Bike Park</option>
+                {mantenedoresList.map(m => {
+                  const label = [m.nome_primario || m.nome, m.nome_secundario].filter(Boolean).join(' ')
+                  return <option key={m.id} value={m.id}>{label}</option>
+                })}
+              </select>
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
+            </div>
+          )}
 
           {/* Select 1 — Estado */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -312,7 +369,7 @@ function TrilhasContent() {
               <option value="">Estado</option>
               {estados.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
-            <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+            <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
           </div>
 
           {/* Select 2 — Cidade */}
@@ -333,7 +390,7 @@ function TrilhasContent() {
                 <option value="">Todas as cidades</option>
                 {cidades.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
             </div>
           )}
 
@@ -355,14 +412,14 @@ function TrilhasContent() {
                 <option value="">Todas as localidades</option>
                 {localidadesOpts.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
-              <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
             </div>
           )}
 
           {/* Input de busca */}
           {estadoSelecionado && (
             <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-              <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#9CA3AF', pointerEvents: 'none' }} />
+              <IconSearch size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
               <input
                 type="text"
                 placeholder="Buscar trilha ou pump track..."
@@ -377,7 +434,7 @@ function TrilhasContent() {
       </div>
 
       {/* ── Conteúdo ────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 28px' }}>
+      <div className="trilhas-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 28px' }}>
 
         {/* Onboarding — sem estado selecionado */}
         {!estadoSelecionado && (
@@ -412,7 +469,7 @@ function TrilhasContent() {
                   background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
                 }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <i className="ti ti-route" style={{ fontSize: 24, color: '#7C3AED' }} />
+                  <IconRoute size={24} style={{ color: '#7C3AED' }} />
                   <span style={{
                     background: '#EDE9FE', color: '#7C3AED',
                     fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
@@ -423,7 +480,7 @@ function TrilhasContent() {
                   Pump Tracks no mapa
                 </p>
                 <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 12px' }}>
-                  {pumptracksAll.length} pump tracks cadastrados com previsão do tempo e navegação via Waze. Selecione seu estado para ver os locais próximos.
+                  {pumptracksCount} pump tracks cadastrados com previsão do tempo e navegação via Waze. Selecione seu estado para ver os locais próximos.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {['Asfalto', 'Terra', 'Homologado', 'Waze'].map(tag => (
@@ -434,20 +491,67 @@ function TrilhasContent() {
                   ))}
                 </div>
               </div>
+
+              {/* Card Mantenedores / Bike Park — destaque verde, full width */}
+              {mantenedoresList.length > 0 && (
+                <div style={{
+                  gridColumn: '1 / -1',
+                  background: '#FFFFFF', borderRadius: 12,
+                  border: '0.5px solid #c8d4be', padding: 20,
+                  position: 'relative', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+                    background: 'linear-gradient(90deg, #4a6741, #a8b899)',
+                  }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <IconShieldCheck size={22} style={{ color: '#6d745f' }} />
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: 0 }}>
+                      Mantenedores & Bike Parks
+                    </p>
+                    <span style={{
+                      background: '#dcfce7', color: '#15803d',
+                      fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
+                      letterSpacing: '0.06em', textTransform: 'uppercase',
+                    }}>
+                      {mantenedoresList.length} ativo{mantenedoresList.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 12px' }}>
+                    Trilhas monitoradas e mantidas por marcas e parques parceiros. Clique para ver todas as trilhas de cada mantenedor.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {mantenedoresList.map(m => (
+                      <Link
+                        key={m.id}
+                        href={`/mantenedores/${m.id}`}
+                        style={{
+                          fontSize: 12, fontWeight: 600,
+                          color: '#4a6741', background: '#f0f3ec',
+                          border: '0.5px solid #c8d4be', borderRadius: 999,
+                          padding: '4px 12px', textDecoration: 'none',
+                        }}
+                      >
+                        {[m.nome_primario || m.nome, m.nome_secundario].filter(Boolean).join(' ')} →
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
           </>
         )}
 
-        {/* Loading inicial */}
-        {loading && estadoSelecionado && (
+        {/* Loading trilhas */}
+        {loadingTrilhas && estadoSelecionado && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
             <div style={{ width: 32, height: 32, border: '2px solid #E5E7EB', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         )}
 
         {/* Lista de trilhas */}
-        {!loading && estadoSelecionado && (
+        {!loadingTrilhas && estadoSelecionado && (
           <>
             {/* Trilhas MTB — ou estado vazio se não houver nenhuma NEM pump track */}
             {filtered.length === 0 && pumptracks.length === 0 ? (

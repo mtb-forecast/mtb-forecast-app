@@ -1,31 +1,20 @@
-'use client'
-
-import { Barlow_Condensed } from 'next/font/google'
-import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { supabase, getClientUser } from '@/lib/supabase'
-import {
-  Trilha, Condicao,
-  VEREDICTO_CONFIG,
-} from '@/lib/types'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
 import { deveAlertarRajada, emojiTempo } from '@/lib/display'
 import ElevationProfile from '@/components/ElevationProfile'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
+import { LogoMantenedor } from '@/components/LogoMantenedor'
+import TrilhaAcoes from './TrilhaAcoes'
 
-const StravaMap = dynamic(() => import('@/components/StravaMap'), {
+const TrailMap = dynamic(() => import('@/components/TrailMap'), {
   ssr: false,
   loading: () => <div style={{ height: 250, borderRadius: 8, background: '#d4dcc9' }} />,
 })
-
-type TrilhaDetalhada = Trilha & { condicoes?: Condicao[] }
-
-const barlow = Barlow_Condensed({ subsets: ['latin'], weight: ['700', '800'] })
-
-// ── helpers ──────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -35,91 +24,46 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-// ── page ─────────────────────────────────────────────────────────────────────
+export default async function TrilhaDetalhe({ params }: { params: { id: string } }) {
+  const sb = createSupabaseServerClient()
+  const { data: { session } } = await sb.auth.getSession()
+  if (!session?.user) redirect('/login')
 
-export default function TrilhaDetalhe() {
-  const router = useRouter()
-  const params = useParams()
-  const id = params.id as string
+  const userId = session.user.id
+  const { id } = params
 
-  const [trilha, setTrilha] = useState<Trilha | null>(null)
-  const [c, setC] = useState<Condicao | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isFavorito, setIsFavorito] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [{ data: td }, { data: fav }] = await Promise.all([
+    sb.from('trilhas')
+      .select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade), mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url)`)
+      .eq('id', id)
+      .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
+      .order('bloco', { foreignTable: 'previsao_blocos' })
+      .maybeSingle(),
+    sb.from('favoritos').select('id').eq('user_id', userId).eq('trilha_id', id).maybeSingle(),
+  ])
 
-  useEffect(() => {
-    async function load() {
-      const user = await getClientUser()
-      if (!user) { window.location.href = '/login'; return }
-      setUserId(user.id)
+  if (!td) notFound()
 
-      const [{ data: td }, { data: fav }] = await Promise.all([
-        supabase.from('trilhas').select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)`)
-          .eq('id', id)
-          .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-          .order('bloco', { foreignTable: 'previsao_blocos' })
-          .maybeSingle(),
-        supabase.from('favoritos').select('id').eq('user_id', user.id).eq('trilha_id', id).maybeSingle(),
-      ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const trilha = td as any
+  const conds = Array.isArray(trilha.condicoes) ? trilha.condicoes : []
+  const c: Condicao | null = conds[0] ?? null
+  const blocos = Array.isArray(trilha.previsao_blocos)
+    ? [...trilha.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
+    : null
+  if (c && blocos?.length) c.previsao_24h = blocos
 
-      if (td) {
-        const t = td as TrilhaDetalhada & { previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }
-        const conds = Array.isArray(t.condicoes) ? t.condicoes : []
-        const condicao = conds[0] ?? null
-        const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
-        if (condicao && blocos?.length) condicao.previsao_24h = blocos
-        setTrilha(t)
-        setC(condicao)
-        setIsFavorito(!!fav)
-        setLoading(false)
-        return
-      }
-
-      router.replace('/trilhas'); return
-    }
-    load()
-  }, [id, router])
-
-  async function toggleFavorito() {
-    if (!userId) return
-    if (isFavorito) {
-      await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', id)
-      setIsFavorito(false)
-    } else {
-      await supabase.from('favoritos').insert({ user_id: userId, trilha_id: id })
-      setIsFavorito(true)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
-    )
-  }
-
-  if (!trilha) return null
+  const isFavorito = !!fav
 
   const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
-  const vcfg   = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
+  const vcfg    = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const borderCor = vcfg?.cor ?? '#e5e5e5'
 
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
-  const isMatAtlantica = trilha.bioma === 'Mata Atlântica'
   const mapsUrl = `https://www.google.com/maps?q=${trilha.lat},${trilha.lon}`
 
   const alertaRajada = deveAlertarRajada(c?.alerta_rajada_kmh, trilha.exposicao)
   const nivelVento = c?.alerta_vento_nivel ?? 0
-
-  function compartilharWhatsApp() {
-    if (!trilha) return
-    const url = `https://www.mtbforecaster.com.br/t/${trilha.id}`
-    const mensagem = `🚵 Confira as condições da trilha *${trilha.name}* no MTB Forecaster!\n\nVeja solo, chuva, vento e o melhor horário para pedalar:\n${url}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(mensagem)}`, '_blank')
-  }
 
   const clay = c?.clay_pct
   const fontes: string[] = []
@@ -135,8 +79,8 @@ export default function TrilhaDetalhe() {
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Page header grafite ─────────────────────────────────────────── */}
-      <div className="page-header" style={{ background: '#2a2e25', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div className="page-header" style={{ background: '#2a2e25', padding: '40px 0' }}>
+        <div className="page-header-inner" style={{ maxWidth: 720, margin: '0 auto', padding: '0 32px', boxSizing: 'border-box' }}>
 
           {/* Voltar */}
           <Link
@@ -148,46 +92,25 @@ export default function TrilhaDetalhe() {
 
           {/* Nome + ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-            <h1 style={{
-              fontFamily: barlow.style.fontFamily,
+            <h1 className="trilha-nome" style={{
+              fontFamily: 'var(--font-barlow-condensed), sans-serif',
               fontSize: 36, fontWeight: 800,
               textTransform: 'uppercase',
               color: '#FFFFFF', lineHeight: 1.1, flex: 1, margin: 0,
             }}>
               {trilha.name}
             </h1>
-            <div className="trilha-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <button
-                onClick={compartilharWhatsApp}
-                style={{
-                  background: '#25D366', color: '#fff',
-                  border: 'none', borderRadius: 4,
-                  padding: '8px 16px', fontSize: 13, fontWeight: 500,
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  cursor: 'pointer',
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                  <path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.554 4.118 1.524 5.855L.054 23.454a.75.75 0 00.914.914l5.599-1.47A11.955 11.955 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.667-.5-5.2-1.373l-.374-.22-3.878 1.018 1.018-3.878-.22-.374A9.956 9.956 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-                </svg>
-                Compartilhar
-              </button>
-              <button
-                onClick={toggleFavorito}
-                style={{
-                  background: 'none', border: '1px solid', cursor: 'pointer',
-                  borderColor: isFavorito ? '#a8b899' : '#8a9280',
-                  color: isFavorito ? '#a8b899' : '#8a9280',
-                  fontSize: 18, padding: '4px 10px', borderRadius: 4,
-                }}
-              >
-                {isFavorito ? '★' : '☆'}
-              </button>
+            <div className="trilha-header-actions" style={{ flexShrink: 0 }}>
+              <TrilhaAcoes
+                trilhaId={id}
+                trilhaNome={trilha.name}
+                initialIsFavorito={isFavorito}
+                userId={userId}
+              />
             </div>
           </div>
 
-          {/* a) Tags */}
+          {/* Tags */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
             <span style={{ fontSize: 12, color: '#D1D5DB', background: 'rgba(255,255,255,0.1)', borderRadius: 999, padding: '2px 10px' }}>
               {trilha.trail_type === 'bikepark' ? 'Bike Park' : 'Natural'}
@@ -207,7 +130,12 @@ export default function TrilhaDetalhe() {
             )}
           </div>
 
-          {/* b) Dados físicos */}
+          {/* Mantenedor */}
+          {trilha.mantenedor && (
+            <LogoMantenedor mantenedor={trilha.mantenedor} contexto="pagina" />
+          )}
+
+          {/* Dados físicos */}
           {(trilha.desnivel_m != null || trilha.extensao_km != null || (clay != null && c?.texture_class)) && (
             <div className="dados-fisicos" style={{ fontSize: 13, color: '#9CA3AF', marginTop: 10, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               {trilha.desnivel_m != null && <span className="font-mono">⛰ {trilha.desnivel_m}m desnível</span>}
@@ -218,10 +146,12 @@ export default function TrilhaDetalhe() {
             </div>
           )}
 
-          {/* c) Clima do dia */}
+          {/* Clima do dia */}
           {c?.temp_max != null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
-              <span style={{ fontSize: 28 }}>{emojiTempo(c.rain_mm, c.pop_12h)}</span>
+              <span style={{ fontSize: 28, fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }}>
+                {emojiTempo(c.rain_mm, c.pop_12h)}
+              </span>
               <div>
                 <span style={{ fontSize: 16, fontWeight: 700, color: '#E5E7EB' }} className="font-mono">{c.temp_max}°</span>
                 {c.temp_min != null && (
@@ -230,10 +160,7 @@ export default function TrilhaDetalhe() {
               </div>
             </div>
           )}
-
-
-
-</div>
+        </div>
       </div>
 
       {/* ── Faixa de acento ─────────────────────────────────────────────── */}
@@ -246,8 +173,8 @@ export default function TrilhaDetalhe() {
         <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderLeft: `3px solid ${borderCor}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
           {trilha.polyline ? (
             <>
-              <StravaMap polyline={trilha.polyline} />
-              <div style={{ padding: '0 0 0 0' }}>
+              <TrailMap polyline={trilha.polyline} />
+              <div>
                 <ElevationProfile
                   elevationProfileUrl={null}
                   desnivel_m={trilha.desnivel_m}
@@ -284,7 +211,7 @@ export default function TrilhaDetalhe() {
         {/* ── Card: Condição do Solo ──────────────────────────────────── */}
         {c && (
           <div style={{ marginBottom: 12 }}>
-            <CondicaoCard condicao={c} />
+            <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} />
           </div>
         )}
 
@@ -343,7 +270,6 @@ export default function TrilhaDetalhe() {
           </div>
         )}
       </div>
-
     </div>
   )
 }

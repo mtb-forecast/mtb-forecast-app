@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { IconCircleCheck, IconArrowLeft } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
 import { ESTADOS_BRASIL } from '@/lib/types'
@@ -214,7 +215,7 @@ export default function EditarPumptrackPage() {
   if (saved) return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
       <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <i className="ti ti-circle-check" style={{ fontSize: 28, color: '#16a34a' }} />
+        <IconCircleCheck size={28} style={{ color: '#16a34a' }} />
       </div>
       <p style={{ fontSize: 16, fontWeight: 700, color: '#2a2e25' }}>Alterações salvas!</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -230,7 +231,7 @@ export default function EditarPumptrackPage() {
       <div style={{ background: '#2a2e25', padding: '32px 20px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <Link href="/perfil/minhas-trilhas" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#888', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
-            <i className="ti ti-arrow-left" style={{ fontSize: 14 }} />
+            <IconArrowLeft size={14} />
             Minhas trilhas
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

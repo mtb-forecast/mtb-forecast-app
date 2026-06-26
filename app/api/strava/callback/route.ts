@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { logApiUsage } from '@/lib/api-usage-log'
 
 export async function GET(request: NextRequest) {
   const cookieStore = cookies()
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest) {
     }),
   })
 
+  void logApiUsage('strava', 'oauth/token', { sucesso: tokenRes.ok ? 1 : 0, falhas: tokenRes.ok ? 0 : 1 })
+
   if (!tokenRes.ok) {
     return NextResponse.redirect(new URL('/perfil?strava_error=1', request.url))
   }
@@ -54,6 +57,7 @@ export async function GET(request: NextRequest) {
   const segRes = await fetch('https://www.strava.com/api/v3/segments/starred?per_page=50', {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
+  void logApiUsage('strava', 'segments/starred', { sucesso: segRes.ok ? 1 : 0, falhas: segRes.ok ? 0 : 1 })
 
   const rawSegments = segRes.ok ? await segRes.json() : []
 

@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import {
+  IconDroplet, IconWind, IconTemperature, IconMap2, IconBrandInstagram,
+  IconRoad, IconRuler, IconBulb, IconParking, IconBuilding, IconMapPin,
+  type TablerIcon,
+} from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { PumpTrack, CondicaoPumptrack } from '@/lib/types'
 import { rainColor, windColor } from '@/lib/display'
@@ -14,10 +19,10 @@ type FullPumpTrack = PumpTrack & {
   condicao?: CondicaoPumptrack
 }
 
-function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function InfoRow({ Icon, label, value }: { Icon: TablerIcon; label: string; value: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151' }}>
-      <i className={`ti ${icon}`} style={{ fontSize: 14, color: '#7C3AED', flexShrink: 0 }} />
+      <Icon size={14} style={{ color: '#7C3AED', flexShrink: 0 }} />
       <span style={{ color: '#9CA3AF', minWidth: 100 }}>{label}</span>
       <span style={{ fontWeight: 500 }}>{value}</span>
     </div>
@@ -45,7 +50,7 @@ export default function PumpTrackDetailPage() {
           id, nome, cidade, uf, endereco, latitude, longitude,
           tipo_superficie, comprimento_estimado, iluminacao, estacionamento,
           fonte, google_maps_url, instagram, status_validacao,
-          condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_48h)
+          condicoes_pumptrack(gerado_em, rain_mm, pico_3h, wind_kmh, temp_max, temp_min, pop_12h)
         `)
         .eq('id', id)
         .single()
@@ -80,13 +85,13 @@ export default function PumpTrackDetailPage() {
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
+      <div className="hero-dark" style={{ background: '#2a2e25', padding: '32px 28px 28px' }}>
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
 
           {/* Breadcrumb */}
-          <Link href="/trilhas" style={{ fontSize: 12, color: '#555', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16 }}>
+          <button onClick={() => router.back()} style={{ fontSize: 12, color: '#555', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             ← Trilhas &amp; Pump Tracks
-          </Link>
+          </button>
 
           {/* Badge + título */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -116,7 +121,7 @@ export default function PumpTrackDetailPage() {
               </h1>
               {pt.cidade && pt.uf && (
                 <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>
-                  <i className="ti ti-map-pin" style={{ fontSize: 12, marginRight: 4 }} />
+                  <IconMapPin size={12} style={{ marginRight: 4 }} />
                   {pt.cidade}, {pt.uf}
                 </p>
               )}
@@ -142,7 +147,7 @@ export default function PumpTrackDetailPage() {
               borderRadius: 8, padding: '10px 18px',
               fontSize: 13, fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.12)',
             }}>
-              <i className="ti ti-map-2" style={{ fontSize: 14 }} />
+              <IconMap2 size={14} />
               Google Maps
             </a>
             {instagramHandle && (
@@ -152,7 +157,7 @@ export default function PumpTrackDetailPage() {
                 borderRadius: 8, padding: '10px 18px',
                 fontSize: 13, fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.12)',
               }}>
-                <i className="ti ti-brand-instagram" style={{ fontSize: 14 }} />
+                <IconBrandInstagram size={14} />
                 {pt.instagram}
               </a>
             )}
@@ -178,7 +183,7 @@ export default function PumpTrackDetailPage() {
                 {/* Chuva 24h */}
                 <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${rainColor(c.rain_mm ?? 0)}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <i className="ti ti-droplet" style={{ fontSize: 14, color: rainColor(c.rain_mm ?? 0) }} />
+                    <IconDroplet size={14} style={{ color: rainColor(c.rain_mm ?? 0) }} />
                     <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                       Chuva 24h
                     </span>
@@ -192,7 +197,7 @@ export default function PumpTrackDetailPage() {
                 {/* Vento 24h */}
                 <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '14px 16px', borderLeft: `3px solid ${windColor(c.wind_kmh ?? 0)}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <i className="ti ti-wind" style={{ fontSize: 14, color: windColor(c.wind_kmh ?? 0) }} />
+                    <IconWind size={14} style={{ color: windColor(c.wind_kmh ?? 0) }} />
                     <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                       Vento 24h
                     </span>
@@ -206,7 +211,7 @@ export default function PumpTrackDetailPage() {
                 {/* Temperatura */}
                 <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '14px 16px', borderLeft: '3px solid #F59E0B' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <i className="ti ti-temperature" style={{ fontSize: 14, color: '#F59E0B' }} />
+                    <IconTemperature size={14} style={{ color: '#F59E0B' }} />
                     <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                       Temperatura
                     </span>
@@ -239,12 +244,12 @@ export default function PumpTrackDetailPage() {
             Detalhes do local
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {pt.endereco && <InfoRow icon="ti-map-pin" label="Endereço" value={pt.endereco} />}
-            {pt.tipo_superficie && <InfoRow icon="ti-road" label="Superfície" value={pt.tipo_superficie} />}
-            {pt.comprimento_estimado && <InfoRow icon="ti-ruler" label="Comprimento" value={pt.comprimento_estimado} />}
-            {pt.iluminacao && <InfoRow icon="ti-bulb" label="Iluminação" value={pt.iluminacao} />}
-            {pt.estacionamento && <InfoRow icon="ti-parking" label="Estacionamento" value={pt.estacionamento} />}
-            {pt.fonte && <InfoRow icon="ti-building" label="Fonte" value={pt.fonte} />}
+            {pt.endereco && <InfoRow Icon={IconMapPin} label="Endereço" value={pt.endereco} />}
+            {pt.tipo_superficie && <InfoRow Icon={IconRoad} label="Superfície" value={pt.tipo_superficie} />}
+            {pt.comprimento_estimado && <InfoRow Icon={IconRuler} label="Comprimento" value={pt.comprimento_estimado} />}
+            {pt.iluminacao && <InfoRow Icon={IconBulb} label="Iluminação" value={pt.iluminacao} />}
+            {pt.estacionamento && <InfoRow Icon={IconParking} label="Estacionamento" value={pt.estacionamento} />}
+            {pt.fonte && <InfoRow Icon={IconBuilding} label="Fonte" value={pt.fonte} />}
           </div>
         </div>
 

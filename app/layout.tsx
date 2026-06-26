@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
-import { DM_Sans, DM_Mono } from 'next/font/google'
+import { DM_Sans, DM_Mono, Barlow_Condensed } from 'next/font/google'
 import './globals.css'
-import '@tabler/icons-webfont/dist/tabler-icons.min.css'
 import Navbar from '@/components/Navbar'
 import BottomNav from '@/components/BottomNav'
 import { Analytics } from '@vercel/analytics/next'
@@ -18,6 +17,15 @@ const dmMono = DM_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
   variable: '--font-dm-mono',
+  display: 'swap',
+})
+
+// Barlow Condensed pré-carregada globalmente: usada em CondicaoCard (temperatura ao vivo),
+// FDS cards e títulos de trilha — preload único evita FOUT no LCP
+const barlowCondensed = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['700', '800'],
+  variable: '--font-barlow-condensed',
   display: 'swap',
 })
 
@@ -49,6 +57,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#2a2e25" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -56,8 +65,11 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="MTB Forecaster" />
         <link rel="apple-touch-icon" href="/icons/icon-apple.png" />
+        {/* Preconnect para Open-Meteo — usado em CondicaoCard (dados ao vivo) */}
+        <link rel="preconnect" href="https://api.open-meteo.com" />
+        <link rel="dns-prefetch" href="https://api.open-meteo.com" />
       </head>
-      <body className={`${dmSans.variable} ${dmMono.variable} min-h-screen antialiased`}>
+      <body className={`${dmSans.variable} ${dmMono.variable} ${barlowCondensed.variable} min-h-screen antialiased`}>
         <Navbar />
         <main>
           {children}
