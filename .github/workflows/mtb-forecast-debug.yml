@@ -26,6 +26,7 @@ jobs:
       # intencionalmente — nenhuma notificação será disparada
       OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+      DEEPSEEK_API_KEY:          ${{ secrets.DEEPSEEK_API_KEY }}
       SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
       SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -33,6 +34,7 @@ jobs:
       WINDY_API_KEY:             ${{ secrets.WINDY_API_KEY }}
       DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
       TRILHA_DEBUG:              ${{ github.event.inputs.trilha_id }}
+      SKIP_PUMPTRACKS:           "true"
 
     steps:
       - uses: actions/checkout@v4

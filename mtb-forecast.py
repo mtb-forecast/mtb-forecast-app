@@ -113,6 +113,7 @@ TRAILS = []
 
 OPENWEATHER_KEY  = os.getenv("OPENWEATHER_API_KEY")
 ANTHROPIC_KEY    = os.getenv("ANTHROPIC_API_KEY")
+DEEPSEEK_KEY     = os.getenv("DEEPSEEK_API_KEY")
 GEMINI_KEY       = os.getenv("GEMINI_API_KEY")
 GROQ_KEY         = os.getenv("GROQ_API_KEY")
 DEBUG_MODEL      = os.getenv("DEBUG_MODEL", "false").lower() == "true"
@@ -676,7 +677,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
                     fallback = _buscar_ultima_condicao_supabase(trail)
                     if fallback:
                         ef_prev   = float(fallback.get("acumulo_ef")   or 0.0)
-                        b48_prev  = float(fallback.get("acumulo_48h")  or 0.0)
+                        b48_prev  = float(fallback.get("chuva_solo_48h")  or 0.0)
                         uc_prev   = fallback.get("ultima_chuva_h")
                         ref_str   = fallback.get("historico_atualizado_em") or fallback.get("gerado_em")
                         horas_delta = 0.0
@@ -2232,7 +2233,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "temp_max":           resultado.get("temp_max"),
             "temp_min":           resultado.get("temp_min"),
             "pico_3h":            resultado.get("pico_3h"),
-            "acumulo_48h":        resultado.get("acumulo_48h"),
+            "chuva_solo_48h":        resultado.get("chuva_solo_48h"),
             "acumulo_ef":         resultado.get("acumulo_ef"),
             "ultima_chuva_h":     resultado.get("ultima_chuva_h"),
             "meia_vida_base_h":   resultado.get("meia_vida_base_h"),
@@ -2391,7 +2392,7 @@ def _buscar_ultima_condicao_supabase(trail: dict) -> dict | None:
         return None
     try:
         campos = (
-            "acumulo_ef,acumulo_48h,meia_vida_h,ultima_chuva_h,gerado_em,"
+            "acumulo_ef,chuva_solo_48h,meia_vida_h,ultima_chuva_h,gerado_em,"
             "alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh,"
             "historico_atualizado_em"
         )
@@ -2504,7 +2505,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     om_ef         = hist_om["efetivo"]
     om_uc         = hist_om["ultima_chuva_h"]
 
-    acumulo_48h    = max(om_chuva_solo_48h_mm, ow_chuva_solo_mm)
+    chuva_solo_48h    = max(om_chuva_solo_48h_mm, ow_chuva_solo_mm)
     chuva_bruta_mm = round(max(hist_om.get("chuva_ceu_48h_mm", om_chuva_ceu_mm), ow_chuva_ceu_mm), 1)
 
     # Comparação de lag usa janela alinhada (ambas cobrem hoje+ontem)
@@ -2781,7 +2782,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             "fonte_dia": fonte_dia,
             "veredicto": veredicto(ader, r, w, p3, inc, trail, ef_pos_chuva, vento_hist),
             "debug_model": {
-                "acumulo_48h": acumulo_48h,
+                "chuva_solo_48h": chuva_solo_48h,
                 "acumulo_ef": acumulo_ef,
                 "limiar_descanso": limiar_descanso,
                 "solo_descansado": aderencia["solo_descansado"],
@@ -2855,7 +2856,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     horarios_chuva = calcular_horarios_chuva_oc()
 
     narrativa, cor_n, bg_n = _gerar_narrativa_claude({
-        "acumulo_48h":      acumulo_48h,
+        "chuva_solo_48h":      chuva_solo_48h,
         "chuva_bruta_mm":   chuva_bruta_mm,   # chuva sem interceptação de dossel (texto humano)
         "acumulo_ef":       acumulo_ef,
         "ultima_chuva_h":   ultima_chuva,
@@ -2884,7 +2885,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "solo_type_raw":  trail["solo_type"],
         "rain":           rain, "pop": pop, "temp_max": tmax, "temp_min": tmin, "wind": wind,
         "pico_3h":        pico_3h,
-        "acumulo_48h":    acumulo_48h,
+        "chuva_solo_48h":    chuva_solo_48h,
         "acumulo_ef":     acumulo_ef,
         "ultima_chuva_h": ultima_chuva,
         "meia_vida_base_h": hist.get("meia_vida_base_h"),
@@ -3062,7 +3063,7 @@ def ajustar_por_observacoes(resultado: dict, trail: dict) -> dict:
 
 
 def _resumo_secagem_local(r: dict) -> str:
-    bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
+    bruto           = r.get("chuva_bruta_mm") or r.get("chuva_solo_48h", 0)
     efetivo         = r.get("acumulo_ef", 0)
     ult_h           = r.get("ultima_chuva_h")
     meia_vida       = r.get("meia_vida_h", 24)
@@ -3210,8 +3211,58 @@ def _narrativa_via_groq(prompt: str, r: dict) -> tuple | None:
     return None
 
 
+def _narrativa_via_deepseek(prompt: str, r: dict) -> tuple | None:
+    """DeepSeek Chat (OpenAI-compatible) — retorna (texto, cor, bg) ou None se falhar."""
+    if not DEEPSEEK_KEY:
+        return None
+    payload = json.dumps({
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 250,
+        "temperature": 0.7,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.deepseek.com/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+        },
+    )
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                data = json.loads(resp.read())
+                texto = data["choices"][0]["message"]["content"].strip()
+                usage = data.get("usage", {})
+                _log_api("deepseek", "chat_completions",
+                         tokens_in=usage.get("prompt_tokens", 0),
+                         tokens_out=usage.get("completion_tokens", 0),
+                         sucesso=1)
+                cor, bg = _narrativa_cor_bg(r)
+                print("[DeepSeek Narrativa] OK")
+                return texto, cor, bg
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            print(f"[DeepSeek Narrativa] HTTP {exc.code} (tentativa {attempt+1}): {body}")
+            if exc.code in (400, 402):
+                _log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+                return None
+            if attempt == 1:
+                _log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+            else:
+                time.sleep(2)
+        except Exception as exc:
+            print(f"[DeepSeek Narrativa] Erro (tentativa {attempt+1}): {exc}")
+            if attempt == 1:
+                _log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+            else:
+                time.sleep(2)
+    return None
+
+
 def _build_narrativa_prompt(r: dict) -> str:
-    bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
+    bruto           = r.get("chuva_bruta_mm") or r.get("chuva_solo_48h", 0)
     efetivo         = r.get("acumulo_ef", 0)
     ult_h           = r.get("ultima_chuva_h")
     meia_vida       = r.get("meia_vida_h", 24)
@@ -3288,6 +3339,11 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
             or _narrativa_via_groq(prompt, r)
             or _resumo_secagem_local(r)
         )
+
+    # DeepSeek é o provider primário
+    ds = _narrativa_via_deepseek(prompt, r)
+    if ds:
+        return ds
 
     if not ANTHROPIC_KEY:
         return _fallback()
@@ -3731,7 +3787,7 @@ def main() -> None:
                     dbg = dados["fds"]["d1"].get("debug_model", {})
                     print(
                         f"  [DEBUG] {trail['name']} | "
-                        f"bruto={dbg.get('acumulo_48h')} | "
+                        f"bruto={dbg.get('chuva_solo_48h')} | "
                         f"ef={dbg.get('acumulo_ef')} | "
                         f"th={dbg.get('limiar_descanso')} | "
                         f"solo_desc={dbg.get('solo_descansado')} | "
@@ -3749,9 +3805,12 @@ def main() -> None:
                 except Exception:
                     pass
 
-    # Processa pump tracks — apenas previsão do tempo, sem cálculo de solo
-    print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
-    _processar_pumptracks()
+    # Processa pump tracks — apenas no workflow principal (SKIP_PUMPTRACKS bloqueia debug/estado)
+    if not os.getenv("SKIP_PUMPTRACKS"):
+        print("\n[Pump Tracks] Iniciando processamento de pump tracks...")
+        _processar_pumptracks()
+    else:
+        print("\n[Pump Tracks] Ignorado (SKIP_PUMPTRACKS=true).")
 
     print("\n[MTBForecaster] Concluído.")
     _pipeline_run_concluir(_run_id, "ok", _n_ok, _n_erro)

@@ -13,7 +13,7 @@ type TrilhaMapData = {
   lat: number
   lon: number
   polyline?: string | null
-  condicoes?: Pick<Condicao, 'veredicto' | 'veredicto_12h' | 'acumulo_48h' | 'ultima_chuva_h'>[]
+  condicoes?: Pick<Condicao, 'veredicto' | 'veredicto_12h' | 'chuva_solo_48h' | 'ultima_chuva_h'>[]
 }
 
 type PumpTrackMapData = {
@@ -88,7 +88,7 @@ export default function MapaPage() {
             .from('trilhas')
             .select(`
               id, name, lat, lon, polyline,
-              condicoes(veredicto, veredicto_12h, acumulo_48h, ultima_chuva_h)
+              condicoes(veredicto, veredicto_12h, chuva_solo_48h, ultima_chuva_h)
             `)
             .eq('aprovada', true)
             .not('lat', 'is', null)
@@ -234,7 +234,7 @@ export default function MapaPage() {
               ${trilha.name}
             </p>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-              <span style="font-size:28px;line-height:1;">${rainEmoji(condicao!.acumulo_48h)}${windEmoji(null)}</span>
+              <span style="font-size:28px;line-height:1;">${rainEmoji(condicao!.chuva_solo_48h)}${windEmoji(null)}</span>
               <span style="font-size:11px;color:#555;line-height:1.5;">
                 ${ultimaChuvaEmoji(condicao!.ultima_chuva_h)}
               </span>

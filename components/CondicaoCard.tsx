@@ -650,15 +650,6 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
             })()}
           </div>
 
-          {(() => {
-            const st = condicao.aderencia_status?.trim()
-            return condicao.frase_secagem &&
-              st !== 'GRIP PERFEITO' && st !== 'SECO' && st !== 'BOA ADERÊNCIA - ÚMIDO' && (
-              <p style={{ fontSize: 12, fontStyle: 'italic', color: '#555555', lineHeight: 1.75, margin: 0 }}>
-                {condicao.frase_secagem}
-              </p>
-            )
-          })()}
         </div>
 
         <div style={DIV} />

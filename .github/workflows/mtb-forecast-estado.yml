@@ -36,6 +36,12 @@ on:
           - AC
           - RR
           - AP
+      debug_model:
+        description: "Ativar DEBUG_MODEL"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
 
 permissions:
   contents: read
@@ -46,9 +52,10 @@ jobs:
     name: "Processar ${{ github.event.inputs.estado }}"
 
     env:
-      DEBUG_MODEL:              "true"
+      DEBUG_MODEL:               ${{ github.event.inputs.debug_model }}
       OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+      DEEPSEEK_API_KEY:          ${{ secrets.DEEPSEEK_API_KEY }}
       SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
       SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -58,6 +65,7 @@ jobs:
       WEATHERAPI_KEY:            ${{ secrets.WEATHERAPI_KEY }}
       GH_DISPATCH_TOKEN:         ${{ secrets.GH_DISPATCH_TOKEN }}
       MTB_ESTADO:                ${{ github.event.inputs.estado }}
+      SKIP_PUMPTRACKS:           "true"
 
     steps:
       - uses: actions/checkout@v4

@@ -19,6 +19,7 @@ const LABEL: Record<string, string> = {
   stripe:         'Stripe (pagamentos)',
   strava:         'Strava',
   openlandmap:    'OpenLandMap',
+  deepseek:       'DeepSeek',
 }
 
 export async function GET(req: Request) {
