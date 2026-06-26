@@ -3505,11 +3505,110 @@ def prefetch_om_batch(trails: list) -> None:
         _log_api("open_meteo", "nowcast_icon_batch", sucesso=0, falhas=1)
 
 
+def _pipeline_run_iniciar() -> str | None:
+    """Insere registro de início na tabela pipeline_runs. Retorna o UUID do run."""
+    if not SUPABASE_KEY:
+        return None
+    try:
+        git_sha = os.getenv("GITHUB_SHA", "")[:12] or None
+        payload = json.dumps({"status": "running", "git_sha": git_sha}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/pipeline_runs",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Prefer": "return=representation",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            run_id = (data[0] if isinstance(data, list) else data).get("id")
+            print(f"[Health] Pipeline run iniciado: {run_id}")
+            return run_id
+    except Exception as exc:
+        print(f"[Health] Falha ao registrar início: {exc}")
+        return None
+
+
+def _pipeline_run_concluir(run_id: str, status: str, n_ok: int, n_erro: int, erro_msg: str | None = None) -> None:
+    """Atualiza o registro de pipeline_runs com resultado final."""
+    if not run_id or not SUPABASE_KEY:
+        return
+    try:
+        payload = json.dumps({
+            "status": status,
+            "concluido_em": datetime.now(timezone.utc).isoformat(),
+            "trilhas_ok": n_ok,
+            "trilhas_erro": n_erro,
+            "erro_msg": erro_msg,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/pipeline_runs?id=eq.{run_id}",
+            data=payload,
+            method="PATCH",
+            headers={
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+        print(f"[Health] Pipeline run concluído: status={status} ok={n_ok} erro={n_erro}")
+    except Exception as exc:
+        print(f"[Health] Falha ao registrar conclusão: {exc}")
+
+
+def _pipeline_health_check() -> None:
+    """Verifica se última execução bem-sucedida foi há mais de 8h. Alerta se sim."""
+    if not SUPABASE_KEY:
+        return
+    try:
+        url = (
+            f"{SUPABASE_URL}/rest/v1/pipeline_runs"
+            f"?select=concluido_em&status=eq.ok&order=concluido_em.desc&limit=1"
+        )
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        if not data:
+            return  # primeira execução
+        ultima = datetime.fromisoformat(data[0]["concluido_em"].replace("Z", "+00:00"))
+        horas = (datetime.now(timezone.utc) - ultima).total_seconds() / 3600
+        if horas > 8:
+            msg = f"⚠️ MTB Forecaster: pipeline sem execução bem-sucedida há {horas:.1f}h (última: {ultima.strftime('%d/%m %H:%M')} UTC)"
+            print(f"[Health] ALERTA — {msg}")
+            tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+            chat_id  = os.getenv("ADMIN_TELEGRAM_CHAT_ID", "")
+            if tg_token and chat_id:
+                try:
+                    tg_payload = json.dumps({"chat_id": chat_id, "text": msg}).encode("utf-8")
+                    tg_req = urllib.request.Request(
+                        f"https://api.telegram.org/bot{tg_token}/sendMessage",
+                        data=tg_payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+                    with urllib.request.urlopen(tg_req, timeout=10):
+                        pass
+                except Exception as exc:
+                    print(f"[Health] Falha ao enviar alerta Telegram: {exc}")
+    except Exception as exc:
+        print(f"[Health] Falha ao verificar health: {exc}")
+
+
 def main() -> None:
     import sys
     global TRAILS
 
     _validar_env()
+    _pipeline_health_check()
+    _run_id = _pipeline_run_iniciar()
+    _n_ok = 0; _n_erro = 0
 
     # 1. Carrega IDs com favorito (query leve: só trilha_id)
     ids_com_favorito = _carregar_ids_com_favorito()
@@ -3620,9 +3719,11 @@ def main() -> None:
                 trilha_id = gravar_supabase(trail["name"], dados)
                 dados["trilha_id"] = trilha_id
                 resultados_global.append(dados)
+                _n_ok += 1
                 inc_str = f" | inclinação={dados['inclinacao']}%" if dados['inclinacao'] is not None else ""
                 print(f"  [OK] {trail['name']} [{trail.get('trail_type','natural')} / {trail['solo_type']}]{inc_str} — {dados['aderencia']['status']} | pico={dados['pico_3h']}mm | 12h: {dados['veredicto_12h']['veredicto']['texto']} | 48h: {dados['veredicto']['texto']}")
             except Exception as exc:
+                _n_erro += 1
                 print(f"  [ERRO] {trail['name']}: {exc}")
 
             if DEBUG_MODEL:
@@ -3653,6 +3754,7 @@ def main() -> None:
     _processar_pumptracks()
 
     print("\n[MTBForecaster] Concluído.")
+    _pipeline_run_concluir(_run_id, "ok", _n_ok, _n_erro)
     _disparar_workflows_notificacao()
     _gravar_uso_api()
 
@@ -3710,6 +3812,9 @@ def _carregar_trilhas_supabase(ids: set | None = None) -> list:
             "localidade":  loc.get("localidade"),
             "local_key":   local_key,
         })
+    sem_local_key = [t["name"] for t in trilhas if not t["local_key"]]
+    if sem_local_key:
+        print(f"  [Trilhas] AVISO: {len(sem_local_key)} trilha(s) aprovada(s) sem localidade_id — sem dados meteorológicos: {sem_local_key}")
     print(f"  [Trilhas] {len(trilhas)} trilha(s) carregada(s) do Supabase")
     return trilhas
 

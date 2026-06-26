@@ -311,7 +311,7 @@ export default function CadastrarTrilhaPage() {
     if (!nome.trim()) { setErro('Nome da trilha é obrigatório.'); return false }
     if (!regiao) { setErro('Selecione a região.'); return false }
     if (!lat || !lon) { setErro('Informe as coordenadas.'); return false }
-    if (!altitude) { setErro('Altitude é obrigatória.'); return false }
+    if (!altitude || parseInt(altitude) <= 0) { setErro('Altitude é obrigatória e deve ser maior que zero.'); return false }
     if (!soloType) { setErro('Tipo de solo é obrigatório.'); return false }
     if (!exposicao) { setErro('Exposição é obrigatória.'); return false }
     if (!trailType) { setErro('Tipo de trilha é obrigatório.'); return false }

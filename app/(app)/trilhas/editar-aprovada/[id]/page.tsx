@@ -284,7 +284,7 @@ function EditarAprovadaContent() {
     if (!nome.trim()) return setErro('Nome obrigatório.')
     if (!regiao)       return setErro('Região obrigatória.')
     if (!lat || !lon)  return setErro('Coordenadas obrigatórias.')
-    if (!altitude)     return setErro('Altitude obrigatória.')
+    if (!altitude || parseInt(altitude) <= 0) return setErro('Altitude obrigatória e deve ser maior que zero.')
     if (!soloType)     return setErro('Tipo de solo obrigatório.')
     if (!exposicao)    return setErro('Exposição obrigatória.')
     if (!trailType)    return setErro('Tipo de trilha obrigatório.')
