@@ -481,12 +481,16 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
   const [liveWeather, setLiveWeather] = useState<{
     precipitation: number; cloudCover: number; tempC: number
   } | null>(null)
+  const [rainSincePipeline, setRainSincePipeline] = useState<number | null>(null)
 
   useEffect(() => {
     if (!lat || !lon) return
     const ctrl = new AbortController()
+    const geradoEm = new Date(condicao.gerado_em)
+    const horasSince = Math.max(1, Math.ceil((Date.now() - geradoEm.getTime()) / 3600000))
+    const pastHours = Math.min(horasSince + 1, 72)
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=precipitation,cloud_cover,temperature_2m&daily=sunrise,sunset&timezone=America%2FSao_Paulo&forecast_days=1`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=precipitation,cloud_cover,temperature_2m&daily=sunrise,sunset&hourly=precipitation&past_hours=${pastHours}&forecast_days=1&timezone=America%2FSao_Paulo`,
       { signal: ctrl.signal }
     )
       .then(r => r.json())
@@ -500,10 +504,24 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
         if (precip !== null && cloud !== null && temp !== null) {
           setLiveWeather({ precipitation: precip, cloudCover: cloud, tempC: Math.round(temp) })
         }
+
+        // Accumulate rain that fell after the last pipeline run.
+        // OM timestamps are in BRT (America/Sao_Paulo = UTC-3, no DST).
+        const times   = data.hourly?.time        as string[] | undefined
+        const precips = data.hourly?.precipitation as number[] | undefined
+        if (times && precips) {
+          let acc = 0
+          for (let i = 0; i < times.length; i++) {
+            // Append BRT offset so Date.parse is timezone-aware
+            const t = new Date(times[i] + ':00.000-03:00')
+            if (t > geradoEm) acc += precips[i] ?? 0
+          }
+          setRainSincePipeline(Math.round(acc * 10) / 10)
+        }
       })
       .catch(() => {})
     return () => ctrl.abort()
-  }, [lat, lon])
+  }, [lat, lon, condicao.gerado_em])
 
   const veredictoDisplay = condicao.veredicto_12h?.trim() || condicao.veredicto
   const has12h      = !!condicao.veredicto_12h?.trim()
@@ -626,6 +644,28 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
           <div style={{ fontSize: 10, color: '#9CA3AF' }} className="font-mono">{driftHoras}h atrás</div>
         </div>
       </div>
+
+      {/* Alerta: choveu após o último report do pipeline */}
+      {rainSincePipeline !== null && rainSincePipeline >= 0.5 && (
+        <div style={{
+          margin: '8px 18px 0',
+          background: '#FEF3C7',
+          border: '1px solid #FCD34D',
+          borderRadius: 8,
+          padding: '8px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 12,
+          color: '#92400E',
+          fontWeight: 500,
+        }}>
+          <IconCloudRain size={14} style={{ color: '#D97706', flexShrink: 0 }} />
+          <span>
+            <strong>{rainSincePipeline.toFixed(1)}mm</strong> de chuva após o último report — solo pode estar mais úmido
+          </span>
+        </div>
+      )}
 
       <div style={{ padding: '14px 18px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
