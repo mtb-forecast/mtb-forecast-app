@@ -188,9 +188,10 @@ export async function GET(req: NextRequest) {
         alerta_vento_nivel: number | null
         alerta_vento_kmh: number | null
         alerta_rajada_kmh: number | null
+        gerado_em: string | null
       }>(
         'condicoes',
-        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_12h,alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh',
+        'veredicto,aderencia_status,rain_mm,wind_ms,temp_max,pop_12h,alerta_vento_nivel,alerta_vento_kmh,alerta_rajada_kmh,gerado_em',
         `trilha_id=eq.${trilhaId}`
       ),
     ])
@@ -205,7 +206,18 @@ export async function GET(req: NextRequest) {
     const location = formatLocation(locObj?.cidade ?? null, locObj?.estado ?? null, trilha.regiao)
 
     const nameSize = trailNameFontSize(trilha.name ?? '')
-    const dateStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+
+    // Converte gerado_em para BRT (UTC-3) e formata como "25/06 • 07h"
+    const reportStr = (() => {
+      const raw = condicao.gerado_em
+      if (!raw) return new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+      const dt = new Date(raw)
+      const brt = new Date(dt.getTime() - 3 * 60 * 60 * 1000)
+      const d = String(brt.getUTCDate()).padStart(2, '0')
+      const m = String(brt.getUTCMonth() + 1).padStart(2, '0')
+      const h = String(brt.getUTCHours()).padStart(2, '0')
+      return `${d}/${m} • ${h}h BRT`
+    })()
 
     const tempLabel = condicao.temp_max != null ? `${Math.round(condicao.temp_max)} C` : '--'
     const rainLabel = condicao.rain_mm != null ? `${condicao.rain_mm.toFixed(1)}mm` : '--'
@@ -340,7 +352,7 @@ export async function GET(req: NextRequest) {
                 MTB FORECASTER
               </div>
               <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, color: 'rgba(168,184,153,0.5)' }}>
-                {dateStr}
+                {reportStr}
               </div>
             </div>
 
@@ -443,7 +455,7 @@ export async function GET(req: NextRequest) {
                 mtbforecaster.com.br
               </div>
               <div style={{ display: 'flex', fontSize: 18, fontFamily: fontSans, fontWeight: 700, color: 'rgba(168,184,153,0.2)', letterSpacing: 2 }}>
-                DADOS EM TEMPO REAL
+                PROXIMAS 24H
               </div>
             </div>
           </div>

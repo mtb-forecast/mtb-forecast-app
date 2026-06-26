@@ -245,6 +245,18 @@ def build_caption(trail: dict, cond: dict, ef_agora: float) -> str:
     texto_din    = (cond.get("texto_dinamico") or "").strip()
     horarios     = (cond.get("horarios_chuva") or "").strip()
 
+    # Formata gerado_em como "25/06 às 07h BRT • Previsão próximas 24h"
+    report_line = None
+    gerado_em = cond.get("gerado_em")
+    if gerado_em:
+        try:
+            from datetime import timedelta
+            dt_utc = datetime.fromisoformat(gerado_em.replace("Z", "+00:00"))
+            dt_brt = dt_utc.astimezone(timezone(timedelta(hours=-3)))
+            report_line = f"📅 Relatório {dt_brt.strftime('%d/%m às %Hh')} BRT · Previsão próximas 24h"
+        except Exception:
+            pass
+
     verd_emoji = "✅"
     for key, emoji in VEREDICTO_EMOJI.items():
         if key in veredicto:
@@ -280,6 +292,8 @@ def build_caption(trail: dict, cond: dict, ef_agora: float) -> str:
     lines = [f"🚵 {name}"]
     if localizacao:
         lines.append(f"📍 {localizacao}")
+    if report_line:
+        lines.append(report_line)
     lines += [
         "",
         f"{verd_emoji} {veredicto}",
