@@ -43,6 +43,7 @@ const API_COLOR: Record<string, string> = {
   stripe:         '#635bff',
   strava:         '#fc4c02',
   openlandmap:    '#15803d',
+  deepseek:       '#4d6bfe',
 }
 
 function fmt(n: number, decimals = 4) {
@@ -274,6 +275,7 @@ export default function ApiUsagePage() {
               Groq Llama-3.3-70b — US$0,59/MTok &nbsp;|&nbsp;
               Resend — US$0,001/e-mail acima de 3.000/mês &nbsp;|&nbsp;
               OWM, Open-Meteo, NOAA, Strava, OpenLandMap, Pollinations, Telegram — gratuitos.
+              DeepSeek Chat — US$0,07/MTok in · US$1,10/MTok out &nbsp;|&nbsp;
               Stripe não cobra por chamada de API (cobra % por transação).
               Custos são estimativas calculadas na hora da execução.
             </div>
