@@ -48,6 +48,7 @@ jobs:
     env:
       OPENWEATHER_API_KEY:       ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+      DEEPSEEK_API_KEY:          ${{ secrets.DEEPSEEK_API_KEY }}
       SUPABASE_SERVICE_KEY:      ${{ secrets.SUPABASE_SERVICE_KEY }}
       SUPABASE_URL:              https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

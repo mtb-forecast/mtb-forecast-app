@@ -113,6 +113,7 @@ TRAILS = []
 
 OPENWEATHER_KEY  = os.getenv("OPENWEATHER_API_KEY")
 ANTHROPIC_KEY    = os.getenv("ANTHROPIC_API_KEY")
+DEEPSEEK_KEY     = os.getenv("DEEPSEEK_API_KEY")
 GEMINI_KEY       = os.getenv("GEMINI_API_KEY")
 GROQ_KEY         = os.getenv("GROQ_API_KEY")
 DEBUG_MODEL      = os.getenv("DEBUG_MODEL", "false").lower() == "true"
@@ -3210,6 +3211,56 @@ def _narrativa_via_groq(prompt: str, r: dict) -> tuple | None:
     return None
 
 
+def _narrativa_via_deepseek(prompt: str, r: dict) -> tuple | None:
+    """DeepSeek Chat (OpenAI-compatible) — retorna (texto, cor, bg) ou None se falhar."""
+    if not DEEPSEEK_KEY:
+        return None
+    payload = json.dumps({
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 250,
+        "temperature": 0.7,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.deepseek.com/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+        },
+    )
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                data = json.loads(resp.read())
+                texto = data["choices"][0]["message"]["content"].strip()
+                usage = data.get("usage", {})
+                _log_api("deepseek", "chat_completions",
+                         tokens_in=usage.get("prompt_tokens", 0),
+                         tokens_out=usage.get("completion_tokens", 0),
+                         sucesso=1)
+                cor, bg = _narrativa_cor_bg(r)
+                print("[DeepSeek Narrativa] OK")
+                return texto, cor, bg
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            print(f"[DeepSeek Narrativa] HTTP {exc.code} (tentativa {attempt+1}): {body}")
+            if exc.code in (400, 402):
+                _log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+                return None
+            if attempt == 1:
+                _log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+            else:
+                time.sleep(2)
+        except Exception as exc:
+            print(f"[DeepSeek Narrativa] Erro (tentativa {attempt+1}): {exc}")
+            if attempt == 1:
+                _log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+            else:
+                time.sleep(2)
+    return None
+
+
 def _build_narrativa_prompt(r: dict) -> str:
     bruto           = r.get("chuva_bruta_mm") or r.get("acumulo_48h", 0)
     efetivo         = r.get("acumulo_ef", 0)
@@ -3288,6 +3339,11 @@ def _gerar_narrativa_claude(r: dict) -> tuple:
             or _narrativa_via_groq(prompt, r)
             or _resumo_secagem_local(r)
         )
+
+    # DeepSeek é o provider primário
+    ds = _narrativa_via_deepseek(prompt, r)
+    if ds:
+        return ds
 
     if not ANTHROPIC_KEY:
         return _fallback()
