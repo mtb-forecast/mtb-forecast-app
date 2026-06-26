@@ -7,8 +7,8 @@ export async function logApiUsage(
   endpoint: string,
   opts: { chamadas?: number; sucesso?: number; falhas?: number; custo_usd?: number } = {}
 ): Promise<void> {
-  const url  = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const key  = process.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? ''
+  const key  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? ''
   if (!url || !key) return
 
   try {

@@ -16,6 +16,9 @@ const LABEL: Record<string, string> = {
   resend:         'Resend (e-mail)',
   telegram:       'Telegram Bot',
   pollinations:   'Pollinations.ai',
+  stripe:         'Stripe (pagamentos)',
+  strava:         'Strava',
+  openlandmap:    'OpenLandMap',
 }
 
 export async function GET(req: Request) {
