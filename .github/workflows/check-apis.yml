@@ -12,6 +12,9 @@ jobs:
     env:
       OPENWEATHER_API_KEY:  ${{ secrets.OPENWEATHER_API_KEY }}
       ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+      DEEPSEEK_API_KEY:     ${{ secrets.DEEPSEEK_API_KEY }}
+      GEMINI_API_KEY:       ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY:         ${{ secrets.GROQ_API_KEY }}
       SUPABASE_URL:         https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
       WEATHERAPI_KEY:       ${{ secrets.WEATHERAPI_KEY }}
@@ -34,12 +37,12 @@ jobs:
           ssl_ctx = ssl.create_default_context()
           results = []
 
-          def req(url, headers=None, timeout=15):
+          def req(url, headers=None, method="GET", data=None, timeout=15):
               """Retorna (status_code, body_dict_or_None, latency_ms, error_str)"""
               h = {"User-Agent": "MTBForecaster/check-apis"}
               if headers:
                   h.update(headers)
-              r = urllib.request.Request(url, headers=h)
+              r = urllib.request.Request(url, headers=h, method=method, data=data)
               t0 = time.monotonic()
               try:
                   with urllib.request.urlopen(r, timeout=timeout, context=ssl_ctx) as resp:
@@ -67,7 +70,7 @@ jobs:
                   "detail": detail, "ok": ok,
               })
 
-          # ── 1. Open-Meteo forecast (público) ────────────────────────────
+          # ── 1. Open-Meteo Forecast (público) ────────────────────────────
           url = (
               f"https://api.open-meteo.com/v1/forecast"
               f"?latitude={LAT}&longitude={LON}"
@@ -78,13 +81,12 @@ jobs:
           if sc == 200 and body:
               precip = body.get("hourly", {}).get("precipitation", [])
               total = round(sum(precip), 1)
-              entries = len(precip)
-              detail = f"{entries} horas · acúmulo 48h = **{total} mm**"
+              detail = f"{len(precip)} horas · acúmulo 48h = **{total} mm**"
               add("Open-Meteo Forecast", "🟢", sc, ms, detail, True)
           else:
               add("Open-Meteo Forecast", "🔴", sc, ms, err or "sem dados", False)
 
-          # ── 2. Open-Meteo past_days (histórico chuva/vento) ─────────────
+          # ── 2. Open-Meteo Histórico ERA5 (past_days) ────────────────────
           url = (
               f"https://api.open-meteo.com/v1/forecast"
               f"?latitude={LAT}&longitude={LON}"
@@ -96,14 +98,32 @@ jobs:
           if sc == 200 and body:
               precip = body.get("hourly", {}).get("precipitation", [])
               winds  = body.get("hourly", {}).get("windgusts_10m", [])
-              total  = round(sum(precip), 1)
+              total  = round(sum(p for p in precip if p is not None), 1)
               gust   = round(max((w for w in winds if w is not None), default=0))
-              detail = f"{len(precip)} horas · chuva últimas 48h = **{total} mm** · rajada máx = **{gust} km/h**"
-              add("Open-Meteo Histórico (past_days)", "🟢", sc, ms, detail, True)
+              detail = f"{len(precip)} horas · chuva 48h = **{total} mm** · rajada máx = **{gust} km/h**"
+              add("Open-Meteo Histórico ERA5", "🟢", sc, ms, detail, True)
           else:
-              add("Open-Meteo Histórico (past_days)", "🔴", sc, ms, err or "sem dados", False)
+              add("Open-Meteo Histórico ERA5", "🔴", sc, ms, err or "sem dados", False)
 
-          # ── 3. OpenWeather One Call 3.0 (forecast) ──────────────────────
+          # ── 3. Open-Meteo Nowcast ICON Seamless (past_hours=6) ──────────
+          url = (
+              f"https://api.open-meteo.com/v1/forecast"
+              f"?latitude={LAT}&longitude={LON}"
+              "&past_hours=6&forecast_days=0"
+              "&hourly=precipitation"
+              "&models=icon_seamless"
+              "&timezone=America%2FSao_Paulo"
+          )
+          sc, body, ms, err = req(url)
+          if sc == 200 and body:
+              precip = body.get("hourly", {}).get("precipitation", [])
+              total  = round(sum(p for p in precip if p is not None), 1)
+              detail = f"{len(precip)} horas (nowcast) · chuva 6h = **{total} mm**"
+              add("Open-Meteo ICON Seamless Nowcast", "🟢", sc, ms, detail, True)
+          else:
+              add("Open-Meteo ICON Seamless Nowcast", "🔴", sc, ms, err or "sem dados", False)
+
+          # ── 4. OpenWeather One Call 3.0 (forecast) ──────────────────────
           ow_key = os.getenv("OPENWEATHER_API_KEY", "")
           if not ow_key:
               add("OpenWeather One Call 3.0", "⚠️", "—", 0, "OPENWEATHER_API_KEY ausente nos secrets", False)
@@ -127,45 +147,44 @@ jobs:
               else:
                   add("OpenWeather One Call 3.0", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 4. OpenWeather Timemachine (histórico) ──────────────────────
+          # ── 5. OpenWeather Day Summary (detector de lag ERA5) ────────────
           if not ow_key:
-              add("OpenWeather Timemachine", "⚠️", "—", 0, "OPENWEATHER_API_KEY ausente nos secrets", False)
+              add("OpenWeather Day Summary", "⚠️", "—", 0, "OPENWEATHER_API_KEY ausente nos secrets", False)
           else:
-              ts = int((datetime.now(timezone.utc) - timedelta(hours=24)).timestamp())
+              hoje = datetime.now(BRT).strftime("%Y-%m-%d")
               url = (
-                  f"https://api.openweathermap.org/data/3.0/onecall/timemachine"
-                  f"?lat={LAT}&lon={LON}&dt={ts}&appid={ow_key}&units=metric"
+                  f"https://api.openweathermap.org/data/3.0/onecall/day_summary"
+                  f"?lat={LAT}&lon={LON}&date={hoje}&appid={ow_key}&units=metric"
               )
               sc, body, ms, err = req(url)
               if sc == 200 and body:
-                  hourly = body.get("data", body.get("hourly", []))
-                  dt_str = datetime.fromtimestamp(ts, tz=BRT).strftime("%d/%m %Hh")
-                  detail = f"Referência: {dt_str} · {len(hourly)} entradas recebidas"
-                  add("OpenWeather Timemachine", "🟢", sc, ms, detail, True)
+                  precip = body.get("precipitation", {})
+                  total = round(precip.get("total", 0) or 0, 1)
+                  detail = f"Hoje ({hoje}) · precipitação = **{total} mm**"
+                  add("OpenWeather Day Summary", "🟢", sc, ms, detail, True)
               elif sc == 401:
-                  add("OpenWeather Timemachine", "🔴", sc, ms, "Chave inválida ou sem acesso ao plano 3.0", False)
+                  add("OpenWeather Day Summary", "🔴", sc, ms, "Chave inválida ou sem acesso ao plano 3.0", False)
+              elif sc == 400:
+                  add("OpenWeather Day Summary", "🟡", sc, ms, "Data inválida ou ainda sem dados para hoje", True)
               else:
-                  add("OpenWeather Timemachine", "🔴", sc, ms, err or "erro desconhecido", False)
+                  add("OpenWeather Day Summary", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 5. NOAA ONI (ENSO) ──────────────────────────────────────────
-          url = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
-          sc, _, ms, err = req(url)
-          # NOAA retorna texto, não JSON — ler manualmente
+          # ── 6. NOAA ONI (ENSO) ──────────────────────────────────────────
+          oni_url = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
           t0 = time.monotonic()
           try:
-              r2 = urllib.request.Request(url, headers={"User-Agent": "MTBForecaster/check-apis"})
+              r2 = urllib.request.Request(oni_url, headers={"User-Agent": "MTBForecaster/check-apis"})
               with urllib.request.urlopen(r2, timeout=15) as resp:
                   ms = round((time.monotonic() - t0) * 1000)
                   lines = resp.read().decode().strip().splitlines()
                   last = lines[-1].split()
-                  season, year = last[0], last[1]
-                  oni = last[-1]
+                  season, year, oni = last[0], last[1], last[-1]
                   detail = f"Último dado: **{season} {year}** · ONI = **{oni}**"
                   add("NOAA ONI (ENSO)", "🟢", 200, ms, detail, True)
           except Exception as e:
               add("NOAA ONI (ENSO)", "🔴", None, 0, str(e), False)
 
-          # ── 6. Anthropic API ─────────────────────────────────────────────
+          # ── 7. Anthropic API (Claude) ────────────────────────────────────
           ant_key = os.getenv("ANTHROPIC_API_KEY", "")
           if not ant_key:
               add("Anthropic API (Claude)", "⚠️", "—", 0, "ANTHROPIC_API_KEY ausente nos secrets", False)
@@ -177,16 +196,98 @@ jobs:
               })
               if sc == 200 and body:
                   models = [m.get("id", "") for m in body.get("data", [])]
-                  has_sonnet = any("sonnet" in m for m in models)
                   count = len(models)
-                  detail = f"{count} modelos disponíveis · claude-sonnet = **{'sim' if has_sonnet else 'não'}**"
+                  has_haiku = any("haiku" in m for m in models)
+                  detail = f"{count} modelos disponíveis · haiku = **{'sim' if has_haiku else 'não'}**"
                   add("Anthropic API (Claude)", "🟢", sc, ms, detail, True)
               elif sc == 401:
                   add("Anthropic API (Claude)", "🔴", sc, ms, "Chave inválida", False)
+              elif sc == 400:
+                  add("Anthropic API (Claude)", "🔴", sc, ms, "Créditos esgotados ou request inválido", False)
               else:
                   add("Anthropic API (Claude)", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 7. WeatherAPI (fallback vento) ───────────────────────────────
+          # ── 8. DeepSeek API (narrativa primária) ─────────────────────────
+          ds_key = os.getenv("DEEPSEEK_API_KEY", "")
+          if not ds_key:
+              add("DeepSeek API (narrativa primária)", "⚠️", "—", 0, "DEEPSEEK_API_KEY ausente nos secrets", False)
+          else:
+              payload = json.dumps({
+                  "model": "deepseek-chat",
+                  "messages": [{"role": "user", "content": "ping"}],
+                  "max_tokens": 5,
+              }).encode("utf-8")
+              sc, body, ms, err = req(
+                  "https://api.deepseek.com/chat/completions",
+                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {ds_key}"},
+                  method="POST", data=payload,
+              )
+              if sc == 200 and body:
+                  model = body.get("model", "deepseek-chat")
+                  usage = body.get("usage", {})
+                  detail = f"Modelo: **{model}** · tokens prompt = {usage.get('prompt_tokens', '?')}"
+                  add("DeepSeek API (narrativa primária)", "🟢", sc, ms, detail, True)
+              elif sc == 402:
+                  add("DeepSeek API (narrativa primária)", "🔴", sc, ms, "Saldo insuficiente — recarregar créditos", False)
+              elif sc == 401:
+                  add("DeepSeek API (narrativa primária)", "🔴", sc, ms, "Chave inválida", False)
+              else:
+                  add("DeepSeek API (narrativa primária)", "🔴", sc, ms, err or body or "erro desconhecido", False)
+
+          # ── 9. Gemini 2.0 Flash (narrativa fallback 2) ──────────────────
+          gm_key = os.getenv("GEMINI_API_KEY", "")
+          if not gm_key:
+              add("Gemini 2.0 Flash (narrativa fallback 2)", "⚠️", "—", 0, "GEMINI_API_KEY ausente nos secrets", False)
+          else:
+              url = (
+                  "https://generativelanguage.googleapis.com/v1beta/models/"
+                  f"gemini-2.0-flash:generateContent?key={gm_key}"
+              )
+              payload = json.dumps({
+                  "contents": [{"parts": [{"text": "ping"}]}],
+                  "generationConfig": {"maxOutputTokens": 5},
+              }).encode("utf-8")
+              sc, body, ms, err = req(url, headers={"Content-Type": "application/json"}, method="POST", data=payload)
+              if sc == 200 and body:
+                  meta = body.get("usageMetadata", {})
+                  tokens_out = meta.get("candidatesTokenCount", "?")
+                  detail = f"Modelo: **gemini-2.0-flash** · tokens saída = {tokens_out}"
+                  add("Gemini 2.0 Flash (narrativa fallback 2)", "🟢", sc, ms, detail, True)
+              elif sc == 400:
+                  add("Gemini 2.0 Flash (narrativa fallback 2)", "🔴", sc, ms, "Chave inválida ou projeto sem acesso", False)
+              elif sc == 429:
+                  add("Gemini 2.0 Flash (narrativa fallback 2)", "🟡", sc, ms, "Rate limit atingido", True)
+              else:
+                  add("Gemini 2.0 Flash (narrativa fallback 2)", "🔴", sc, ms, err or "erro desconhecido", False)
+
+          # ── 10. Groq llama-3.3-70b (narrativa fallback 3) ───────────────
+          groq_key = os.getenv("GROQ_API_KEY", "")
+          if not groq_key:
+              add("Groq llama-3.3-70b (narrativa fallback 3)", "⚠️", "—", 0, "GROQ_API_KEY ausente nos secrets", False)
+          else:
+              payload = json.dumps({
+                  "model": "llama-3.3-70b-versatile",
+                  "messages": [{"role": "user", "content": "ping"}],
+                  "max_tokens": 5,
+              }).encode("utf-8")
+              sc, body, ms, err = req(
+                  "https://api.groq.com/openai/v1/chat/completions",
+                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {groq_key}"},
+                  method="POST", data=payload,
+              )
+              if sc == 200 and body:
+                  model = body.get("model", "llama-3.3-70b-versatile")
+                  usage = body.get("usage", {})
+                  detail = f"Modelo: **{model}** · tokens prompt = {usage.get('prompt_tokens', '?')}"
+                  add("Groq llama-3.3-70b (narrativa fallback 3)", "🟢", sc, ms, detail, True)
+              elif sc == 401:
+                  add("Groq llama-3.3-70b (narrativa fallback 3)", "🔴", sc, ms, "Chave inválida", False)
+              elif sc == 429:
+                  add("Groq llama-3.3-70b (narrativa fallback 3)", "🟡", sc, ms, "Rate limit atingido", True)
+              else:
+                  add("Groq llama-3.3-70b (narrativa fallback 3)", "🔴", sc, ms, err or "erro desconhecido", False)
+
+          # ── 11. WeatherAPI (fallback vento) ──────────────────────────────
           wa_key = os.getenv("WEATHERAPI_KEY", "")
           if not wa_key:
               add("WeatherAPI (fallback vento)", "⚠️", "—", 0, "WEATHERAPI_KEY ausente nos secrets", False)
@@ -209,7 +310,7 @@ jobs:
               else:
                   add("WeatherAPI (fallback vento)", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 8. Supabase REST ─────────────────────────────────────────────
+          # ── 12. Supabase REST ────────────────────────────────────────────
           sb_url = os.getenv("SUPABASE_URL", "")
           sb_key = os.getenv("SUPABASE_SERVICE_KEY", "")
           if not sb_url or not sb_key:
@@ -229,7 +330,7 @@ jobs:
               else:
                   add("Supabase REST", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 9. Telegram Bot ──────────────────────────────────────────────
+          # ── 13. Telegram Bot ─────────────────────────────────────────────
           tg_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
           if not tg_token:
               add("Telegram Bot", "⚠️", "—", 0, "TELEGRAM_BOT_TOKEN ausente nos secrets", False)
@@ -247,7 +348,7 @@ jobs:
               else:
                   add("Telegram Bot", "🔴", sc, ms, err or "erro desconhecido", False)
 
-          # ── 10. GitHub API (dispatch token) ──────────────────────────────
+          # ── 14. GitHub API (dispatch token) ──────────────────────────────
           gh_token = os.getenv("GH_DISPATCH_TOKEN", "")
           if not gh_token:
               add("GitHub API (dispatch)", "⚠️", "—", 0, "GH_DISPATCH_TOKEN ausente nos secrets", False)
@@ -267,10 +368,10 @@ jobs:
                   add("GitHub API (dispatch)", "🔴", sc, ms, err or "erro desconhecido", False)
 
           # ── Gerar sumário GitHub ─────────────────────────────────────────
-          ok_count  = sum(1 for r in results if r["ok"])
-          total     = len(results)
-          warn      = sum(1 for r in results if r["emoji"] == "⚠️")
-          fail      = sum(1 for r in results if r["emoji"] == "🔴")
+          ok_count = sum(1 for r in results if r["ok"])
+          total    = len(results)
+          warn     = sum(1 for r in results if r["emoji"] == "⚠️")
+          fail     = sum(1 for r in results if r["emoji"] == "🔴")
 
           if fail == 0 and warn == 0:
               header_emoji = "✅"
@@ -315,15 +416,12 @@ jobs:
 
           summary = "\n".join(lines)
 
-          # Escrever no GitHub Step Summary
           summary_path = os.getenv("GITHUB_STEP_SUMMARY")
           if summary_path:
               with open(summary_path, "w", encoding="utf-8") as f:
                   f.write(summary)
 
-          # Imprimir no log também
           print(summary)
 
-          # Sair com erro se alguma API falhou (não apenas secret ausente)
           if fail > 0:
               raise SystemExit(1)
