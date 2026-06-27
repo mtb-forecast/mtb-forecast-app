@@ -250,18 +250,6 @@ export async function GET(req: NextRequest) {
             }}
           />
 
-          {/* Polyline centralizado — box 400×400 centrado horizontalmente, parte superior da foto */}
-          {svgPath ? (
-            <svg
-              width="400"
-              height="400"
-              viewBox="0 0 400 400"
-              style={{ display: 'flex', position: 'absolute', top: 100, left: 340 }}
-            >
-              <path d={svgPath} fill="none" stroke="#D4601A" strokeWidth="8" strokeOpacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
-              <path d={svgPath} fill="none" stroke="#E07830" strokeWidth="2.5" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          ) : null}
 
           {/* Faixa verde no topo */}
           <div
@@ -317,8 +305,15 @@ export async function GET(req: NextRequest) {
               </div>
             </div>
 
-            {/* Spacer */}
-            <div style={{ display: 'flex', flex: 1 }} />
+            {/* Spacer — polyline centralizado no espaço vazio */}
+            <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              {svgPath ? (
+                <svg width="400" height="400" viewBox="0 0 400 400" style={{ display: 'flex' }}>
+                  <path d={svgPath} fill="none" stroke="#D4601A" strokeWidth="8" strokeOpacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={svgPath} fill="none" stroke="#E07830" strokeWidth="2.5" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : null}
+            </div>
 
             {/* Seção de condições — área escura */}
             <div style={{ display: 'flex', flexDirection: 'column' }}>
