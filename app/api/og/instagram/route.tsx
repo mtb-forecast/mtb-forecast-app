@@ -62,33 +62,33 @@ function landscapeType(bioma: string | null): Paisagem {
   return 'cerrado'
 }
 
-const NEG = 'people, person, human, cyclist, bicycle, bike, rider, athlete, man, woman, child'
+const NEG = 'people, person, human, cyclist, bicycle, bike, rider, athlete, man, woman, child, figure, silhouette, body, face, hand, helmet, glove, shoe, clothing, crowd, group, team, sport, activity, action'
 
 const PROMPTS: Record<string, Record<Paisagem, string>> = {
   sol: {
-    mata:     'Low-angle drone shot of a narrow mountain bike singletrack cutting through dense Brazilian Atlantic forest, exposed roots and berms visible on the dirt trail, golden sunlight breaking through tropical tree canopy, vivid green lush vegetation, warm afternoon light rays, cinematic depth of field, ultra-realistic, no people, no bikes.',
-    cerrado:  'Low-angle drone shot of a mountain bike singletrack winding through Brazilian cerrado savanna, red laterite dirt trail with rocky sections and natural berms, twisted cerrado trees and shrubs on both sides, bright sunny blue sky, warm golden light on red earth, cinematic ultra-realistic, no people, no bikes.',
-    montanha: 'Low-angle drone shot of a technical mountain bike trail along a dramatic Brazilian mountain escarpment, rocky singletrack with exposed granite and natural drops, alpine meadows and cliff faces in background, bright sunny sky, spectacular highland panorama, cinematic ultra-realistic, no people, no bikes.',
+    mata:     'Drone photograph angled low over an empty narrow dirt singletrack cutting through dense Brazilian Atlantic forest, exposed roots on the trail surface, golden sunlight breaking through tropical tree canopy, vivid green vegetation, warm light rays, completely uninhabited, empty trail, pure nature, ultra-realistic cinematic.',
+    cerrado:  'Drone photograph angled low over an empty winding dirt trail through Brazilian cerrado savanna, red laterite earth with rocky sections, twisted cerrado trees on both sides, bright sunny blue sky, warm golden light, completely empty trail, uninhabited landscape, ultra-realistic cinematic.',
+    montanha: 'Drone photograph angled low over an empty rocky dirt trail along a dramatic Brazilian mountain escarpment, exposed granite and natural rock features, alpine meadows and cliff faces in background, bright sunny sky, completely uninhabited, empty trail, spectacular highland panorama, ultra-realistic cinematic.',
   },
   nublado: {
-    mata:     'Low-angle drone shot of a narrow mountain bike singletrack through dense Brazilian Atlantic forest, exposed roots and berms on damp dirt trail, overcast grey sky filtering soft diffuse light through green canopy, cool misty forest atmosphere, cinematic ultra-realistic, no people, no bikes.',
-    cerrado:  'Low-angle drone shot of a mountain bike singletrack through Brazilian cerrado savanna, red dirt trail with rocky features, twisted cerrado trees under an overcast grey sky, cool desaturated light, calm cloudy atmosphere, cinematic ultra-realistic, no people, no bikes.',
-    montanha: 'Low-angle drone shot of a rocky mountain bike trail along Brazilian highland escarpments, technical singletrack with exposed stones, alpine meadows with low grey clouds clinging to mountain tops, cool misty highland atmosphere, cinematic ultra-realistic, no people, no bikes.',
+    mata:     'Drone photograph angled low over an empty narrow dirt singletrack through dense Brazilian Atlantic forest, damp trail surface with exposed roots, overcast grey sky filtering soft diffuse light through canopy, cool misty forest atmosphere, completely uninhabited, empty trail, ultra-realistic cinematic.',
+    cerrado:  'Drone photograph angled low over an empty winding dirt trail through Brazilian cerrado savanna, red earth with rocky features, twisted cerrado trees under overcast grey sky, cool desaturated light, completely uninhabited, empty trail, ultra-realistic cinematic.',
+    montanha: 'Drone photograph angled low over an empty rocky trail along Brazilian highland escarpments, exposed stones on the path, alpine meadows with low grey clouds on mountain tops, cool misty highland, completely uninhabited, empty trail, ultra-realistic cinematic.',
   },
   garoa: {
-    mata:     'Low-angle drone shot of a mountain bike singletrack through Brazilian Atlantic forest in fine drizzle, wet exposed roots and glistening berms on muddy trail, misty humid atmosphere between the trees, fine rain visible in the air, dark green wet canopy, cinematic ultra-realistic, no people, no bikes.',
-    cerrado:  'Low-angle drone shot of a mountain bike trail through Brazilian cerrado in drizzle, wet red dirt singletrack with damp rocky features, fine mist and light rain, cerrado trees with wet foliage, humid grey-green atmosphere, cinematic ultra-realistic, no people, no bikes.',
-    montanha: 'Low-angle drone shot of a technical mountain bike trail on Brazilian mountain escarpment in drizzle, wet rocky singletrack with mist rolling across highland meadows, low clouds around peaks, rain-slicked stones glistening, dramatic foggy atmosphere, cinematic ultra-realistic, no people, no bikes.',
+    mata:     'Drone photograph angled low over an empty narrow dirt singletrack through Brazilian Atlantic forest in fine drizzle, wet exposed roots and muddy trail glistening, misty humid atmosphere, fine rain in the air, dark green wet canopy, completely uninhabited, empty trail, ultra-realistic cinematic.',
+    cerrado:  'Drone photograph angled low over an empty dirt trail through Brazilian cerrado in light drizzle, wet red earth singletrack with damp rocky surface, fine mist among cerrado trees, humid grey-green atmosphere, completely uninhabited, empty trail, ultra-realistic cinematic.',
+    montanha: 'Drone photograph angled low over an empty rocky trail on Brazilian mountain escarpment in drizzle, wet stone singletrack with mist rolling across highland meadows, low clouds around peaks, rain-slicked rocks glistening, completely uninhabited, empty trail, ultra-realistic cinematic.',
   },
   chuva: {
-    mata:     'Low-angle drone shot of a mountain bike singletrack in Brazilian Atlantic forest during heavy rain, muddy trail with puddles and waterlogged roots visible, rain drops hitting wet leaves and dark soil, streams forming on the trail, dark stormy canopy, cinematic ultra-realistic, no people, no bikes.',
-    cerrado:  'Low-angle drone shot of a mountain bike trail through Brazilian cerrado in heavy rain, muddy red singletrack with large puddles, wet cerrado shrubs bending in the rain, dark grey stormy sky, dramatic rainy day atmosphere, cinematic ultra-realistic, no people, no bikes.',
-    montanha: 'Low-angle drone shot of a rocky mountain bike trail on Brazilian highland in heavy rain, waterlogged singletrack with water running over exposed rocks, dark storm clouds over mountain peaks, waterfalls visible on cliffs, dramatic wet mountain atmosphere, cinematic ultra-realistic, no people, no bikes.',
+    mata:     'Drone photograph angled low over an empty narrow dirt singletrack in Brazilian Atlantic forest during heavy rain, muddy trail with puddles and waterlogged roots, rain drops on wet leaves and dark soil, small streams on the trail surface, dark stormy canopy, completely uninhabited, ultra-realistic cinematic.',
+    cerrado:  'Drone photograph angled low over an empty dirt trail through Brazilian cerrado in heavy rain, muddy red singletrack with large puddles, wet cerrado shrubs bending in rain, dark grey stormy sky, completely uninhabited, empty trail, ultra-realistic cinematic.',
+    montanha: 'Drone photograph angled low over an empty rocky trail on Brazilian highland in heavy rain, waterlogged path with water running over exposed rocks, dark storm clouds over peaks, waterfalls on cliffs, completely uninhabited, empty trail, ultra-realistic cinematic.',
   },
   tempestade: {
-    mata:     'Low-angle drone shot of a mountain bike singletrack through Brazilian Atlantic forest in violent storm, flooded muddy trail with debris and standing water, trees bending in strong wind, dramatic dark storm sky with distant lightning above the canopy, intense cinematic atmosphere, ultra-realistic, no people, no bikes.',
-    cerrado:  'Low-angle drone shot of a mountain bike trail through Brazilian cerrado in violent storm, eroded muddy singletrack with running water, cerrado trees bending in strong wind, dramatic lightning in dark stormy sky, powerful cinematic storm atmosphere, ultra-realistic, no people, no bikes.',
-    montanha: 'Low-angle drone shot of a rocky mountain bike trail on Brazilian highland in violent storm, water cascading over trail rocks, powerful dark storm clouds with lightning striking mountain peaks, dramatic high-contrast storm light on escarpments, cinematic ultra-realistic, no people, no bikes.',
+    mata:     'Drone photograph angled low over an empty flooded dirt singletrack through Brazilian Atlantic forest in violent storm, muddy trail with debris and standing water, trees bending in strong wind, dramatic dark storm sky with lightning above canopy, completely uninhabited, ultra-realistic cinematic.',
+    cerrado:  'Drone photograph angled low over an empty eroded dirt trail through Brazilian cerrado in violent storm, muddy singletrack with running water, cerrado trees bending in strong wind, dramatic lightning in dark sky, completely uninhabited, ultra-realistic cinematic.',
+    montanha: 'Drone photograph angled low over an empty rocky trail on Brazilian highland in violent storm, water cascading over trail rocks, powerful dark storm clouds with lightning on mountain peaks, completely uninhabited, empty trail, ultra-realistic cinematic.',
   },
 }
 
@@ -373,7 +373,7 @@ export async function GET(req: NextRequest) {
             }}
           />
 
-          {/* Polyline da trilha — overlay laranja sobre o fundo */}
+          {/* Polyline da trilha — overlay sutil sobre o fundo */}
           {svgPath ? (
             <svg
               width="1080"
@@ -381,10 +381,10 @@ export async function GET(req: NextRequest) {
               viewBox="0 0 1080 1080"
               style={{ display: 'flex', position: 'absolute', top: 0, left: 0 }}
             >
-              {/* Glow */}
-              <path d={svgPath} fill="none" stroke="#FF6B2B" strokeWidth="14" strokeOpacity="0.25" strokeLinecap="round" strokeLinejoin="round" />
-              {/* Linha nítida */}
-              <path d={svgPath} fill="none" stroke="#FF8C42" strokeWidth="5" strokeOpacity="0.90" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Glow suave */}
+              <path d={svgPath} fill="none" stroke="#D4601A" strokeWidth="10" strokeOpacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Linha principal */}
+              <path d={svgPath} fill="none" stroke="#E07830" strokeWidth="3" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           ) : null}
 
