@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
     const bgDataUrl = await toDataUrl(bgUrl)
 
     // Polyline centralizado num box 400×400 no meio da área da foto
-    const svgPath = trilha.polyline ? polylineToSvgPath(decodePolyline(trilha.polyline), 400, 400) : ''
+    const svgPath = trilha.polyline ? polylineToSvgPath(decodePolyline(trilha.polyline), 800, 800) : ''
 
     return new ImageResponse(
       (
@@ -308,7 +308,7 @@ export async function GET(req: NextRequest) {
             {/* Spacer — polyline centralizado no espaço vazio */}
             <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               {svgPath ? (
-                <svg width="400" height="400" viewBox="0 0 400 400" style={{ display: 'flex' }}>
+                <svg width="800" height="800" viewBox="0 0 800 800" style={{ display: 'flex' }}>
                   <path d={svgPath} fill="none" stroke="#D4601A" strokeWidth="8" strokeOpacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
                   <path d={svgPath} fill="none" stroke="#E07830" strokeWidth="2.5" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
