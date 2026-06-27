@@ -364,19 +364,9 @@ export async function GET(req: NextRequest) {
             }}
           >
             {/* Header */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
+            <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', fontSize: 24, fontFamily: fontSans, fontWeight: 800, color: '#a8b899', letterSpacing: 3 }}>
                 MTB FORECASTER
-              </div>
-              <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, color: 'rgba(168,184,153,0.5)' }}>
-                {reportStr}
               </div>
             </div>
 
@@ -404,6 +394,14 @@ export async function GET(req: NextRequest) {
             {/* Location */}
             <div style={{ display: 'flex', fontSize: 28, fontFamily: fontSans, fontWeight: 400, color: 'rgba(168,184,153,0.6)', marginTop: 8 }}>
               {location}
+            </div>
+
+            {/* Data/hora do report — separador entre trilha e área de condições */}
+            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 28, gap: 0 }}>
+              <div style={{ display: 'flex', height: 1, background: 'rgba(168,184,153,0.20)' }} />
+              <div style={{ display: 'flex', fontSize: 28, fontFamily: fontMono, color: 'rgba(168,184,153,0.65)', marginTop: 16 }}>
+                {reportStr}
+              </div>
             </div>
 
             {/* Spacer */}
