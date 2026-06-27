@@ -275,7 +275,7 @@ export async function GET(req: NextRequest) {
             </div>
 
             {/* Trilha — posicionada na área da foto */}
-            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 320 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 220 }}>
               <div style={{ display: 'flex', fontSize: 22, fontFamily: fontSans, fontWeight: 700, letterSpacing: 4, color: '#a8b899' }}>
                 TRILHA DE MOUNTAIN BIKE
               </div>
