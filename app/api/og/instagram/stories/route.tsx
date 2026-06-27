@@ -51,34 +51,55 @@ function landscapeType(bioma: string | null): Paisagem {
   return 'cerrado'
 }
 
-const NEG = 'people, person, human, cyclist, bicycle, bike, rider, athlete, man, woman, child, figure, silhouette, body, face, hand, helmet, glove, shoe, clothing, crowd, group, team, sport, activity, action'
+const NEG = 'full face, full body portrait, crowd, spectators, group of people, many people, logo, text, watermark'
 
-const PROMPTS: Record<string, Record<Paisagem, string>> = {
-  sol: {
-    mata:     'Drone photograph angled low over an empty narrow dirt singletrack cutting through dense Brazilian Atlantic forest, exposed roots on the trail surface, golden sunlight breaking through tropical tree canopy, vivid green vegetation, warm light rays, completely uninhabited, empty trail, pure nature, ultra-realistic cinematic.',
-    cerrado:  'Drone photograph angled low over an empty winding dirt trail through Brazilian cerrado savanna, red laterite earth with rocky sections, twisted cerrado trees on both sides, bright sunny blue sky, warm golden light, completely empty trail, uninhabited landscape, ultra-realistic cinematic.',
-    montanha: 'Drone photograph angled low over an empty rocky dirt trail along a dramatic Brazilian mountain escarpment, exposed granite and natural rock features, alpine meadows and cliff faces in background, bright sunny sky, completely uninhabited, empty trail, spectacular highland panorama, ultra-realistic cinematic.',
-  },
-  nublado: {
-    mata:     'Drone photograph angled low over an empty narrow dirt singletrack through dense Brazilian Atlantic forest, damp trail surface with exposed roots, overcast grey sky filtering soft diffuse light through canopy, cool misty forest atmosphere, completely uninhabited, empty trail, ultra-realistic cinematic.',
-    cerrado:  'Drone photograph angled low over an empty winding dirt trail through Brazilian cerrado savanna, red earth with rocky features, twisted cerrado trees under overcast grey sky, cool desaturated light, completely uninhabited, empty trail, ultra-realistic cinematic.',
-    montanha: 'Drone photograph angled low over an empty rocky trail along Brazilian highland escarpments, exposed stones on the path, alpine meadows with low grey clouds on mountain tops, cool misty highland, completely uninhabited, empty trail, ultra-realistic cinematic.',
-  },
-  garoa: {
-    mata:     'Drone photograph angled low over an empty narrow dirt singletrack through Brazilian Atlantic forest in fine drizzle, wet exposed roots and muddy trail glistening, misty humid atmosphere, fine rain in the air, dark green wet canopy, completely uninhabited, empty trail, ultra-realistic cinematic.',
-    cerrado:  'Drone photograph angled low over an empty dirt trail through Brazilian cerrado in light drizzle, wet red earth singletrack with damp rocky surface, fine mist among cerrado trees, humid grey-green atmosphere, completely uninhabited, empty trail, ultra-realistic cinematic.',
-    montanha: 'Drone photograph angled low over an empty rocky trail on Brazilian mountain escarpment in drizzle, wet stone singletrack with mist rolling across highland meadows, low clouds around peaks, rain-slicked rocks glistening, completely uninhabited, empty trail, ultra-realistic cinematic.',
-  },
-  chuva: {
-    mata:     'Drone photograph angled low over an empty narrow dirt singletrack in Brazilian Atlantic forest during heavy rain, muddy trail with puddles and waterlogged roots, rain drops on wet leaves and dark soil, small streams on the trail surface, dark stormy canopy, completely uninhabited, ultra-realistic cinematic.',
-    cerrado:  'Drone photograph angled low over an empty dirt trail through Brazilian cerrado in heavy rain, muddy red singletrack with large puddles, wet cerrado shrubs bending in rain, dark grey stormy sky, completely uninhabited, empty trail, ultra-realistic cinematic.',
-    montanha: 'Drone photograph angled low over an empty rocky trail on Brazilian highland in heavy rain, waterlogged path with water running over exposed rocks, dark storm clouds over peaks, waterfalls on cliffs, completely uninhabited, empty trail, ultra-realistic cinematic.',
-  },
-  tempestade: {
-    mata:     'Drone photograph angled low over an empty flooded dirt singletrack through Brazilian Atlantic forest in violent storm, muddy trail with debris and standing water, trees bending in strong wind, dramatic dark storm sky with lightning above canopy, completely uninhabited, ultra-realistic cinematic.',
-    cerrado:  'Drone photograph angled low over an empty eroded dirt trail through Brazilian cerrado in violent storm, muddy singletrack with running water, cerrado trees bending in strong wind, dramatic lightning in dark sky, completely uninhabited, ultra-realistic cinematic.',
-    montanha: 'Drone photograph angled low over an empty rocky trail on Brazilian highland in violent storm, water cascading over trail rocks, powerful dark storm clouds with lightning on mountain peaks, completely uninhabited, empty trail, ultra-realistic cinematic.',
-  },
+// Mesmo PROMPTS do Feed — 7 variantes por categoria, trailSeed % 7 escolhe o ângulo
+const PROMPTS: Record<string, string[]> = {
+  sol: [
+    'Uma fotografia de alta definição, em perspectiva de baixo (ao nível do solo), olhando diretamente para cima da trilha. O foco está nos pneus de uma mountain bike que se aproxima, com a lama sendo lançada. As rochas e a vegetação rasteira são nítidas em primeiro plano, as árvores se estendem acima e as montanhas suaves emolduram o fundo sob o céu azul intenso. Ultrarrealista.',
+    'Uma macro-fotografia ultrarrealista com lente grande angular, focada em uma seção técnica do rock garden. A trilha de terra serpenteia entre rochas afiadas e irregulares. A vegetação baixa está seca e dourada. Apenas a perna de um ciclista e parte do quadro da bicicleta são visíveis, navegando pelas pedras, com o céu azul brilhante e as montanhas desfocadas no fundo. Ultrarrealista.',
+    'Uma foto aérea de drone (em alta altitude, mas com lente grande angular) capturando a curva sinuosa da trilha. A trilha de terra corta a encosta da montanha árida, com o rock garden como uma mancha texturizada. As árvores espalhadas criam sombras nítidas no solo. O céu azul é vasto e as montanhas suaves se estendem até o horizonte. Ultrarrealista.',
+    'Uma variação de iluminação: a mesma trilha e paisagem, mas capturada durante a hora dourada logo após o nascer do sol. A luz suave e quente ilumina as rochas e a vegetação. O céu azul ainda está presente, mas com tons de laranja e rosa no horizonte sobre as montanhas suaves. Ultrarrealista.',
+    'Uma foto ao nível da trilha, focada na bifurcação da trilha. Uma opção mais suave e de terra à esquerda e a linha principal através do rock garden agressivo à direita. As árvores estão localizadas no meio, e as montanhas suaves e o céu azul brilhante preenchem o fundo. Ultrarrealista.',
+    'A mesma paisagem árida, mas com a lente grande angular focada em detalhes de flores silvestres nativas e plantas suculentas crescendo entre as rochas do rock garden. A trilha de terra e as árvores estão ligeiramente desfocadas em segundo plano, com o céu azul intenso e as montanhas suaves ao longe. Ultrarrealista.',
+    'Uma imagem POV ultrarrealista, como se estivesse usando uma câmera de capacete. O guidão da bicicleta e o pneu dianteiro estão em primeiro plano. A trilha com o rock garden está à frente, com a curva e as árvores espalhadas. O céu azul e as montanhas suaves preenchem a visão. Ultrarrealista.',
+  ],
+  nublado: [
+    'Uma fotografia de alta definição, em perspectiva de baixo (ao nível do solo), olhando diretamente para cima da trilha. O foco está nos pneus de uma mountain bike que se aproxima, lançando pequenas gotas de lama úmida. As rochas e a vegetação rasteira aparecem nítidas em primeiro plano, enquanto as árvores se elevam acima da trilha. Montanhas suaves emolduram o horizonte sob um céu totalmente encoberto por nuvens cinzentas claras. Iluminação difusa, sem sombras marcadas, atmosfera fresca e natural, fotografia ultrarrealista.',
+    'Uma macro-fotografia ultrarrealista com lente grande angular, focada em uma seção técnica do rock garden. A trilha úmida serpenteia entre rochas afiadas e irregulares. A vegetação baixa apresenta tons verdes e terrosos mais intensos devido à umidade. Apenas a perna de um ciclista e parte do quadro da bicicleta são visíveis navegando pelas pedras. O céu está completamente nublado, com luz suave e uniforme, enquanto as montanhas aparecem levemente desfocadas ao fundo. Ultrarrealista.',
+    'Uma foto aérea de drone capturando a curva sinuosa da trilha em uma paisagem natural. A trilha corta a encosta da montanha e o rock garden aparece como uma faixa texturizada entre a vegetação. Árvores espalhadas pontuam o terreno. O céu está coberto por nuvens espessas, eliminando sombras fortes e criando uma iluminação homogênea. As montanhas suaves desaparecem gradualmente em uma leve névoa atmosférica. Ultrarrealista.',
+    'A mesma trilha e paisagem capturadas logo após o nascer do sol em uma manhã nublada. A luz dourada é filtrada pelas nuvens, criando tons suaves de laranja e amarelo no horizonte. As rochas úmidas e a vegetação recebem uma iluminação delicada e difusa. As montanhas suaves aparecem parcialmente envoltas por névoa baixa, criando uma atmosfera tranquila e cinematográfica. Ultrarrealista.',
+    'Uma fotografia ao nível da trilha mostrando a bifurcação. À esquerda, uma linha de terra mais suave e compacta; à direita, a linha principal atravessando o rock garden técnico. O terreno apresenta aspecto levemente úmido. Árvores dispersas aparecem ao fundo, enquanto montanhas suaves se destacam sob um céu cinzento uniforme. Iluminação suave e sem contrastes intensos. Ultrarrealista.',
+    'Uma fotografia grande angular focada em flores silvestres, gramíneas e pequenas plantas nativas crescendo entre as rochas do rock garden. A umidade realça as cores naturais da vegetação. A trilha e as árvores aparecem desfocadas ao fundo. O céu totalmente nublado cria uma iluminação suave que destaca texturas e detalhes das plantas. Ultrarrealista.',
+    'Uma imagem POV ultrarrealista capturada por uma câmera de capacete. O guidão e o pneu dianteiro aparecem em primeiro plano. A trilha segue à frente passando por um rock garden técnico e uma curva suave entre árvores dispersas. O céu está encoberto por nuvens densas, proporcionando iluminação uniforme e excelente definição das rochas e da vegetação. Ultrarrealista.',
+  ],
+  garoa: [
+    'Uma fotografia de alta definição ao nível do solo, olhando diretamente para cima da trilha. Os pneus de uma mountain bike avançam em direção à câmera, lançando gotas de lama fina e respingos de água. Pequenas gotas de garoa são visíveis no ar. As rochas molhadas brilham discretamente. Árvores e montanhas suaves aparecem ao fundo sob um céu cinzento carregado. Atmosfera úmida e realista. Ultrarrealista.',
+    'Uma macro-fotografia ultrarrealista focada em um rock garden molhado por uma garoa constante. As pedras apresentam reflexos suaves e superfícies escorregadias. Apenas parte da bicicleta e a perna do ciclista são visíveis superando o obstáculo. Pequenas gotas de chuva podem ser vistas cruzando a cena. O fundo apresenta montanhas parcialmente ocultas pela névoa fina. Ultrarrealista.',
+    'Uma foto aérea de drone registrando a trilha sinuosa sob uma garoa leve. O terreno apresenta tons mais escuros devido à umidade. As árvores possuem aparência brilhante e saturada. Uma leve névoa reduz a visibilidade das montanhas mais distantes. O céu permanece totalmente coberto por nuvens baixas e cinzentas. Ultrarrealista.',
+    'A mesma trilha capturada durante o amanhecer em condições de garoa. A luz dourada do sol atravessa parcialmente as nuvens, criando reflexos suaves sobre as pedras molhadas. Pequenas gotas permanecem suspensas no ar. As montanhas suaves aparecem parcialmente escondidas por névoa baixa, criando uma atmosfera cinematográfica e contemplativa. Ultrarrealista.',
+    'Uma fotografia ao nível da trilha mostrando duas opções de passagem sob uma garoa leve. A linha fácil apresenta terra compactada e úmida, enquanto o rock garden da linha principal exibe pedras molhadas e brilhantes. Pequenas gotas são visíveis diante da lente. Árvores e montanhas surgem suavemente desfocadas ao fundo. Ultrarrealista.',
+    'Uma fotografia focada em flores silvestres e vegetação nativa cobertas por gotas de água da garoa. As rochas do rock garden aparecem úmidas e detalhadas. A profundidade de campo reduzida destaca as gotas acumuladas nas folhas. A trilha e as árvores permanecem suavemente desfocadas sob um céu cinzento. Ultrarrealista.',
+    'Imagem POV ultrarrealista de um ciclista pedalando durante uma garoa leve. Pequenas gotas estão visíveis na lente da câmera. O guidão e o pneu dianteiro aparecem em primeiro plano. A trilha úmida e o rock garden exigem atenção. O ambiente é envolvido por uma névoa fina que suaviza o contorno das montanhas ao fundo. Ultrarrealista.',
+  ],
+  chuva: [
+    'Uma fotografia ultrarrealista de alta definição ao nível do solo, olhando diretamente para cima da trilha. Uma mountain bike avança em velocidade através da lama profunda, lançando grandes respingos em direção à câmera. A chuva cai intensamente por toda a cena. As rochas estão encharcadas e a vegetação balança sob o vento. Montanhas suaves aparecem parcialmente ocultas pela cortina de chuva. Ultrarrealista.',
+    'Uma macro-fotografia ultrarrealista de um rock garden durante chuva moderada. As pedras escuras e molhadas refletem a luz ambiente. A roda da bicicleta passa entre os obstáculos lançando água para os lados. Gotas de chuva visíveis congeladas pelo obturador rápido. O fundo apresenta árvores e montanhas envoltas em névoa e chuva. Ultrarrealista.',
+    'Uma fotografia aérea de drone capturando a trilha sinuosa durante uma chuva constante. A trilha apresenta trechos lamacentos e poças d\'água. As árvores aparecem escuras e saturadas pela umidade. A visibilidade reduzida cria camadas atmosféricas entre as montanhas. O céu é composto por nuvens densas e carregadas. Ultrarrealista.',
+    'A mesma trilha fotografada ao amanhecer durante uma chuva leve a moderada. A luz dourada do sol atravessa pequenas aberturas entre as nuvens escuras, criando raios de luz dramáticos sobre o terreno molhado. As rochas refletem o brilho suave da manhã enquanto a chuva continua caindo. Atmosfera épica e cinematográfica. Ultrarrealista.',
+    'Uma fotografia ao nível da trilha mostrando a bifurcação em condições de chuva. A linha fácil possui lama compactada e pequenas poças, enquanto o rock garden principal está completamente molhado e desafiador. Gotas de chuva atravessam a cena e a vegetação apresenta tons verdes intensos devido à água. Ultrarrealista.',
+    'Uma fotografia grande angular destacando flores silvestres e plantas nativas cobertas por gotas de chuva. A água escorre pelas rochas do rock garden criando pequenos filetes. O fundo desfocado mostra a trilha molhada e árvores balançando sob a chuva. As cores naturais estão mais saturadas devido à umidade. Ultrarrealista.',
+    'Uma imagem POV ultrarrealista de um ciclista pedalando sob chuva moderada. O guidão e o pneu dianteiro aparecem cobertos por gotas de água e respingos de lama. A trilha à frente está molhada, com pedras escorregadias e pequenas poças entre os obstáculos do rock garden. Gotas aderidas à lente aumentam a sensação de imersão e realismo. Ultrarrealista.',
+  ],
+  tempestade: [
+    'Uma fotografia ultrarrealista ao nível do solo durante uma tempestade violenta. Os pneus de uma mountain bike avançam pela lama profunda encharcada, lançando imensos respingos. A chuva cai com força total, o vento dobra a vegetação. Relâmpagos iluminam dramaticamente as montanhas ao fundo. Atmosfera épica e cinematográfica. Ultrarrealista.',
+    'Uma macro-fotografia de um rock garden completamente inundado durante tempestade. As pedras estão submersas em lama e água corrente. Apenas a roda da bicicleta e perna do ciclista são visíveis forçando a passagem. Gotas de chuva intensa congeladas. Trovões e raios ao fundo entre as montanhas. Ultrarrealista.',
+    'Foto aérea de drone durante tempestade severa. A trilha se transforma em um canal de lama e água. Árvores curvadas pelo vento intenso. Nuvens escuras e dramáticas cobrindo as montanhas. Relâmpagos visíveis no horizonte. Atmosfera apocalíptica e cinematográfica. Ultrarrealista.',
+    'A trilha durante tempestade ao entardecer. Raios de luz laranja e violeta dramáticos atravessam as nuvens carregadas. Água jorrando pelas rochas. A vegetação dobrada pelo vento. As montanhas quase invisíveis pela cortina de chuva intensa. Atmosfera épica. Ultrarrealista.',
+    'Bifurcação da trilha durante tempestade. Ambas as linhas estão inundadas — a linha fácil virou riacho e o rock garden está perigoso. Água correndo por toda a cena. Trovões visíveis no céu escuro. Vegetação balançando violentamente. Ultrarrealista.',
+    'Close em vegetação nativa durante tempestade. Flores e folhas dobradas pelo vento e chuva intensa. Água escorrendo pelas rochas do rock garden em filetes grossos. Raios iluminam a cena ao fundo. Atmosfera dramática e poderosa. Ultrarrealista.',
+    'POV de ciclista na tempestade. Guidão e pneu dianteiro cobertos de lama e água. A trilha à frente está quase irreconhecível de tanta chuva. Relâmpago visível ao longe. Gotas e respingos bloqueando parcialmente a visão. Imersão total. Ultrarrealista.',
+  ],
 }
 
 // ─── Polyline da trilha ───────────────────────────────────────────────────────
@@ -132,14 +153,16 @@ function bgStorageUrl(trilhaId: string, categoria: string): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
 }
 
-async function fetchAndUploadPollinations(trilhaId: string, categoria: string, paisagem: Paisagem): Promise<void> {
-  const prompt = (PROMPTS[categoria] ?? PROMPTS['sol'])[paisagem]
+async function fetchAndUploadPollinations(trilhaId: string, categoria: string): Promise<void> {
+  const variants = PROMPTS[categoria] ?? PROMPTS['sol']
   const seed = trailSeed(trilhaId)
+  const variantIndex = seed % variants.length
+  const prompt = variants[variantIndex]
   const encoded = encodeURIComponent(prompt)
   const negativePrompt = encodeURIComponent(NEG)
   const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}&negative_prompt=${negativePrompt}`
 
-  console.log(`[OG Stories] Pollinations fetch: trail_${trilhaId}_${categoria} (${paisagem}) seed=${seed}`)
+  console.log(`[OG Stories] Pollinations fetch: trail_${trilhaId}_${categoria} variant=${variantIndex} seed=${seed}`)
   try {
     const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
     if (!imgRes.ok) { console.error(`[OG Stories] Pollinations HTTP ${imgRes.status}`); return }
@@ -295,7 +318,7 @@ export async function GET(req: NextRequest) {
 
     let bgDataUrl: string | null = await toDataUrl(bgUrl)
     if (!bgDataUrl) {
-      await fetchAndUploadPollinations(trilhaId, categoria, paisagem)
+      await fetchAndUploadPollinations(trilhaId, categoria)
       bgDataUrl = await toDataUrl(bgUrl)
     }
 
