@@ -264,7 +264,7 @@ export async function GET(req: NextRequest) {
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               display: 'flex', flexDirection: 'column',
-              paddingTop: 140, paddingLeft: 80, paddingRight: 80, paddingBottom: 160,
+              paddingTop: 200, paddingLeft: 80, paddingRight: 80, paddingBottom: 160,
             }}
           >
             {/* Header */}
