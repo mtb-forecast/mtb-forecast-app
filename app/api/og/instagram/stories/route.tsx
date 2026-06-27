@@ -41,65 +41,9 @@ function trailNameFontSize(name: string): number {
   return 68
 }
 
-type Paisagem = 'mata' | 'cerrado' | 'montanha'
-
-function landscapeType(bioma: string | null): Paisagem {
-  if (!bioma) return 'cerrado'
-  const b = bioma.toLowerCase()
-  if (b.includes('atlântica') || b.includes('atlantica') || b.includes('amazônia') || b.includes('amazonia')) return 'mata'
-  if (b.includes('serra') || b.includes('campo') || b.includes('rupestre') || b.includes('araucária') || b.includes('araucaria')) return 'montanha'
-  return 'cerrado'
-}
-
-const NEG = 'people, person, human, cyclist, bicycle, bike, rider, athlete, man, woman, child, figure, silhouette, body, face, hand, foot, helmet, glove, shoe, clothing, tire, wheel, handlebar, frame, saddle, crowd, group, vehicle, animal'
-
-// Mesmo PROMPTS do Feed — 7 variantes por categoria, trailSeed % 7 escolhe o ângulo
-const PROMPTS: Record<string, string[]> = {
-  sol: [
-    'Fotografia ultrarrealista ao nível do solo olhando para cima da trilha vazia. As rochas e a vegetação rasteira são nítidas em primeiro plano, as árvores se estendem acima e as montanhas suaves emolduram o fundo sob o céu azul intenso. Trilha completamente deserta, sem ninguém. Luz natural brilhante.',
-    'Macro-fotografia ultrarrealista com lente grande angular focada em uma seção técnica do rock garden vazio. A trilha de terra serpenteia entre rochas afiadas e irregulares. A vegetação baixa está seca e dourada. Céu azul brilhante e montanhas desfocadas no fundo. Sem pessoas, sem bicicletas.',
-    'Foto aérea de drone capturando a curva sinuosa da trilha deserta. A trilha de terra corta a encosta da montanha, com o rock garden como uma mancha texturizada. Árvores espalhadas criam sombras nítidas no solo. Céu azul vasto e montanhas suaves se estendem ao horizonte. Completamente vazia.',
-    'A trilha durante a hora dourada logo após o nascer do sol. Luz suave e quente ilumina as rochas e a vegetação. Céu azul com tons de laranja e rosa no horizonte sobre as montanhas suaves. Trilha deserta, silenciosa, cinematográfica.',
-    'Foto ao nível da trilha focada na bifurcação vazia. Uma opção mais suave de terra à esquerda e a linha principal através do rock garden à direita. Árvores ao centro, montanhas suaves e céu azul ao fundo. Nenhuma pessoa ou veículo.',
-    'Lente grande angular focada em flores silvestres nativas e plantas suculentas crescendo entre as rochas do rock garden. A trilha de terra e as árvores estão desfocadas ao fundo. Céu azul intenso e montanhas suaves ao longe. Completamente deserto.',
-    'Vista da trilha à frente a partir do solo, olhando para o caminho que desce pelo rock garden entre as árvores. Perspectiva de quem está na trilha mas sem mostrar ninguém. Céu azul e montanhas suaves ao fundo. Trilha vazia e convidativa.',
-  ],
-  nublado: [
-    'Fotografia ultrarrealista ao nível do solo olhando para cima da trilha vazia. As rochas e a vegetação rasteira aparecem nítidas em primeiro plano. Montanhas suaves emolduram o horizonte sob céu totalmente encoberto por nuvens cinzentas claras. Iluminação difusa, sem sombras, trilha completamente deserta.',
-    'Macro-fotografia ultrarrealista com lente grande angular focada em seção técnica do rock garden vazio e úmido. Trilha serpenteia entre rochas afiadas. Vegetação com tons verdes intensos pela umidade. Céu nublado com luz suave e uniforme, montanhas desfocadas ao fundo. Sem pessoas ou bicicletas.',
-    'Foto aérea de drone capturando a curva sinuosa da trilha deserta. O rock garden aparece como faixa texturizada entre a vegetação. Árvores pontuam o terreno. Céu coberto por nuvens espessas criando iluminação homogênea. Montanhas desaparecem em névoa atmosférica. Trilha vazia.',
-    'A trilha capturada ao nascer do sol em manhã nublada. Luz dourada filtrada pelas nuvens cria tons suaves de laranja e amarelo. Rochas úmidas e vegetação com iluminação delicada. Montanhas parcialmente envoltas por névoa baixa. Atmosfera tranquila, trilha deserta.',
-    'Foto ao nível da trilha mostrando a bifurcação vazia. À esquerda linha suave de terra, à direita o rock garden técnico. Terreno levemente úmido. Árvores ao fundo, montanhas sob céu cinzento uniforme. Nenhuma pessoa ou veículo.',
-    'Fotografia grande angular focada em flores silvestres e plantas nativas crescendo entre as rochas do rock garden. Umidade realça as cores da vegetação. Trilha e árvores desfocadas ao fundo. Céu nublado criando luz suave. Completamente deserto.',
-    'Vista da trilha à frente a partir do solo, olhando para o caminho que serpenteia pelo rock garden entre árvores dispersas. Céu nublado proporcionando luz uniforme sobre as rochas e vegetação. Trilha vazia e silenciosa, sem ninguém.',
-  ],
-  garoa: [
-    'Fotografia ultrarrealista ao nível do solo olhando para cima da trilha vazia na garoa. Pequenas gotas de chuva são visíveis no ar. Rochas molhadas brilham discretamente. Árvores e montanhas suaves ao fundo sob céu cinzento carregado. Trilha completamente deserta, atmosfera úmida.',
-    'Macro-fotografia ultrarrealista focada em rock garden molhado por garoa constante. Pedras com reflexos suaves e superfícies escorregadias. Gotas cruzam a cena. Montanhas parcialmente ocultas por névoa fina ao fundo. Sem pessoas ou bicicletas.',
-    'Foto aérea de drone registrando trilha sinuosa deserta sob garoa leve. Terreno com tons mais escuros pela umidade. Árvores com aparência brilhante e saturada. Névoa reduz visibilidade das montanhas distantes. Céu coberto por nuvens baixas e cinzentas. Trilha vazia.',
-    'A trilha ao amanhecer com garoa. Luz dourada atravessa parcialmente as nuvens criando reflexos suaves sobre pedras molhadas. Pequenas gotas suspensas no ar. Montanhas parcialmente ocultas por névoa baixa. Atmosfera cinematográfica, trilha deserta.',
-    'Foto ao nível da trilha mostrando bifurcação vazia sob garoa leve. Linha fácil com terra úmida, rock garden com pedras molhadas e brilhantes. Gotas visíveis na cena. Árvores e montanhas desfocadas ao fundo. Nenhuma pessoa ou veículo.',
-    'Fotografia focada em flores silvestres e vegetação nativa cobertas por gotas de água da garoa. Rochas do rock garden úmidas e detalhadas. Gotas acumuladas nas folhas em destaque. Trilha e árvores desfocadas sob céu cinzento. Completamente deserto.',
-    'Vista da trilha úmida à frente a partir do solo, olhando para o caminho molhado pelo rock garden entre árvores com névoa ao redor. Atmosfera envolvente de garoa, montanhas suavizadas pela neblina. Trilha vazia e silenciosa.',
-  ],
-  chuva: [
-    'Fotografia ultrarrealista ao nível do solo olhando para cima da trilha vazia durante chuva intensa. Lama e respingos de água na cena. Chuva caindo intensamente. Rochas encharcadas e vegetação balançando. Montanhas parcialmente ocultas pela cortina de chuva. Trilha completamente deserta.',
-    'Macro-fotografia ultrarrealista de rock garden vazio durante chuva moderada. Pedras escuras e molhadas refletem a luz ambiente. Água respingando entre as pedras. Gotas de chuva congeladas pelo obturador rápido. Árvores e montanhas envoltas em névoa ao fundo. Sem pessoas ou bicicletas.',
-    'Foto aérea de drone da trilha deserta durante chuva constante. Trechos lamacentos e poças d\'água visíveis. Árvores escuras e saturadas pela umidade. Camadas atmosféricas entre as montanhas com visibilidade reduzida. Céu com nuvens densas e carregadas. Trilha vazia.',
-    'A trilha ao amanhecer durante chuva leve. Luz dourada atravessa aberturas nas nuvens escuras criando raios dramáticos sobre terreno molhado. Rochas com reflexo suave da manhã enquanto a chuva continua. Atmosfera épica e cinematográfica. Trilha deserta.',
-    'Foto ao nível da trilha mostrando bifurcação vazia em condições de chuva. Linha fácil com lama e pequenas poças, rock garden completamente molhado e desafiador. Gotas atravessam a cena, vegetação verde intensa. Nenhuma pessoa ou veículo.',
-    'Fotografia grande angular de flores silvestres e plantas nativas cobertas por gotas de chuva. Água escorre pelas rochas do rock garden em pequenos filetes. Trilha molhada e árvores balançando ao fundo desfocado. Cores naturais mais saturadas. Completamente deserto.',
-    'Vista da trilha encharcada à frente a partir do solo, olhando para o caminho lamacento que desce pelo rock garden com chuva caindo. Poças refletem o céu nublado. Vegetação brilhante de umidade. Trilha completamente vazia.',
-  ],
-  tempestade: [
-    'Fotografia ultrarrealista ao nível do solo olhando para cima da trilha inundada durante tempestade violenta. Lama profunda e respingos de água por toda a cena. Chuva com força total, vento dobrando a vegetação. Relâmpagos iluminam as montanhas ao fundo. Trilha completamente deserta.',
-    'Macro-fotografia de rock garden completamente inundado durante tempestade. Pedras submersas em lama e água corrente. Água respingando violentamente entre as pedras. Gotas de chuva intensa congeladas. Raios e trovões ao fundo entre as montanhas. Sem pessoas ou bicicletas.',
-    'Foto aérea de drone durante tempestade severa. Trilha vazia transformada em canal de lama e água. Árvores curvadas pelo vento intenso. Nuvens escuras e dramáticas cobrindo as montanhas. Relâmpagos no horizonte. Atmosfera apocalíptica. Trilha deserta.',
-    'A trilha durante tempestade ao entardecer. Raios de luz laranja e violeta dramáticos atravessam nuvens carregadas. Água jorrando pelas rochas. Vegetação dobrada pelo vento. Montanhas quase invisíveis pela cortina de chuva. Trilha completamente vazia.',
-    'Bifurcação da trilha durante tempestade, ambas as linhas inundadas. A linha fácil virou riacho e o rock garden está perigoso. Água correndo por toda a cena. Trovões no céu escuro. Vegetação balançando violentamente. Nenhuma pessoa ou veículo.',
-    'Close em vegetação nativa durante tempestade. Flores e folhas dobradas pelo vento e chuva intensa. Água escorrendo pelas rochas do rock garden em filetes grossos. Raios iluminam a cena ao fundo. Trilha deserta em atmosfera dramática.',
-    'Vista da trilha inundada à frente a partir do solo durante tempestade violenta. Relâmpago visível ao longe iluminando o caminho entre as pedras e árvores curvadas. Chuva intensa, lama e água por todo o rock garden. Trilha completamente vazia e hostil.',
-  ],
+// Sorteia variação 1–7 e retorna URL do Stories (s_)
+function bgStorageUrl(categoria: string, n: number): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/s_${categoria}-${n}.jpg`
 }
 
 // ─── Polyline da trilha ───────────────────────────────────────────────────────
@@ -137,50 +81,6 @@ function polylineToSvgPath(coords: [number, number][], w: number, h: number, pad
     const y = (offsetY + (maxLat - c[0]) * scale).toFixed(1)
     return `${i === 0 ? 'M' : 'L'}${x},${y}`
   }).join(' ')
-}
-
-// ─── Seed determinístico por trilha — mesmo algoritmo do Feed
-function trailSeed(trilhaId: string): number {
-  let h = 5381
-  for (let i = 0; i < trilhaId.length; i++) {
-    h = ((h << 5) + h + trilhaId.charCodeAt(i)) & 0x7FFFFFFF
-  }
-  return (h % 9000) + 1000
-}
-
-// Mesma chave do Feed — Feed e Stories compartilham o mesmo background por trilha
-function bgStorageUrl(trilhaId: string, categoria: string): string {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
-}
-
-async function fetchAndUploadPollinations(trilhaId: string, categoria: string): Promise<void> {
-  const variants = PROMPTS[categoria] ?? PROMPTS['sol']
-  const seed = trailSeed(trilhaId)
-  const variantIndex = seed % variants.length
-  const prompt = variants[variantIndex]
-  const encoded = encodeURIComponent(prompt)
-  const negativePrompt = encodeURIComponent(NEG)
-  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&model=flux&seed=${seed}&negative_prompt=${negativePrompt}`
-
-  console.log(`[OG Stories] Pollinations fetch: trail_${trilhaId}_${categoria} variant=${variantIndex} seed=${seed}`)
-  try {
-    const imgRes = await fetch(url, { signal: AbortSignal.timeout(90_000) })
-    if (!imgRes.ok) { console.error(`[OG Stories] Pollinations HTTP ${imgRes.status}`); return }
-    const imgBuf = await imgRes.arrayBuffer()
-    if (!imgBuf.byteLength) { console.error('[OG Stories] Buffer vazio'); return }
-    console.log(`[OG Stories] Pollinations OK — ${Math.round(imgBuf.byteLength / 1024)}KB`)
-
-    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/instagram-bg/trail_${trilhaId}_${categoria}.jpg`
-    const upRes = await fetch(uploadUrl, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
-      body: imgBuf,
-    })
-    if (upRes.ok) console.log(`[OG Stories] Upload OK → instagram-bg/trail_${trilhaId}_${categoria}.jpg`)
-    else console.error(`[OG Stories] Upload falhou: ${upRes.status} ${await upRes.text()}`)
-  } catch (e) {
-    console.error(`[OG Stories] Pollinations erro: ${e}`)
-  }
 }
 
 async function fetchSupabase<T>(table: string, select: string, filter: string): Promise<T | null> {
@@ -299,8 +199,8 @@ export async function GET(req: NextRequest) {
       : null
 
     const categoria = bgCategoria(condicao.rain_mm, condicao.pop_12h)
-    const paisagem  = landscapeType(trilha.bioma ?? null)
-    const bgUrl = bgStorageUrl(trilhaId, categoria)
+    const bgVariant = Math.floor(Math.random() * 7) + 1
+    const bgUrl = bgStorageUrl(categoria, bgVariant)
 
     const toDataUrl = async (url: string): Promise<string | null> => {
       try {
@@ -316,11 +216,7 @@ export async function GET(req: NextRequest) {
       } catch { return null }
     }
 
-    let bgDataUrl: string | null = await toDataUrl(bgUrl)
-    if (!bgDataUrl) {
-      await fetchAndUploadPollinations(trilhaId, categoria)
-      bgDataUrl = await toDataUrl(bgUrl)
-    }
+    const bgDataUrl = await toDataUrl(bgUrl)
 
     const svgPath = trilha.polyline ? polylineToSvgPath(decodePolyline(trilha.polyline), 1080, 1080) : ''
 
