@@ -20,9 +20,10 @@ _log: list[dict] = []
 
 # Preços em USD por 1 milhão de tokens (input / output)
 _PRECOS: dict[str, dict[str, float]] = {
-    "anthropic": {"input": 0.80, "output": 4.00},
-    "gemini":    {"input": 0.10, "output": 0.40},
-    "groq":      {"input": 0.59, "output": 0.59},
+    "anthropic": {"input": 0.80,  "output": 4.00},
+    "gemini":    {"input": 0.10,  "output": 0.40},
+    "groq":      {"input": 0.59,  "output": 0.59},
+    "deepseek":  {"input": 0.27,  "output": 1.10},  # deepseek-chat (V3/V4-flash)
 }
 
 

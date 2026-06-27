@@ -36,7 +36,7 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('api_usage_log')
-    .select('api_name, endpoint, chamadas, tokens_input, tokens_output, custo_usd, sucesso, falhas, criado_em')
+    .select('execucao_id, api_name, endpoint, chamadas, tokens_input, tokens_output, custo_usd, sucesso, falhas, criado_em')
     .gte('criado_em', desde.toISOString())
     .order('criado_em', { ascending: false })
 
