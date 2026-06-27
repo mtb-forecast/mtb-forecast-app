@@ -218,7 +218,8 @@ export async function GET(req: NextRequest) {
 
     const bgDataUrl = await toDataUrl(bgUrl)
 
-    const svgPath = trilha.polyline ? polylineToSvgPath(decodePolyline(trilha.polyline), 1080, 1080) : ''
+    // Polyline centralizado num box 400×400 no meio da área da foto
+    const svgPath = trilha.polyline ? polylineToSvgPath(decodePolyline(trilha.polyline), 400, 400) : ''
 
     return new ImageResponse(
       (
@@ -249,18 +250,16 @@ export async function GET(req: NextRequest) {
             }}
           />
 
-          {/* Polyline da trilha — overlay sutil na área da foto (top 1080px) */}
+          {/* Polyline centralizado — box 400×400 centrado horizontalmente, parte superior da foto */}
           {svgPath ? (
             <svg
-              width="1080"
-              height="1080"
-              viewBox="0 0 1080 1080"
-              style={{ display: 'flex', position: 'absolute', top: 0, left: 0 }}
+              width="400"
+              height="400"
+              viewBox="0 0 400 400"
+              style={{ display: 'flex', position: 'absolute', top: 100, left: 340 }}
             >
-              {/* Glow suave */}
-              <path d={svgPath} fill="none" stroke="#D4601A" strokeWidth="10" strokeOpacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
-              {/* Linha principal */}
-              <path d={svgPath} fill="none" stroke="#E07830" strokeWidth="3" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={svgPath} fill="none" stroke="#D4601A" strokeWidth="8" strokeOpacity="0.18" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={svgPath} fill="none" stroke="#E07830" strokeWidth="2.5" strokeOpacity="0.65" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           ) : null}
 

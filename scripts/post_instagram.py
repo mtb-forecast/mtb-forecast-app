@@ -4,16 +4,13 @@ import sys, io as _io
 sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 """
-post_instagram.py — Postagem automática diária no Instagram.
+post_instagram.py — Postagem automática diária no Instagram (Stories).
 
 Fluxo:
   1. Busca trilhas com condições reais no Supabase
   2. Seleciona uma trilha aleatória (priorizando veredictos interessantes)
-  3. Chama GET /api/og/instagram?trilha_id=UUID para "aquecer" a imagem de fundo
-     (gera via Pollinations + cacheia no bucket instagram-bg se ainda não existir)
-  4. Posta no Instagram passando o URL do endpoint OG diretamente:
-     o Instagram busca a imagem quando cria o container
-  5. Caption gerada automaticamente com veredicto, solo e dados climáticos
+  3. Aquece o endpoint Stories (1080x1920) para garantir que o bucket já tem a imagem
+  4. Posta no Instagram como Stories
 
 Env vars obrigatórias:
   OG_API_BASE                  ex: https://mtbforecaster.com.br
@@ -415,20 +412,20 @@ def main():
     validate_env()
 
     print("=" * 60)
-    print(f"MTB Forecaster — Post Instagram {'[DRY RUN]' if DRY_RUN else ''}")
+    print(f"MTB Forecaster — Post Instagram Stories {'[DRY RUN]' if DRY_RUN else ''}")
     print(f"Horário: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     print("=" * 60)
 
     # [1] Token
     if not DRY_RUN:
-        print("\n[1/5] Verificando token de acesso...")
+        print("\n[1/4] Verificando token de acesso...")
         if not check_token():
             raise SystemExit(1)
     else:
-        print("\n[1/5] DRY RUN — pulando verificação de token")
+        print("\n[1/4] DRY RUN — pulando verificação de token")
 
     # [2] Trilhas
-    print(f"\n[2/5] Buscando trilhas {'(ID específico)' if FORCE_TRAIL else '(todas)'}...")
+    print(f"\n[2/4] Buscando trilhas {'(ID específico)' if FORCE_TRAIL else '(todas)'}...")
     trails = fetch_trails_with_conditions(FORCE_TRAIL or None)
     print(f"  {len(trails)} trilha(s) com condições reais encontrada(s)")
     if not trails:
@@ -439,63 +436,38 @@ def main():
     trail = pick_trail(trails)
     cond  = latest_condition(trail)
     ef    = acumulo_agora(cond)
-    print(f"\n[3/5] Trilha selecionada: {trail.get('name')} — {trail.get('cidade')}/{trail.get('estado')}")
+    print(f"\n[3/4] Trilha selecionada: {trail.get('name')} — {trail.get('cidade')}/{trail.get('estado')}")
     print(f"  Veredicto: {cond.get('veredicto')}  |  Acúmulo agora: {ef:.1f}mm")
 
-    # [4] Warm-up da imagem OG (gera background Pollinations se não existir)
-    print(f"\n[4/5] Aquecendo imagem OG (bioma={trail.get('bioma')}, veredicto={cond.get('veredicto')})...")
-    image_url = og_image_url(trail["id"])
+    # [4] Stories
+    stories_image_url = og_stories_url(trail["id"])
+    print(f"\n[4/4] Aquecendo Stories (1080x1920)...")
     if DRY_RUN:
-        print(f"  DRY RUN — URL da imagem: {image_url}")
-    else:
-        ok = warmup_og_image(trail["id"])
-        if not ok:
-            print("  ⚠ Warm-up falhou — Instagram tentará buscar a imagem diretamente (pode ser mais lento)")
-
-    # [5] Caption
-    caption = build_caption(trail, cond, ef)
-    print(f"\n[5/5] Caption:\n{'─'*52}\n{caption}\n{'─'*52}")
-
-    if DRY_RUN:
+        print(f"  DRY RUN — URL: {stories_image_url}")
         print("\n✓ DRY RUN concluído — nada postado.")
         return
 
-    # Posta
-    print("\n  Postando no Instagram...")
-    cid = create_ig_container(image_url, caption)
-    if not cid:
-        raise SystemExit(1)
+    ok = warmup_og_stories(trail["id"])
+    if not ok:
+        print("  ⚠ Warm-up falhou — Instagram tentará buscar diretamente")
 
-    time.sleep(5)  # aguarda processamento do container pela Meta
-
-    media_id = publish_ig_container(cid)
-    if not media_id:
-        raise SystemExit(1)
-
-    print(f"\n✅ Post publicado com sucesso!")
-    print(f"   Trilha:   {trail.get('name')}")
-    print(f"   Imagem:   {image_url}")
-    print(f"   media_id: {media_id}")
-
-    mark_trail_posted(trail["id"])
-
-    # Stories — card 1080x1920 dedicado
-    print("\n  Aquecendo imagem Stories (1080x1920)...")
-    stories_image_url = og_stories_url(trail["id"])
-    warmup_og_stories(trail["id"])
-
-    print("  Postando no Stories...")
+    print("  Postando Stories...")
     time.sleep(3)
     sid = create_ig_stories_container(stories_image_url)
-    if sid:
-        time.sleep(5)
-        stories_id = publish_ig_container(sid)
-        if stories_id:
-            print(f"✅ Stories publicado! media_id={stories_id}")
-        else:
-            print("⚠ Stories: falha ao publicar (feed já postado com sucesso)")
-    else:
-        print("⚠ Stories: falha ao criar container (feed já postado com sucesso)")
+    if not sid:
+        raise SystemExit(1)
+
+    time.sleep(5)
+    stories_id = publish_ig_container(sid)
+    if not stories_id:
+        raise SystemExit(1)
+
+    print(f"\n✅ Stories publicado com sucesso!")
+    print(f"   Trilha:   {trail.get('name')}")
+    print(f"   Imagem:   {stories_image_url}")
+    print(f"   media_id: {stories_id}")
+
+    mark_trail_posted(trail["id"])
 
 
 if __name__ == "__main__":
