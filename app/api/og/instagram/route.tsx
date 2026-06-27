@@ -92,7 +92,44 @@ const PROMPTS: Record<string, Record<Paisagem, string>> = {
   },
 }
 
-// Seed determinístico por trilha — cada trilha tem composição única, mesma trilha = mesmo seed
+// ─── Polyline da trilha ───────────────────────────────────────────────────────
+
+function decodePolyline(encoded: string): [number, number][] {
+  const coords: [number, number][] = []
+  let index = 0, lat = 0, lng = 0
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lat += result & 1 ? ~(result >> 1) : result >> 1
+    shift = 0; result = 0
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5 } while (b >= 0x20)
+    lng += result & 1 ? ~(result >> 1) : result >> 1
+    coords.push([lat / 1e5, lng / 1e5])
+  }
+  return coords
+}
+
+function polylineToSvgPath(coords: [number, number][], w: number, h: number, pad = 80): string {
+  if (coords.length < 2) return ''
+  const lats = coords.map(c => c[0])
+  const lngs = coords.map(c => c[1])
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+  const latRange = maxLat - minLat || 1e-5
+  const lngRange = maxLng - minLng || 1e-5
+  const scaleX = (w - pad * 2) / lngRange
+  const scaleY = (h - pad * 2) / latRange
+  const scale = Math.min(scaleX, scaleY)
+  const offsetX = (w - lngRange * scale) / 2
+  const offsetY = (h - latRange * scale) / 2
+  return coords.map((c, i) => {
+    const x = (offsetX + (c[1] - minLng) * scale).toFixed(1)
+    const y = (offsetY + (maxLat - c[0]) * scale).toFixed(1)
+    return `${i === 0 ? 'M' : 'L'}${x},${y}`
+  }).join(' ')
+}
+
+// ─── Seed determinístico por trilha — cada trilha tem composição única, mesma trilha = mesmo seed
 function trailSeed(trilhaId: string): number {
   let h = 5381
   for (let i = 0; i < trilhaId.length; i++) {
@@ -206,10 +243,11 @@ export async function GET(req: NextRequest) {
         exposicao: string | null
         solo_type: string | null
         altitude_m: number | null
+        polyline: string | null
         localidades: { cidade: string; estado: string } | { cidade: string; estado: string }[] | null
       }>(
         'trilhas',
-        'name,regiao,bioma,exposicao,solo_type,altitude_m,localidades(cidade,estado)',
+        'name,regiao,bioma,exposicao,solo_type,altitude_m,polyline,localidades(cidade,estado)',
         `id=eq.${trilhaId}`
       ),
       fetchSupabase<{
@@ -301,6 +339,8 @@ export async function GET(req: NextRequest) {
       bgDataUrl = await toDataUrl(bgUrl)
     }
 
+    const svgPath = trilha.polyline ? polylineToSvgPath(decodePolyline(trilha.polyline), 1080, 1080) : ''
+
     return new ImageResponse(
       (
         <div
@@ -332,6 +372,21 @@ export async function GET(req: NextRequest) {
               display: 'flex',
             }}
           />
+
+          {/* Polyline da trilha — overlay laranja sobre o fundo */}
+          {svgPath ? (
+            <svg
+              width="1080"
+              height="1080"
+              viewBox="0 0 1080 1080"
+              style={{ display: 'flex', position: 'absolute', top: 0, left: 0 }}
+            >
+              {/* Glow */}
+              <path d={svgPath} fill="none" stroke="#FF6B2B" strokeWidth="14" strokeOpacity="0.25" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Linha nítida */}
+              <path d={svgPath} fill="none" stroke="#FF8C42" strokeWidth="5" strokeOpacity="0.90" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : null}
 
           {/* Top stripe */}
           <div
