@@ -45,5 +45,8 @@ jobs:
       - name: Instalar dependências
         run: pip install requests
 
-      - name: Postar no Instagram
+      - name: Postar Stories com condições da trilha
         run: python scripts/post_instagram.py
+
+      - name: Postar dica do dia no Feed
+        run: python scripts/post_instagram_dica.py
