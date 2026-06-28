@@ -33,7 +33,7 @@ DRY_RUN     = os.environ.get("DRY_RUN", "").strip() == "1"
 GRAPH_API   = "https://graph.facebook.com/v21.0"
 SITE_URL    = "mtbforecaster.com.br"
 
-TOTAL_DICAS = 19
+TOTAL_DICAS = 18
 
 def auto_dica_id() -> int:
     """Rotaciona dicas 1–7 pelo dia do ano (reinicia a cada ciclo de 7 dias)."""
@@ -139,20 +139,6 @@ Confie nos dados, não no achismo.
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
     8: """\
-🚴 XC, Enduro ou DH? Cada estilo reage diferente às condições do solo
-
-🚴 XC — terreno seco é essencial para ganho de tempo
-🏔️ Enduro — aguenta solo levemente úmido nas subidas
-⬇️ DH — descidas molhadas aumentam risco de queda técnica
-📊 O app filtra trilhas por tipo para facilitar sua escolha
-
-Conheça o perfil da sua trilha antes de sair de casa.
-
-🔗 {site}
-
-#mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
-
-    9: """\
 🌿 Bioma e condição da trilha — o ecossistema define como o solo seca
 
 🌿 Mata Atlântica — dossel denso, solo seca mais devagar
@@ -166,7 +152,7 @@ O modelo ajusta a meia-vida de secagem por bioma de cada trilha.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    10: """\
+    9: """\
 ⛰️ Altitude e secagem — trilhas altas têm regras diferentes
 
 🌡️ Temperatura mais baixa = evaporação mais lenta
@@ -180,7 +166,7 @@ Altitude é considerada individualmente para cada trilha no app.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    11: """\
+    10: """\
 ✍️ Reporte a condição real — você pedalou? Ajude a comunidade!
 
 📍 Abra a página da trilha no app
@@ -194,7 +180,7 @@ Dados reais de campo calibram o modelo preditivo.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    12: """\
+    11: """\
 📡 Previsão vs chuva real — por que os números às vezes divergem
 
 📡 Previsão usa modelo numérico — estimativa por grade
@@ -208,7 +194,7 @@ Use o histórico de 48h, não só a previsão, para decidir.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    13: """\
+    12: """\
 🟫 Solo arenoso vs argiloso — como cada um reage à chuva
 
 🏜️ Arenoso — drena em horas, volta a ficar bom rápido
@@ -222,7 +208,7 @@ O tipo de solo é um dos principais fatores do veredicto.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    14: """\
+    13: """\
 ☀️ Exposição solar da trilha — sol bate direto? Seca muito mais rápido
 
 ☀️ Trilha aberta + sol da tarde: seca em metade do tempo
@@ -236,7 +222,7 @@ Exposição solar é um dos fatores da meia-vida de secagem.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    15: """\
+    14: """\
 👤 Como se cadastrar no MTB Forecaster
 
 🌐 Acesse mtbforecaster.com.br no celular ou PC
@@ -250,7 +236,7 @@ Conta gratuita — sem cartão, sem pegadinha.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    16: """\
+    15: """\
 ⭐ Como favoritar uma trilha — salve as suas preferidas
 
 🔍 Encontre a trilha pela busca ou lista de regiões
@@ -264,7 +250,7 @@ Você precisa estar logado para favoritar trilhas.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    17: """\
+    16: """\
 📝 Como registrar sua visita à trilha
 
 📍 Abra a página da trilha que você visitou
@@ -278,7 +264,7 @@ Observações reais ajudam a calibrar o modelo para todos.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    18: """\
+    17: """\
 🔗 Como compartilhar uma trilha com o grupo de pedal
 
 📱 Abra a página da trilha no app
@@ -292,7 +278,7 @@ O link é público — qualquer pessoa pode ver sem ter conta.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
-    19: """\
+    18: """\
 🔔 Notificações no Telegram — receba alertas no seu celular
 
 📲 Abra o Telegram e busque @mtbforecaster_bot
@@ -370,7 +356,7 @@ def publish_container(creation_id: str) -> str | None:
 def main():
     parser = argparse.ArgumentParser(description="Posta dica no Instagram Feed")
     parser.add_argument("--id", type=int, required=False, choices=list(CAPTIONS.keys()),
-                        help="ID da dica (1–19). Se omitido usa DICA_ID env ou rotação automática por dia do ano.")
+                        help="ID da dica (1–18). Se omitido usa DICA_ID env ou rotação automática por dia do ano.")
     args = parser.parse_args()
 
     # Prioridade: --id > env DICA_ID > rotação automática por dia do ano
