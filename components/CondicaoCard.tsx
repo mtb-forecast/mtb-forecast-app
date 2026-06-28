@@ -817,8 +817,21 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
                   </div>
                 )}
 
+                {/* Relato de rider — destaque especial */}
+                {isAlertaVeredicto && condicao.motivo_veredicto?.startsWith('Relato') && (
+                  <div style={{ background: '#FEF3C7', borderLeft: '3px solid #D97706', borderRadius: 8, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E', fontWeight: 700, marginBottom: 3 }}>
+                      <IconUmbrella size={13} style={{ color: '#D97706' }} />
+                      Avaliação de rider
+                    </div>
+                    <span style={{ fontSize: 12, color: '#78350F', paddingLeft: 19, display: 'block' }}>
+                      {condicao.motivo_veredicto} — verifique as condições antes de pedalar
+                    </span>
+                  </div>
+                )}
+
                 {/* Fallback: motivo do veredicto quando nenhum alerta específico foi disparado */}
-                {isAlertaVeredicto && !hasAlerta && !vCfg && !temRajada && !temChuva24h && condicao.motivo_veredicto && (
+                {isAlertaVeredicto && !hasAlerta && !vCfg && !temRajada && !temChuva24h && condicao.motivo_veredicto && !condicao.motivo_veredicto.startsWith('Relato') && (
                   <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: 8, padding: '8px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400E', fontWeight: 600, marginBottom: 4 }}>
                       <IconInfoCircle size={13} style={{ color: '#F59E0B' }} />
