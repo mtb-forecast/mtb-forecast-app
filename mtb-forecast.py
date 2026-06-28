@@ -3038,12 +3038,12 @@ def ajustar_por_observacoes(resultado: dict, trail: dict) -> dict:
         risco_atual = vered.get("risco", 0)
         novo_risco  = risco_atual + delta
 
-        if novo_risco > 3 and vered.get("texto") != "MELHOR ESPERAR":
+        if novo_risco >= 3 and vered.get("texto") != "MELHOR ESPERAR":
             vered["texto"]  = "MELHOR ESPERAR"
             vered["emoji"]  = "🛑"
             vered["cor"]    = "#dc2626"
             vered["bg"]     = "#fef2f2"
-        elif novo_risco > 1 and vered.get("texto") == "DROP LIBERADO":
+        elif novo_risco >= 1 and vered.get("texto") == "DROP LIBERADO":
             vered["texto"]  = "DROP LIBERADO - Veja os alertas"
             vered["emoji"]  = "⚠️"
             vered["cor"]    = "#d97706"
