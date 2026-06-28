@@ -3050,12 +3050,26 @@ def ajustar_por_observacoes(resultado: dict, trail: dict) -> dict:
             vered["bg"]     = "#fffbeb"
 
         vered["risco"] = novo_risco
-        tag = f"observacao_rider: +{delta} ({', '.join(set(condicoes_negativas))})"
-        motivo = vered.get("motivo") or ""
-        vered["motivo"] = (motivo + ", " + tag).lstrip(", ")
+
+        # Mensagem legível para o rider
+        _label = {"baixa": "baixa aderência", "lama": "lama / encharcado"}
+        labels_unicos = list(dict.fromkeys(_label.get(c, c) for c in condicoes_negativas))
+        n_relatos = len(condicoes_negativas)
+        tag = f"Relato{'s' if n_relatos > 1 else ''} de rider: {', '.join(labels_unicos)}"
+        vered["motivo"] = tag
         resultado["veredicto"] = vered
 
-        print(f"  [obs-ajuste] {trail['name']} — {len(condicoes_negativas)} relato(s) negativo(s), delta=+{delta}, novo_risco={novo_risco}")
+        # Rebaixa aderência se pior que o modelo — a física calcula solo, não raízes/pó
+        _ordem_ader = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BAIXA ADERÊNCIA": 3}
+        ader_rider = "BAIXA ADERÊNCIA"  # baixa ou lama → BAIXA ADERÊNCIA
+        ader_atual = resultado.get("aderencia", {}).get("status", "")
+        if _ordem_ader.get(ader_rider, 0) > _ordem_ader.get(ader_atual, 0):
+            resultado["aderencia"]["status"] = ader_rider
+            resultado["aderencia"]["emoji"]  = "🔴"
+            resultado["aderencia"]["cor"]    = "#ef4444"
+            resultado["aderencia"]["desc"]   = "Relato de rider: baixa aderência — avalie presencialmente"
+
+        print(f"  [obs-ajuste] {trail['name']} — {n_relatos} relato(s): {labels_unicos}, delta=+{delta}, novo_risco={novo_risco}, aderencia→{resultado['aderencia']['status']}")
 
     except Exception as exc:
         print(f"  [obs-ajuste] erro ignorado para {trail.get('name','?')}: {exc}")
