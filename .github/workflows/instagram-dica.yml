@@ -1,36 +1,33 @@
-name: Instagram Daily Post
+name: Instagram Dica do Dia
 
 on:
-  workflow_run:
-    workflows: ["Agent MTB Forecaster"]
-    types: [completed]
+  schedule:
+    - cron: "30 9 * * *"  # 06h30 BRT — diário
   workflow_dispatch:
     inputs:
+      dica_id:
+        description: "ID da dica (1–7). Deixe vazio para rotação automática."
+        required: false
+        default: ""
       dry_run:
         description: "DRY RUN (não posta de verdade)"
         required: false
         default: false
         type: boolean
-      trail_id:
-        description: "UUID de trilha específica (opcional)"
-        required: false
-        default: ""
 
 permissions:
   contents: read
 
 jobs:
-  post:
+  dica:
     runs-on: ubuntu-latest
 
     env:
       OG_API_BASE:                   https://mtbforecaster.com.br
-      NEXT_PUBLIC_SUPABASE_URL:      https://eydlkvrjopffyqpdstzh.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY:     ${{ secrets.SUPABASE_SERVICE_KEY }}
       INSTAGRAM_ACCESS_TOKEN:        ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
       INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
-      DRY_RUN: ${{ inputs.dry_run == true && '1' || '0' }}
-      TRAIL_ID: ${{ inputs.trail_id }}
+      DICA_ID:                       ${{ inputs.dica_id }}
+      DRY_RUN:                       ${{ inputs.dry_run == true && '1' || '0' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -45,5 +42,5 @@ jobs:
       - name: Instalar dependências
         run: pip install requests
 
-      - name: Postar Stories com condições da trilha
-        run: python scripts/post_instagram.py
+      - name: Postar dica do dia no Feed
+        run: python scripts/post_instagram_dica.py
