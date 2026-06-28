@@ -99,10 +99,10 @@ O app calcula a meia-vida em tempo real para cada trilha individualmente.
     5: """\
 💨 Vento forte na trilha — quando começar a preocupar
 
-💨 Acima de 30 km/h: atenção em descidas técnicas
-🌬️ Acima de 50 km/h: risco de queda em trechos expostos
-⚡ Rajadas acima de 70 km/h: não recomendado pedalar
-🌳 Trilhas em mata fechada têm vento reduzido naturalmente
+🟡 Acima de 30 km/h: atenção em descidas técnicas
+🟠 Acima de 50 km/h: risco de queda em trechos expostos
+🔴 Rajadas acima de 70 km/h: não saia para pedalar
+🌲 Mata fechada reduz o vento naturalmente
 
 O app emite alerta automático de vento forte quando necessário.
 
