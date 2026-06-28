@@ -89,6 +89,138 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Confie nos dados, não no achismo — mtbforecaster.com.br',
   },
+  8: {
+    titulo: 'XC, Enduro ou DH?',
+    subtitulo: 'Cada estilo reage diferente às condições do solo',
+    itens: [
+      { emoji: '🚴', texto: 'XC — terreno seco é essencial para ganho de tempo' },
+      { emoji: '🏔️', texto: 'Enduro — aguenta solo levemente úmido nas subidas' },
+      { emoji: '⬇️', texto: 'DH — descidas molhadas aumentam risco de queda técnica' },
+      { emoji: '📊', texto: 'O app filtra trilhas por tipo para facilitar sua escolha' },
+    ],
+    rodape: 'Conheça o perfil da sua trilha antes de sair de casa',
+  },
+  9: {
+    titulo: 'Bioma e condição da trilha',
+    subtitulo: 'O ecossistema define como o solo seca',
+    itens: [
+      { emoji: '🌿', texto: 'Mata Atlântica — dossel denso, solo seca mais devagar' },
+      { emoji: '🌵', texto: 'Cerrado — solo arenoso, drena rápido após a chuva' },
+      { emoji: '🏔️', texto: 'Campos de altitude — expostos ao vento, secagem rápida' },
+      { emoji: '🌲', texto: 'Araucária — umidade alta, modelo mais conservador' },
+    ],
+    rodape: 'O modelo ajusta a meia-vida de secagem por bioma de cada trilha',
+  },
+  10: {
+    titulo: 'Altitude e secagem',
+    subtitulo: 'Trilhas altas secam de forma diferente',
+    itens: [
+      { emoji: '🌡️', texto: 'Temperatura mais baixa = evaporação mais lenta' },
+      { emoji: '🌫️', texto: 'Neblina frequente mantém solo úmido por mais tempo' },
+      { emoji: '💧', texto: 'Acima de 600m o modelo aplica fator de secagem reduzido' },
+      { emoji: '⛰️', texto: 'Serra da Mantiqueira e similares: espere mais 12–24h extras' },
+    ],
+    rodape: 'Altitude é considerada individualmente para cada trilha no app',
+  },
+  11: {
+    titulo: 'Reporte a condição real',
+    subtitulo: 'Você pedalou? Ajude a comunidade',
+    itens: [
+      { emoji: '📍', texto: 'Abra a página da trilha no app' },
+      { emoji: '✍️', texto: 'Clique em "Registrar observação"' },
+      { emoji: '🌿', texto: 'Informe o que encontrou: seco, grip, lama...' },
+      { emoji: '🤝', texto: 'Sua avaliação ajuda outros riders a decidir' },
+    ],
+    rodape: 'Dados reais de campo calibram o modelo preditivo',
+  },
+  12: {
+    titulo: 'Previsão vs chuva real',
+    subtitulo: 'Por que os números às vezes divergem',
+    itens: [
+      { emoji: '📡', texto: 'Previsão usa modelo numérico — estimativa por grade' },
+      { emoji: '🌧️', texto: 'Chuva real pode ser muito mais localizada' },
+      { emoji: '⏱️', texto: 'Modelos levam horas para assimilar dados recentes' },
+      { emoji: '🔀', texto: 'O app cruza Open-Meteo + OpenWeather para minimizar erros' },
+    ],
+    rodape: 'Use o histórico de 48h, não só a previsão, para decidir',
+  },
+  13: {
+    titulo: 'Arenoso vs Argiloso',
+    subtitulo: 'O tipo de solo muda tudo na recuperação pós-chuva',
+    itens: [
+      { emoji: '🏜️', texto: 'Arenoso — drena em horas, volta a ficar bom rápido' },
+      { emoji: '🟫', texto: 'Argiloso — retém água, lama persiste por 1–2 dias' },
+      { emoji: '🪨', texto: 'Rochoso — escoa na superfície, seca em poucas horas' },
+      { emoji: '📊', texto: 'O app usa o tipo de solo de cada trilha no cálculo' },
+    ],
+    rodape: 'Solo_type é configurado por trilha e afeta diretamente o veredicto',
+  },
+  14: {
+    titulo: 'Exposição solar da trilha',
+    subtitulo: 'Sol bate direto? Seca muito mais rápido',
+    itens: [
+      { emoji: '☀️', texto: 'Trilha aberta + sol da tarde: seca em metade do tempo' },
+      { emoji: '🌲', texto: 'Trilha sombreada: sem sol direto, secagem até 2× mais lenta' },
+      { emoji: '🧭', texto: 'Face norte recebe mais sol no hemisfério sul' },
+      { emoji: '📐', texto: 'O app classifica cada trilha como aberta, parcial ou fechada' },
+    ],
+    rodape: 'Exposição solar é um dos fatores da meia-vida de secagem',
+  },
+  15: {
+    titulo: 'Como se cadastrar',
+    subtitulo: 'Crie sua conta em menos de 1 minuto',
+    itens: [
+      { emoji: '🌐', texto: 'Acesse mtbforecaster.com.br no celular ou PC' },
+      { emoji: '👤', texto: 'Clique em "Entrar" e depois em "Criar conta"' },
+      { emoji: '📧', texto: 'Use seu e-mail ou entre com Google' },
+      { emoji: '✅', texto: 'Pronto — acesse favoritos, histórico e notificações' },
+    ],
+    rodape: 'Conta gratuita — sem cartão, sem pegadinha',
+  },
+  16: {
+    titulo: 'Como favoritar uma trilha',
+    subtitulo: 'Salve suas trilhas preferidas para acompanhar rápido',
+    itens: [
+      { emoji: '🔍', texto: 'Encontre a trilha pela busca ou lista de regiões' },
+      { emoji: '⭐', texto: 'Clique no ícone de estrela na página da trilha' },
+      { emoji: '📋', texto: 'Acesse "Minhas trilhas" para ver todas as favoritas' },
+      { emoji: '🔔', texto: 'Favoritas aparecem em destaque no seu painel' },
+    ],
+    rodape: 'Você precisa estar logado para favoritar trilhas',
+  },
+  17: {
+    titulo: 'Como registrar sua visita',
+    subtitulo: 'Conte como estava a trilha quando você pedalou',
+    itens: [
+      { emoji: '📍', texto: 'Abra a página da trilha que você visitou' },
+      { emoji: '📝', texto: 'Clique em "Registrar observação"' },
+      { emoji: '🌿', texto: 'Escolha a condição: seco, grip, boa, baixa ou lama' },
+      { emoji: '💬', texto: 'Adicione um comentário opcional para detalhar' },
+    ],
+    rodape: 'Observações reais ajudam a calibrar o modelo para todos',
+  },
+  18: {
+    titulo: 'Como compartilhar uma trilha',
+    subtitulo: 'Mande a condição para o grupo de pedal',
+    itens: [
+      { emoji: '📱', texto: 'Abra a página da trilha no app' },
+      { emoji: '🔗', texto: 'Copie o link ou use o botão de compartilhar' },
+      { emoji: '💬', texto: 'Cole no WhatsApp, Telegram ou Instagram' },
+      { emoji: '📊', texto: 'O link já mostra veredicto e condição atualizados' },
+    ],
+    rodape: 'O link é público — qualquer pessoa pode ver sem ter conta',
+  },
+  19: {
+    titulo: 'Notificações no Telegram',
+    subtitulo: 'Receba alertas de condição direto no seu celular',
+    itens: [
+      { emoji: '📲', texto: 'Abra o Telegram e busque @mtbforecaster_bot' },
+      { emoji: '▶️', texto: 'Envie /start para ativar as notificações' },
+      { emoji: '⭐', texto: 'Favorite trilhas no app para receber alertas delas' },
+      { emoji: '🔔', texto: 'Você será avisado quando o veredicto mudar' },
+    ],
+    rodape: 'Gratuito — sem spam, só alertas das suas trilhas favoritas',
+  },
 }
 
 function loadFont(filename: string): ArrayBuffer | null {
