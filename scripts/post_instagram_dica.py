@@ -33,6 +33,13 @@ DRY_RUN     = os.environ.get("DRY_RUN", "").strip() == "1"
 GRAPH_API   = "https://graph.facebook.com/v21.0"
 SITE_URL    = "mtbforecaster.com.br"
 
+TOTAL_DICAS = 7
+
+def auto_dica_id() -> int:
+    """Rotaciona dicas 1–7 pelo dia do ano (reinicia a cada ciclo de 7 dias)."""
+    day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
+    return (day_of_year % TOTAL_DICAS) + 1
+
 CAPTIONS = {
     1: """\
 🧭 Como ler o veredicto da trilha
@@ -194,11 +201,17 @@ def publish_container(creation_id: str) -> str | None:
 
 def main():
     parser = argparse.ArgumentParser(description="Posta dica no Instagram Feed")
-    parser.add_argument("--id", type=int, required=True, choices=list(CAPTIONS.keys()),
-                        help="ID da dica (1–7)")
+    parser.add_argument("--id", type=int, required=False, choices=list(CAPTIONS.keys()),
+                        help="ID da dica (1–7). Se omitido usa DICA_ID env ou rotação automática por dia do ano.")
     args = parser.parse_args()
 
-    dica_id  = args.id
+    # Prioridade: --id > env DICA_ID > rotação automática por dia do ano
+    if args.id:
+        dica_id = args.id
+    elif os.environ.get("DICA_ID", "").strip():
+        dica_id = int(os.environ["DICA_ID"].strip())
+    else:
+        dica_id = auto_dica_id()
     image_url = f"{OG_API_BASE}/api/og/instagram/dica?id={dica_id}"
     caption   = CAPTIONS[dica_id].format(site=SITE_URL)
 
