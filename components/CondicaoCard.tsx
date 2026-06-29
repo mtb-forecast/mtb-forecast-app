@@ -585,6 +585,8 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
     : zone >= 45  ? 'Boa Aderência ✓'
     : 'Monitorar chuva'
 
+  const _aderSev = (s: string) => ({ 'SECO': 0, 'GRIP PERFEITO': 1, 'BOA ADERÊNCIA - ÚMIDO': 2, 'BAIXA ADERÊNCIA': 3 }[s] ?? 0)
+
   // Badge do estado do solo — Python é a fonte de verdade; drift calcula o tempo restante
   // Retorna null quando o solo já está em boas condições (GRIP PERFEITO) — badge desnecessário
   const badgeSolo = (() => {
@@ -592,7 +594,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
     const futPior = !!(
       condicao.aderencia_futura_status &&
       condicao.aderencia_futura_label &&
-      condicao.aderencia_futura_status !== condicao.aderencia_status
+      _aderSev(condicao.aderencia_futura_status) > _aderSev(condicao.aderencia_status)
     )
     if (futPior && isGripOk) return `piora ${condicao.aderencia_futura_label}`
     if (trilhaSecaEmAgora > 0) return `seca em ~${trilhaSecaEmAgora}h`
@@ -618,7 +620,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
   const hasFds    = fdsDias.some(d => d.v)
   const hasPrev24 = (condicao.previsao_24h?.length ?? 0) > 0
   const hasAlerta = !!(condicao.aderencia_futura_status && condicao.aderencia_futura_label &&
-    condicao.aderencia_futura_status !== condicao.aderencia_status)
+    _aderSev(condicao.aderencia_futura_status) > _aderSev(condicao.aderencia_status))
 
   // Alertas 24h
   const isAlertaVeredicto = veredictoDisplay.toUpperCase().includes('ALERTA')
