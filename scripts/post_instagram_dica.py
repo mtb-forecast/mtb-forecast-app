@@ -33,7 +33,7 @@ DRY_RUN     = os.environ.get("DRY_RUN", "").strip() == "1"
 GRAPH_API   = "https://graph.facebook.com/v21.0"
 SITE_URL    = "mtbforecaster.com.br"
 
-TOTAL_DICAS = 18
+TOTAL_DICAS = 19
 
 def auto_dica_id() -> int:
     """Rotaciona dicas 1–7 pelo dia do ano (reinicia a cada ciclo de 7 dias)."""
@@ -278,6 +278,22 @@ O link é público — qualquer pessoa pode ver sem ter conta.
 
 #mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
 
+    19: """\
+🤝 Você pedalou hoje? Avalie a trilha — leva 30 segundos e ajuda toda a comunidade!
+
+O MTB Forecaster prevê as condições com dados de clima, mas quem confirma no campo é você.
+
+📱 Abra a trilha no app
+📝 Clique em "Registrar observação"
+🌿 Informe o que encontrou: seco, grip, lama...
+📈 Cada avaliação real calibra o modelo para os próximos riders
+
+Parece pouco, mas uma observação sua pode evitar que alguém destrua uma trilha — ou perca um dia perfeito de pedal por medo de lama que já secou.
+
+🔗 {site}
+
+#mtb #mountainbike #trilha #mtbbrasil #trailconditions""",
+
     18: """\
 🔔 Notificações no Telegram — receba alertas no seu celular
 
@@ -356,7 +372,7 @@ def publish_container(creation_id: str) -> str | None:
 def main():
     parser = argparse.ArgumentParser(description="Posta dica no Instagram Feed")
     parser.add_argument("--id", type=int, required=False, choices=list(CAPTIONS.keys()),
-                        help="ID da dica (1–18). Se omitido usa DICA_ID env ou rotação automática por dia do ano.")
+                        help="ID da dica (1–19). Se omitido usa DICA_ID env ou rotação automática por dia do ano.")
     args = parser.parse_args()
 
     # Prioridade: --id > env DICA_ID > rotação automática por dia do ano

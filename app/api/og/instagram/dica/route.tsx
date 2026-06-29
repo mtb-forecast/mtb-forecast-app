@@ -90,17 +90,6 @@ const DICAS: Record<number, Dica> = {
     rodape: 'Confie nos dados, não no achismo — mtbforecaster.com.br',
   },
   8: {
-    titulo: 'XC, Enduro ou DH?',
-    subtitulo: 'Cada estilo reage diferente às condições do solo',
-    itens: [
-      { emoji: '🚴', texto: 'XC — terreno seco é essencial para ganho de tempo' },
-      { emoji: '🏔️', texto: 'Enduro — aguenta solo levemente úmido nas subidas' },
-      { emoji: '⬇️', texto: 'DH — descidas molhadas aumentam risco de queda técnica' },
-      { emoji: '📊', texto: 'O app filtra trilhas por tipo para facilitar sua escolha' },
-    ],
-    rodape: 'Conheça o perfil da sua trilha antes de sair de casa',
-  },
-  9: {
     titulo: 'Bioma e condição da trilha',
     subtitulo: 'O ecossistema define como o solo seca',
     itens: [
@@ -111,7 +100,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'O modelo ajusta a meia-vida de secagem por bioma de cada trilha',
   },
-  10: {
+  9: {
     titulo: 'Altitude e secagem',
     subtitulo: 'Trilhas altas secam de forma diferente',
     itens: [
@@ -122,7 +111,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Altitude é considerada individualmente para cada trilha no app',
   },
-  11: {
+  10: {
     titulo: 'Reporte a condição real',
     subtitulo: 'Você pedalou? Ajude a comunidade',
     itens: [
@@ -133,7 +122,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Dados reais de campo calibram o modelo preditivo',
   },
-  12: {
+  11: {
     titulo: 'Previsão vs chuva real',
     subtitulo: 'Por que os números às vezes divergem',
     itens: [
@@ -144,7 +133,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Use o histórico de 48h, não só a previsão, para decidir',
   },
-  13: {
+  12: {
     titulo: 'Arenoso vs Argiloso',
     subtitulo: 'O tipo de solo muda tudo na recuperação pós-chuva',
     itens: [
@@ -155,7 +144,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Solo_type é configurado por trilha e afeta diretamente o veredicto',
   },
-  14: {
+  13: {
     titulo: 'Exposição solar da trilha',
     subtitulo: 'Sol bate direto? Seca muito mais rápido',
     itens: [
@@ -166,7 +155,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Exposição solar é um dos fatores da meia-vida de secagem',
   },
-  15: {
+  14: {
     titulo: 'Como se cadastrar',
     subtitulo: 'Crie sua conta em menos de 1 minuto',
     itens: [
@@ -177,7 +166,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Conta gratuita — sem cartão, sem pegadinha',
   },
-  16: {
+  15: {
     titulo: 'Como favoritar uma trilha',
     subtitulo: 'Salve suas trilhas preferidas para acompanhar rápido',
     itens: [
@@ -188,7 +177,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Você precisa estar logado para favoritar trilhas',
   },
-  17: {
+  16: {
     titulo: 'Como registrar sua visita',
     subtitulo: 'Conte como estava a trilha quando você pedalou',
     itens: [
@@ -199,7 +188,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'Observações reais ajudam a calibrar o modelo para todos',
   },
-  18: {
+  17: {
     titulo: 'Como compartilhar uma trilha',
     subtitulo: 'Mande a condição para o grupo de pedal',
     itens: [
@@ -210,7 +199,7 @@ const DICAS: Record<number, Dica> = {
     ],
     rodape: 'O link é público — qualquer pessoa pode ver sem ter conta',
   },
-  19: {
+  18: {
     titulo: 'Notificações no Telegram',
     subtitulo: 'Receba alertas de condição direto no seu celular',
     itens: [
@@ -220,6 +209,17 @@ const DICAS: Record<number, Dica> = {
       { emoji: '🔔', texto: 'Você será avisado quando o veredicto mudar' },
     ],
     rodape: 'Gratuito — sem spam, só alertas das suas trilhas favoritas',
+  },
+  19: {
+    titulo: 'Avalie a trilha após pedalar',
+    subtitulo: 'Você pedalou hoje? Sua avaliação vale muito para a comunidade',
+    itens: [
+      { emoji: '🤝', texto: 'O app prevê — mas quem confirma no campo é você' },
+      { emoji: '📱', texto: 'Abra a trilha e clique em "Registrar observação"' },
+      { emoji: '🌿', texto: 'Informe o que encontrou: seco, grip, lama...' },
+      { emoji: '📈', texto: 'Avaliações reais calibram o modelo para todos' },
+    ],
+    rodape: 'Leva menos de 30 segundos e ajuda centenas de riders',
   },
 }
 
