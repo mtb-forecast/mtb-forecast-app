@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dica_id:
-        description: "ID da dica (1–18). Deixe vazio para rotação automática."
+        description: "ID da dica (1–19). Deixe vazio para rotação automática."
         required: false
         default: ""
       dry_run:
