@@ -1,0 +1,25 @@
+name: MTB Forecast — Hourly (forecast only)
+
+on:
+  schedule:
+    # Toda hora, minuto 15 (offset para não colidir com pipelines completos que rodam no :00)
+    - cron: '15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  forecast-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run forecast-only update
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OPENWEATHER_KEY: ${{ secrets.OPENWEATHER_KEY }}
+        run: python mtb-forecast-only.py
