@@ -6,221 +6,29 @@ import { join } from 'path'
 export const dynamic = 'force-dynamic'
 
 interface Dica {
+  id: number
   titulo: string
   subtitulo: string
   itens: { emoji: string; texto: string }[]
-  rodape?: string
+  rodape?: string | null
 }
 
-const DICAS: Record<number, Dica> = {
-  1: {
-    titulo: 'Como ler o veredicto',
-    subtitulo: 'O veredicto resume a condição da trilha em 3 níveis',
-    itens: [
-      { emoji: '✅', texto: 'LIBERADO — solo em boas condições, pode pedalar' },
-      { emoji: '⚠️', texto: 'ALERTA — solo úmido, pedale com atenção' },
-      { emoji: '⛔', texto: 'MELHOR ESPERAR — solo enlameado ou chuva prevista' },
-    ],
-    rodape: 'Atualizado 2× ao dia com dados reais de clima',
-  },
-  2: {
-    titulo: 'Grip e condição do solo',
-    subtitulo: 'O app classifica o solo em 4 estados de aderência',
-    itens: [
-      { emoji: '🏆', texto: 'GRIP PERFEITO — solo ideal, máxima tração' },
-      { emoji: '👍', texto: 'BOM GRIP — solo firme, condições favoráveis' },
-      { emoji: '💧', texto: 'ÚMIDO — solo mole, cuidado nas curvas' },
-      { emoji: '🟫', texto: 'LAMA — solo encharcado, evite pedalar' },
-    ],
-    rodape: 'O grip considera chuva acumulada e tipo de solo da trilha',
-  },
-  3: {
-    titulo: 'Como a chuva afeta a trilha',
-    subtitulo: 'Nem toda chuva chega ao solo da mesma forma',
-    itens: [
-      { emoji: '🌿', texto: 'Dossel fecha: mata fechada absorve até 50% da chuva' },
-      { emoji: '🏔️', texto: 'Altitude importa: solo serrano drena mais devagar' },
-      { emoji: '⏱️', texto: 'Chuva recente pesa mais que chuva de 2 dias atrás' },
-      { emoji: '🌧️', texto: 'Garoa leve pode manter solo úmido por mais tempo' },
-    ],
-    rodape: 'O modelo usa dados horários de chuva das últimas 48h',
-  },
-  4: {
-    titulo: 'Meia-vida de secagem',
-    subtitulo: 'Quanto tempo o solo leva para secar após a chuva',
-    itens: [
-      { emoji: '☀️', texto: 'Sol + vento: solo seca em 12–18h' },
-      { emoji: '⛅', texto: 'Nublado: secagem mais lenta, 24–36h' },
-      { emoji: '🌫️', texto: 'Garoa e frio: solo pode levar 48h ou mais' },
-      { emoji: '🌲', texto: 'Mata fechada: secagem 30–50% mais lenta que campo aberto' },
-    ],
-    rodape: 'O app calcula a meia-vida em tempo real para cada trilha',
-  },
-  5: {
-    titulo: 'Vento forte na trilha',
-    subtitulo: 'Quando o vento começa a ser um fator de risco',
-    itens: [
-      { emoji: '🟡', texto: 'Acima de 30 km/h: atenção em descidas técnicas' },
-      { emoji: '🟠', texto: 'Acima de 50 km/h: risco de queda em trechos expostos' },
-      { emoji: '🔴', texto: 'Rajadas acima de 70 km/h: não saia para pedalar' },
-      { emoji: '🌲', texto: 'Mata fechada reduz o vento naturalmente' },
-    ],
-    rodape: 'O app emite alerta automático de vento forte acima de nível 1',
-  },
-  6: {
-    titulo: 'Como usar o app',
-    subtitulo: 'mtbforecaster.com.br — em 4 passos simples',
-    itens: [
-      { emoji: '🔍', texto: 'Busque sua trilha por nome ou região' },
-      { emoji: '📊', texto: 'Veja o veredicto, grip e dados de clima das próximas 24h' },
-      { emoji: '📍', texto: 'Acesse a página da trilha para histórico e detalhes' },
-      { emoji: '🔔', texto: 'Siga o @mtbforecaster para atualizações diárias' },
-    ],
-    rodape: 'Mais de 130 trilhas mapeadas em todo o Brasil',
-  },
-  7: {
-    titulo: 'Trilha boa após a chuva?',
-    subtitulo: 'Sim — e o app explica o porquê',
-    itens: [
-      { emoji: '🌱', texto: 'Solo argiloso escoa rápido em terrenos inclinados' },
-      { emoji: '🪨', texto: 'Trilhas rochosas ficam ótimas horas após a chuva parar' },
-      { emoji: '📉', texto: 'O acúmulo efetivo decai com o tempo — modelo em tempo real' },
-      { emoji: '✅', texto: 'Se o veredicto é LIBERADO, o modelo diz que vale a pena' },
-    ],
-    rodape: 'Confie nos dados, não no achismo — mtbforecaster.com.br',
-  },
-  8: {
-    titulo: 'Bioma e condição da trilha',
-    subtitulo: 'O ecossistema define como o solo seca',
-    itens: [
-      { emoji: '🌿', texto: 'Mata Atlântica — dossel denso, solo seca mais devagar' },
-      { emoji: '🌵', texto: 'Cerrado — solo arenoso, drena rápido após a chuva' },
-      { emoji: '🏔️', texto: 'Campos de altitude — expostos ao vento, secagem rápida' },
-      { emoji: '🌲', texto: 'Araucária — umidade alta, modelo mais conservador' },
-    ],
-    rodape: 'O modelo ajusta a meia-vida de secagem por bioma de cada trilha',
-  },
-  9: {
-    titulo: 'Altitude e secagem',
-    subtitulo: 'Trilhas altas secam de forma diferente',
-    itens: [
-      { emoji: '🌡️', texto: 'Temperatura mais baixa = evaporação mais lenta' },
-      { emoji: '🌫️', texto: 'Neblina frequente mantém solo úmido por mais tempo' },
-      { emoji: '💧', texto: 'Acima de 600m o modelo aplica fator de secagem reduzido' },
-      { emoji: '⛰️', texto: 'Serra da Mantiqueira e similares: espere mais 12–24h extras' },
-    ],
-    rodape: 'Altitude é considerada individualmente para cada trilha no app',
-  },
-  10: {
-    titulo: 'Reporte a condição real',
-    subtitulo: 'Você pedalou? Ajude a comunidade',
-    itens: [
-      { emoji: '📍', texto: 'Abra a página da trilha no app' },
-      { emoji: '✍️', texto: 'Clique em "Registrar observação"' },
-      { emoji: '🌿', texto: 'Informe o que encontrou: seco, grip, lama...' },
-      { emoji: '🤝', texto: 'Sua avaliação ajuda outros riders a decidir' },
-    ],
-    rodape: 'Dados reais de campo calibram o modelo preditivo',
-  },
-  11: {
-    titulo: 'Previsão vs chuva real',
-    subtitulo: 'Por que os números às vezes divergem',
-    itens: [
-      { emoji: '📡', texto: 'Previsão usa modelo numérico — estimativa por grade' },
-      { emoji: '🌧️', texto: 'Chuva real pode ser muito mais localizada' },
-      { emoji: '⏱️', texto: 'Modelos levam horas para assimilar dados recentes' },
-      { emoji: '🔀', texto: 'O app cruza Open-Meteo + OpenWeather para minimizar erros' },
-    ],
-    rodape: 'Use o histórico de 48h, não só a previsão, para decidir',
-  },
-  12: {
-    titulo: 'Arenoso vs Argiloso',
-    subtitulo: 'O tipo de solo muda tudo na recuperação pós-chuva',
-    itens: [
-      { emoji: '🏜️', texto: 'Arenoso — drena em horas, volta a ficar bom rápido' },
-      { emoji: '🟫', texto: 'Argiloso — retém água, lama persiste por 1–2 dias' },
-      { emoji: '🪨', texto: 'Rochoso — escoa na superfície, seca em poucas horas' },
-      { emoji: '📊', texto: 'O app usa o tipo de solo de cada trilha no cálculo' },
-    ],
-    rodape: 'Solo_type é configurado por trilha e afeta diretamente o veredicto',
-  },
-  13: {
-    titulo: 'Exposição solar da trilha',
-    subtitulo: 'Sol bate direto? Seca muito mais rápido',
-    itens: [
-      { emoji: '☀️', texto: 'Trilha aberta + sol da tarde: seca em metade do tempo' },
-      { emoji: '🌲', texto: 'Trilha sombreada: sem sol direto, secagem até 2× mais lenta' },
-      { emoji: '🧭', texto: 'Face norte recebe mais sol no hemisfério sul' },
-      { emoji: '📐', texto: 'O app classifica cada trilha como aberta, parcial ou fechada' },
-    ],
-    rodape: 'Exposição solar é um dos fatores da meia-vida de secagem',
-  },
-  14: {
-    titulo: 'Como se cadastrar',
-    subtitulo: 'Crie sua conta em menos de 1 minuto',
-    itens: [
-      { emoji: '🌐', texto: 'Acesse mtbforecaster.com.br no celular ou PC' },
-      { emoji: '👤', texto: 'Clique em "Entrar" e depois em "Criar conta"' },
-      { emoji: '📧', texto: 'Use seu e-mail ou entre com Google' },
-      { emoji: '✅', texto: 'Pronto — acesse favoritos, histórico e notificações' },
-    ],
-    rodape: 'Conta gratuita — sem cartão, sem pegadinha',
-  },
-  15: {
-    titulo: 'Como favoritar uma trilha',
-    subtitulo: 'Salve suas trilhas preferidas para acompanhar rápido',
-    itens: [
-      { emoji: '🔍', texto: 'Encontre a trilha pela busca ou lista de regiões' },
-      { emoji: '⭐', texto: 'Clique no ícone de estrela na página da trilha' },
-      { emoji: '📋', texto: 'Acesse "Minhas trilhas" para ver todas as favoritas' },
-      { emoji: '🔔', texto: 'Favoritas aparecem em destaque no seu painel' },
-    ],
-    rodape: 'Você precisa estar logado para favoritar trilhas',
-  },
-  16: {
-    titulo: 'Como registrar sua visita',
-    subtitulo: 'Conte como estava a trilha quando você pedalou',
-    itens: [
-      { emoji: '📍', texto: 'Abra a página da trilha que você visitou' },
-      { emoji: '📝', texto: 'Clique em "Registrar observação"' },
-      { emoji: '🌿', texto: 'Escolha a condição: seco, grip, boa, baixa ou lama' },
-      { emoji: '💬', texto: 'Adicione um comentário opcional para detalhar' },
-    ],
-    rodape: 'Observações reais ajudam a calibrar o modelo para todos',
-  },
-  17: {
-    titulo: 'Como compartilhar uma trilha',
-    subtitulo: 'Mande a condição para o grupo de pedal',
-    itens: [
-      { emoji: '📱', texto: 'Abra a página da trilha no app' },
-      { emoji: '🔗', texto: 'Copie o link ou use o botão de compartilhar' },
-      { emoji: '💬', texto: 'Cole no WhatsApp, Telegram ou Instagram' },
-      { emoji: '📊', texto: 'O link já mostra veredicto e condição atualizados' },
-    ],
-    rodape: 'O link é público — qualquer pessoa pode ver sem ter conta',
-  },
-  18: {
-    titulo: 'Notificações no Telegram',
-    subtitulo: 'Receba alertas de condição direto no seu celular',
-    itens: [
-      { emoji: '📲', texto: 'Abra o Telegram e busque @mtbforecaster_bot' },
-      { emoji: '▶️', texto: 'Envie /start para ativar as notificações' },
-      { emoji: '⭐', texto: 'Favorite trilhas no app para receber alertas delas' },
-      { emoji: '🔔', texto: 'Você será avisado quando o veredicto mudar' },
-    ],
-    rodape: 'Gratuito — sem spam, só alertas das suas trilhas favoritas',
-  },
-  19: {
-    titulo: 'Avalie a trilha após pedalar',
-    subtitulo: 'Você pedalou hoje? Sua avaliação vale muito para a comunidade',
-    itens: [
-      { emoji: '🤝', texto: 'O app prevê — mas quem confirma no campo é você' },
-      { emoji: '📱', texto: 'Abra a trilha e clique em "Registrar observação"' },
-      { emoji: '🌿', texto: 'Informe o que encontrou: seco, grip, lama...' },
-      { emoji: '📈', texto: 'Avaliações reais calibram o modelo para todos' },
-    ],
-    rodape: 'Leva menos de 30 segundos e ajuda centenas de riders',
-  },
+async function fetchDica(id: number): Promise<{ dica: Dica | null; total: number }> {
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key  = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return { dica: null, total: 0 }
+
+  const headers = { apikey: key, Authorization: `Bearer ${key}` }
+
+  const [dicaRes, totalRes] = await Promise.all([
+    fetch(`${url}/rest/v1/instagram_dicas?id=eq.${id}&ativo=eq.true&select=id,titulo,subtitulo,itens,rodape`, { headers, cache: 'no-store' }),
+    fetch(`${url}/rest/v1/instagram_dicas?ativo=eq.true&select=id`, { headers, cache: 'no-store' }),
+  ])
+
+  const rows  = dicaRes.ok  ? await dicaRes.json()  : []
+  const all   = totalRes.ok ? await totalRes.json() : []
+
+  return { dica: rows[0] ?? null, total: all.length }
 }
 
 function loadFont(filename: string): ArrayBuffer | null {
@@ -236,19 +44,28 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const id = parseInt(searchParams.get('id') ?? '1', 10)
-    const dica = DICAS[id] ?? DICAS[1]
-    const total = Object.keys(DICAS).length
 
-    const notoSans  = loadFont('noto-sans-regular.ttf')
+    let { dica, total } = await fetchDica(id)
+
+    // fallback: se id não existe, busca o primeiro
+    if (!dica) {
+      const fallback = await fetchDica(1)
+      dica  = fallback.dica
+      total = fallback.total
+    }
+
+    if (!dica) throw new Error('Nenhuma dica encontrada no banco')
+
+    const notoSans   = loadFont('noto-sans-regular.ttf')
     const dmSansBold = loadFont('dm-sans-800.ttf')
-    const dmMono    = loadFont('dm-mono-400.ttf')
+    const dmMono     = loadFont('dm-mono-400.ttf')
     const fontList: { name: string; data: ArrayBuffer; weight: 400 | 800 }[] = []
     if (notoSans)   fontList.push({ name: 'Noto Sans', data: notoSans,   weight: 400 })
     if (dmSansBold) fontList.push({ name: 'DM Sans',   data: dmSansBold, weight: 800 })
     if (dmMono)     fontList.push({ name: 'DM Mono',   data: dmMono,     weight: 400 })
 
-    const fontSans = dmSansBold ? 'DM Sans'   : (notoSans ? 'Noto Sans' : 'sans-serif')
-    const fontMono = dmMono     ? 'DM Mono'   : (notoSans ? 'Noto Sans' : 'monospace')
+    const fontSans = dmSansBold ? 'DM Sans'  : (notoSans ? 'Noto Sans' : 'sans-serif')
+    const fontMono = dmMono     ? 'DM Mono'  : (notoSans ? 'Noto Sans' : 'monospace')
 
     return new ImageResponse(
       (
@@ -287,7 +104,7 @@ export async function GET(req: NextRequest) {
                 MTB FORECASTER
               </div>
               <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: 'rgba(168,184,153,0.4)', letterSpacing: 2 }}>
-                DICA {String(id).padStart(2, '0')}/{String(total).padStart(2, '0')}
+                DICA {String(dica.id).padStart(2, '0')}/{String(total).padStart(2, '0')}
               </div>
             </div>
 
