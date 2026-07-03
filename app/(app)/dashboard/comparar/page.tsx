@@ -73,7 +73,7 @@ function ComparacaoContent() {
     async function load() {
       const { data } = await supabase
         .from('trilhas')
-        .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med), localidades(cidade, estado, localidade)')
+        .select('*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med, gerado_em), localidades(cidade, estado, localidade)')
         .in('id', [idA, idB])
         .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
         .order('bloco', { foreignTable: 'previsao_blocos' })
