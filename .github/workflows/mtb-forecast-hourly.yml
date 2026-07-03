@@ -21,5 +21,6 @@ jobs:
       - name: Run forecast-only update
         env:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          OPENWEATHER_KEY: ${{ secrets.OPENWEATHER_KEY }}
+          SUPABASE_URL: https://eydlkvrjopffyqpdstzh.supabase.co
+          OPENWEATHER_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
         run: python mtb-forecast-only.py
