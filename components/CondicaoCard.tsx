@@ -854,7 +854,21 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
 
         {/* ── 4. Previsão — próximas 24h ───────────────────────────── */}
         <div>
-          <div style={{ ...SEC, marginBottom: 10 }}>Previsão — próximas 24h</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={SEC}>Previsão — próximas 24h</div>
+            {(() => {
+              const blocoTs = condicao.previsao_24h?.[0]?.gerado_em
+              if (!blocoTs) return null
+              const mins = Math.round((Date.now() - new Date(blocoTs).getTime()) / 60000)
+              const label = mins < 2 ? 'agora mesmo' : mins < 60 ? `há ${mins} min` : `há ${Math.round(mins/60)}h`
+              return (
+                <span style={{ fontSize: 10, color: '#16A34A', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22C55E', animation: 'cc-pulse 1.8s ease-in-out infinite' }} />
+                  {label}
+                </span>
+              )
+            })()}
+          </div>
 
           {hasPrev24 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: condicao.horarios_chuva ? 8 : 0 }}>

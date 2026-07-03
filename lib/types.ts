@@ -5,6 +5,7 @@ export type PrevisaoBloco = {
   wind_max: number
   pop_max: number
   temp_med: number
+  gerado_em?: string | null
 }
 
 export type Mantenedor = {
