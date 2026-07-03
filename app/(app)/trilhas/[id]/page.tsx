@@ -1,6 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { formatLocalidade } from '@/lib/geocoding'
@@ -10,11 +9,7 @@ import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
 import TrilhaAcoes from './TrilhaAcoes'
-
-const TrailMap = dynamic(() => import('@/components/TrailMap'), {
-  ssr: false,
-  loading: () => <div style={{ height: 250, borderRadius: 8, background: '#d4dcc9' }} />,
-})
+import TrailMap from './TrailMapClient'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -24,13 +19,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default async function TrilhaDetalhe({ params }: { params: { id: string } }) {
-  const sb = createSupabaseServerClient()
+export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: string }> }) {
+  const sb = await createSupabaseServerClient()
   const { data: { session } } = await sb.auth.getSession()
   if (!session?.user) redirect('/login')
 
   const userId = session.user.id
-  const { id } = params
+  const { id } = await params
 
   const [{ data: td }, { data: fav }] = await Promise.all([
     sb.from('trilhas')

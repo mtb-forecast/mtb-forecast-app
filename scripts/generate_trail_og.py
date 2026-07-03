@@ -43,9 +43,9 @@ SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 GEMINI_KEY   = os.environ.get("GEMINI_API_KEY", "")
 BUCKET       = "trail-og"
-MODEL        = "gemini-2.0-flash-preview-image-generation"
+MODEL        = "imagen-4.0-generate-001"   # requer billing no Google AI Studio
 OUTPUT_SIZE  = (1080, 1080)
-DELAY_S      = 5  # intervalo entre chamadas (free tier ~15 RPM)
+DELAY_S      = 4  # intervalo entre chamadas
 
 # ─── Mapeamentos para o prompt ────────────────────────────────────────────────
 
@@ -191,24 +191,49 @@ def upload_image(trail_id: str, jpeg_bytes: bytes) -> bool:
 
 # ─── Gemini image generation ─────────────────────────────────────────────────
 
-def generate_image(client: "genai.Client", prompt: str) -> bytes | None:
-    """Chama Gemini e retorna bytes da imagem gerada (qualquer formato)."""
+def generate_image_gemini(client: "genai.Client", prompt: str) -> bytes | None:
+    """Imagen 4 via Google AI (requer billing ativado no Google AI Studio)."""
     try:
-        response = client.models.generate_content(
+        response = client.models.generate_images(
             model=MODEL,
-            contents=prompt,
-            config=gtypes.GenerateContentConfig(
-                response_modalities=["IMAGE"],
-                temperature=1.0,
+            prompt=prompt,
+            config=gtypes.GenerateImagesConfig(
+                number_of_images=1,
+                aspect_ratio="1:1",
+                output_mime_type="image/jpeg",
             ),
         )
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, "inline_data") and part.inline_data:
-                return part.inline_data.data
+        if response.generated_images:
+            return response.generated_images[0].image.image_bytes
         return None
     except Exception as e:
         print(f"    ✗ Gemini error: {e}")
         return None
+
+
+def generate_image_pollinations(prompt: str, seed: int = 42) -> bytes | None:
+    """Flux via Pollinations.ai — gratuito, sem API key, sem limite."""
+    import urllib.parse
+    encoded = urllib.parse.quote(prompt)
+    url = (
+        f"https://image.pollinations.ai/prompt/{encoded}"
+        f"?width=1080&height=1080&nologo=true&model=flux&seed={seed}"
+    )
+    try:
+        r = requests.get(url, timeout=120)
+        if r.ok:
+            return r.content
+        print(f"    ✗ Pollinations HTTP {r.status_code}")
+        return None
+    except Exception as e:
+        print(f"    ✗ Pollinations error: {e}")
+        return None
+
+
+def generate_image(client: "genai.Client | None", prompt: str, use_pollinations: bool, seed: int = 42) -> bytes | None:
+    if use_pollinations:
+        return generate_image_pollinations(prompt, seed)
+    return generate_image_gemini(client, prompt)
 
 def to_jpeg_1080(raw: bytes) -> bytes:
     """Converte qualquer formato (WebP, PNG) para JPEG 1080×1080."""
@@ -234,8 +259,19 @@ def local_path(out_dir: str, trail: dict) -> str:
     return os.path.join(out_dir, f"{bioma}__{name}__{tid}.jpg")
 
 
+def list_models(client: "genai.Client"):
+    """Lista modelos disponíveis com suporte a geração de imagem."""
+    print("Modelos disponíveis:")
+    for m in client.models.list():
+        name = getattr(m, "name", str(m))
+        if any(k in name.lower() for k in ("imagen", "flash", "vision", "generate")):
+            print(f"  {name}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Gera imagens OG por trilha via Gemini")
+    parser.add_argument("--list-models",  action="store_true", help="Lista modelos disponíveis e sai")
+    parser.add_argument("--pollinations", action="store_true", help="Usa Pollinations.ai (Flux) — gratuito, sem billing")
     parser.add_argument("--local", nargs="?", const=DEFAULT_LOCAL_DIR, metavar="DIR",
                         help=f"Salva imagens localmente (padrão: {DEFAULT_LOCAL_DIR})")
     parser.add_argument("--upload", action="store_true", help="Envia para Supabase Storage")
@@ -243,23 +279,36 @@ def main():
     parser.add_argument("--id",     metavar="UUID",      help="Processa apenas esta trilha")
     args = parser.parse_args()
 
-    if not args.local and not args.upload:
-        parser.error("Informe pelo menos --local ou --upload (ou ambos).")
-
-    if not GEMINI_KEY:
-        print("✗ GEMINI_API_KEY é obrigatório")
-        sys.exit(1)
+    if not args.list_models and not args.local and not args.upload:
+        parser.error("Informe pelo menos --local, --upload ou --list-models.")
 
     if args.upload and (not SUPABASE_URL or not SUPABASE_KEY):
         print("✗ --upload requer NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY")
         sys.exit(1)
+
+    use_pollinations = args.pollinations
+    client = None
+
+    if not use_pollinations:
+        if not GEMINI_KEY:
+            print("✗ GEMINI_API_KEY é obrigatório (ou use --pollinations para modo gratuito)")
+            sys.exit(1)
+        client = genai.Client(api_key=GEMINI_KEY)
+
+    if args.list_models:
+        if client:
+            list_models(client)
+        else:
+            print("--list-models requer chave Gemini (não compatível com --pollinations)")
+        return
 
     out_dir = args.local
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
         print(f"Pasta local: {out_dir}")
 
-    client = genai.Client(api_key=GEMINI_KEY)
+    if use_pollinations:
+        print("Modo: Pollinations.ai (Flux) — gratuito")
 
     print("Buscando trilhas...")
     trails = fetch_trails(args.id)
@@ -287,7 +336,7 @@ def main():
         prompt = build_prompt(trail)
         print(f"    prompt: {prompt[:110]}…")
 
-        raw = generate_image(client, prompt)
+        raw = generate_image(client, prompt, use_pollinations, seed=i)
         if not raw:
             fail += 1
             continue

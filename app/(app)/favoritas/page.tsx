@@ -14,7 +14,7 @@ const RANKING_ADERENCIA: Record<string, number> = {
 }
 
 export default async function FavoritasPage() {
-  const sb = createSupabaseServerClient()
+  const sb = await createSupabaseServerClient()
   const { data: { session } } = await sb.auth.getSession()
   if (!session?.user) redirect('/login')
 

@@ -136,7 +136,8 @@ async function TrilhaPreviewContent({ id }: { id: string }) {
   )
 }
 
-export default function TrilhaPreviewPage({ params }: { params: { id: string } }) {
+export default async function TrilhaPreviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: paramId } = await params
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
 
@@ -146,7 +147,7 @@ export default function TrilhaPreviewPage({ params }: { params: { id: string } }
           MTB FORECASTER
         </Link>
         <Link
-          href={`/cadastro?ref=whatsapp&trilha=${params.id}`}
+          href={`/cadastro?ref=whatsapp&trilha=${paramId}`}
           style={{
             background: '#6d745f', color: '#fff',
             border: 'none', borderRadius: 4,
@@ -162,7 +163,7 @@ export default function TrilhaPreviewPage({ params }: { params: { id: string } }
       {/* Conteúdo — streamado separadamente da navbar */}
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 28px 48px' }}>
         <Suspense fallback={<PreviewSkeleton />}>
-          <TrilhaPreviewContent id={params.id} />
+          <TrilhaPreviewContent id={paramId} />
         </Suspense>
       </div>
     </div>

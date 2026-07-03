@@ -49,7 +49,7 @@ export default async function DashboardFavoritas({
     )
   }
 
-  const sb = createSupabaseServerClient()
+  const sb = await createSupabaseServerClient()
   const h48atras = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
 
   const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
@@ -160,7 +160,7 @@ export default async function DashboardFavoritas({
 // ── Vitrine helpers ───────────────────────────────────────────────────────────
 
 async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondicao | null; totalCount: number }> {
-  const sb = createSupabaseServerClient()
+  const sb = await createSupabaseServerClient()
 
   const [{ data: trilhasData }, { count }] = await Promise.all([
     sb.from('trilhas')
