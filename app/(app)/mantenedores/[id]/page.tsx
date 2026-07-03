@@ -15,10 +15,11 @@ function getSupabase() {
 }
 
 export async function generateMetadata(
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<Metadata> {
+  const { id } = await params
   const { data } = await getSupabase()
-    .from('mantenedores').select('nome').eq('id', params.id).single()
+    .from('mantenedores').select('nome').eq('id', id).single()
   if (!data) return { title: 'Mantenedor não encontrado' }
   return {
     title: data.nome,
@@ -26,14 +27,15 @@ export async function generateMetadata(
   }
 }
 
-export default async function MantenedorPage({ params }: { params: { id: string } }) {
+export default async function MantenedorPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = getSupabase()
 
   const [{ data: mantenedor }, { data: trilhasRaw }] = await Promise.all([
     supabase
       .from('mantenedores')
       .select('id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url,ativo')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('ativo', true)
       .single(),
     supabase
@@ -49,7 +51,7 @@ export default async function MantenedorPage({ params }: { params: { id: string 
           texto_dinamico, frase_secagem, gerado_em
         )
       `)
-      .eq('mantenedor_id', params.id)
+      .eq('mantenedor_id', id)
       .eq('aprovada', true)
       .order('name'),
   ])

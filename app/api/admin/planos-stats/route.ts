@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const VALID_PLANOS = new Set(['plano_a', 'plano_b', 'plano_c'])
 
 export async function GET() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

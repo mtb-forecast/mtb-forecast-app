@@ -1,6 +1,7 @@
 'use client'
 
 import 'leaflet/dist/leaflet.css'
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import {
@@ -388,12 +389,12 @@ export default function GravarTrilhaPage() {
             Sua trilha já está disponível no catálogo para todos os riders.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="/trilhas" style={{
+            <Link href="/trilhas" style={{
               display: 'inline-block', background: '#6d745f', color: '#fff',
               borderRadius: 8, padding: '12px 24px', fontSize: 14, fontWeight: 600, textDecoration: 'none',
             }}>
               Ver catálogo
-            </a>
+            </Link>
             <a href="/gravar" style={{
               display: 'inline-block', background: '#eaece4', color: '#2a2e25',
               borderRadius: 8, padding: '12px 24px', fontSize: 14, fontWeight: 600, textDecoration: 'none',

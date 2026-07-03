@@ -7,7 +7,7 @@ import DashboardFrase from './DashboardFrase'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 export default async function DashboardPage() {
-  const supabase = createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
   // getSession() lê do cookie sem round-trip de rede — o middleware já validou
   // o token contra o servidor de Auth (getUser()) para esta mesma requisição.
   const { data: { session } } = await supabase.auth.getSession()
