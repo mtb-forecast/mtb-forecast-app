@@ -659,7 +659,7 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
         times, precips = _CACHE_OM_CHUVA_RAW[lk]
     else:
         data = None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 url = (
                     "https://api.open-meteo.com/v1/forecast"
@@ -672,8 +672,8 @@ def fetch_historico_chuva_om(trail: dict, meia_vida: float) -> dict:
                     data = json.loads(r.read())
                 break
             except Exception as exc:
-                if attempt == 2:
-                    print(f"  [OM hist] Falha após 3 tentativas: {exc}")
+                if attempt == 1:
+                    print(f"  [OM hist] Falha após 2 tentativas: {exc}")
                     # Fallback: reusar registro anterior do Supabase com decaimento
                     fallback = _buscar_ultima_condicao_supabase(trail)
                     if fallback:
@@ -1041,16 +1041,16 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
                 "&timezone=America%2FSao_Paulo"
             )
             data_om = None
-            for tentativa in range(3):
+            for tentativa in range(2):
                 try:
                     with _om_urlopen(url_om) as r:
                         data_om = json.loads(r.read().decode("utf-8"))
                     break
                 except Exception as exc_om:
-                    if tentativa == 2:
+                    if tentativa == 1:
                         raise
-                    print(f"  [OM vento] Tentativa {tentativa + 1} falhou: {exc_om} — aguardando {2 ** tentativa}s")
-                    time.sleep(2 ** tentativa)
+                    print(f"  [OM vento] Tentativa {tentativa + 1} falhou: {exc_om} — aguardando 5s")
+                    time.sleep(5)
             times  = data_om.get("hourly", {}).get("time", [])
             speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
             gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
@@ -1061,7 +1061,7 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
             om_vento_max  = max((speeds[i] for i in passados if speeds[i] is not None), default=None)
             om_rajada_max = max((gusts[i]  for i in passados if i < len(gusts) and gusts[i] is not None), default=None)
     except Exception as exc:
-        print(f"  [OM vento] Falha após 3 tentativas: {exc} — tentando WeatherAPI")
+        print(f"  [OM vento] Falha após 2 tentativas: {exc} — tentando WeatherAPI")
         om_vento_max, om_rajada_max = _fetch_vento_weatherapi(trail, agora)
 
 
@@ -3481,15 +3481,15 @@ def prefetch_om_batch(trails: list) -> None:
         "&forecast_days=4&timezone=America%2FSao_Paulo"
     )
     try:
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 with _om_urlopen(url_fc, timeout=30) as r:
                     fc_items = _parse(json.loads(r.read()))
                 break
             except Exception as exc:
-                if attempt == 2:
+                if attempt == 1:
                     raise
-                wait = 5 * (attempt + 1)
+                wait = 5
                 print(f"  [OM batch forecast] Tentativa {attempt+1} falhou: {exc} — aguardando {wait}s")
                 time.sleep(wait)
         for lk, item in zip(keys, fc_items):
@@ -3509,15 +3509,15 @@ def prefetch_om_batch(trails: list) -> None:
         "&timezone=America%2FSao_Paulo"
     )
     try:
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 with _om_urlopen(url_hist, timeout=30) as r:
                     hist_items = _parse(json.loads(r.read()))
                 break
             except Exception as exc:
-                if attempt == 2:
+                if attempt == 1:
                     raise
-                wait = 5 * (attempt + 1)
+                wait = 5
                 print(f"  [OM batch histórico] Tentativa {attempt+1} falhou: {exc} — aguardando {wait}s")
                 time.sleep(wait)
         for lk, item in zip(keys, hist_items):
@@ -3553,15 +3553,15 @@ def prefetch_om_batch(trails: list) -> None:
         "&timezone=America%2FSao_Paulo"
     )
     try:
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 with _om_urlopen(url_nowcast, timeout=30) as r:
                     nowcast_items = _parse(json.loads(r.read()))
                 break
             except Exception as exc:
-                if attempt == 2:
+                if attempt == 1:
                     raise
-                wait = 5 * (attempt + 1)
+                wait = 5
                 print(f"  [OM batch nowcast] Tentativa {attempt+1} falhou: {exc} — aguardando {wait}s")
                 time.sleep(wait)
         for lk, item in zip(keys, nowcast_items):
