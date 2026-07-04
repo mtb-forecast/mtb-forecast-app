@@ -105,8 +105,8 @@ from mtb_api_logger import log_api as _log_api, gravar_uso_api as _gravar_uso_ap
 _SSL_CTX = ssl.create_default_context()
 
 
-def _om_urlopen(url: str, timeout: int = 60):
-    """urlopen com SSL context explícito e timeout generoso para api.open-meteo.com."""
+def _om_urlopen(url: str, timeout: int = 20):
+    """urlopen com SSL context explícito para api.open-meteo.com."""
     return urllib.request.urlopen(url, timeout=timeout, context=_SSL_CTX)
 
 TRAILS = []
@@ -3483,7 +3483,7 @@ def prefetch_om_batch(trails: list) -> None:
     try:
         for attempt in range(3):
             try:
-                with _om_urlopen(url_fc, timeout=120) as r:
+                with _om_urlopen(url_fc, timeout=30) as r:
                     fc_items = _parse(json.loads(r.read()))
                 break
             except Exception as exc:
@@ -3511,7 +3511,7 @@ def prefetch_om_batch(trails: list) -> None:
     try:
         for attempt in range(3):
             try:
-                with _om_urlopen(url_hist, timeout=120) as r:
+                with _om_urlopen(url_hist, timeout=30) as r:
                     hist_items = _parse(json.loads(r.read()))
                 break
             except Exception as exc:
@@ -3555,7 +3555,7 @@ def prefetch_om_batch(trails: list) -> None:
     try:
         for attempt in range(3):
             try:
-                with _om_urlopen(url_nowcast, timeout=60) as r:
+                with _om_urlopen(url_nowcast, timeout=30) as r:
                     nowcast_items = _parse(json.loads(r.read()))
                 break
             except Exception as exc:

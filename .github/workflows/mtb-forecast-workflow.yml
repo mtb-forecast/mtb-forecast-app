@@ -24,6 +24,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     env:
       OPENWEATHER_API_KEY:      ${{ secrets.OPENWEATHER_API_KEY }}
