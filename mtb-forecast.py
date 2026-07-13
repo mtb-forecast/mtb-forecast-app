@@ -92,6 +92,7 @@ Remoção V6.5:
 
 import os
 import json
+import math
 import html as html_lib
 import ssl
 import urllib.request
@@ -2695,6 +2696,38 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
                            "wind_max": wind_max, "temp_med": temp_med})
         return blocos
 
+    def estimar_horas_para_grip(blocos: list) -> tuple:
+        # Espelha CondicaoCard.tsx recalcularSolo() ("Option C") para que a narrativa
+        # e a barra "Estado do Solo" do frontend citem o mesmo prazo. Ignora o bloco
+        # 0 (0h-6h, iminente) — mesmo comportamento do frontend, que descarta o bloco
+        # cujo horário de início já é <= agora no momento em que a página é aberta.
+        threshold = aderencia.get("grip_threshold_ef", 3.0)
+        if meia_vida_h <= 0 or threshold <= 0:
+            return 0.0, False
+
+        horas_secagem_atual = 0.0
+        if acumulo_ef > threshold:
+            horas_secagem_atual = max(0.0, round(meia_vida_h * math.log2(acumulo_ef / threshold), 1))
+
+        last_rain_end_h = None
+        peak_at_last_rain_end = 0.0
+        prev_h, prev_acc = 0.0, acumulo_ef
+        for i, bloco in enumerate(blocos[1:], start=1):
+            h = i * 6.0
+            acc_start = prev_acc * (0.5 ** ((h - prev_h) / meia_vida_h))
+            acc_after = acc_start + bloco["rain_mm"]
+            if bloco["rain_mm"] > 0.5:
+                last_rain_end_h = h + 6
+                peak_at_last_rain_end = acc_after * (0.5 ** (6 / meia_vida_h))
+            prev_h, prev_acc = h, acc_after
+
+        tem_chuva_futura = last_rain_end_h is not None and peak_at_last_rain_end > threshold
+        if tem_chuva_futura:
+            horas = max(0.0, round(meia_vida_h * math.log2(peak_at_last_rain_end / threshold), 1))
+        else:
+            horas = horas_secagem_atual
+        return horas, tem_chuva_futura
+
     def calcular_aderencia_futura_oc() -> dict:
         _ordem = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BAIXA ADERÊNCIA": 3}
         agora = datetime.now(BRT)
@@ -2856,6 +2889,12 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     }
     horarios_chuva = calcular_horarios_chuva_oc()
 
+    # Mesmo cálculo usado pela barra "Estado do Solo" do frontend (recalcularSolo em
+    # CondicaoCard.tsx) — evita que a narrativa cite um prazo diferente do que a UI mostra.
+    blocos_24h = calcular_blocos_24h_oc()
+    horas_para_grip, chuva_futura_bloqueia_secagem = estimar_horas_para_grip(blocos_24h)
+    estimativa_secagem = _fmt_horas_secagem(horas_para_grip, chuva_futura_bloqueia_secagem)
+
     narrativa, cor_n, bg_n = _gerar_narrativa_claude({
         "chuva_solo_48h":      chuva_solo_48h,
         "chuva_bruta_mm":   chuva_bruta_mm,   # chuva sem interceptação de dossel (texto humano)
@@ -2871,10 +2910,11 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "fds":              fds_resumo,
         "trail_name":       trail["name"],
         "bioma":            trail.get("bioma", ""),
+        "estimativa_secagem": estimativa_secagem,
     })
     _SUFIXO = " — avalie as condições antes de pedalar"
     _CHECK   = "avalie as condições antes de pedalar"
-    if narrativa and not narrativa.rstrip().rstrip(".").rstrip().endswith(_CHECK):
+    if narrativa and _CHECK not in narrativa.lower():
         narrativa = narrativa.rstrip().rstrip(".") + _SUFIXO
     vered["texto_dinamico"] = narrativa
 
@@ -2909,7 +2949,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "aderencia_futura":  aderencia_futura,
         "veredicto":         vered,
         "veredicto_12h":  resumo_12h,
-        "previsao_24h":   calcular_blocos_24h_oc(),
+        "previsao_24h":   blocos_24h,
         "vento_hist":     vento_hist,
         "horarios_chuva": horarios_chuva,
         "fds": fds_resumo,
@@ -3276,6 +3316,17 @@ def _narrativa_via_deepseek(prompt: str, r: dict) -> tuple | None:
     return None
 
 
+def _fmt_horas_secagem(horas: float, tem_chuva_futura: bool) -> str:
+    if horas <= 0:
+        return "já está em boa aderência agora"
+    sufixo = " (chuva prevista adia a secagem)" if tem_chuva_futura else ""
+    if horas < 24:
+        return f"~{round(horas)}h para atingir boa aderência{sufixo}"
+    dias, hrs = int(horas // 24), round(horas % 24)
+    prazo = f"~{dias}d {hrs}h" if hrs else f"~{dias}d"
+    return f"{prazo} para atingir boa aderência{sufixo}"
+
+
 def _build_narrativa_prompt(r: dict) -> str:
     bruto           = r.get("chuva_bruta_mm") or r.get("chuva_solo_48h", 0)
     efetivo         = r.get("acumulo_ef", 0)
@@ -3295,6 +3346,7 @@ def _build_narrativa_prompt(r: dict) -> str:
     trail_name       = r.get("trail_name", "trilha")
     bioma            = r.get("bioma", "")
     fds              = r.get("fds", {})
+    estimativa_secagem = r.get("estimativa_secagem", "")
 
     def _fds_str(dia: dict) -> str:
         if not dia:
@@ -3331,6 +3383,7 @@ FUTURO:
 - Dia 1: {_fds_str(fds.get("d1", {}))}
 - Dia 2: {_fds_str(fds.get("d2", {}))}
 - Dia 3: {_fds_str(fds.get("d3", {}))}
+- Prazo até boa aderência (mesmo cálculo da barra "Estado do Solo" do app): {estimativa_secagem}
 
 Estilo obrigatório — escreva como o exemplo abaixo, direto e com os números:
 "Choveu 31.4mm nas últimas 48h, mas a maior parte já escoou — impacto real no solo é de apenas 6.3mm, com a última chuva há 9h. Este solo drena bem. O solo está úmido — avalie as condições antes de pedalar."
@@ -3340,6 +3393,9 @@ Regras:
 - Frase 2: característica do solo ou bioma (drenagem, meia-vida, dossel) — use o dado de meia-vida
 - Frase 3: estado atual da aderência + recomendação direta coerente com o veredicto
 - Se pico previsto >= 3mm: adicione frase curta alertando que chuva está chegando
+- Se mencionar prazo para a trilha secar/melhorar (ex: "em X dias", "no Yº dia"), use
+  EXATAMENTE o "Prazo até boa aderência" informado acima — NUNCA infira um prazo
+  diferente a partir dos vereditos de Dia 1/Dia 2/Dia 3
 - NUNCA contradiga o veredicto. NUNCA sugira condição melhor do que os dados indicam
 - Sem markdown, sem bullet points, sem título, sem saudações
 - Máximo 500 caracteres"""
