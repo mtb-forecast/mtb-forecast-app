@@ -2912,9 +2912,11 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "bioma":            trail.get("bioma", ""),
         "estimativa_secagem": estimativa_secagem,
     })
+    # Checagem por palavra-chave, não por frase exata: a LLM parafraseia a recomendação
+    # (ex: "avalie as condições no local antes de pedalar") e um match de substring
+    # exata deixava passar variações, duplicando o sufixo no final do texto.
     _SUFIXO = " — avalie as condições antes de pedalar"
-    _CHECK   = "avalie as condições antes de pedalar"
-    if narrativa and _CHECK not in narrativa.lower():
+    if narrativa and "pedalar" not in narrativa.lower():
         narrativa = narrativa.rstrip().rstrip(".") + _SUFIXO
     vered["texto_dinamico"] = narrativa
 
