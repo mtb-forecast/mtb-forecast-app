@@ -7,6 +7,7 @@ import {
   IconSun, IconCloudRain, IconCloudStorm, IconCircleCheck, IconClockPause, IconUmbrella,
 } from '@tabler/icons-react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
+import { selecionarVeredicto } from '@/lib/veredicto'
 import { rainColor, windColor, DISPLAY_THR } from '@/lib/display'
 import DiaDetalheModal from '@/components/DiaDetalheModal'
 
@@ -525,19 +526,10 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
     return () => ctrl.abort()
   }, [lat, lon, condicao.gerado_em])
 
-  // Mostra sempre o pior dos dois veredictos: se observação de rider degradou o
-  // veredicto principal (48h) mas o 12h ainda está otimista, o rider veria o 12h.
-  const verdictSeverity = (v: string) => {
-    const u = v.toUpperCase()
-    if (u.includes('ESPERAR') || u.includes('EVITAR')) return 2
-    if (u.includes('ALERTA'))                           return 1
-    return 0
-  }
-  const v12  = condicao.veredicto_12h?.trim() || ''
-  const v48  = condicao.veredicto
-  const use12h = v12 && verdictSeverity(v12) >= verdictSeverity(v48)
-  const veredictoDisplay = use12h ? v12 : v48
-  const has12h = use12h
+  // Mostra sempre o pior dos dois veredictos (mesma regra usada nos cards de lista,
+  // ver lib/veredicto.ts) — evita divergência entre card resumido e detalhado.
+  const veredictoDisplay = selecionarVeredicto(condicao.veredicto, condicao.veredicto_12h) ?? condicao.veredicto
+  const has12h = veredictoDisplay === condicao.veredicto_12h?.trim()
   const badge       = verdictBadge(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
 

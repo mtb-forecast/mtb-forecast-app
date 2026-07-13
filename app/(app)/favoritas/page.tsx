@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import FavoritasGrid from './FavoritasGrid'
 import type { TrilhaComCondicao } from '@/lib/types'
+import { selecionarVeredicto } from '@/lib/veredicto'
 
 const RANKING_VEREDICTO: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -58,8 +59,8 @@ export default async function FavoritasPage() {
     })
 
     mapped.sort((a, b) => {
-      const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
-      const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
+      const vA = RANKING_VEREDICTO[selecionarVeredicto(a.condicao?.veredicto, a.condicao?.veredicto_12h) || ''] ?? 99
+      const vB = RANKING_VEREDICTO[selecionarVeredicto(b.condicao?.veredicto, b.condicao?.veredicto_12h) || ''] ?? 99
       if (vA !== vB) return vA - vB
       const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
       const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
