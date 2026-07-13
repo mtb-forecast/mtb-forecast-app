@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
+import { selecionarVeredicto } from '@/lib/veredicto'
 import TrilhaCard from '@/components/TrilhaCard'
 import PumpTrackCard from '@/components/PumpTrackCard'
 import { IconChevronDown, IconSearch, IconRoute, IconShieldCheck } from '@tabler/icons-react'
@@ -18,8 +19,8 @@ const VEREDICTO_ORDER: Record<string, number> = {
 
 function rankTrilhas(trilhas: TrilhaComCondicao[]): TrilhaComCondicao[] {
   return [...trilhas].sort((a, b) => {
-    const va = a.condicao?.veredicto_12h?.trim() || a.condicao?.veredicto?.trim() || ''
-    const vb = b.condicao?.veredicto_12h?.trim() || b.condicao?.veredicto?.trim() || ''
+    const va = selecionarVeredicto(a.condicao?.veredicto, a.condicao?.veredicto_12h) || ''
+    const vb = selecionarVeredicto(b.condicao?.veredicto, b.condicao?.veredicto_12h) || ''
     const oa = VEREDICTO_ORDER[va] ?? 3
     const ob = VEREDICTO_ORDER[vb] ?? 3
     if (oa !== ob) return oa - ob

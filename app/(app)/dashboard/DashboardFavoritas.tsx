@@ -3,6 +3,7 @@ import Link from 'next/link'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import DashboardVitrine from './DashboardVitrine'
 import type { TrilhaComCondicao } from '@/lib/types'
+import { selecionarVeredicto } from '@/lib/veredicto'
 
 const RANKING_VEREDICTO: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -85,8 +86,8 @@ export default async function DashboardFavoritas({
   })
 
   const favoritasAll = [...mapped].sort((a, b) => {
-    const vA = RANKING_VEREDICTO[a.condicao?.veredicto_12h || a.condicao?.veredicto || ''] ?? 99
-    const vB = RANKING_VEREDICTO[b.condicao?.veredicto_12h || b.condicao?.veredicto || ''] ?? 99
+    const vA = RANKING_VEREDICTO[selecionarVeredicto(a.condicao?.veredicto, a.condicao?.veredicto_12h) || ''] ?? 99
+    const vB = RANKING_VEREDICTO[selecionarVeredicto(b.condicao?.veredicto, b.condicao?.veredicto_12h) || ''] ?? 99
     if (vA !== vB) return vA - vB
     const aA = RANKING_ADERENCIA[a.condicao?.aderencia_status || ''] ?? 99
     const aB = RANKING_ADERENCIA[b.condicao?.aderencia_status || ''] ?? 99
@@ -107,7 +108,7 @@ export default async function DashboardFavoritas({
 
   let liberadas = 0, comAlerta = 0, aguardando = 0
   for (const t of favoritas) {
-    const v = t.condicao?.veredicto_12h?.trim() || t.condicao?.veredicto?.trim() || ''
+    const v = selecionarVeredicto(t.condicao?.veredicto, t.condicao?.veredicto_12h) || ''
     if (v === 'DROP LIBERADO') liberadas++
     else if (v === 'DROP LIBERADO - Veja os alertas' || v === 'MELHOR ESPERAR') comAlerta++
     else aguardando++

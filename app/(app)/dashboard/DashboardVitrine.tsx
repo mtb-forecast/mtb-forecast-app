@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react'
 import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao, VEREDICTO_CONFIG, ESTADOS_BRASIL } from '@/lib/types'
+import { selecionarVeredicto } from '@/lib/veredicto'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
 import { formatLocalidade } from '@/lib/geocoding'
 import FavoritoButton from '@/components/FavoritoButton'
@@ -106,10 +107,10 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
 
   // ── Card vitrine ──────────────────────────────────────────────────────────
   const c            = trilha.condicao
-  const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
+  const veredictoText = selecionarVeredicto(c?.veredicto, c?.veredicto_12h)
   const vcfg         = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const hasData      = c != null && vcfg != null
-  const has12h       = !!c?.veredicto_12h?.trim()
+  const has12h       = veredictoText !== null && veredictoText === c?.veredicto_12h?.trim()
 
   const barColor = topBarColor(veredictoText)
   const vs       = verdictStyle(veredictoText)

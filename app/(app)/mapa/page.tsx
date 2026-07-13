@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getClientUser } from '@/lib/supabase'
 import type { Condicao } from '@/lib/types'
+import { selecionarVeredicto } from '@/lib/veredicto'
 import { decodePolyline } from '@/lib/polyline'
 import 'leaflet/dist/leaflet.css'
 
@@ -179,7 +180,7 @@ export default function MapaPage() {
       const condicao = trilha.condicoes?.[0]
       const hasFavorito = trilhasComFavorito.has(trilha.id)
       const inactive = !hasFavorito || !condicao
-      const veredicto = inactive ? undefined : (condicao?.veredicto_12h || condicao?.veredicto)
+      const veredicto = inactive ? undefined : (selecionarVeredicto(condicao?.veredicto, condicao?.veredicto_12h) ?? undefined)
       const cor = getVeredictoColor(veredicto)
       const label = getVeredictoLabel(veredicto)
 

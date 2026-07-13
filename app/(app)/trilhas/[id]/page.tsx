@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
+import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
 import { deveAlertarRajada, emojiTempo } from '@/lib/display'
 import ElevationProfile from '@/components/ElevationProfile'
@@ -50,7 +51,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
 
   const isFavorito = !!fav
 
-  const veredictoText = c?.veredicto_12h?.trim() || c?.veredicto?.trim() || null
+  const veredictoText = selecionarVeredicto(c?.veredicto, c?.veredicto_12h)
   const vcfg    = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const borderCor = vcfg?.cor ?? '#e5e5e5'
 
