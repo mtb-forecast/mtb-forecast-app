@@ -40,6 +40,24 @@ function loadFont(filename: string): ArrayBuffer | null {
   }
 }
 
+function loadTextureDataUri(filename: string): string | null {
+  try {
+    const buf = readFileSync(join(process.cwd(), 'public', 'textures', filename))
+    return `data:image/svg+xml;base64,${buf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+// ── Paleta — mesma família de cor do e-mail (header gradient) e do app ─────────
+const FOREST_800 = '#1e2e1a'
+const FOREST_600 = '#2a4a2a'
+const FOREST_EDGE = '#21351f'
+const MINT_400 = '#86efac'
+const SAND_100 = '#fbfbf6'
+const SAND_200 = 'rgba(232,237,227,0.78)'
+const MOSS_300 = 'rgba(167,205,167,0.55)'
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -67,6 +85,8 @@ export async function GET(req: NextRequest) {
     const fontSans = dmSansBold ? 'DM Sans'  : (notoSans ? 'Noto Sans' : 'sans-serif')
     const fontMono = dmMono     ? 'DM Mono'  : (notoSans ? 'Noto Sans' : 'monospace')
 
+    const topoTexture = loadTextureDataUri('topo-mint.svg')
+
     return new ImageResponse(
       (
         <div
@@ -75,16 +95,35 @@ export async function GET(req: NextRequest) {
             height: 1080,
             display: 'flex',
             flexDirection: 'column',
-            background: '#1e2218',
-            paddingTop: 0,
-            paddingLeft: 0,
-            paddingRight: 0,
-            paddingBottom: 0,
+            background: `linear-gradient(150deg, ${FOREST_800} 0%, ${FOREST_600} 46%, ${FOREST_EDGE} 100%)`,
             position: 'relative',
           }}
         >
-          {/* Faixa verde topo */}
-          <div style={{ display: 'flex', height: 5, background: '#a8b899' }} />
+          {/* Textura topográfica decorativa (mesma linguagem visual do card de novidades) */}
+          {topoTexture ? (
+            <img
+              src={topoTexture}
+              width={1080}
+              height={1080}
+              style={{ position: 'absolute', top: 0, left: 0, opacity: 0.55 }}
+            />
+          ) : null}
+
+          {/* Véu de legibilidade — mais escuro na base, onde ficam os itens */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 1080,
+              height: 1080,
+              display: 'flex',
+              background: `linear-gradient(180deg, rgba(18,25,15,0.18) 0%, rgba(18,25,15,0.05) 26%, rgba(18,25,15,0.38) 62%, rgba(13,16,10,0.74) 100%)`,
+            }}
+          />
+
+          {/* Faixa mint no topo */}
+          <div style={{ display: 'flex', height: 5, background: MINT_400, position: 'relative' }} />
 
           {/* Conteúdo */}
           <div
@@ -96,20 +135,21 @@ export async function GET(req: NextRequest) {
               paddingLeft: 80,
               paddingRight: 80,
               paddingBottom: 56,
+              position: 'relative',
             }}
           >
             {/* Header */}
             <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', fontSize: 24, fontFamily: fontSans, fontWeight: 800, color: '#a8b899', letterSpacing: 3 }}>
+              <div style={{ display: 'flex', fontSize: 24, fontFamily: fontSans, fontWeight: 800, color: MINT_400, letterSpacing: 3 }}>
                 MTB FORECASTER
               </div>
-              <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: 'rgba(168,184,153,0.4)', letterSpacing: 2 }}>
+              <div style={{ display: 'flex', fontSize: 20, fontFamily: fontMono, color: MOSS_300, letterSpacing: 2 }}>
                 DICA {String(dica.id).padStart(2, '0')}/{String(total).padStart(2, '0')}
               </div>
             </div>
 
             {/* Separador */}
-            <div style={{ display: 'flex', height: 1, background: 'rgba(168,184,153,0.15)', marginTop: 32 }} />
+            <div style={{ display: 'flex', height: 1, background: 'rgba(167,205,167,0.18)', marginTop: 32 }} />
 
             {/* Tag */}
             <div style={{ display: 'flex', marginTop: 40 }}>
@@ -120,11 +160,11 @@ export async function GET(req: NextRequest) {
                   paddingBottom: 8,
                   paddingLeft: 20,
                   paddingRight: 20,
-                  background: 'rgba(168,184,153,0.10)',
+                  background: 'rgba(134,239,172,0.14)',
                   fontSize: 18,
                   fontFamily: fontSans,
                   fontWeight: 800,
-                  color: '#a8b899',
+                  color: MINT_400,
                   letterSpacing: 3,
                 }}
               >
@@ -139,8 +179,9 @@ export async function GET(req: NextRequest) {
                 fontSize: 72,
                 fontFamily: fontSans,
                 fontWeight: 800,
-                color: '#ffffff',
-                lineHeight: 1.1,
+                color: SAND_100,
+                lineHeight: 1.08,
+                letterSpacing: -1,
                 marginTop: 24,
               }}
             >
@@ -154,7 +195,7 @@ export async function GET(req: NextRequest) {
                 fontSize: 28,
                 fontFamily: fontSans,
                 fontWeight: 400,
-                color: 'rgba(168,184,153,0.6)',
+                color: SAND_200,
                 marginTop: 16,
                 lineHeight: 1.4,
               }}
@@ -178,7 +219,7 @@ export async function GET(req: NextRequest) {
                       fontSize: 30,
                       fontFamily: fontSans,
                       fontWeight: 400,
-                      color: '#e8ede3',
+                      color: '#eef2ea',
                       lineHeight: 1.35,
                       flex: 1,
                     }}
@@ -190,11 +231,11 @@ export async function GET(req: NextRequest) {
             </div>
 
             {/* Separador rodapé */}
-            <div style={{ display: 'flex', height: 1, background: 'rgba(168,184,153,0.15)', marginTop: 40 }} />
+            <div style={{ display: 'flex', height: 1, background: 'rgba(167,205,167,0.18)', marginTop: 40 }} />
 
             {/* Rodapé */}
             <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24 }}>
-              <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, color: 'rgba(168,184,153,0.35)' }}>
+              <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, color: MOSS_300 }}>
                 mtbforecaster.com.br
               </div>
               {dica.rodape ? (
@@ -204,7 +245,7 @@ export async function GET(req: NextRequest) {
                     fontSize: 18,
                     fontFamily: fontSans,
                     fontWeight: 400,
-                    color: 'rgba(168,184,153,0.35)',
+                    color: MOSS_300,
                     maxWidth: 500,
                     textAlign: 'right',
                   }}
