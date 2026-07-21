@@ -19,6 +19,13 @@ type TrilhaCadastrada = {
   id: string; name: string; regiao: string; created_at: string
 }
 
+// Segunda=0 ... Domingo=6 — mesma convenção de datetime.weekday() usada no agente Python
+const DIAS_SEMANA = [
+  { value: 0, label: 'Seg' }, { value: 1, label: 'Ter' }, { value: 2, label: 'Qua' },
+  { value: 3, label: 'Qui' }, { value: 4, label: 'Sex' }, { value: 5, label: 'Sáb' },
+  { value: 6, label: 'Dom' },
+]
+
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
   bg:       '#f4f5f0',
@@ -220,6 +227,12 @@ export default function PerfilPage() {
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailSaved, setEmailSaved] = useState(false)
 
+  // Preferências de dia/horário (compartilhadas entre email e Telegram)
+  const [notifDias, setNotifDias] = useState<number[]>(DIAS_SEMANA.map(d => d.value))
+  const [notifHorarios, setNotifHorarios] = useState<string[]>(REPORT_SCHEDULE.map(s => s.hora))
+  const [prefsSaving, setPrefsSaving] = useState(false)
+  const [prefsSaved, setPrefsSaved] = useState(false)
+
   // Avatar
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
@@ -252,6 +265,8 @@ export default function PerfilPage() {
         setFacebook(p.facebook || '')
         setStravaId(p.strava_id || '')
         setReceberEmail(p.receber_email ?? false)
+        setNotifDias(p.notif_dias ?? DIAS_SEMANA.map(d => d.value))
+        setNotifHorarios(p.notif_horarios ?? REPORT_SCHEDULE.map(s => s.hora))
         setAvatarUrl(p.avatar_url || null)
       }
       const [{ data: minhas }, { data: favIds }] = await Promise.all([
@@ -327,6 +342,28 @@ export default function PerfilPage() {
     await supabase.from('profiles').update({ receber_email: v, ...(v ? { email_trilhas_favoritas: true } : {}) }).eq('id', profile.id)
     setEmailSaving(false); setEmailSaved(true)
     setTimeout(() => setEmailSaved(false), 2200)
+  }
+
+  async function handleToggleDia(dia: number) {
+    if (!profile) return
+    const novo = notifDias.includes(dia) ? notifDias.filter(d => d !== dia) : [...notifDias, dia].sort()
+    if (novo.length === 0) return // sempre precisa de ao menos 1 dia selecionado
+    setNotifDias(novo)
+    setPrefsSaving(true)
+    await supabase.from('profiles').update({ notif_dias: novo }).eq('id', profile.id)
+    setPrefsSaving(false); setPrefsSaved(true)
+    setTimeout(() => setPrefsSaved(false), 2200)
+  }
+
+  async function handleToggleHorario(hora: string) {
+    if (!profile) return
+    const novo = notifHorarios.includes(hora) ? notifHorarios.filter(h => h !== hora) : [...notifHorarios, hora]
+    if (novo.length === 0) return // sempre precisa de ao menos 1 janela selecionada
+    setNotifHorarios(novo)
+    setPrefsSaving(true)
+    await supabase.from('profiles').update({ notif_horarios: novo }).eq('id', profile.id)
+    setPrefsSaving(false); setPrefsSaved(true)
+    setTimeout(() => setPrefsSaved(false), 2200)
   }
 
   async function handlePortal() {
@@ -661,6 +698,62 @@ export default function PerfilPage() {
         <p style={{ fontSize: 13, color: T.muted, padding: '0 4px', lineHeight: 1.7 }}>
           Ative para receber um report com as condições das suas trilhas favoritas em cada janela de envio.
         </p>
+      )}
+
+      {/* ── Preferências de dia/horário (vale para email e Telegram) ── */}
+      {(receberEmail || profile?.telegram_ativo) && (
+        <ProfileSection title="Quando você quer receber">
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dias da semana</span>
+              {prefsSaving && <Spinner size={12} />}
+              {prefsSaved && !prefsSaving && <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>✓ Salvo</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+              {DIAS_SEMANA.map(d => {
+                const ativo = notifDias.includes(d.value)
+                return (
+                  <button key={d.value} type="button" disabled={prefsSaving}
+                    onClick={() => handleToggleDia(d.value)}
+                    style={{
+                      width: 44, height: 36, borderRadius: 10,
+                      border: `1px solid ${ativo ? T.primary : T.border}`,
+                      background: ativo ? T.primary : '#fff',
+                      color: ativo ? '#fff' : T.muted,
+                      fontSize: 12, fontWeight: 700, cursor: prefsSaving ? 'not-allowed' : 'pointer',
+                      transition: 'background 0.15s, border-color 0.15s',
+                    }}>
+                    {d.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <span style={{ fontSize: 12, fontWeight: 600, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Janelas de envio (BRT)</span>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
+              {REPORT_SCHEDULE.map(s => {
+                const ativo = notifHorarios.includes(s.hora)
+                return (
+                  <button key={s.hora} type="button" disabled={prefsSaving}
+                    onClick={() => handleToggleHorario(s.hora)}
+                    style={{
+                      padding: '9px 16px', borderRadius: 10,
+                      border: `1px solid ${ativo ? T.primary : T.border}`,
+                      background: ativo ? T.primary : '#fff',
+                      color: ativo ? '#fff' : T.muted,
+                      fontSize: 13, fontWeight: 700, cursor: prefsSaving ? 'not-allowed' : 'pointer',
+                      transition: 'background 0.15s, border-color 0.15s',
+                    }}>
+                    {s.hora} <span style={{ fontWeight: 400, opacity: 0.85 }}>· {s.dias}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <p style={{ fontSize: 11, color: T.dim, marginTop: 14, lineHeight: 1.6 }}>
+              Vale para e-mail e Telegram. O sistema só gera reports nessas janelas — fora delas você não recebe nada mesmo com o dia/horário marcado.
+            </p>
+          </div>
+        </ProfileSection>
       )}
 
       {/* ── Telegram ── */}

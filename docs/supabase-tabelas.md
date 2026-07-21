@@ -805,6 +805,8 @@ Perfil estendido de cada usuário autenticado.
 | `email_trilhas_strava` | boolean | Inclui trilhas Strava no e-mail |
 | `telegram_ativo` | boolean | Opt-in de alertas Telegram |
 | `telegram_chat_id` | text | Chat ID do usuário no Telegram |
+| `notif_dias` | smallint[] | Dias da semana em que recebe email/Telegram. Segunda=0…Domingo=6 (default: todos) |
+| `notif_horarios` | text[] | Janelas de envio preferidas, subconjunto de `{06h,12h,16h,20h}` BRT (default: todas) |
 | `avatar_url` | text | URL pública da foto de perfil no bucket `avatars` |
 | `stripe_customer_id` | text | ID do cliente no Stripe |
 | `stripe_subscription_id` | text | ID da assinatura no Stripe |
