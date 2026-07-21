@@ -21,6 +21,23 @@ SEND_SECRET  = os.getenv("SEND_EMAIL_SECRET")
 APP_URL      = "https://www.mtbforecaster.com.br"
 BRT          = timezone(timedelta(hours=-3))
 
+# Janelas fixas de envio do pipeline (ver lib/schedule.ts / mtb-forecast-workflow.yml)
+_JANELAS = (6, 12, 16, 20)
+_TODOS_DIAS     = [0, 1, 2, 3, 4, 5, 6]
+_TODAS_JANELAS  = ["06h", "12h", "16h", "20h"]
+
+
+def _janela_atual(agora: datetime) -> str:
+    """Janela de envio mais próxima do horário atual (o script roda logo após o disparo)."""
+    mais_proxima = min(_JANELAS, key=lambda h: abs(h - agora.hour))
+    return f"{mais_proxima:02d}h"
+
+
+def _usuario_quer_receber_agora(u: dict, weekday_atual: int, janela_atual: str) -> bool:
+    dias      = u.get("notif_dias") or _TODOS_DIAS
+    horarios  = u.get("notif_horarios") or _TODAS_JANELAS
+    return weekday_atual in dias and janela_atual in horarios
+
 # ─── Paleta (espelha o TrilhaCard do app) ─────────────────────────────────────
 
 _VERD_STYLE = {
@@ -72,7 +89,7 @@ def _get(path: str) -> list:
 def _buscar_usuarios() -> list:
     return _get(
         "profiles"
-        "?select=id,email,apelido,nome,regiao"
+        "?select=id,email,apelido,nome,regiao,notif_dias,notif_horarios"
         "&receber_email=eq.true"
     )
 
@@ -308,12 +325,14 @@ def main() -> None:
         print("[Email] SUPABASE_SERVICE_ROLE_KEY ausente — abortando")
         return
 
-    agora    = datetime.now(BRT)
-    data_str = agora.strftime("%d-%m-%Y")
-    hora_str = agora.strftime("%H:%M")
-    data_hora = f"{data_str} | {hora_str}"
+    agora         = datetime.now(BRT)
+    data_str      = agora.strftime("%d-%m-%Y")
+    hora_str      = agora.strftime("%H:%M")
+    data_hora     = f"{data_str} | {hora_str}"
+    weekday_atual = agora.weekday()
+    janela_atual  = _janela_atual(agora)
 
-    print(f"\n[MTB Email] {data_hora} — iniciando...")
+    print(f"\n[MTB Email] {data_hora} — janela {janela_atual} — iniciando...")
 
     try:
         usuarios = _buscar_usuarios()
@@ -331,6 +350,9 @@ def main() -> None:
         uid   = u.get("id")
         email = u.get("email")
         if not uid or not email:
+            continue
+        if not _usuario_quer_receber_agora(u, weekday_atual, janela_atual):
+            print(f"  {email}: fora da preferência de dia/horário — pulando")
             continue
 
         apelido = u.get("apelido") or u.get("nome") or email.split("@")[0]

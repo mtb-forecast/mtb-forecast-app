@@ -161,6 +161,8 @@ export type Profile = {
   stripe_customer_id?: string
   avatar_url?: string | null
   receber_email?: boolean
+  notif_dias?: number[]
+  notif_horarios?: string[]
 }
 
 export type TrilhaComCondicao = Trilha & {
