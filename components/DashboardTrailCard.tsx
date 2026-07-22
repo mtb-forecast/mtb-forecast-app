@@ -177,7 +177,9 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
 
         {/* ── Mantenedor ── */}
         {trilha.mantenedor && (
-          <LogoMantenedor mantenedor={trilha.mantenedor} contexto="card" />
+          <div style={{ padding: '0 15px' }}>
+            <LogoMantenedor mantenedor={trilha.mantenedor} contexto="card" />
+          </div>
         )}
 
         {/* ── Tags ── */}
