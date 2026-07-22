@@ -94,7 +94,6 @@ function LogoMantenedorInner({ mantenedor, contexto }: Props) {
       marginTop: 7, paddingTop: 7,
       borderTop: '0.5px solid #eaece4',
     }}>
-      {label}
       <div style={{
         background: '#1e2018', borderRadius: 4,
         padding: '2px 7px 2px 5px',
