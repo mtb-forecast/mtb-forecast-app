@@ -15,6 +15,30 @@ function GoogleIcon() {
   )
 }
 
+const inputBaseStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'rgba(244,243,239,.05)',
+  border: '1px solid rgba(109,116,95,.28)',
+  borderRadius: 10,
+  padding: '11px 15px',
+  fontSize: 15,
+  color: '#F4F3EF',
+  fontFamily: 'var(--font-dm-sans)',
+  outline: 'none',
+}
+
+function fieldLabelStyle(): React.CSSProperties {
+  return {
+    fontFamily: 'var(--font-dm-mono)',
+    fontSize: 11,
+    letterSpacing: '1px',
+    textTransform: 'uppercase',
+    color: '#9AA093',
+    display: 'block',
+    marginBottom: 7,
+  }
+}
+
 function LoginFormInner() {
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -99,9 +123,10 @@ function LoginFormInner() {
     <>
       {error && (
         <div style={{
-          background: '#fee2e2', border: '1px solid #fca5a5',
-          color: '#991b1b', borderRadius: 4,
+          background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.35)',
+          color: '#FCA5A5', borderRadius: 10,
           padding: '10px 14px', marginBottom: 20, fontSize: 14,
+          fontFamily: 'var(--font-dm-sans)',
         }}>
           {error}
         </div>
@@ -109,30 +134,39 @@ function LoginFormInner() {
 
       <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>E-mail</label>
+          <label style={fieldLabelStyle()}>E-mail</label>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
             placeholder="seu@email.com"
-            className="input-field"
+            style={inputBaseStyle}
+            onFocus={ev => { ev.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+            onBlur={ev => { ev.currentTarget.style.borderColor = 'rgba(109,116,95,.28)' }}
           />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>Senha</label>
+          <label style={fieldLabelStyle()}>Senha</label>
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
             placeholder="••••••••"
-            className="input-field"
+            style={inputBaseStyle}
+            onFocus={ev => { ev.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+            onBlur={ev => { ev.currentTarget.style.borderColor = 'rgba(109,116,95,.28)' }}
           />
           <div style={{ textAlign: 'right', marginTop: 8 }}>
             <span
               onClick={() => { setShowForgot(true); setForgotEmail(email); setForgotSent(false); setForgotError(null) }}
-              style={{ fontSize: 13, color: '#6d745f', cursor: 'pointer', borderBottom: '1px solid #a8b899' }}
+              style={{
+                fontFamily: 'var(--font-dm-sans)', fontSize: 13, color: '#9AA093', cursor: 'pointer',
+                textDecoration: 'underline', textUnderlineOffset: 3,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#F4F3EF' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#9AA093' }}
             >
               Esqueci minha senha
             </span>
@@ -142,12 +176,25 @@ function LoginFormInner() {
           type="submit"
           disabled={loading}
           style={{
-            background: '#6d745f', color: '#fff',
-            border: 'none', borderRadius: 4,
-            padding: '10px 20px', fontSize: 14, fontWeight: 500,
+            background: '#F4F3EF', color: '#0E0F0D',
+            border: 'none', borderRadius: 999,
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '1.5px', fontSize: 18,
+            padding: '14px 20px',
             cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.7 : 1,
+            opacity: loading ? 0.4 : 1,
             width: '100%', marginTop: 8,
+            transition: 'transform .15s ease, opacity .15s ease',
+          }}
+          onMouseEnter={e => {
+            if (!loading) {
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.opacity = '0.92'
+            }
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.opacity = loading ? '0.4' : '1'
           }}
         >
           {loading ? 'Entrando...' : 'Entrar'}
@@ -155,30 +202,38 @@ function LoginFormInner() {
       </form>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
-        <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
-        <span style={{ fontSize: 12, color: '#888' }}>ou</span>
-        <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+        <div style={{ flex: 1, borderTop: '1px solid rgba(109,116,95,.28)' }} />
+        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093', letterSpacing: '.5px' }}>ou</span>
+        <div style={{ flex: 1, borderTop: '1px solid rgba(109,116,95,.28)' }} />
       </div>
 
       <button
         type="button"
         onClick={handleGoogleLogin}
         style={{
-          width: '100%', background: '#fff', color: '#111',
-          border: '1.5px solid #e5e5e5', borderRadius: 4,
-          padding: '12px 20px', fontSize: 14, fontWeight: 500,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          cursor: 'pointer',
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          background: 'rgba(244,243,239,.06)', border: '1px solid rgba(109,116,95,.28)',
+          borderRadius: 10, padding: '12px 20px', fontSize: 15, color: '#F4F3EF',
+          fontFamily: 'var(--font-dm-sans)', cursor: 'pointer',
         }}
-        onMouseEnter={e => (e.currentTarget.style.borderColor = '#6d745f')}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5e5e5')}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'rgba(244,243,239,.35)'
+          e.currentTarget.style.background = 'rgba(244,243,239,.10)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+          e.currentTarget.style.background = 'rgba(244,243,239,.06)'
+        }}
       >
         <GoogleIcon />
         Continuar com Google
       </button>
 
       <div style={{ textAlign: 'center', marginTop: 20 }}>
-        <a href="/cadastro" style={{ fontSize: 14, color: '#6d745f', fontWeight: 500, borderBottom: '1px solid #a8b899' }}>
+        <a href="/cadastro" style={{
+          fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#F4F3EF', fontWeight: 500,
+          textDecoration: 'underline', textUnderlineOffset: 3,
+        }}>
           Criar conta grátis
         </a>
       </div>
@@ -186,59 +241,90 @@ function LoginFormInner() {
       {showForgot && (
         <div
           onClick={() => setShowForgot(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.7)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 8, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+            style={{
+              background: '#171914', borderRadius: 16, border: '1px solid rgba(109,116,95,.28)',
+              padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 24px 60px rgba(0,0,0,.5)',
+            }}
           >
-            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 8 }}>Recuperar senha</h3>
+            <h3 style={{
+              fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 26,
+              textTransform: 'uppercase', letterSpacing: '.5px', color: '#F4F3EF', marginBottom: 8,
+            }}>
+              Recuperar senha
+            </h3>
             {forgotSent ? (
               <>
-                <p style={{ fontSize: 14, color: '#22c55e', lineHeight: 1.6, marginBottom: 24 }}>
+                <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#22C55E', lineHeight: 1.6, marginBottom: 24 }}>
                   E-mail enviado! Verifique sua caixa de entrada e clique no link para redefinir sua senha.
                 </p>
                 <button
                   onClick={() => setShowForgot(false)}
-                  style={{ width: '100%', background: '#6d745f', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 20px', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                  style={{
+                    width: '100%', background: '#F4F3EF', color: '#0E0F0D', border: 'none', borderRadius: 999,
+                    fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, textTransform: 'uppercase',
+                    letterSpacing: '1.5px', fontSize: 18, padding: '14px 20px', cursor: 'pointer',
+                    transition: 'transform .15s ease, opacity .15s ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.opacity = '0.92' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.opacity = '1' }}
                 >
                   Fechar
                 </button>
               </>
             ) : (
               <>
-                <p style={{ fontSize: 13, color: '#888', marginBottom: 20, lineHeight: 1.6 }}>
+                <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 13, color: '#9AA093', marginBottom: 20, lineHeight: 1.6 }}>
                   Digite seu e-mail e enviaremos um link para redefinir sua senha.
                 </p>
                 {forgotError && (
-                  <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 4, padding: '8px 12px', fontSize: 13, marginBottom: 16 }}>
+                  <div style={{
+                    background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.35)',
+                    color: '#FCA5A5', borderRadius: 10, padding: '8px 12px', fontSize: 13, marginBottom: 16,
+                    fontFamily: 'var(--font-dm-sans)',
+                  }}>
                     {forgotError}
                   </div>
                 )}
                 <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>E-mail</label>
+                    <label style={fieldLabelStyle()}>E-mail</label>
                     <input
                       type="email"
                       value={forgotEmail}
                       onChange={e => setForgotEmail(e.target.value)}
                       required
                       placeholder="seu@email.com"
-                      className="input-field"
+                      style={inputBaseStyle}
+                      onFocus={ev => { ev.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                      onBlur={ev => { ev.currentTarget.style.borderColor = 'rgba(109,116,95,.28)' }}
                     />
                   </div>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <button
                       type="button"
                       onClick={() => setShowForgot(false)}
-                      style={{ flex: 1, background: '#fff', color: '#111', border: '1.5px solid #e5e5e5', borderRadius: 4, padding: '10px', fontSize: 14, cursor: 'pointer' }}
+                      style={{
+                        flex: 1, background: 'rgba(244,243,239,.06)', color: '#F4F3EF',
+                        border: '1px solid rgba(109,116,95,.28)', borderRadius: 999,
+                        padding: 11, fontSize: 15, fontFamily: 'var(--font-dm-sans)', cursor: 'pointer',
+                      }}
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={forgotLoading}
-                      style={{ flex: 2, background: '#6d745f', color: '#fff', border: 'none', borderRadius: 4, padding: '10px', fontSize: 14, fontWeight: 500, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.7 : 1 }}
+                      style={{
+                        flex: 2, background: '#F4F3EF', color: '#0E0F0D', border: 'none', borderRadius: 999,
+                        fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, textTransform: 'uppercase',
+                        letterSpacing: '1.5px', fontSize: 15, padding: '11px 20px',
+                        cursor: forgotLoading ? 'not-allowed' : 'pointer',
+                        opacity: forgotLoading ? 0.4 : 1,
+                      }}
                     >
                       {forgotLoading ? 'Enviando...' : 'Enviar link'}
                     </button>
