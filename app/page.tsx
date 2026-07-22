@@ -211,7 +211,7 @@ export default function LandingPage() {
                 display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20,
               }}>
                 <span style={{ display: 'inline-block', width: 34, height: 2, background: '#6d745f' }} />
-                MTB · EMTB · XC · PUMP TRACK · MOTO · RUN
+                · MTB · EMTB · XC · PUMP TRACK ·
               </p>
               <h1 style={{
                 fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
