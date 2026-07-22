@@ -59,8 +59,8 @@ function soloText(a: string | null | undefined): string {
 
 function soloFontSize(a: string | null | undefined): number {
   const s = a?.trim()
-  if (s === 'GRIP PERFEITO' || s === 'BOA ADERÊNCIA - ÚMIDO' || s === 'BAIXA ADERÊNCIA') return 11
-  return 14
+  if (s === 'GRIP PERFEITO' || s === 'BOA ADERÊNCIA - ÚMIDO' || s === 'BAIXA ADERÊNCIA') return 15
+  return 20
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -124,19 +124,19 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
         }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
-            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 9,
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 12,
             textTransform: 'uppercase', letterSpacing: '.5px',
-            padding: '2px 6px', borderRadius: 4, background: cs.bg, color: cs.textColor,
+            padding: '3px 9px', borderRadius: 6, background: cs.bg, color: cs.textColor,
           }}>
-            <ChipIcon size={7} stroke={2.5} color={cs.textColor} />
+            <ChipIcon size={10} stroke={2.5} color={cs.textColor} />
             {veredictoText ?? 'Sem dados'}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {has12h && (
               <span style={{
-                fontFamily: 'var(--font-dm-mono)', fontSize: 7, color: '#9AA093',
-                border: '1px solid rgba(0,0,0,.1)', borderRadius: 3, padding: '1px 4px',
+                fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#9AA093',
+                border: '1px solid rgba(0,0,0,.1)', borderRadius: 3, padding: '2px 6px',
               }}>
                 12h
               </span>
@@ -159,17 +159,17 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
         {/* ── Info ── */}
         <div style={{ padding: '9px 11px 0' }}>
           <div style={{
-            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 15,
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 21,
             textTransform: 'uppercase', letterSpacing: '.3px', lineHeight: 1.05, color: '#1A1D18',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             {trilha.name}
           </div>
           <div style={{
-            fontFamily: 'var(--font-dm-mono)', fontSize: 8, color: '#6d745f', marginTop: 2,
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#6d745f', marginTop: 2,
             display: 'flex', alignItems: 'center', gap: 3,
           }}>
-            <IconMapPin size={7} stroke={2} color="#6d745f" />
+            <IconMapPin size={9} stroke={2} color="#6d745f" />
             {formatLocalidade(trilha.localidades, trilha.regiao)}
           </div>
         </div>
@@ -183,14 +183,14 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
               padding: '1px 5px',
             }}>
               <span style={{
-                fontSize: 7, fontWeight: 700, letterSpacing: '0.8px',
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.8px',
                 color: trilha.mantenedor.cor_primaria,
               }}>
                 {trilha.mantenedor.nome_primario ?? trilha.mantenedor.nome}
               </span>
               {trilha.mantenedor.nome_secundario && (
                 <span style={{
-                  fontSize: 8, fontWeight: 600, letterSpacing: '0.2px',
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.2px',
                   color: trilha.mantenedor.cor_secundaria ?? trilha.mantenedor.cor_primaria,
                 }}>
                   {trilha.mantenedor.nome_secundario}
@@ -205,9 +205,9 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
           <div style={{ padding: '6px 11px 0', display: 'flex', gap: 3, flexWrap: 'wrap' }}>
             {tags.map(tag => (
               <span key={tag} style={{
-                fontFamily: 'var(--font-dm-mono)', fontSize: 7, color: '#9AA093',
+                fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#9AA093',
                 background: '#F5F6F2', border: '1px solid rgba(0,0,0,.07)',
-                borderRadius: 999, padding: '1px 6px',
+                borderRadius: 999, padding: '2px 8px',
               }}>
                 {tag}
               </span>
@@ -218,7 +218,7 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
         {/* ── Data blocks ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, padding: '7px 11px 0' }}>
           <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 7, padding: '6px 8px' }}>
-            <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 7, letterSpacing: '.3px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
               Solo
             </p>
             <p style={{
@@ -229,12 +229,12 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
             </p>
           </div>
           <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 7, padding: '6px 8px' }}>
-            <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 7, letterSpacing: '.3px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
+            <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
               Última chuva
             </p>
             <p style={{
               fontFamily: 'var(--font-dm-mono)', fontWeight: 500, lineHeight: 1.1, color: '#1A1D18',
-              marginTop: 4, marginBottom: 0, fontSize: 14,
+              marginTop: 4, marginBottom: 0, fontSize: 20,
             }}>
               {c?.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
             </p>
@@ -258,7 +258,7 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, padding: '0 1px' }}>
             {['08h', '12h', '16h', '20h'].map(label => (
-              <span key={label} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 7, color: 'rgba(155,161,150,.5)' }}>
+              <span key={label} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: 'rgba(155,161,150,.5)' }}>
                 {label}
               </span>
             ))}
