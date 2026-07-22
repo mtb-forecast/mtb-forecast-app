@@ -265,15 +265,15 @@ export default function LandingPage() {
                     fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700,
                     fontSize: 24, color: '#F4F3EF', margin: 0, textTransform: 'uppercase',
                   }}>
-                    Saracura
+                    Morro do Cruzeiro
                   </p>
                   <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: '#9AA093', margin: '2px 0 0' }}>
-                    Extrema · MG
+                    São Roque · SP
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
-                  {['Enduro', 'Argiloso', 'Mata fechada'].map(tag => (
+                  {['Bikepark', 'Misto', 'Mata Atlântica'].map(tag => (
                     <span key={tag} style={{
                       fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#F4F3EF',
                       background: 'rgba(244,243,239,.08)', padding: '4px 10px', borderRadius: 999,
@@ -287,10 +287,10 @@ export default function LandingPage() {
                   display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16,
                 }}>
                   {[
-                    { label: 'Aderência', value: '92', color: '#22C55E' },
-                    { label: 'Solo', value: 'Grip perfeito', color: '#22C55E' },
-                    { label: 'Chuva 24h', value: '0.4mm', color: '#F4F3EF' },
-                    { label: 'Pico 3h', value: '1.2mm', color: '#F59E0B' },
+                    { label: 'Solo', value: 'Seco', color: '#22C55E' },
+                    { label: 'Meia-vida', value: '9.3h', color: '#F4F3EF' },
+                    { label: 'Chuva 48h', value: '0.0mm', color: '#F4F3EF' },
+                    { label: 'Pico 3h', value: '3.4mm', color: '#F59E0B' },
                   ].map(m => (
                     <div key={m.label} style={{
                       background: 'rgba(244,243,239,.05)', borderRadius: 12, padding: '12px 14px',
@@ -318,7 +318,7 @@ export default function LandingPage() {
                 }}>
                   <IconClock size={20} color="#F4F3EF" style={{ flexShrink: 0 }} />
                   <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 13, color: '#F4F3EF', margin: 0, lineHeight: 1.4 }}>
-                    Janela de pedal: <strong>hoje, 8h–14h</strong> — antes da virada do tempo
+                    Janela de pedal: <strong>hoje, o dia inteiro</strong> — chuva só chega amanhã, 08h
                   </p>
                 </div>
 
