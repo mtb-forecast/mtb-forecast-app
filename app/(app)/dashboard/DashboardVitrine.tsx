@@ -23,12 +23,12 @@ function fmtUltimaChuva(h: number): string {
 }
 
 function topBarColor(v: string | null): string {
-  if (!v) return '#d0d4c6'
+  if (!v) return '#e5e7eb'
   const u = v.toUpperCase()
-  if (u.includes('EVITAR') || u.includes('FECHADA')) return '#8a1a1a'
-  if (u.includes('ESPERAR') || u.includes('AGUARDAR') || u.includes('ALERTA')) return '#8a5e00'
-  if (u.includes('LIBERADO')) return '#2a6b1e'
-  return '#d0d4c6'
+  if (u.includes('EVITAR') || u.includes('FECHADA')) return '#EF4444'
+  if (u.includes('ESPERAR') || u.includes('AGUARDAR') || u.includes('ALERTA')) return '#F59E0B'
+  if (u.includes('LIBERADO')) return '#22C55E'
+  return '#e5e7eb'
 }
 
 type VerdictStyle = { Icon: TablerIcon; bg: string; text: string; border: string }
@@ -83,19 +83,20 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
   if (!trilha) {
     return (
       <div style={{
-        background: '#fff', borderRadius: 12, border: '0.5px solid #E5E7EB',
+        background: '#FFFFFF', borderRadius: 16, border: '1px solid rgba(0,0,0,.07)',
         padding: '32px 24px', textAlign: 'center',
       }}>
         <IconMapSearch size={40} style={{ color: '#9CA3AF', margin: '0 auto 12px', display: 'block' }} />
-        <p style={{ fontFamily: 'var(--font-barlow-condensed, "Barlow Condensed", sans-serif)', fontWeight: 800, fontSize: 20, color: '#2a2e25', margin: '0 0 6px' }}>
+        <p style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 20, color: '#1A1D18', margin: '0 0 6px', textTransform: 'uppercase' }}>
           Nenhuma trilha em {nomeEstado} ainda
         </p>
-        <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 16px', lineHeight: 1.5 }}>
+        <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 13, color: '#6B7280', margin: '0 0 16px', lineHeight: 1.5 }}>
           Seja o primeiro rider da sua região a cadastrar uma trilha e ajude outros a planejar a pedalada!
         </p>
         <Link href="/trilhas">
           <button style={{
-            background: '#FFE000', color: '#1A1A1A', fontWeight: 600,
+            background: '#1A1D18', color: '#F4F3EF', fontFamily: 'var(--font-barlow-condensed)',
+            fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px',
             borderRadius: 8, border: 'none', padding: '8px 20px', fontSize: 13, cursor: 'pointer',
           }}>
             + Cadastrar trilha
@@ -128,12 +129,12 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
     <div>
       {/* Label regional */}
       <div style={{ marginBottom: 6 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#6d745f', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#6d745f' }}>
           {userEstado} · Bem-vindo!
         </span>
         <p style={{
-          fontFamily: 'var(--font-barlow-condensed, "Barlow Condensed", sans-serif)',
-          fontWeight: 800, fontSize: 20, color: '#2a2e25', margin: '2px 0 0', lineHeight: 1.1,
+          fontFamily: 'var(--font-barlow-condensed)',
+          fontWeight: 800, fontSize: 20, color: '#1A1D18', margin: '2px 0 0', lineHeight: 1.1, textTransform: 'uppercase',
         }}>
           Trilha mais popular da sua região
         </p>
@@ -141,11 +142,11 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
 
       {/* Card */}
       <div style={{
-        borderRadius: 14, border: '0.5px solid #d0d4c6',
-        background: '#ffffff', overflow: 'hidden',
+        borderRadius: 16, border: '1px solid rgba(0,0,0,.07)',
+        background: '#FFFFFF', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,.05)',
       }}>
         {/* Barra de acento */}
-        <div style={{ height: 3, width: '100%', background: barColor }} />
+        <div style={{ height: 4, width: '100%', background: barColor }} />
 
         {/* Card body */}
         <div style={{ padding: '14px 16px 12px' }}>
@@ -154,12 +155,13 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontSize: 14, fontWeight: 600, color: '#2a2e25', lineHeight: 1.3,
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: 20,
+                textTransform: 'uppercase', color: '#1A1D18', lineHeight: 1.1,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
                 {trilha.name}
               </div>
-              <div style={{ fontSize: 11, color: '#6d745f', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#6d745f', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}>
                 <IconMapPin size={10} />
                 {formatLocalidade(trilha.localidades, trilha.regiao)}
               </div>
@@ -225,27 +227,27 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
         {/* Card footer */}
         {hasData && c ? (
           <div style={{
-            borderTop: '0.5px solid #d0d4c6',
-            background: '#f4f5f0',
+            borderTop: '1px solid rgba(0,0,0,.05)',
+            background: '#F8F9F5',
             padding: '8px 16px 10px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#8a9480', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#9AA093', display: 'flex', alignItems: 'center', gap: 4 }}>
               <IconHourglass size={11} />
               {c.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
             </div>
-            <Link href={`/trilhas/${trilha.id}`} style={{ fontSize: 11, color: '#6d745f', fontWeight: 500, textDecoration: 'none' }}>
+            <Link href={`/trilhas/${trilha.id}`} style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 11, color: '#6d745f', fontWeight: 500, textDecoration: 'none' }}>
               Ver condição completa →
             </Link>
           </div>
         ) : (
           <div style={{
-            borderTop: '0.5px solid #d0d4c6',
-            background: '#f4f5f0',
+            borderTop: '1px solid rgba(0,0,0,.05)',
+            background: '#F8F9F5',
             padding: '8px 16px 10px',
             display: 'flex', justifyContent: 'flex-end',
           }}>
-            <Link href={`/trilhas/${trilha.id}`} style={{ fontSize: 11, color: '#6d745f', fontWeight: 500, textDecoration: 'none' }}>
+            <Link href={`/trilhas/${trilha.id}`} style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 11, color: '#6d745f', fontWeight: 500, textDecoration: 'none' }}>
               Ver condição completa →
             </Link>
           </div>
@@ -254,16 +256,17 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
 
       {/* CTA abaixo do card */}
       <div style={{
-        background: '#fff', borderRadius: 12, border: '0.5px solid #E5E7EB',
+        background: '#FFFFFF', borderRadius: 12, border: '1px solid rgba(0,0,0,.07)',
         padding: '10px 14px', display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', marginTop: 8,
+        justifyContent: 'space-between', marginTop: 8, flexWrap: 'wrap', gap: 8,
       }}>
-        <span style={{ fontSize: 12, color: '#6B7280' }}>
-          Mais <strong style={{ color: '#2a2e25' }}>{totalTrilhasRegiao - 1 > 0 ? totalTrilhasRegiao - 1 : totalTrilhasRegiao}</strong> trilhas monitoradas em {userEstado}
+        <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 12, color: '#6B7280' }}>
+          Mais <strong style={{ color: '#1A1D18' }}>{totalTrilhasRegiao - 1 > 0 ? totalTrilhasRegiao - 1 : totalTrilhasRegiao}</strong> trilhas monitoradas em {userEstado}
         </span>
         <Link href="/trilhas">
           <button style={{
-            background: '#FFE000', color: '#1A1A1A', fontWeight: 600,
+            background: '#1A1D18', color: '#F4F3EF', fontFamily: 'var(--font-barlow-condensed)',
+            fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px',
             borderRadius: 8, border: 'none', padding: '6px 12px', fontSize: 12, cursor: 'pointer',
           }}>
             Explorar todas

@@ -31,10 +31,9 @@ export default async function DashboardFrase() {
 
   return (
     <p style={{
-      marginTop: 10, marginBottom: 0,
-      fontSize: 13, fontStyle: 'italic',
-      color: 'rgba(168,184,153,0.85)',
-      lineHeight: 1.5, maxWidth: 480,
+      fontFamily: 'var(--font-dm-mono)', fontStyle: 'italic', fontSize: 12,
+      color: 'rgba(154,160,147,.7)',
+      marginTop: 10, marginBottom: 0, lineHeight: 1.5, maxWidth: 480,
     }}>
       &ldquo;{frase}&rdquo;
     </p>
