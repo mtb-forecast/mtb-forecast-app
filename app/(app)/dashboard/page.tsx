@@ -1,10 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
-import {
-  IconBolt, IconAlertTriangle, IconBellOff, IconCheck,
-  IconLayoutGrid, IconMap2, IconPlayerPlay, IconMapPin, IconUser, IconSun,
-} from '@tabler/icons-react'
+import { IconAlertTriangle, IconBellOff, IconCheck, IconSun } from '@tabler/icons-react'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import DashboardFavoritas from './DashboardFavoritas'
 import DashboardFrase from './DashboardFrase'
@@ -30,14 +27,6 @@ const BONE_BUTTON_STYLE: React.CSSProperties = {
   borderRadius: 999, padding: '5px 14px', textDecoration: 'none', whiteSpace: 'nowrap',
 }
 
-const BOTTOM_NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', Icon: IconLayoutGrid, active: true },
-  { href: '/trilhas', label: 'Trilhas', Icon: IconMap2, active: false },
-  { href: '/gravar', label: 'Gravar', Icon: IconPlayerPlay, active: false },
-  { href: '/mapa', label: 'Mapa', Icon: IconMapPin, active: false },
-  { href: '/perfil', label: 'Perfil', Icon: IconUser, active: false },
-]
-
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
   // getSession() lê do cookie sem round-trip de rede — o middleware já validou
@@ -60,44 +49,9 @@ export default async function DashboardPage() {
   const profile = profileData
   const name = profile?.apelido || profile?.nome?.split(' ')[0] || user.email?.split('@')[0]
   const favTrilhaIds = (favIds ?? []).map((f: { trilha_id: string }) => f.trilha_id)
-  const initial = (name ?? '?').charAt(0).toUpperCase()
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
-
-      {/* ── Nav ── */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 40, height: 52,
-        background: '#171914', borderBottom: '1px solid rgba(109,116,95,.25)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px',
-      }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
-          <span style={{
-            width: 24, height: 24, background: '#F4F3EF', borderRadius: 6,
-            display: 'grid', placeItems: 'center', flexShrink: 0,
-          }}>
-            <IconBolt size={13} strokeWidth={2.5} color="#0E0F0D" />
-          </span>
-          <span style={{
-            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 19,
-            textTransform: 'uppercase', letterSpacing: '.5px', color: '#F4F3EF',
-          }}>
-            MTB Forecaster
-          </span>
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{
-            width: 30, height: 30, borderRadius: '50%', background: '#6d745f',
-            display: 'grid', placeItems: 'center',
-            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 13, color: '#F4F3EF',
-          }}>
-            {initial}
-          </span>
-          <Link href="/logout" style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 13, color: '#9AA093', textDecoration: 'none' }}>
-            Sair
-          </Link>
-        </div>
-      </nav>
 
       {/* ── Hero — h1 é o elemento LCP; pinta antes dos cards carregarem ── */}
       <div style={{
@@ -192,7 +146,7 @@ export default async function DashboardPage() {
       )}
 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
-      <div style={{ padding: '24px 28px 100px', maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ padding: '24px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
         <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
@@ -259,33 +213,6 @@ export default async function DashboardPage() {
         </Link>
 
       </div>
-
-      {/* ── Bottom nav ── */}
-      <nav style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-        background: '#171914', borderTop: '1px solid rgba(109,116,95,.25)',
-        height: 60, display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-      }}>
-        {BOTTOM_NAV_ITEMS.map(({ href, label, Icon, active }) => (
-          <Link
-            key={href}
-            href={href}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-              padding: '6px 14px', textDecoration: 'none',
-            }}
-          >
-            <Icon size={21} stroke={1.75} color={active ? '#F4F3EF' : '#9AA093'} />
-            <span style={{
-              fontFamily: 'var(--font-dm-mono)', fontSize: 9,
-              color: active ? '#F4F3EF' : '#9AA093',
-            }}>
-              {label}
-            </span>
-            {active && <span style={{ width: 3, height: 3, borderRadius: '50%', background: '#F4F3EF' }} />}
-          </Link>
-        ))}
-      </nav>
 
       <PWAInstallPrompt />
     </div>
