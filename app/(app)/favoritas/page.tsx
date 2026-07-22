@@ -133,7 +133,11 @@ export default async function FavoritasPage() {
 
       {/* ── Conteúdo ── */}
       <div style={{ padding: '24px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
-        <FavoritasGrid initialTrilhas={trilhas} />
+        <FavoritasGrid
+          initialTrilhas={trilhas}
+          initialFavIds={ids}
+          userId={userId}
+        />
       </div>
     </div>
   )
