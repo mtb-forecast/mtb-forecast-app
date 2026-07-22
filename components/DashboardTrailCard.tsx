@@ -10,7 +10,6 @@ import {
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
-import { LogoMantenedor } from '@/components/LogoMantenedor'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -177,8 +176,27 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
 
         {/* ── Mantenedor ── */}
         {trilha.mantenedor && (
-          <div style={{ padding: '0 15px' }}>
-            <LogoMantenedor mantenedor={trilha.mantenedor} contexto="card" />
+          <div style={{ padding: '6px 15px 0' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              background: '#1e2018', borderRadius: 4,
+              padding: '2px 7px',
+            }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.8px',
+                color: trilha.mantenedor.cor_primaria,
+              }}>
+                {trilha.mantenedor.nome_primario ?? trilha.mantenedor.nome}
+              </span>
+              {trilha.mantenedor.nome_secundario && (
+                <span style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.2px',
+                  color: trilha.mantenedor.cor_secundaria ?? trilha.mantenedor.cor_primaria,
+                }}>
+                  {trilha.mantenedor.nome_secundario}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
