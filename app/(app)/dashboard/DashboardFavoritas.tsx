@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import Link from 'next/link'
+import { IconCircleCheck, IconAlertTriangle, IconHourglass } from '@tabler/icons-react'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import DashboardVitrine from './DashboardVitrine'
 import type { TrilhaComCondicao } from '@/lib/types'
@@ -12,6 +13,22 @@ const RANKING_VEREDICTO: Record<string, number> = {
 }
 const RANKING_ADERENCIA: Record<string, number> = {
   'GRIP PERFEITO': 0, 'SECO': 1, 'BOA ADERÊNCIA': 2, 'BAIXA ADERÊNCIA': 3,
+}
+
+const PREVISAO_BLOCOS_SELECT = 'previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med, gerado_em)'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mergePrevisao24h(t: any) {
+  const blocos = Array.isArray(t.previsao_blocos)
+    ? [...t.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
+    : null
+  const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+  arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
+    new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
+  )
+  const condicao = arr[0] ?? undefined
+  if (condicao && blocos?.length) condicao.previsao_24h = blocos
+  return condicao
 }
 
 export default async function DashboardFavoritas({
@@ -36,13 +53,15 @@ export default async function DashboardFavoritas({
       )
     }
     return (
-      <div style={{ background: '#fff', border: '0.5px solid #E5E7EB', borderRadius: 12, padding: 40, textAlign: 'center' }}>
-        <p style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>
+      <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16, padding: 40, textAlign: 'center' }}>
+        <p style={{ fontFamily: 'var(--font-dm-sans)', color: '#9AA093', fontSize: 14, marginBottom: 16 }}>
           Você ainda não tem trilhas favoritas.
         </p>
         <Link href="/trilhas" style={{
-          background: '#6d745f', color: '#fff', border: 'none', borderRadius: 4,
-          padding: '10px 20px', fontSize: 13, fontWeight: 500, textDecoration: 'none',
+          background: '#1A1D18', color: '#F4F3EF', border: 'none', borderRadius: 999,
+          padding: '9px 20px', fontSize: 13, fontFamily: 'var(--font-barlow-condensed)',
+          fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', textDecoration: 'none',
+          display: 'inline-block',
         }}>
           Explorar trilhas
         </Link>
@@ -64,12 +83,14 @@ export default async function DashboardFavoritas({
           aderencia_status, aderencia_futura_status, aderencia_futura_label,
           pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
           texto_dinamico, frase_secagem, gerado_em
-        )
+        ),
+        ${PREVISAO_BLOCOS_SELECT}
       `)
       .in('id', favTrilhaIds)
       .eq('aprovada', true)
       .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
-      .limit(1, { foreignTable: 'condicoes' }),
+      .limit(1, { foreignTable: 'condicoes' })
+      .order('bloco', { foreignTable: 'previsao_blocos' }),
     sb.from('observacoes_trilha')
       .select('trilha_id, estrelas')
       .gte('created_at', h48atras)
@@ -78,11 +99,8 @@ export default async function DashboardFavoritas({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapped = (trilhasData as any[] ?? []).map((t) => {
-    const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-    arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
-      new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
-    )
-    return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
+    const condicao = mergePrevisao24h(t)
+    return { ...t, condicao } as TrilhaComCondicao
   })
 
   const favoritasAll = [...mapped].sort((a, b) => {
@@ -117,20 +135,32 @@ export default async function DashboardFavoritas({
   return (
     <>
       {favoritas.length > 0 && (
-        <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 13, flexWrap: 'wrap' }}>
           {liberadas > 0 && (
-            <span style={{ fontSize: 13, color: '#4ADE80', fontWeight: 500 }}>
-              ✅ {liberadas} liberada{liberadas !== 1 ? 's' : ''}
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              fontFamily: 'var(--font-dm-mono)', fontSize: 12, fontWeight: 500, color: '#22C55E',
+            }}>
+              <IconCircleCheck size={12} stroke={2} />
+              {liberadas} liberada{liberadas !== 1 ? 's' : ''}
             </span>
           )}
           {comAlerta > 0 && (
-            <span style={{ fontSize: 13, color: '#FCD34D', fontWeight: 500 }}>
-              ⚠️ {comAlerta} com alerta
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              fontFamily: 'var(--font-dm-mono)', fontSize: 12, fontWeight: 500, color: '#F59E0B',
+            }}>
+              <IconAlertTriangle size={12} stroke={2} />
+              {comAlerta} com alerta
             </span>
           )}
           {aguardando > 0 && (
-            <span style={{ fontSize: 13, color: '#9CA3AF', fontWeight: 500 }}>
-              ⏳ {aguardando} sem dados
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              fontFamily: 'var(--font-dm-mono)', fontSize: 12, fontWeight: 500, color: '#9AA093',
+            }}>
+              <IconHourglass size={12} stroke={2} />
+              {aguardando} sem dados
             </span>
           )}
         </div>
@@ -145,14 +175,15 @@ export default async function DashboardFavoritas({
         ))}
       </div>
       {totalFavoritas > 5 && (
-        <div style={{ marginTop: 10, textAlign: 'center' }}>
-          <Link href="/favoritas" style={{
-            fontSize: 12, color: '#6d745f', fontWeight: 500,
-            textDecoration: 'none', display: 'inline-block',
-          }}>
-            +{totalFavoritas - 5} favoritas ocultas — ver todas
-          </Link>
-        </div>
+        <Link
+          href="/favoritas"
+          style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: '#6d745f',
+            textDecoration: 'none', textAlign: 'center', marginTop: 10, display: 'block',
+          }}
+        >
+          +{totalFavoritas - 5} favoritas ocultas — ver todas
+        </Link>
       )}
     </>
   )
@@ -176,12 +207,14 @@ async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondic
           pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
           texto_dinamico, frase_secagem, gerado_em
         ),
+        ${PREVISAO_BLOCOS_SELECT},
         favoritos_agg:favoritos(count)
       `)
       .eq('regiao', estado)
       .eq('aprovada', true)
       .order('gerado_em', { foreignTable: 'condicoes', ascending: false })
       .limit(1, { foreignTable: 'condicoes' })
+      .order('bloco', { foreignTable: 'previsao_blocos' })
       .limit(30),
     sb.from('trilhas')
       .select('id', { count: 'exact', head: true })
@@ -195,12 +228,9 @@ async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondic
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapped = (trilhasData as any[]).map((t) => {
-    const arr = Array.isArray(t.condicoes) ? t.condicoes : []
-    arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
-      new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
-    )
+    const condicao = mergePrevisao24h(t)
     const favCount = Array.isArray(t.favoritos_agg) ? (t.favoritos_agg[0]?.count ?? 0) : 0
-    return { ...t, condicao: arr[0] ?? undefined, _favCount: favCount } as TrilhaComCondicao & { _favCount: number }
+    return { ...t, condicao, _favCount: favCount } as TrilhaComCondicao & { _favCount: number }
   })
 
   mapped.sort((a, b) => b._favCount - a._favCount)
