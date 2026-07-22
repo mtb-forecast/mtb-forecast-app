@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { ESTADOS_BRASIL } from '@/lib/types'
+import { IconBolt, IconMap2, IconBellRinging, IconSun, IconCheck } from '@tabler/icons-react'
 
 type FormData = {
   nome: string
@@ -49,11 +50,11 @@ function isFormValid(data: FormData): boolean {
 
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null
-  return <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{msg}</p>
+  return <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 12, color: '#EF4444', marginTop: 4 }}>{msg}</p>
 }
 
 function RequiredStar() {
-  return <span style={{ color: '#ef4444' }}> *</span>
+  return <span style={{ color: '#EF4444' }}> *</span>
 }
 
 function GoogleIcon() {
@@ -65,6 +66,69 @@ function GoogleIcon() {
       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
     </svg>
   )
+}
+
+const TOPO_SVG = `
+<svg xmlns='http://www.w3.org/2000/svg' width='800' height='900' viewBox='0 0 800 900'>
+  <g fill='none' stroke='%236d745f' stroke-opacity='0.18' stroke-width='1.4'>
+    <path d='M400,140 C500,130 580,200 590,310 C600,420 555,510 460,565 C365,620 260,600 205,515 C150,430 160,320 235,240 C295,180 350,150 400,140 Z'/>
+    <path d='M400,90 C530,75 630,160 645,310 C660,460 600,575 490,640 C380,705 250,680 175,585 C100,490 115,335 205,245 C275,175 340,105 400,90 Z'/>
+    <path d='M400,40 C560,25 680,130 700,310 C720,490 645,630 505,705 C365,780 205,750 115,635 C25,520 45,335 155,220 C245,125 330,55 400,40 Z'/>
+    <path d='M400,-10 C590,-30 730,100 755,310 C780,520 690,685 520,770 C355,855 155,820 55,685 C-45,550 -25,335 105,195 C215,75 320,10 400,-10 Z'/>
+    <path d='M400,-60 C620,-85 780,70 810,310 C840,550 735,740 535,835 C345,930 105,890 -5,735 C-115,580 -95,335 55,170 C185,25 310,-25 400,-60 Z'/>
+  </g>
+</svg>
+`.replace(/\s+/g, ' ').trim()
+
+const TOPO_DATA_URI = `url("data:image/svg+xml,${TOPO_SVG}")`
+
+const CHEVRON_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5L6 6.5L11 1.5' stroke='%239AA093' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>`
+const CHEVRON_DATA_URI = `url("data:image/svg+xml,${CHEVRON_SVG.replace(/\s+/g, ' ').trim()}")`
+
+const FEATURES = [
+  { icon: IconMap2, text: 'Trilhas MTB com <b>modelo de solo por meia-vida</b>' },
+  { icon: IconSun, text: 'Pump Tracks com <b>previsão de chuva</b> e reviews' },
+  { icon: IconBellRinging, text: '<b>Alertas Telegram</b> quando sua trilha liberar' },
+  { icon: IconBolt, text: 'Veredicto <b>DROP LIBERADO / MELHOR ESPERAR</b>' },
+]
+
+function FeatureLine({ text }: { text: string }) {
+  const parts = text.split(/(<b>.*?<\/b>)/g)
+  return (
+    <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#9AA093' }}>
+      {parts.map((part, i) => {
+        const m = part.match(/^<b>(.*)<\/b>$/)
+        if (m) {
+          return <b key={i} style={{ color: '#F4F3EF', fontWeight: 500 }}>{m[1]}</b>
+        }
+        return <span key={i}>{part}</span>
+      })}
+    </span>
+  )
+}
+
+const inputBaseStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'rgba(244,243,239,.05)',
+  border: '1px solid rgba(109,116,95,.28)',
+  borderRadius: 10,
+  padding: '11px 15px',
+  fontSize: 15,
+  color: '#F4F3EF',
+  fontFamily: 'var(--font-dm-sans)',
+  outline: 'none',
+}
+
+function fieldLabelStyle(): React.CSSProperties {
+  return {
+    fontFamily: 'var(--font-dm-mono)',
+    fontSize: 11,
+    letterSpacing: '1px',
+    textTransform: 'uppercase',
+    color: '#9AA093',
+    display: 'block',
+    marginBottom: 7,
+  }
 }
 
 function CadastroContent() {
@@ -177,14 +241,27 @@ function CadastroContent() {
 
   if (success) {
     return (
-      <div style={{ minHeight: '100vh', background: '#2a2e25', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', maxWidth: 400, padding: 48 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-          <h2 className="font-wheat" style={{ color: '#fff', fontSize: 28, marginBottom: 12 }}>Conta criada!</h2>
-          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6 }}>
-            Verifique seu e-mail para confirmar o cadastro. Redirecionando para o login...
-          </p>
+      <div style={{
+        minHeight: '100vh', background: '#0E0F0D',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column', gap: 20, textAlign: 'center', padding: 48,
+      }}>
+        <div style={{
+          width: 64, height: 64, background: 'rgba(34,197,94,.12)',
+          border: '2px solid rgba(34,197,94,.4)', borderRadius: '50%',
+          display: 'grid', placeItems: 'center',
+        }}>
+          <IconCheck size={28} stroke={2.5} color="#22C55E" />
         </div>
+        <h2 style={{
+          fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 38,
+          textTransform: 'uppercase', color: '#F4F3EF', margin: 0,
+        }}>
+          Conta criada!
+        </h2>
+        <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 15, color: '#9AA093', maxWidth: 360, lineHeight: 1.6, margin: 0 }}>
+          Verifique seu e-mail para confirmar o cadastro. Redirecionando para o login...
+        </p>
       </div>
     )
   }
@@ -192,121 +269,213 @@ function CadastroContent() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2" style={{ minHeight: '100vh' }}>
 
-      {/* Left: black branding panel */}
+      {/* Left: branding panel */}
       <div
         className="hidden lg:flex"
-        style={{ background: '#2a2e25', padding: 48, flexDirection: 'column', justifyContent: 'space-between' }}
+        style={{
+          background: '#0E0F0D', borderRight: '1px solid rgba(109,116,95,.28)',
+          flexDirection: 'column', justifyContent: 'space-between',
+          padding: '44px 48px', position: 'relative', overflow: 'hidden',
+        }}
       >
-        <Link href="/" className="font-wheat" style={{ color: '#fff', fontSize: 18, letterSpacing: '1.5px' }}>
-          MTB FORECASTER
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            backgroundImage: TOPO_DATA_URI,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center top',
+          }}
+        />
+
+        <Link href="/" style={{
+          position: 'relative', zIndex: 1,
+          display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none',
+        }}>
+          <span style={{
+            width: 28, height: 28, background: '#F4F3EF', borderRadius: 7,
+            display: 'grid', placeItems: 'center', flexShrink: 0,
+          }}>
+            <IconBolt size={16} stroke={2.4} color="#0E0F0D" />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            fontSize: 22, textTransform: 'uppercase', letterSpacing: '.5px', color: '#F4F3EF',
+          }}>
+            MTB Forecaster
+          </span>
         </Link>
-        <div>
-          <h1 className="font-wheat" style={{ color: '#fff', fontSize: 36, lineHeight: 1.1, marginBottom: 16 }}>
-            Junte-se<br />aos riders.
-          </h1>
-          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.7, maxWidth: 320, marginBottom: 24 }}>
-            Crie sua conta grátis e nunca mais vá pedalar numa trilha encharcada por falta de informação.
+
+        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '48px 0 32px' }}>
+          <h2 style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            fontSize: 'clamp(38px, 4vw, 54px)', textTransform: 'uppercase',
+            lineHeight: 0.95, color: '#F4F3EF', margin: '0 0 20px',
+          }}>
+            Junte-se<br />aos{' '}
+            <span style={{ color: 'transparent', WebkitTextStroke: '2px #F4F3EF' }}>riders.</span>
+          </h2>
+          <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 15, color: '#9AA093', maxWidth: 340, marginBottom: 36 }}>
+            Nunca mais vá pedalar numa trilha encharcada por falta de informação. Grátis pra começar.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { icon: '🏔', text: 'Trilhas MTB com modelo de solo' },
-              { icon: '🟣', text: 'Pump tracks com previsão do tempo' },
-              { icon: '🗺', text: 'Navegação via Waze integrada' },
-              { icon: '⚡', text: 'Veredicto DROP LIBERADO / ESPERAR' },
-            ].map(f => (
-              <div key={f.text} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 14 }}>{f.icon}</span>
-                <span style={{ fontSize: 12, color: '#666' }}>{f.text}</span>
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {FEATURES.map((f, i) => {
+              const Icon = f.icon
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 34, height: 34, background: 'rgba(244,243,239,.07)',
+                    border: '1px solid rgba(109,116,95,.28)', borderRadius: 9,
+                    display: 'grid', placeItems: 'center', flexShrink: 0,
+                  }}>
+                    <Icon size={16} stroke={2} color="#9AA093" />
+                  </div>
+                  <FeatureLine text={f.text} />
+                </div>
+              )
+            })}
           </div>
         </div>
-        <p style={{ color: '#444', fontSize: 12 }}>MTB Forecaster © 2025</p>
+
+        <p style={{ position: 'relative', zIndex: 1, fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.45)', margin: 0 }}>
+          MTB Forecaster © 2026
+        </p>
       </div>
 
       {/* Right: form panel */}
-      <div style={{ background: '#fff', padding: '48px 48px', display: 'flex', flexDirection: 'column', justifyContent: 'center', overflowY: 'auto' }}>
+      <div style={{
+        background: '#171914', display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', padding: '48px 56px', overflowY: 'auto',
+      }}>
 
         {/* Mobile logo */}
-        <Link href="/" className="font-wheat lg:hidden" style={{ color: '#111', fontSize: 18, letterSpacing: '1.5px', display: 'block', marginBottom: 32 }}>
-          MTB FORECASTER
+        <Link href="/" className="lg:hidden" style={{
+          display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 36,
+        }}>
+          <span style={{
+            width: 24, height: 24, background: '#F4F3EF', borderRadius: 6,
+            display: 'grid', placeItems: 'center', flexShrink: 0,
+          }}>
+            <IconBolt size={14} stroke={2.4} color="#0E0F0D" />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            fontSize: 20, textTransform: 'uppercase', letterSpacing: '.5px', color: '#F4F3EF',
+          }}>
+            MTB Forecaster
+          </span>
         </Link>
 
         <div style={{ maxWidth: 420, width: '100%' }}>
-          <h2 className="font-wheat" style={{ fontSize: 28, color: '#111', marginBottom: 8 }}>Criar conta</h2>
-          <p style={{ fontSize: 13, color: '#888', marginBottom: 28 }}>
-            Campos com <span style={{ color: '#ef4444' }}>*</span> são obrigatórios
+          <h1 style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 36,
+            textTransform: 'uppercase', letterSpacing: '.5px', color: '#F4F3EF', margin: '0 0 8px',
+          }}>
+            Criar conta
+          </h1>
+          <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#9AA093', marginBottom: 28 }}>
+            Campos com <span style={{ color: '#EF4444' }}>*</span> são obrigatórios
           </p>
 
           <button
             type="button"
             onClick={handleGoogleLogin}
             style={{
-              width: '100%', background: '#fff', color: '#111',
-              border: '1.5px solid #e5e5e5', borderRadius: 4,
-              padding: '12px 20px', fontSize: 14, fontWeight: 500,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              cursor: 'pointer', marginBottom: 4,
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              background: 'rgba(244,243,239,.06)', border: '1px solid rgba(109,116,95,.28)',
+              borderRadius: 10, padding: '12px 20px', fontSize: 15, color: '#F4F3EF',
+              fontFamily: 'var(--font-dm-sans)', cursor: 'pointer',
             }}
-            onMouseEnter={e => (e.currentTarget.style.borderColor = '#6d745f')}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5e5e5')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'rgba(244,243,239,.35)'
+              e.currentTarget.style.background = 'rgba(244,243,239,.10)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+              e.currentTarget.style.background = 'rgba(244,243,239,.06)'
+            }}
           >
             <GoogleIcon />
             Continuar com Google
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
-            <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
-            <span style={{ fontSize: 12, color: '#888' }}>ou cadastre-se com email</span>
-            <div style={{ flex: 1, height: 1, background: '#e5e5e5' }} />
+            <div style={{ flex: 1, borderTop: '1px solid rgba(109,116,95,.28)' }} />
+            <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093', letterSpacing: '.5px' }}>
+              ou cadastre-se com e-mail
+            </span>
+            <div style={{ flex: 1, borderTop: '1px solid rgba(109,116,95,.28)' }} />
           </div>
 
           {serverError && (
-            <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '10px 14px', marginBottom: 20, fontSize: 13 }}>
+            <div style={{
+              background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.35)',
+              color: '#FCA5A5', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13,
+              fontFamily: 'var(--font-dm-sans)',
+            }}>
               {serverError}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }} noValidate>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} noValidate>
 
-            {/* Nome */}
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                Nome completo<RequiredStar />
-              </label>
-              <input
-                type="text"
-                value={form.nome}
-                onChange={e => set('nome', e.target.value)}
-                onBlur={() => touch('nome')}
-                placeholder="Seu nome completo"
-                className="input-field"
-                style={{ borderColor: (submitted || touched.nome) && errors.nome ? '#ef4444' : undefined }}
-              />
-              <FieldError msg={(submitted || touched.nome) ? errors.nome : undefined} />
-            </div>
+            {/* Nome + Apelido */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={fieldLabelStyle()}>
+                  Nome completo<RequiredStar />
+                </label>
+                <input
+                  type="text"
+                  value={form.nome}
+                  onChange={e => set('nome', e.target.value)}
+                  onBlur={() => touch('nome')}
+                  placeholder="Seu nome completo"
+                  style={{
+                    ...inputBaseStyle,
+                    borderColor: (submitted || touched.nome) && errors.nome ? '#EF4444' : 'rgba(109,116,95,.28)',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                  onBlurCapture={e => {
+                    if (!((submitted || touched.nome) && errors.nome)) {
+                      e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+                    }
+                  }}
+                />
+                <FieldError msg={(submitted || touched.nome) ? errors.nome : undefined} />
+              </div>
 
-            {/* Apelido */}
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                Apelido<RequiredStar />
-              </label>
-              <input
-                type="text"
-                value={form.apelido}
-                onChange={e => set('apelido', e.target.value)}
-                onBlur={() => touch('apelido')}
-                placeholder="Como você é conhecido na trilha"
-                className="input-field"
-                style={{ borderColor: (submitted || touched.apelido) && errors.apelido ? '#ef4444' : undefined }}
-              />
-              <p style={{ fontSize: 12, color: '#bbb', marginTop: 4 }}>Este nome será exibido no app</p>
-              <FieldError msg={(submitted || touched.apelido) ? errors.apelido : undefined} />
+              <div>
+                <label style={fieldLabelStyle()}>
+                  Apelido<RequiredStar />
+                </label>
+                <input
+                  type="text"
+                  value={form.apelido}
+                  onChange={e => set('apelido', e.target.value)}
+                  onBlur={() => touch('apelido')}
+                  placeholder="Como te chamam"
+                  style={{
+                    ...inputBaseStyle,
+                    borderColor: (submitted || touched.apelido) && errors.apelido ? '#EF4444' : 'rgba(109,116,95,.28)',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                  onBlurCapture={e => {
+                    if (!((submitted || touched.apelido) && errors.apelido)) {
+                      e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+                    }
+                  }}
+                />
+                <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: 'rgba(154,160,147,.55)', marginTop: 5 }}>
+                  Exibido no app
+                </p>
+                <FieldError msg={(submitted || touched.apelido) ? errors.apelido : undefined} />
+              </div>
             </div>
 
             {/* Email */}
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
+              <label style={fieldLabelStyle()}>
                 E-mail<RequiredStar />
               </label>
               <input
@@ -315,15 +484,23 @@ function CadastroContent() {
                 onChange={e => set('email', e.target.value)}
                 onBlur={() => touch('email')}
                 placeholder="seu@email.com"
-                className="input-field"
-                style={{ borderColor: (submitted || touched.email) && errors.email ? '#ef4444' : undefined }}
+                style={{
+                  ...inputBaseStyle,
+                  borderColor: (submitted || touched.email) && errors.email ? '#EF4444' : 'rgba(109,116,95,.28)',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                onBlurCapture={e => {
+                  if (!((submitted || touched.email) && errors.email)) {
+                    e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+                  }
+                }}
               />
               <FieldError msg={(submitted || touched.email) ? errors.email : undefined} />
             </div>
 
             {/* Senha */}
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
+              <label style={fieldLabelStyle()}>
                 Senha<RequiredStar />
               </label>
               <input
@@ -332,15 +509,23 @@ function CadastroContent() {
                 onChange={e => set('password', e.target.value)}
                 onBlur={() => touch('password')}
                 placeholder="Mínimo 6 caracteres"
-                className="input-field"
-                style={{ borderColor: (submitted || touched.password) && errors.password ? '#ef4444' : undefined }}
+                style={{
+                  ...inputBaseStyle,
+                  borderColor: (submitted || touched.password) && errors.password ? '#EF4444' : 'rgba(109,116,95,.28)',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                onBlurCapture={e => {
+                  if (!((submitted || touched.password) && errors.password)) {
+                    e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+                  }
+                }}
               />
               <FieldError msg={(submitted || touched.password) ? errors.password : undefined} />
             </div>
 
             {/* Telefone */}
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
+              <label style={fieldLabelStyle()}>
                 Telefone / WhatsApp<RequiredStar />
               </label>
               <input
@@ -349,8 +534,16 @@ function CadastroContent() {
                 onChange={e => set('telefone', formatPhone(e.target.value))}
                 onBlur={() => touch('telefone')}
                 placeholder="+55 (11) 99999-9999"
-                className="input-field"
-                style={{ borderColor: (submitted || touched.telefone) && errors.telefone ? '#ef4444' : undefined }}
+                style={{
+                  ...inputBaseStyle,
+                  borderColor: (submitted || touched.telefone) && errors.telefone ? '#EF4444' : 'rgba(109,116,95,.28)',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                onBlurCapture={e => {
+                  if (!((submitted || touched.telefone) && errors.telefone)) {
+                    e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+                  }
+                }}
               />
               <FieldError msg={(submitted || touched.telefone) ? errors.telefone : undefined} />
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, cursor: 'pointer' }}>
@@ -360,32 +553,51 @@ function CadastroContent() {
                   onChange={e => set('telefone_whatsapp', e.target.checked)}
                   style={{ width: 15, height: 15, accentColor: '#6d745f' }}
                 />
-                <span style={{ fontSize: 13, color: '#555' }}>Este número tem WhatsApp</span>
+                <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 13, color: '#9AA093' }}>
+                  Este número tem WhatsApp
+                </span>
               </label>
             </div>
 
             {/* Região */}
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
+              <label style={fieldLabelStyle()}>
                 Região<RequiredStar />
               </label>
               <select
                 value={form.regiao}
                 onChange={e => set('regiao', e.target.value)}
                 onBlur={() => touch('regiao')}
-                className="input-field"
-                style={{ borderColor: (submitted || touched.regiao) && errors.regiao ? '#ef4444' : undefined }}
+                style={{
+                  ...inputBaseStyle,
+                  appearance: 'none',
+                  backgroundImage: CHEVRON_DATA_URI,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                  paddingRight: 36,
+                  borderColor: (submitted || touched.regiao) && errors.regiao ? '#EF4444' : 'rgba(109,116,95,.28)',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                onBlurCapture={e => {
+                  if (!((submitted || touched.regiao) && errors.regiao)) {
+                    e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)'
+                  }
+                }}
               >
-                <option value="" disabled>Selecione sua região</option>
-                {ESTADOS_BRASIL.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                <option value="" disabled style={{ background: '#171914', color: '#F4F3EF' }}>Selecione sua região</option>
+                {ESTADOS_BRASIL.map(e => (
+                  <option key={e.value} value={e.value} style={{ background: '#171914', color: '#F4F3EF' }}>
+                    {e.label}
+                  </option>
+                ))}
               </select>
               <FieldError msg={(submitted || touched.regiao) ? errors.regiao : undefined} />
             </div>
 
             {/* Telegram */}
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>
-                Telegram <span style={{ color: '#bbb' }}>(opcional)</span>
+              <label style={fieldLabelStyle()}>
+                Telegram <span style={{ color: 'rgba(154,160,147,.5)', textTransform: 'none', letterSpacing: 0 }}>(opcional)</span>
               </label>
               <input
                 type="text"
@@ -395,31 +607,50 @@ function CadastroContent() {
                   set('telegram', v && !v.startsWith('@') ? '@' + v : v)
                 }}
                 placeholder="@seu_usuario"
-                className="input-field"
+                style={inputBaseStyle}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(244,243,239,.45)' }}
+                onBlurCapture={e => { e.currentTarget.style.borderColor = 'rgba(109,116,95,.28)' }}
               />
-              <p style={{ fontSize: 12, color: '#bbb', marginTop: 4 }}>Para receber notificações de trilhas</p>
+              <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: 'rgba(154,160,147,.55)', marginTop: 5 }}>
+                Para receber alertas de trilhas
+              </p>
             </div>
 
             <button
               type="submit"
               disabled={loading || (submitted && !valid)}
               style={{
-                background: '#6d745f', color: '#fff',
-                border: 'none', borderRadius: 4,
-                padding: '11px 20px', fontSize: 14, fontWeight: 500,
+                background: '#F4F3EF', color: '#0E0F0D',
+                border: 'none', borderRadius: 999,
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+                textTransform: 'uppercase', letterSpacing: '1.5px', fontSize: 18,
+                padding: '14px 20px',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: (!valid && submitted) || loading ? 0.5 : 1,
+                opacity: (!valid && submitted) || loading ? 0.4 : 1,
                 width: '100%', marginTop: 8,
-                transition: 'opacity 0.15s',
+                transition: 'transform .15s ease, opacity .15s ease',
+              }}
+              onMouseEnter={e => {
+                if (!(loading || (submitted && !valid))) {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.opacity = '0.92'
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.opacity = (!valid && submitted) || loading ? '0.4' : '1'
               }}
             >
               {loading ? 'Criando conta...' : 'Criar conta grátis'}
             </button>
           </form>
 
-          <div style={{ marginTop: 24, textAlign: 'center' }}>
-            <span style={{ fontSize: 14, color: '#888' }}>Já tem conta? </span>
-            <Link href="/login" style={{ fontSize: 14, color: '#6d745f', fontWeight: 500, borderBottom: '1px solid #a8b899' }}>
+          <div style={{ marginTop: 22, textAlign: 'center' }}>
+            <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#9AA093' }}>Já tem conta? </span>
+            <Link href="/login" style={{
+              fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#F4F3EF', fontWeight: 500,
+              textDecoration: 'underline', textUnderlineOffset: 3,
+            }}>
               Entrar
             </Link>
           </div>
@@ -434,12 +665,12 @@ export default function CadastroPage() {
     <Suspense fallback={
       <div style={{
         minHeight: '100vh',
-        background: '#2a2e25',
+        background: '#0E0F0D',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-        <div style={{ color: '#888', fontSize: 14 }}>Carregando...</div>
+        <div style={{ fontFamily: 'var(--font-dm-sans)', color: '#9AA093', fontSize: 14 }}>Carregando...</div>
       </div>
     }>
       <CadastroContent />
