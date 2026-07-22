@@ -90,9 +90,8 @@ function LogoMantenedorInner({ mantenedor, contexto }: Props) {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 6,
-      marginTop: 7, paddingTop: 7,
-      borderTop: '0.5px solid #eaece4',
+      display: 'flex', alignItems: 'center',
+      marginTop: 7,
     }}>
       <div style={{
         background: '#1e2018', borderRadius: 4,
