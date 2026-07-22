@@ -28,8 +28,8 @@ const PIPELINE = [
     title: 'Chuva acumulada',
     desc: (
       <>
-        Histórico de precipitação via <code className="lp-mono-chip">ERA5</code> e previsão
-        horária <code className="lp-mono-chip">OpenWeather</code> pro ponto exato de cada
+        Histórico de precipitação <code className="lp-mono-chip"> modernos</code> e previsão
+        horária <code className="lp-mono-chip">de alta confiabilidade</code> pro ponto exato de cada
         trilha.
       </>
     ),
@@ -227,16 +227,16 @@ export default function LandingPage() {
                 Trilhas MTB e pump tracks monitorados com chuva real, modelo de secagem do
                 solo e um{' '}
                 <strong style={{ color: '#F4F3EF', fontWeight: 700 }}>veredicto direto</strong>:
-                DROP LIBERADO ou melhor esperar. Atualizado 2× por dia, todo dia.
+                DROP LIBERADO ou melhor esperar. Atualizado em tempo real.
               </p>
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 32 }}>
                 <Link href="/cadastro" className="lp-btn-bone">Ver condições agora</Link>
                 <a href="#como-funciona" className="lp-btn-ghost">Como funciona</a>
               </div>
               <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 13, color: '#9AA093' }}>
-                <span style={{ color: '#F4F3EF' }}>2×/dia</span> atualizações ·{' '}
+                <span style={{ color: '#F4F3EF' }}>Em tempo real</span> atualizações ·{' '}
                 <span style={{ color: '#F4F3EF' }}>12h</span> horizonte do veredicto ·{' '}
-                <span style={{ color: '#F4F3EF' }}>ERA5 + OpenWeather</span>
+                <span style={{ color: '#F4F3EF' }}>Modelos meteorológicos modernos</span>
               </p>
             </div>
 
@@ -376,8 +376,8 @@ export default function LandingPage() {
               fontFamily: 'var(--font-dm-sans)', fontSize: 16, color: '#9AA093',
               maxWidth: 560, margin: '0 0 48px',
             }}>
-              Não é achismo de grupo de WhatsApp. É um pipeline que roda sozinho, duas vezes
-              por dia.
+              Não é achismo de grupo de WhatsApp. É um pipeline que roda sozinho, em tempo real
+              .
             </p>
 
             <div className="lp-pipeline-grid" style={{
