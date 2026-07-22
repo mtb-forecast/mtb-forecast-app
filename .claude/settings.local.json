@@ -253,14 +253,35 @@
       "PowerShell(git add app/api/og/instagram/dica/route.tsx scripts/post_instagram_dica.py)",
       "PowerShell(git commit -m \"fix: dica 5 - emojis coloridos e texto mais curto no ultimo item`n`nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\")",
       "PowerShell(git commit -m \"feat: expandir dicas de 7 para 19 - bioma, altitude, cadastro, favoritar, Telegram`n`nNovas dicas: XC/Enduro/DH, bioma, altitude, reporte condicao, previsao vs real,`nsolo arenoso/argiloso, exposicao solar, cadastro, favoritar, registrar visita,`ncompartilhar trilha, notificacoes Telegram. TOTAL_DICAS=19.`n`nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\")",
-      "Bash(supabase --version)"
+      "Bash(supabase --version)",
+      "Bash(curl -v --max-time 15 \"https://api.open-meteo.com/v1/forecast?latitude=-23.5505&longitude=-46.6333&hourly=precipitation&forecast_days=1\")",
+      "Bash(xargs grep -liE \"veredic|veredit\")",
+      "Bash(npx eslint *)",
+      "Bash(xargs grep -n \"ALTER TABLE profiles\\\\|CREATE TABLE.*profiles\")",
+      "Bash(python -m py_compile mtb_telegram.py mtb_email_html.py)",
+      "Bash(gh pr *)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)",
+      "Bash(sleep 8 && cat /tmp/dev_server.log 2>&1 | tail -30)",
+      "Bash(cp /tmp/dica_preview.png \"c:/ClaudeCode/mtb-forecast-app/.tmp_dica_preview.png\" 2>/dev/null; ls -la \"c:/ClaudeCode/mtb-forecast-app/.tmp_dica_preview.png\")",
+      "Bash(curl -s -o /tmp/dica_preview2.png \"http://localhost:3000/api/og/instagram/dica?id=6\")",
+      "Bash(curl -s -o .tmp_dica21.png \"http://localhost:3001/api/og/instagram/dica?id=21\" -w \"HTTP %{http_code} size:%{size_download}\\\\n\")",
+      "Bash(rm -f .tmp_new_dica.json .tmp_insert_result.json .tmp_dica21.png /tmp/dica_preview*.png /tmp/dev_server*.log)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(git branch *)",
+      "Bash(git tag *)",
+      "Bash(gh api *)",
+      "Bash(npm audit *)",
+      "Bash(npm ls *)",
+      "Bash(npm view *)"
     ],
     "additionalDirectories": [
       "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\perfil\\strava\\sugestao",
       "C:\\ClaudeCode\\agent-mtb-forecast",
       "C:\\ClaudeCode\\mtb-forecast-app\\app\\t",
       "c:\\ClaudeCode\\mtb-forecast-app\\supabase",
-      "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\pump-track"
+      "c:\\ClaudeCode\\mtb-forecast-app\\app\\(app)\\pump-track",
+      "\\tmp"
     ]
   }
 }
