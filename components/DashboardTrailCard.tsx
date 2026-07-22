@@ -85,17 +85,15 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
   const ChipIcon = chipIcon(veredictoText)
 
   const barData = useMemo(() => {
-    const blocos = (c?.previsao_24h ?? []).slice(0, 8)
-    const maxRain = Math.max(...blocos.map(b => b.rain_mm), 0.1)
-    const result = blocos.map(b => ({
-      label: b.label.split(/[→\-]/)[0].trim(),
-      height: Math.max(8, Math.round((b.rain_mm / maxRain) * 100)),
-      isRain: b.rain_mm > 0.1,
-    }))
-    while (result.length < 8) {
-      result.push({ label: '', height: 8, isRain: false })
-    }
-    return result
+    const source = c?.previsao_24h ?? []
+    const maxRain = Math.max(...source.map(b => b.rain_mm), 0.1)
+    return Array.from({ length: 8 }, (_, i) => {
+      const bloco = source[i]
+      return {
+        height: bloco ? Math.max(8, Math.round((bloco.rain_mm / maxRain) * 100)) : 8,
+        isRain: bloco ? bloco.rain_mm > 0.1 : false,
+      }
+    })
   }, [c?.previsao_24h])
 
   const tags = [trilha.trail_type, trilha.bioma].filter(Boolean).slice(0, 2) as string[]
@@ -227,16 +225,21 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
         <div style={{ padding: '9px 15px 12px' }}>
           <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 36 }}>
             {barData.map((b, i) => (
-              <div key={i} style={{
-                flex: 1, height: `${b.height}%`, borderRadius: '3px 3px 0 0',
-                background: b.isRain ? 'rgba(88,120,200,.75)' : 'rgba(109,116,95,.3)',
-              }} />
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  height: `${b.height}%`,
+                  borderRadius: '3px 3px 0 0',
+                  background: b.isRain ? 'rgba(88,120,200,.75)' : 'rgba(109,116,95,.3)',
+                }}
+              />
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, padding: '0 1px' }}>
-            {[0, 2, 4, 6].map(i => (
-              <span key={i} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: 'rgba(155,161,150,.5)' }}>
-                {barData[i]?.label ?? ''}
+            {['08h', '12h', '16h', '20h'].map(label => (
+              <span key={label} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: 'rgba(155,161,150,.5)' }}>
+                {label}
               </span>
             ))}
           </div>
