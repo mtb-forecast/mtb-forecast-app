@@ -10,7 +10,6 @@ import {
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
-import { LogoMantenedor } from '@/components/LogoMantenedor'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -60,8 +59,8 @@ function soloText(a: string | null | undefined): string {
 
 function soloFontSize(a: string | null | undefined): number {
   const s = a?.trim()
-  if (s === 'GRIP PERFEITO' || s === 'BOA ADERÊNCIA - ÚMIDO' || s === 'BAIXA ADERÊNCIA') return 15
-  return 20
+  if (s === 'GRIP PERFEITO' || s === 'BOA ADERÊNCIA - ÚMIDO' || s === 'BAIXA ADERÊNCIA') return 13
+  return 17
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -120,7 +119,7 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
 
         {/* ── Head ── */}
         <div style={{
-          padding: '11px 15px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '9px 12px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 8, borderBottom: '1px solid rgba(0,0,0,.05)',
         }}>
           <span style={{
@@ -158,9 +157,9 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
         </div>
 
         {/* ── Info ── */}
-        <div style={{ padding: '13px 15px 0' }}>
+        <div style={{ padding: '10px 12px 0' }}>
           <div style={{
-            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 21,
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 18,
             textTransform: 'uppercase', letterSpacing: '.3px', lineHeight: 1.05, color: '#1A1D18',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
@@ -177,14 +176,33 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
 
         {/* ── Mantenedor ── */}
         {trilha.mantenedor && (
-          <div style={{ padding: '0 15px' }}>
-            <LogoMantenedor mantenedor={trilha.mantenedor} contexto="card" />
+          <div style={{ padding: '5px 12px 0' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              background: '#1e2018', borderRadius: 4,
+              padding: '2px 7px',
+            }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.8px',
+                color: trilha.mantenedor.cor_primaria,
+              }}>
+                {trilha.mantenedor.nome_primario ?? trilha.mantenedor.nome}
+              </span>
+              {trilha.mantenedor.nome_secundario && (
+                <span style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.2px',
+                  color: trilha.mantenedor.cor_secundaria ?? trilha.mantenedor.cor_primaria,
+                }}>
+                  {trilha.mantenedor.nome_secundario}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
         {/* ── Tags ── */}
         {tags.length > 0 && (
-          <div style={{ padding: '8px 15px 0', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          <div style={{ padding: '6px 12px 0', display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {tags.map(tag => (
               <span key={tag} style={{
                 fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#9AA093',
@@ -198,8 +216,8 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
         )}
 
         {/* ── Data blocks ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, padding: '10px 15px 0' }}>
-          <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 9, padding: '9px 11px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '8px 12px 0' }}>
+          <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 9, padding: '7px 10px' }}>
             <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
               Solo
             </p>
@@ -210,13 +228,13 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
               {soloText(c?.aderencia_status)}
             </p>
           </div>
-          <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 9, padding: '9px 11px' }}>
+          <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 9, padding: '7px 10px' }}>
             <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
               Última chuva
             </p>
             <p style={{
               fontFamily: 'var(--font-dm-mono)', fontWeight: 500, lineHeight: 1.1, color: '#1A1D18',
-              marginTop: 4, marginBottom: 0, fontSize: 20,
+              marginTop: 4, marginBottom: 0, fontSize: 17,
             }}>
               {c?.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
             </p>
@@ -224,8 +242,8 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
         </div>
 
         {/* ── Gráfico ── */}
-        <div style={{ padding: '9px 15px 12px' }}>
-          <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 36 }}>
+        <div style={{ padding: '7px 12px 10px' }}>
+          <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 28 }}>
             {barData.map((b, i) => (
               <div
                 key={i}
