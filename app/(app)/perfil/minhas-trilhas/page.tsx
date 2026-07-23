@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  IconArrowLeft, IconPlus, IconSearch, IconX, IconMapPin,
-  IconFilterOff, IconPencil, IconMap, IconTrash,
+  IconPlus, IconSearch, IconX, IconMapPin,
+  IconFilterOff, IconPencil, IconMap, IconTrash, IconMountain,
 } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 
@@ -46,8 +46,14 @@ function statusCfg(status: string) {
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
-  bg: '#f4f5f0', card: '#ffffff', card2: '#eaece4',
-  border: '#d0d4c6', primary: '#6d745f', text: '#2a2e25', muted: '#6d745f',
+  bg:      '#F5F6F2',
+  card:    '#FFFFFF',
+  card2:   '#F8F9F5',
+  border:  'rgba(0,0,0,.08)',
+  primary: '#6d745f',
+  text:    '#1A1D18',
+  muted:   '#6d745f',
+  dim:     '#9AA093',
 }
 
 type TipoFiltro = 'todos' | 'mtb' | 'pumptrack'
@@ -186,28 +192,37 @@ export default function MinhasTrilhasPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {/* Header */}
-      <div style={{ padding: '20px 16px 0', maxWidth: 640, margin: '0 auto' }}>
-        <Link href="/perfil" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.muted, fontSize: 13, textDecoration: 'none', marginBottom: 20 }}>
-          <IconArrowLeft size={14} />
-          Perfil
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
-          <div>
-            <h1 style={{ fontSize: 26, fontWeight: 900, color: T.text, margin: '0 0 4px', letterSpacing: '-0.03em' }}>
-              Meus cadastros
-            </h1>
-            <p style={{ fontSize: 13, color: T.muted, margin: 0 }}>
-              {countMTB} trilha{countMTB !== 1 ? 's' : ''} MTB · {countPT} pump track{countPT !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <Link href="/trilhas/cadastrar" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: T.primary, color: '#fff', borderRadius: 12,
-            padding: '9px 14px', fontSize: 13, fontWeight: 800, textDecoration: 'none', flexShrink: 0,
+      <div style={{ background: '#141612', borderBottom: '1px solid rgba(109,116,95,.25)', padding: '24px 16px 20px' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <Link href="/perfil" style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 11, letterSpacing: '1px',
+            color: 'rgba(154,160,147,.7)', textDecoration: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14,
           }}>
-            <IconPlus size={14} />
-            Novo
+            ← Perfil
           </Link>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <h1 style={{
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+                fontSize: 'clamp(28px, 5vw, 38px)', textTransform: 'uppercase',
+                color: '#F4F3EF', lineHeight: 0.95, margin: '0 0 6px',
+              }}>
+                Meus cadastros
+              </h1>
+              <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.7)', margin: 0 }}>
+                {countMTB} trilha{countMTB !== 1 ? 's' : ''} MTB · {countPT} pump track{countPT !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <Link href="/trilhas/cadastrar" style={{
+              background: '#F4F3EF', color: '#0E0F0D', borderRadius: 999,
+              padding: '8px 16px', fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700,
+              fontSize: 14, textTransform: 'uppercase', letterSpacing: '.5px',
+              textDecoration: 'none', flexShrink: 0,
+            }}>
+              + Novo
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -218,23 +233,28 @@ export default function MinhasTrilhasPage() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'] }}>
           {([
             { id: 'todos',     label: 'Todos',      count: items.length },
-            { id: 'mtb',       label: '🏔 MTB',       count: countMTB },
-            { id: 'pumptrack', label: '🟣 Pump Track', count: countPT },
-          ] as { id: TipoFiltro; label: string; count: number }[]).map(opt => (
-            <button key={opt.id} onClick={() => setTipoFiltro(opt.id)}
-              style={{
-                flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 20,
-                background: tipoFiltro === opt.id ? T.primary : T.card2,
-                color: tipoFiltro === opt.id ? '#fff' : T.muted,
-                border: tipoFiltro === opt.id ? 'none' : `1px solid ${T.border}`,
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                transition: 'all 0.15s', outline: 'none',
-              }}>
-              {opt.label}
-              <span style={{ fontSize: 11, background: tipoFiltro === opt.id ? 'rgba(255,255,255,0.2)' : T.border, borderRadius: 10, padding: '1px 7px' }}>{opt.count}</span>
-            </button>
-          ))}
+            { id: 'mtb',       label: 'MTB',         count: countMTB },
+            { id: 'pumptrack', label: 'Pump Track',  count: countPT },
+          ] as { id: TipoFiltro; label: string; count: number }[]).map(opt => {
+            const active = tipoFiltro === opt.id
+            const isPumptrack = opt.id === 'pumptrack'
+            return (
+              <button key={opt.id} onClick={() => setTipoFiltro(opt.id)}
+                style={{
+                  flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', borderRadius: 20,
+                  background: active ? (isPumptrack ? '#7C3AED' : T.primary) : T.card2,
+                  color: active ? '#fff' : (isPumptrack ? '#a78bfa' : T.muted),
+                  border: active ? 'none' : `1px solid ${T.border}`,
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  transition: 'all 0.15s', outline: 'none',
+                }}>
+                {opt.id === 'mtb' && <IconMountain size={13} />}
+                {opt.label}
+                <span style={{ fontSize: 11, background: active ? 'rgba(255,255,255,0.2)' : T.border, borderRadius: 10, padding: '1px 7px' }}>{opt.count}</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Estado + Cidade */}
@@ -243,8 +263,8 @@ export default function MinhasTrilhasPage() {
             value={estadoFiltro}
             onChange={e => { setEstadoFiltro(e.target.value); setCidadeFiltro('') }}
             style={{
-              background: T.card2, border: `1px solid ${T.border}`, borderRadius: 10,
-              padding: '9px 12px', fontSize: 13, color: estadoFiltro ? T.text : T.muted,
+              background: '#FFFFFF', border: '1px solid rgba(0,0,0,.1)', borderRadius: 10,
+              padding: '9px 12px', fontSize: 13, color: estadoFiltro ? '#1A1D18' : '#9AA093',
               outline: 'none', cursor: 'pointer', width: '100%', boxSizing: 'border-box',
             }}
           >
@@ -257,8 +277,8 @@ export default function MinhasTrilhasPage() {
             onChange={e => setCidadeFiltro(e.target.value)}
             disabled={cidades.length === 0}
             style={{
-              background: T.card2, border: `1px solid ${T.border}`, borderRadius: 10,
-              padding: '9px 12px', fontSize: 13, color: cidadeFiltro ? T.text : T.muted,
+              background: '#FFFFFF', border: '1px solid rgba(0,0,0,.1)', borderRadius: 10,
+              padding: '9px 12px', fontSize: 13, color: cidadeFiltro ? '#1A1D18' : '#9AA093',
               outline: 'none', cursor: cidades.length === 0 ? 'not-allowed' : 'pointer',
               width: '100%', boxSizing: 'border-box', opacity: cidades.length === 0 ? 0.4 : 1,
             }}
@@ -278,8 +298,8 @@ export default function MinhasTrilhasPage() {
             onChange={e => setBusca(e.target.value)}
             style={{
               width: '100%', boxSizing: 'border-box',
-              background: T.card2, border: `1px solid ${T.border}`, borderRadius: 10,
-              padding: '9px 12px 9px 36px', fontSize: 13, color: T.text,
+              background: '#FFFFFF', border: '1px solid rgba(0,0,0,.1)', borderRadius: 10,
+              padding: '9px 12px 9px 36px', fontSize: 13, color: '#1A1D18',
               outline: 'none',
             }}
           />
@@ -316,15 +336,15 @@ export default function MinhasTrilhasPage() {
       {/* ── LIST ── */}
       <div style={{ padding: '0 16px 100px', maxWidth: 640, margin: '0 auto' }}>
         {items.length === 0 ? (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 20, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: '#eaece4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16, padding: '48px 32px', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: '#F8F9F5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <IconMapPin size={24} style={{ color: T.muted }} />
             </div>
             <p style={{ fontSize: 15, color: T.text, fontWeight: 600, margin: '0 0 8px' }}>Nenhum cadastro ainda</p>
             <p style={{ fontSize: 13, color: T.muted, margin: '0 0 24px' }}>Compartilhe suas trilhas e pump tracks com a comunidade MTB.</p>
             <Link href="/trilhas/cadastrar" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: T.primary, color: '#fff', borderRadius: 14,
+              background: '#6d745f', color: '#fff', borderRadius: 12,
               padding: '12px 24px', fontSize: 14, fontWeight: 800, textDecoration: 'none',
             }}>
               <IconPlus size={16} />
@@ -332,7 +352,7 @@ export default function MinhasTrilhasPage() {
             </Link>
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: '32px', textAlign: 'center' }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16, padding: '32px', textAlign: 'center' }}>
             <IconFilterOff size={28} style={{ color: T.muted }} />
             <p style={{ fontSize: 14, color: T.muted, marginTop: 12 }}>Nenhum resultado para os filtros aplicados.</p>
           </div>
@@ -348,8 +368,8 @@ export default function MinhasTrilhasPage() {
 
               return (
                 <div key={`${item.kind}-${item.id}`} style={{
-                  background: T.card, border: `1px solid ${T.border}`,
-                  borderRadius: 20, overflow: 'hidden',
+                  background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)',
+                  borderRadius: 14, overflow: 'hidden',
                 }}>
                   <div style={{ padding: '16px 20px' }}>
                     {/* Header row */}
@@ -357,7 +377,7 @@ export default function MinhasTrilhasPage() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.5px', color: isPumptrack ? '#a78bfa' : T.muted, textTransform: 'uppercase' }}>
-                            {isPumptrack ? '🟣 Pump Track' : '🏔 Trilha MTB'}
+                            {isPumptrack ? 'Pump Track' : 'Trilha MTB'}
                           </span>
                           {isPTActive && (
                             <span style={{ fontSize: 10, color: T.muted }}>· no mapa</span>
@@ -384,7 +404,7 @@ export default function MinhasTrilhasPage() {
 
                     {/* Actions */}
                     {confirmDeleteId === `${item.kind}-${item.id}` ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(239,68,68,.06)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 10, padding: '10px 14px' }}>
                         <span style={{ fontSize: 13, color: '#f87171', flex: 1 }}>Confirmar exclusão?</span>
                         <button
                           onClick={() => handleDelete(item)}
@@ -405,9 +425,9 @@ export default function MinhasTrilhasPage() {
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <Link href={editHref} style={{
                           display: 'inline-flex', alignItems: 'center', gap: 6,
-                          background: T.card2, color: T.text, borderRadius: 10,
+                          background: '#F8F9F5', color: '#1A1D18', borderRadius: 10,
                           padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                          textDecoration: 'none', border: `1px solid ${T.border}`,
+                          textDecoration: 'none', border: '1px solid rgba(0,0,0,.08)',
                         }}>
                           <IconPencil size={14} style={{ color: T.primary }} />
                           Editar
@@ -416,9 +436,9 @@ export default function MinhasTrilhasPage() {
                         {isPTActive && (
                           <Link href="/mapa" style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
-                            background: T.card2, color: T.primary, borderRadius: 10,
+                            background: '#F8F9F5', color: '#6d745f', borderRadius: 10,
                             padding: '8px 16px', fontSize: 13, fontWeight: 600,
-                            textDecoration: 'none', border: `1px solid ${T.border}`,
+                            textDecoration: 'none', border: '1px solid rgba(0,0,0,.08)',
                           }}>
                             <IconMap size={14} />
                             Ver no mapa
@@ -429,9 +449,9 @@ export default function MinhasTrilhasPage() {
                           onClick={() => setConfirmDeleteId(`${item.kind}-${item.id}`)}
                           style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
-                            background: 'transparent', color: '#f87171', borderRadius: 10,
+                            background: 'transparent', color: '#EF4444', borderRadius: 10,
                             padding: '8px 12px', fontSize: 13, fontWeight: 600,
-                            border: '1px solid rgba(248,113,113,0.2)', cursor: 'pointer',
+                            border: '1px solid rgba(239,68,68,.2)', cursor: 'pointer',
                           }}>
                           <IconTrash size={14} />
                           Excluir

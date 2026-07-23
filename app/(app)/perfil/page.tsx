@@ -7,6 +7,7 @@ import {
   IconBrandInstagram, IconBrandTelegram, IconSettings, IconBrandFacebook,
   IconBrandStrava, IconMail, IconCircleCheck, IconRocket, IconUser,
   IconMapPin, IconDeviceMobile, IconArrowRight, IconLogout, IconDeviceFloppy,
+  IconHeart, IconBell, IconCreditCard, IconPlug, IconPlus, IconShieldCheck,
 } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
@@ -28,14 +29,14 @@ const DIAS_SEMANA = [
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:       '#f4f5f0',
-  card:     '#ffffff',
-  card2:    '#eaece4',
-  border:   '#d0d4c6',
-  primary:  '#6d745f',
-  text:     '#2a2e25',
-  muted:    '#6d745f',
-  dim:      '#8a9280',
+  bg:      '#F5F6F2',
+  card:    '#FFFFFF',
+  card2:   '#F8F9F5',
+  border:  'rgba(0,0,0,.08)',
+  primary: '#6d745f',
+  text:    '#1A1D18',
+  muted:   '#6d745f',
+  dim:     '#9AA093',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,13 +69,13 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
     <button type="button" onClick={() => !disabled && onChange(!checked)}
       style={{
         width: 48, height: 28, borderRadius: 14,
-        background: checked ? T.primary : '#d0d4c6',
+        background: checked ? '#6d745f' : 'rgba(0,0,0,.12)',
         border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
         position: 'relative', flexShrink: 0, transition: 'background 0.2s', outline: 'none',
       }}>
       <span style={{
         position: 'absolute', top: 3, left: checked ? 23 : 3,
-        width: 22, height: 22, background: checked ? '#fff' : '#8a9280',
+        width: 22, height: 22, background: checked ? '#fff' : '#9AA093',
         borderRadius: '50%', transition: 'left 0.2s',
         boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
       }} />
@@ -83,14 +84,14 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: T.border, margin: '0 0 0 54px' }} />
+  return <div style={{ height: 1, background: 'rgba(0,0,0,.07)', margin: '0 0 0 54px' }} />
 }
 
 // ── InfoRow — tap to edit ─────────────────────────────────────────────────────
 function InfoRow({
   icon, label, value, sub, locked, onTap,
 }: {
-  icon: string; label: string; value: string; sub?: string
+  icon: React.ReactNode; label: string; value: string; sub?: string
   locked?: boolean; onTap?: () => void
 }) {
   return (
@@ -103,14 +104,14 @@ function InfoRow({
       }}
     >
       <div style={{
-        width: 40, height: 40, borderRadius: 12, background: '#eaece4',
+        width: 40, height: 40, borderRadius: 12, background: 'rgba(0,0,0,.05)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 18, color: T.primary }} />
+        {icon}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, color: T.muted, fontWeight: 500, marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: 14, color: value ? T.text : T.dim, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '0.5px', color: '#9AA093', fontWeight: 500, marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 14, color: value ? '#1A1D18' : '#9AA093', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {value || 'Não informado'}
         </div>
         {sub && <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>{sub}</div>}
@@ -125,11 +126,11 @@ function InfoRow({
 function ProfileSection({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <div style={{
-      background: T.card, borderRadius: 20, border: `1px solid ${T.border}`,
+      background: '#FFFFFF', borderRadius: 16, border: '1px solid rgba(0,0,0,.07)',
       overflow: 'hidden', marginBottom: 12,
     }}>
       {title && (
-        <div style={{ padding: '14px 20px 0', fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+        <div style={{ padding: '14px 20px 0', fontFamily: 'var(--font-dm-mono)', fontSize: 10, fontWeight: 500, color: '#9AA093', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
           {title}
         </div>
       )}
@@ -155,14 +156,14 @@ function EditSheet({
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, maxWidth: 640,
         margin: '0 auto', zIndex: 99,
-        background: T.card, border: `1px solid ${T.border}`, borderBottom: 'none',
+        background: '#FFFFFF', border: '1px solid rgba(0,0,0,.08)', borderBottom: 'none',
         borderRadius: '24px 24px 0 0', padding: '0 20px 40px',
         maxHeight: '88vh', overflowY: 'auto',
         transition: 'transform 0.28s cubic-bezier(0.32,0.72,0,1)',
         transform: open ? 'translateY(0)' : 'translateY(110%)',
       }}>
-        <div style={{ width: 36, height: 4, background: T.border, borderRadius: 2, margin: '12px auto 20px' }} />
-        <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 20 }}>{title}</div>
+        <div style={{ width: 36, height: 4, background: 'rgba(0,0,0,.1)', borderRadius: 2, margin: '12px auto 20px' }} />
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1D18', marginBottom: 20 }}>{title}</div>
         {children}
       </div>
     </>
@@ -172,9 +173,9 @@ function EditSheet({
 // ── Input style (dark) ────────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
-  background: '#f4f5f0', border: `1.5px solid ${T.border}`,
+  background: '#FFFFFF', border: '1px solid rgba(0,0,0,.1)',
   borderRadius: 12, padding: '13px 16px',
-  fontSize: 15, color: T.text,
+  fontSize: 15, color: '#1A1D18',
   outline: 'none', transition: 'border-color 0.15s',
 }
 const sel: React.CSSProperties = { ...inp, cursor: 'pointer' }
@@ -185,9 +186,9 @@ function SheetSaveBtn({ onClick, loading }: { onClick: () => void; loading?: boo
     <button type="button" onClick={onClick} disabled={loading}
       style={{
         width: '100%', marginTop: 20,
-        background: loading ? '#d0d4c6' : T.primary,
-        color: loading ? T.muted : '#fff',
-        border: 'none', borderRadius: 14, padding: '15px',
+        background: loading ? 'rgba(0,0,0,.08)' : '#6d745f',
+        color: loading ? '#9AA093' : '#fff',
+        border: 'none', borderRadius: 12, padding: '15px',
         fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
         transition: 'background 0.15s',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -406,8 +407,11 @@ export default function PerfilPage() {
   // ── Field label helper ────────────────────────────────────────────────────────
   const isIncomplete = !profile?.nome || !profile?.data_nascimento || !profile?.cidade || !profile?.regiao || !profile?.telefone || !profile?.apelido
 
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 6 }
-  const req = <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>
+  const lbl: React.CSSProperties = {
+    display: 'block', fontFamily: 'var(--font-dm-mono)', fontSize: 11,
+    letterSpacing: '1px', textTransform: 'uppercase', color: '#9AA093', marginBottom: 6,
+  }
+  const req = <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>
   const inpForm: React.CSSProperties = { ...inp, fontSize: 14 }
   const selForm: React.CSSProperties = { ...sel, fontSize: 14 }
 
@@ -419,17 +423,17 @@ export default function PerfilPage() {
 
       {/* Banner perfil incompleto */}
       {isIncomplete && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 14, padding: '12px 16px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <IconAlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: 1 }} />
-          <p style={{ fontSize: 13, color: '#92400e', margin: 0, lineHeight: 1.5 }}>
+        <div style={{ background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.25)', borderRadius: 14, padding: '12px 16px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <IconAlertTriangle size={18} style={{ color: '#F59E0B', flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 13, color: '#F59E0B', margin: 0, lineHeight: 1.5 }}>
             Complete seu perfil — alguns dados obrigatórios estão faltando.
           </p>
         </div>
       )}
 
       {/* ── Formulário de dados pessoais ── */}
-      <div style={{ background: T.card, borderRadius: 20, border: `1px solid ${T.border}`, padding: '20px', marginBottom: 12 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 18px' }}>Dados pessoais</p>
+      <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16, padding: '20px', marginBottom: 12 }}>
+        <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1.5px', color: '#9AA093', fontWeight: 500, textTransform: 'uppercase', margin: '0 0 18px' }}>Dados pessoais</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -501,8 +505,8 @@ export default function PerfilPage() {
       </div>
 
       {/* ── Redes sociais e integrações (opcional) ── */}
-      <div style={{ background: T.card, borderRadius: 20, border: `1px solid ${T.border}`, padding: '20px', marginBottom: 12 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '1.5px', margin: '0 0 18px' }}>
+      <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16, padding: '20px', marginBottom: 12 }}>
+        <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1.5px', color: '#9AA093', fontWeight: 500, textTransform: 'uppercase', margin: '0 0 18px' }}>
           Redes sociais <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, fontSize: 11 }}>— todos opcionais</span>
         </p>
 
@@ -520,7 +524,7 @@ export default function PerfilPage() {
             </div>
             {instagram && (
               <a href={`https://instagram.com/${instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#E1306C', textDecoration: 'none', flexShrink: 0 }}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: 'rgba(0,0,0,.04)', borderRadius: 12, color: '#E1306C', textDecoration: 'none', flexShrink: 0 }}>
                 <IconExternalLink size={16} />
               </a>
             )}
@@ -538,12 +542,12 @@ export default function PerfilPage() {
             </div>
             {telegram ? (
               <a href={`https://t.me/${telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#26A5E4', textDecoration: 'none', flexShrink: 0 }}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: 'rgba(0,0,0,.04)', borderRadius: 12, color: '#26A5E4', textDecoration: 'none', flexShrink: 0 }}>
                 <IconExternalLink size={16} />
               </a>
             ) : (
               <button type="button" onClick={() => setSheetField('telegram')}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: 'rgba(0,0,0,.04)', borderRadius: 12, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
                 <IconSettings size={16} style={{ color: T.muted }} />
               </button>
             )}
@@ -561,7 +565,7 @@ export default function PerfilPage() {
             </div>
             {facebook && (
               <a href={facebook.startsWith('http') ? facebook : `https://facebook.com/${facebook}`} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#1877F2', textDecoration: 'none', flexShrink: 0 }}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: 'rgba(0,0,0,.04)', borderRadius: 12, color: '#1877F2', textDecoration: 'none', flexShrink: 0 }}>
                 <IconExternalLink size={16} />
               </a>
             )}
@@ -582,7 +586,7 @@ export default function PerfilPage() {
             </div>
             {stravaId && (
               <a href={`https://www.strava.com/athletes/${stravaId}`} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: '#eaece4', borderRadius: 12, color: '#FC4C02', textDecoration: 'none', flexShrink: 0, alignSelf: 'start', marginTop: 22 }}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, background: 'rgba(0,0,0,.04)', borderRadius: 12, color: '#FC4C02', textDecoration: 'none', flexShrink: 0, alignSelf: 'start', marginTop: 22 }}>
                 <IconExternalLink size={16} />
               </a>
             )}
@@ -592,7 +596,7 @@ export default function PerfilPage() {
 
         {/* Erro de validação */}
         {formError && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginTop: 16 }}>
+          <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', color: '#EF4444', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginTop: 16 }}>
             {formError}
           </div>
         )}
@@ -604,8 +608,8 @@ export default function PerfilPage() {
           disabled={saving}
           style={{
             marginTop: 20, width: '100%',
-            background: saveOk ? '#16a34a' : saving ? T.border : T.primary,
-            color: saving ? T.muted : '#fff',
+            background: saveOk ? '#22C55E' : saving ? 'rgba(0,0,0,.06)' : '#6d745f',
+            color: saving ? '#9AA093' : '#fff',
             border: 'none', borderRadius: 14, padding: '14px',
             fontSize: 15, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
             transition: 'background 0.2s',
@@ -620,31 +624,31 @@ export default function PerfilPage() {
       {/* ── Trilhas ── */}
       <ProfileSection title="Trilhas">
         <InfoRow
-          icon="ti-heart" label="Favoritas"
+          icon={<IconHeart size={18} color="#6d745f" />} label="Favoritas"
           value={`${trilhasFavoritas.length} trilha${trilhasFavoritas.length !== 1 ? 's' : ''}`}
           onTap={() => { window.location.href = '/dashboard' }}
         />
         <Divider />
         <InfoRow
-          icon="ti-map-pin" label="Que cadastrei"
+          icon={<IconMapPin size={18} color="#6d745f" />} label="Que cadastrei"
           value={`${minhasTrilhas.length} trilha${minhasTrilhas.length !== 1 ? 's' : ''}`}
           onTap={() => { window.location.href = '/perfil/minhas-trilhas' }}
         />
         <Divider />
         <InfoRow
-          icon="ti-plus" label="Cadastrar nova trilha" value="Publicar no catálogo"
+          icon={<IconPlus size={18} color="#6d745f" />} label="Cadastrar nova trilha" value="Publicar no catálogo"
           onTap={() => { window.location.href = '/trilhas/cadastrar' }}
         />
         {profile?.is_admin && (
           <>
             <Divider />
             <InfoRow
-              icon="ti-brand-strava" label="Importar Strava" value="Segmentos e rotas"
+              icon={<IconBrandStrava size={18} color="#FC4C02" />} label="Importar Strava" value="Segmentos e rotas"
               onTap={() => { window.location.href = '/admin/importar-strava' }}
             />
             <Divider />
             <InfoRow
-              icon="ti-checklist" label="Administrar Trilhas" value="Catálogo e importações"
+              icon={<IconShieldCheck size={18} color="#6d745f" />} label="Administrar Trilhas" value="Catálogo e importações"
               onTap={() => { window.location.href = '/admin' }}
             />
           </>
@@ -662,7 +666,7 @@ export default function PerfilPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 0' }}>
           <div style={{
             width: 40, height: 40, borderRadius: 12,
-            background: receberEmail ? 'rgba(109,116,95,0.1)' : '#eaece4',
+            background: receberEmail ? 'rgba(109,116,95,.1)' : 'rgba(0,0,0,.05)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             transition: 'background 0.2s',
           }}>
@@ -680,7 +684,7 @@ export default function PerfilPage() {
         </div>
 
         {receberEmail && (
-          <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: `1px solid ${T.border}` }}>
+          <div style={{ background: '#F8F9F5', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: '1px solid rgba(0,0,0,.06)' }}>
             <p style={{ fontSize: 12, color: T.muted, margin: 0, lineHeight: 1.7 }}>
               <span style={{ color: T.text, fontWeight: 600 }}>Horários (BRT):</span><br />
               {REPORT_SCHEDULE.map((s, i) => (
@@ -770,7 +774,7 @@ export default function PerfilPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                  background: isAtivo ? 'rgba(38,165,228,0.12)' : !hasUsername ? '#eaece4' : 'rgba(251,191,36,0.12)',
+                  background: isAtivo ? 'rgba(38,165,228,0.12)' : !hasUsername ? 'rgba(0,0,0,.05)' : 'rgba(251,191,36,0.12)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'background 0.2s',
                 }}>
@@ -798,7 +802,7 @@ export default function PerfilPage() {
 
               {/* State: not configured */}
               {!hasUsername && (
-                <div style={{ background: '#eaece4', borderRadius: 12, padding: '16px', border: `1px solid ${T.border}` }}>
+                <div style={{ background: '#F8F9F5', borderRadius: 12, padding: '16px', border: '1px solid rgba(0,0,0,.06)' }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: T.text, margin: '0 0 8px' }}>Como configurar</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {[
@@ -887,10 +891,10 @@ export default function PerfilPage() {
       {/* Plan card */}
       <div style={{
         background: isPago
-          ? `linear-gradient(135deg, #eaece4 0%, #f4f5f0 60%, #e2e5da 100%)`
-          : T.card,
+          ? 'linear-gradient(135deg, #1C1F19 0%, #131510 100%)'
+          : '#FFFFFF',
         borderRadius: 24,
-        border: isPago ? `1px solid rgba(109,116,95,0.3)` : `1px solid ${T.border}`,
+        border: isPago ? '1px solid rgba(109,116,95,.3)' : '1px solid rgba(0,0,0,.07)',
         padding: '28px 24px', marginBottom: 12, position: 'relative', overflow: 'hidden',
       }}>
         {isPago && (
@@ -899,26 +903,26 @@ export default function PerfilPage() {
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: isPago ? T.primary : T.muted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: isPago ? '#6d745f' : T.muted, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>
               {isPago ? '⭐ Plano atual' : 'Plano atual'}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: T.text, letterSpacing: '-0.04em' }}>{plano.nome.toUpperCase()}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: isPago ? '#F4F3EF' : '#1A1D18', letterSpacing: '-0.04em' }}>{plano.nome.toUpperCase()}</div>
           </div>
           {isPago && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 24, fontWeight: 800, color: T.primary, letterSpacing: '-0.03em' }}>R${plano.preco}</div>
-              <div style={{ fontSize: 12, color: T.muted }}>/mês</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#6d745f', letterSpacing: '-0.03em' }}>R${plano.preco}</div>
+              <div style={{ fontSize: 12, color: '#9AA093' }}>/mês</div>
             </div>
           )}
         </div>
 
-        <p style={{ fontSize: 13, color: T.muted, margin: '0 0 20px', lineHeight: 1.6 }}>{plano.descricao}</p>
+        <p style={{ fontSize: 13, color: isPago ? '#9AA093' : T.muted, margin: '0 0 20px', lineHeight: 1.6 }}>{plano.descricao}</p>
 
         <div style={{ marginBottom: 24 }}>
           {plano.features.map(f => (
             <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '5px 0' }}>
-              <IconCircleCheck size={16} style={{ color: isPago ? T.primary : '#4ade80', flexShrink: 0, marginTop: 1 }} />
-              <span style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>{f}</span>
+              <IconCircleCheck size={16} style={{ color: isPago ? '#6d745f' : '#4ade80', flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontSize: 13, color: isPago ? '#9AA093' : T.muted, lineHeight: 1.5 }}>{f}</span>
             </div>
           ))}
         </div>
@@ -927,8 +931,8 @@ export default function PerfilPage() {
           <button onClick={handlePortal} disabled={portalLoading}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: '#eaece4', color: T.text,
-              border: `1px solid ${T.border}`, borderRadius: 12,
+              background: 'rgba(244,243,239,.08)', color: '#F4F3EF',
+              border: '1px solid rgba(244,243,239,.15)', borderRadius: 12,
               padding: '11px 20px', fontSize: 13, fontWeight: 600,
               cursor: portalLoading ? 'not-allowed' : 'pointer',
             }}>
@@ -938,8 +942,8 @@ export default function PerfilPage() {
         ) : (
           <Link href="/planos" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: T.primary, color: '#fff',
-            borderRadius: 14, padding: '13px 24px',
+            background: '#6d745f', color: '#fff',
+            borderRadius: 12, padding: '13px 24px',
             fontSize: 14, fontWeight: 800, textDecoration: 'none',
             boxShadow: '0 4px 20px rgba(109,116,95,0.25)',
           }}>
@@ -1012,9 +1016,9 @@ export default function PerfilPage() {
         <div
           key={integ.nome}
           style={{
-            background: '#f9f9f7',
-            borderRadius: 20,
-            border: `1px solid ${T.border}`,
+            background: '#FFFFFF',
+            borderRadius: 16,
+            border: '1px solid rgba(0,0,0,.07)',
             padding: '18px 20px',
             display: 'flex',
             alignItems: 'center',
@@ -1026,7 +1030,7 @@ export default function PerfilPage() {
         >
           <div style={{
             width: 48, height: 48, borderRadius: 14, flexShrink: 0,
-            background: '#eaece4',
+            background: 'rgba(0,0,0,.05)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {integ.icon}
@@ -1037,8 +1041,8 @@ export default function PerfilPage() {
           </div>
           <span style={{
             fontSize: 10, fontWeight: 800, letterSpacing: '0.8px',
-            background: '#e5e7e0',
-            color: '#8a9280',
+            background: 'rgba(0,0,0,.06)',
+            color: '#9AA093',
             borderRadius: 20, padding: '4px 10px',
             whiteSpace: 'nowrap', flexShrink: 0,
           }}>
@@ -1057,11 +1061,11 @@ export default function PerfilPage() {
     conta: tabConta, alertas: tabAlertas, plano: tabPlano, integracoes: tabIntegracoes,
   }
 
-  const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: 'conta',        label: 'Conta',        icon: 'ti-user' },
-    { id: 'alertas',      label: 'Alertas',      icon: 'ti-bell' },
-    { id: 'plano',        label: 'Plano',        icon: 'ti-credit-card' },
-    { id: 'integracoes',  label: 'Integrações',  icon: 'ti-plug' },
+  const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'conta',        label: 'Conta',        icon: <IconUser size={14} /> },
+    { id: 'alertas',      label: 'Alertas',      icon: <IconBell size={14} /> },
+    { id: 'plano',        label: 'Plano',        icon: <IconCreditCard size={14} /> },
+    { id: 'integracoes',  label: 'Integrações',  icon: <IconPlug size={14} /> },
   ]
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -1093,7 +1097,7 @@ export default function PerfilPage() {
             </div>
 
             {/* Passo 2 */}
-            <div style={{ background: '#eaece4', borderRadius: 12, padding: '14px 16px', border: `1px solid ${T.border}` }}>
+            <div style={{ background: '#F8F9F5', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(0,0,0,.06)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <span style={{ width: 22, height: 22, borderRadius: '50%', background: profile?.telegram_chat_id ? '#16a34a' : '#f59e0b', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {profile?.telegram_chat_id ? '✓' : '2'}
@@ -1158,8 +1162,8 @@ export default function PerfilPage() {
         {/* ── HERO ── */}
         <div style={{ padding: '20px 16px 0' }}>
           <div style={{
-            background: `linear-gradient(160deg, #eaece4 0%, ${T.card} 60%, #f4f5f0 100%)`,
-            borderRadius: 24, border: `1px solid ${T.border}`,
+            background: 'linear-gradient(160deg, #1C1F19, #131510)',
+            borderRadius: 20, border: '1px solid rgba(109,116,95,.22)',
             padding: '24px 20px 20px', position: 'relative', overflow: 'hidden',
           }}>
             {/* Glow */}
@@ -1168,17 +1172,17 @@ export default function PerfilPage() {
             {/* Avatar + identity */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div style={{ width: 88, height: 88, borderRadius: '50%', background: '#eaece4', border: `2.5px solid ${T.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 88, height: 88, borderRadius: '50%', background: '#2a2e25', border: '2.5px solid rgba(109,116,95,.35)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {avatarUploading
                     ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}><Spinner size={24} /></div>
                     : avatarUrl
                       ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ fontSize: 32, fontWeight: 900, color: T.primary }}>{initials}</span>}
+                      : <span style={{ fontSize: 32, fontWeight: 900, color: '#F4F3EF' }}>{initials}</span>}
                 </div>
                 <label style={{
                   position: 'absolute', bottom: 2, right: 2,
                   width: 28, height: 28, borderRadius: '50%',
-                  background: T.primary, border: `2.5px solid ${T.card}`,
+                  background: '#6d745f', border: '2.5px solid #131510',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 13, fontWeight: 700, color: '#fff',
                 }} title="Trocar foto">
@@ -1188,11 +1192,11 @@ export default function PerfilPage() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: T.text, margin: '0 0 2px', letterSpacing: '-0.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#F4F3EF', margin: '0 0 2px', letterSpacing: '-0.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {displayName}
                 </h1>
                 {profile?.apelido && (
-                  <p style={{ fontSize: 13, color: T.muted, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <p style={{ fontSize: 13, color: '#9AA093', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     @{profile.apelido}
                   </p>
                 )}
@@ -1200,31 +1204,31 @@ export default function PerfilPage() {
             </div>
 
             {/* Info grid */}
-            <div style={{ height: 1, background: T.border, marginBottom: 16 }} />
+            <div style={{ height: 1, background: 'rgba(109,116,95,.25)', marginBottom: 16 }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
               {nome && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <IconUser size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</span>
+                  <IconUser size={14} style={{ color: '#9AA093', width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: '#F4F3EF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nome}</span>
                 </div>
               )}
               {regiao && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <IconMapPin size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: T.text }}>{estadoLabel(regiao)}</span>
+                  <IconMapPin size={14} style={{ color: '#9AA093', width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: '#F4F3EF' }}>{estadoLabel(regiao)}</span>
                 </div>
               )}
               {telefone && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <IconDeviceMobile size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: T.text }}>{telefone}</span>
+                  <IconDeviceMobile size={14} style={{ color: '#9AA093', width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: '#F4F3EF' }}>{telefone}</span>
                   {telefoneWhatsapp && <span style={{ fontSize: 10, background: 'rgba(37,211,102,0.12)', color: '#25D366', borderRadius: 20, padding: '2px 8px', fontWeight: 600 }}>WhatsApp</span>}
                 </div>
               )}
               {instagram && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <IconBrandInstagram size={14} style={{ color: T.muted, width: 16, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: T.text }}>{instagram.startsWith('@') ? instagram : `@${instagram}`}</span>
+                  <IconBrandInstagram size={14} style={{ color: '#9AA093', width: 16, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: '#F4F3EF' }}>{instagram.startsWith('@') ? instagram : `@${instagram}`}</span>
                 </div>
               )}
             </div>
@@ -1267,11 +1271,11 @@ export default function PerfilPage() {
         {/* ── SEGMENTED CONTROL ── */}
         <div className="perfil-tab-bar" style={{
           position: 'sticky', top: 0, zIndex: 20,
-          background: T.bg,
+          background: '#F5F6F2',
           display: 'flex', gap: 8,
           overflowX: 'auto', scrollbarWidth: 'none',
           padding: '12px 16px',
-          borderBottom: `1px solid ${T.border}`,
+          borderBottom: '1px solid rgba(0,0,0,.07)',
           WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'],
         }}>
           {TABS.map(t => (
@@ -1283,15 +1287,15 @@ export default function PerfilPage() {
                 flexShrink: 0, whiteSpace: 'nowrap',
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '8px 16px', borderRadius: 20,
-                background: tab === t.id ? T.primary : 'transparent',
-                color: tab === t.id ? '#000' : T.muted,
-                border: tab === t.id ? 'none' : `1px solid ${T.border}`,
+                background: tab === t.id ? '#1A1D18' : 'transparent',
+                color: tab === t.id ? '#F4F3EF' : '#9AA093',
+                border: tab === t.id ? 'none' : '1px solid rgba(0,0,0,.08)',
                 fontSize: 13, fontWeight: 700,
                 cursor: 'pointer', transition: 'all 0.18s',
                 outline: 'none',
               }}
             >
-              <i className={`ti ${t.icon}`} style={{ fontSize: 14 }} />
+              {t.icon}
               {t.label}
             </button>
           ))}
@@ -1312,7 +1316,7 @@ export default function PerfilPage() {
               color: '#ef4444', fontSize: 14, fontWeight: 600, marginTop: 8,
               transition: 'background 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,.06)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
             <IconLogout size={18} />
@@ -1337,12 +1341,12 @@ export default function PerfilPage() {
           disabled={saving}
           style={{
             maxWidth: 480, width: '100%',
-            background: saving ? '#d0d4c6' : T.primary,
-            color: saving ? T.muted : '#fff',
+            background: saving ? 'rgba(0,0,0,.06)' : '#6d745f',
+            color: saving ? '#9AA093' : '#fff',
             border: 'none', borderRadius: 16, padding: '15px 24px',
             fontSize: 15, fontWeight: 800,
             cursor: saving ? 'not-allowed' : 'pointer',
-            boxShadow: `0 8px 32px rgba(109,116,95,0.3)`,
+            boxShadow: '0 8px 32px rgba(109,116,95,0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             transition: 'background 0.15s',
           }}
