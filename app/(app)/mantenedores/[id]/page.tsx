@@ -49,23 +49,30 @@ export default async function MantenedorPage({ params }: { params: Promise<{ id:
           aderencia_status, aderencia_futura_status, aderencia_futura_label,
           pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
           texto_dinamico, frase_secagem, gerado_em
-        )
+        ),
+        previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med, gerado_em)
       `)
       .eq('mantenedor_id', id)
       .eq('aprovada', true)
-      .order('name'),
+      .order('name')
+      .order('bloco', { foreignTable: 'previsao_blocos' }),
   ])
 
   if (!mantenedor) notFound()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const trilhas: TrilhaComCondicao[] = (trilhasRaw ?? []).map((t: any) => {
+    const blocos = Array.isArray(t.previsao_blocos)
+      ? [...t.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
+      : null
     const arr = Array.isArray(t.condicoes) ? t.condicoes : []
     // ordena por gerado_em desc para pegar a condição mais recente
     arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
       new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
     )
-    return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
+    const condicao = arr[0] ?? undefined
+    if (condicao && blocos?.length) condicao.previsao_24h = blocos
+    return { ...t, condicao } as TrilhaComCondicao
   })
 
   return <MantenedorContent mantenedor={mantenedor as Mantenedor} trilhas={trilhas} />
