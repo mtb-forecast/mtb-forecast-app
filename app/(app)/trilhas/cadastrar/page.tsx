@@ -177,6 +177,7 @@ export default function CadastrarTrilhaPage() {
   const [gpxErro, setGpxErro] = useState<string | null>(null)
   const gpxInputRef = useRef<HTMLInputElement | null>(null)
   const [polyline, setPolyline] = useState<string | null>(null)
+  const [elevationProfile, setElevationProfile] = useState<{ lat: number; lon: number; ele: number }[] | null>(null)
 
   // ── Opções dinâmicas ───────────────────────────────────────────
   const [soloTypes, setSoloTypes] = useState<string[]>([])
@@ -286,6 +287,26 @@ export default function CadastrarTrilhaPage() {
         }
       }
 
+      // Amostrar máximo 200 pontos para elevation_profile
+      if (eles.length > 0 && lats.length > 0) {
+        const total = lats.length
+        const maxPts = 200
+        const step = total <= maxPts ? 1 : total / maxPts
+        const sampled: { lat: number; lon: number; ele: number }[] = []
+        for (let i = 0; i < maxPts && Math.round(i * step) < total; i++) {
+          const idx = Math.round(i * step)
+          sampled.push({ lat: lats[idx], lon: lons[idx], ele: eles[idx] ?? 0 })
+        }
+        // Garantir último ponto
+        if (sampled[sampled.length - 1] !== undefined) {
+          const last = total - 1
+          if (sampled[sampled.length - 1].lat !== lats[last]) {
+            sampled.push({ lat: lats[last], lon: lons[last], ele: eles[last] ?? 0 })
+          }
+        }
+        setElevationProfile(sampled)
+      }
+
       // Preenche os campos
       setLat(centLat.toFixed(6))
       setLon(centLon.toFixed(6))
@@ -382,6 +403,7 @@ export default function CadastrarTrilhaPage() {
       link_referencia: linkRef.trim() || null,
       observacoes: observacoes.trim() || null,
       polyline: polyline ?? null,
+      elevation_profile: elevationProfile ? elevationProfile : null,
       mantenedor_id: mantenedorId || null,
       aprovada: true,
       created_by: user.id,
@@ -441,6 +463,7 @@ export default function CadastrarTrilhaPage() {
     setAltitude(''); setSoloType(''); setExposicao(''); setTrailType('')
     setBioma(''); setDesnivel(''); setExtensao(''); setSensibilidade('1'); setLinkRef(''); setObservacoes('')
     setPolyline(null)
+    setElevationProfile(null)
     setPtCidade(''); setPtUf(''); setPtEndereco(''); setPtSuperficie('')
     setPtComprimento(''); setPtIluminacao(''); setPtEstacionamento('')
     setPtInstagram(''); setPtFonte('')

@@ -35,11 +35,11 @@ export default function TrilhaAcoes({ trilhaId, trilhaNome, initialIsFavorito, u
       <button
         onClick={compartilharWhatsApp}
         style={{
-          background: '#25D366', color: '#fff',
-          border: 'none', borderRadius: 4,
-          padding: '8px 16px', fontSize: 13, fontWeight: 500,
-          display: 'flex', alignItems: 'center', gap: 8,
-          cursor: 'pointer',
+          background: '#25D366', color: '#fff', border: 'none',
+          borderRadius: 999, padding: '7px 14px', fontSize: 12,
+          fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700,
+          textTransform: 'uppercase', letterSpacing: '.5px',
+          display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer',
         }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
