@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  IconLayoutDashboard, IconMap2, IconPlayerRecord, IconMapPin, IconUser,
+  IconRss, IconLayoutDashboard, IconMap2, IconPlayerRecord, IconMapPin, IconUser,
   type TablerIcon,
 } from '@tabler/icons-react'
 
 const NAV_ITEMS: { href: string; label: string; Icon: TablerIcon }[] = [
+  { href: '/feed',      label: 'Feed',      Icon: IconRss             },
   { href: '/dashboard', label: 'Dashboard', Icon: IconLayoutDashboard },
   { href: '/trilhas',   label: 'Trilhas',   Icon: IconMap2            },
   { href: '/gravar',    label: 'Gravar',    Icon: IconPlayerRecord    },

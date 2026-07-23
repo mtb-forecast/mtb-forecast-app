@@ -215,6 +215,19 @@ export type Observacao = {
   }
 }
 
+export type FeedEvento = {
+  id: number
+  trilha_id: string
+  tipo: 'pipeline'
+  texto: string | null
+  veredicto: string | null
+  created_at: string
+}
+
+export type FeedItem =
+  | ({ kind: 'pipeline' } & FeedEvento & { trilha_nome?: string })
+  | ({ kind: 'avaliacao' } & Observacao & { trilha_nome?: string })
+
 export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'outros'] as const
 export type Regiao = typeof REGIOES[number]
 
