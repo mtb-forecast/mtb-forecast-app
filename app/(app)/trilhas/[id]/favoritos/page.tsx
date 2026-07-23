@@ -16,10 +16,12 @@ const TOPO_SVG = `
 
 const TOPO_DATA_URI = `url("data:image/svg+xml,${TOPO_SVG}")`
 
+type ProfileMini = { id: string; apelido: string | null; nome: string | null; avatar_url: string | null }
+
 type FavoritoComProfile = {
   id: string
   user_id: string
-  profiles: { id: string; apelido: string | null; nome: string | null; avatar_url: string | null } | null
+  profiles: ProfileMini | null
 }
 
 export default async function TrilhaFavoritosPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,13 +39,28 @@ export default async function TrilhaFavoritosPage({ params }: { params: Promise<
 
   if (!trilha) notFound()
 
+  // Busca em duas etapas (favoritos + profiles) em vez de embed aninhado —
+  // evita depender de o cache de relacionamento do PostgREST resolver
+  // favoritos.user_id -> profiles.id sem ambiguidade.
   const { data: favoritos } = await sb
     .from('favoritos')
-    .select('id, user_id, profiles(id, apelido, nome, avatar_url)')
+    .select('id, user_id')
     .eq('trilha_id', trilhaId)
     .order('created_at', { ascending: false })
 
-  const rows = (favoritos ?? []) as unknown as FavoritoComProfile[]
+  const userIds = Array.from(new Set((favoritos ?? []).map(f => f.user_id)))
+
+  const { data: profilesData } = userIds.length > 0
+    ? await sb.from('profiles').select('id, apelido, nome, avatar_url').in('id', userIds)
+    : { data: [] as ProfileMini[] }
+
+  const profileById = new Map((profilesData ?? []).map(p => [p.id, p as ProfileMini]))
+
+  const rows: FavoritoComProfile[] = (favoritos ?? []).map(f => ({
+    id: f.id,
+    user_id: f.user_id,
+    profiles: profileById.get(f.user_id) ?? null,
+  }))
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
