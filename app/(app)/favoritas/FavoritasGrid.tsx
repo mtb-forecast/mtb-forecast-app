@@ -1,13 +1,39 @@
+'use client'
+
+import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
+import FavoritoButton from '@/components/FavoritoButton'
 import type { TrilhaComCondicao } from '@/lib/types'
 
 type Props = {
   initialTrilhas: TrilhaComCondicao[]
+  initialFavIds: string[]
+  userId: string
 }
 
-export default function FavoritasGrid({ initialTrilhas }: Props) {
-  if (initialTrilhas.length === 0) {
+export default function FavoritasGrid({ initialTrilhas, initialFavIds, userId }: Props) {
+  const [favoritos, setFavoritos] = useState<Set<string>>(new Set(initialFavIds))
+  const [trilhas, setTrilhas] = useState<TrilhaComCondicao[]>(initialTrilhas)
+
+  // Ref estável para evitar re-renders em todos os cards ao alterar qualquer favorito
+  const favoritosRef = useRef(favoritos)
+  favoritosRef.current = favoritos
+
+  const toggleFavorito = useCallback(async (trilhaId: string) => {
+    if (favoritosRef.current.has(trilhaId)) {
+      // Optimistic: remove imediatamente da UI
+      setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
+      setTrilhas(prev => prev.filter(t => t.id !== trilhaId))
+      await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
+    } else {
+      await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
+      setFavoritos(prev => new Set([...prev, trilhaId]))
+    }
+  }, [userId]) // estável — lê favoritos via ref
+
+  if (trilhas.length === 0) {
     return (
       <div style={{
         background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16,
@@ -29,8 +55,17 @@ export default function FavoritasGrid({ initialTrilhas }: Props) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {initialTrilhas.map(t => (
-        <DashboardTrailCard key={t.id} trilha={t} />
+      {trilhas.map(t => (
+        <div key={t.id} style={{ position: 'relative' }}>
+          <DashboardTrailCard trilha={t} />
+          <div style={{ position: 'absolute', top: 10, right: 44, zIndex: 10 }}>
+            <FavoritoButton
+              isFavorito={favoritos.has(t.id)}
+              onClick={() => toggleFavorito(t.id)}
+              size="sm"
+            />
+          </div>
+        </div>
       ))}
     </div>
   )
