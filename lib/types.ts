@@ -212,6 +212,7 @@ export type Observacao = {
     apelido?: string
     nome?: string
     email?: string
+    avatar_url?: string | null
   }
 }
 

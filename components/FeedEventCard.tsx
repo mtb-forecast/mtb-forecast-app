@@ -23,6 +23,24 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase()
 }
 
+function Avatar({ name, avatarUrl, size = 26 }: { name: string; avatarUrl?: string | null; size?: number }) {
+  return avatarUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={avatarUrl} alt="" style={{
+      width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
+    }} />
+  ) : (
+    <span style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: '#eef1e9', color: '#6d745f',
+      fontSize: 11, fontWeight: 700,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      {getInitials(name)}
+    </span>
+  )
+}
+
 function Stars({ count }: { count: number }) {
   return (
     <span style={{ display: 'inline-flex', gap: 1 }}>
@@ -108,14 +126,7 @@ export default function FeedEventCard({ item }: { item: FeedItem }) {
           href={`/perfil/${item.user_id}`}
           style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}
         >
-          <span style={{
-            width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-            background: '#eef1e9', color: '#6d745f',
-            fontSize: 11, fontWeight: 700,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {getInitials(nome)}
-          </span>
+          <Avatar name={nome} avatarUrl={item.profiles?.avatar_url} />
           <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1D18' }}>{nome}</span>
           <span style={{ fontSize: 12, color: '#9AA093' }}>comentou</span>
         </Link>

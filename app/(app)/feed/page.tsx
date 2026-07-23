@@ -47,7 +47,7 @@ export default async function FeedPage() {
     // Avaliações de trilhas favoritadas OU de usuários seguidos (mesmo em trilhas não favoritadas)
     let obsQuery = sb
       .from('observacoes_trilha')
-      .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, profiles (apelido, nome, email)')
+      .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, profiles (apelido, nome, email, avatar_url)')
 
     if (trilhaIds.length > 0 && followingIds.length > 0) {
       obsQuery = obsQuery.or(`trilha_id.in.(${trilhaIds.join(',')}),user_id.in.(${followingIds.join(',')})`)
