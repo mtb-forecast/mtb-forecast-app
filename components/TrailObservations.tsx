@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Observacao } from '@/lib/types'
 import FavoritoButton from '@/components/FavoritoButton'
@@ -212,16 +213,21 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
 
                   {/* Top row: avatar + name + stars */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <div style={{
-                      width: 24, height: 24, borderRadius: '50%',
-                      background: '#6d745f', color: '#fff',
-                      fontSize: 10, fontWeight: 500,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      {getInitials(obs)}
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25' }}>{getDisplayName(obs)}</span>
+                    <Link
+                      href={`/perfil/${obs.user_id}`}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}
+                    >
+                      <div style={{
+                        width: 24, height: 24, borderRadius: '50%',
+                        background: '#6d745f', color: '#fff',
+                        fontSize: 10, fontWeight: 500,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        {getInitials(obs)}
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25' }}>{getDisplayName(obs)}</span>
+                    </Link>
                     <Stars count={obs.estrelas} />
                   </div>
 

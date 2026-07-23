@@ -24,34 +24,52 @@ export default async function FeedPage() {
 
   const userId = session.user.id
 
-  const { data: favRows } = await sb
-    .from('favoritos')
-    .select('trilha_id')
-    .eq('user_id', userId)
+  const [{ data: favRows }, { data: followingRows }] = await Promise.all([
+    sb.from('favoritos').select('trilha_id').eq('user_id', userId),
+    sb.from('seguidores').select('following_id').eq('follower_id', userId),
+  ])
 
   const trilhaIds = (favRows ?? []).map((f: { trilha_id: string }) => f.trilha_id)
+  const followingIds = (followingRows ?? []).map((f: { following_id: string }) => f.following_id)
 
   let items: FeedItem[] = []
 
-  if (trilhaIds.length > 0) {
-    const [{ data: eventos }, { data: observacoes }, { data: trilhasData }] = await Promise.all([
-      sb
-        .from('feed_eventos')
-        .select('id, trilha_id, tipo, texto, veredicto, created_at')
-        .in('trilha_id', trilhaIds)
-        .order('created_at', { ascending: false })
-        .limit(30),
-      sb
-        .from('observacoes_trilha')
-        .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, profiles (apelido, nome, email)')
-        .in('trilha_id', trilhaIds)
-        .order('created_at', { ascending: false })
-        .limit(30),
-      sb
-        .from('trilhas')
-        .select('id, name')
-        .in('id', trilhaIds),
+  if (trilhaIds.length > 0 || followingIds.length > 0) {
+    const eventosPromise = trilhaIds.length > 0
+      ? sb
+          .from('feed_eventos')
+          .select('id, trilha_id, tipo, texto, veredicto, created_at')
+          .in('trilha_id', trilhaIds)
+          .order('created_at', { ascending: false })
+          .limit(30)
+      : Promise.resolve({ data: [] as FeedEvento[] })
+
+    // Avaliações de trilhas favoritadas OU de usuários seguidos (mesmo em trilhas não favoritadas)
+    let obsQuery = sb
+      .from('observacoes_trilha')
+      .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, profiles (apelido, nome, email)')
+
+    if (trilhaIds.length > 0 && followingIds.length > 0) {
+      obsQuery = obsQuery.or(`trilha_id.in.(${trilhaIds.join(',')}),user_id.in.(${followingIds.join(',')})`)
+    } else if (trilhaIds.length > 0) {
+      obsQuery = obsQuery.in('trilha_id', trilhaIds)
+    } else {
+      obsQuery = obsQuery.in('user_id', followingIds)
+    }
+
+    const [{ data: eventos }, { data: observacoes }] = await Promise.all([
+      eventosPromise,
+      obsQuery.order('created_at', { ascending: false }).limit(30),
     ])
+
+    const trilhaIdsParaNome = Array.from(new Set([
+      ...(eventos ?? []).map((e: FeedEvento) => e.trilha_id),
+      ...((observacoes ?? []) as unknown as Observacao[]).map(o => o.trilha_id).filter(Boolean) as string[],
+    ]))
+
+    const { data: trilhasData } = trilhaIdsParaNome.length > 0
+      ? await sb.from('trilhas').select('id, name').in('id', trilhaIdsParaNome)
+      : { data: [] as { id: string; name: string }[] }
 
     const nomeById = new Map((trilhasData ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
 
@@ -98,7 +116,7 @@ export default async function FeedPage() {
             Feed
           </h1>
           <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.7)', marginTop: 8, marginBottom: 0 }}>
-            Atividade das suas trilhas favoritas
+            Atividade das suas trilhas favoritas e de quem você segue
           </p>
           <div style={{ height: 1, background: 'rgba(109,116,95,.25)', marginTop: 20 }} />
         </div>
@@ -112,9 +130,9 @@ export default async function FeedPage() {
             padding: '40px 24px', textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,.05)',
           }}>
             <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#9AA093', marginBottom: 16 }}>
-              {trilhaIds.length === 0
-                ? 'Favorite trilhas para acompanhar a atividade delas por aqui.'
-                : 'Nenhuma atividade ainda nas suas trilhas favoritas.'}
+              {trilhaIds.length === 0 && followingIds.length === 0
+                ? 'Favorite trilhas ou siga outros riders para acompanhar a atividade deles por aqui.'
+                : 'Nenhuma atividade ainda.'}
             </p>
             <Link href="/trilhas" style={{
               background: '#1A1D18', color: '#F4F3EF', fontWeight: 700,
