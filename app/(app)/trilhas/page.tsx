@@ -6,9 +6,13 @@ import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
-import TrilhaCard from '@/components/TrilhaCard'
+import DashboardTrailCard from '@/components/DashboardTrailCard'
+import FavoritoButton from '@/components/FavoritoButton'
 import PumpTrackCard from '@/components/PumpTrackCard'
-import { IconChevronDown, IconSearch, IconRoute, IconShieldCheck } from '@tabler/icons-react'
+import {
+  IconChevronDown, IconSearch, IconRoute, IconShieldCheck,
+  IconMap2, IconStar, IconMessageStar,
+} from '@tabler/icons-react'
 
 
 const VEREDICTO_ORDER: Record<string, number> = {
@@ -253,22 +257,22 @@ function TrilhasContent() {
 
   const fieldBase: React.CSSProperties = {
     boxSizing: 'border-box',
-    border: '1px solid #E5E7EB',
+    border: '1px solid rgba(0,0,0,.1)',
     borderRadius: 8,
     background: '#FFFFFF',
     fontSize: 14,
-    color: '#2a2e25',
+    color: '#1A1D18',
     outline: 'none',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
+    transition: 'border-color 0.15s',
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
+    <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
-        .trilhas-select:focus { border-color: #6d745f !important; box-shadow: 0 0 0 2px rgba(109,116,95,0.2) !important; }
-        .trilhas-input:focus  { border-color: #6d745f !important; box-shadow: 0 0 0 2px rgba(109,116,95,0.2) !important; }
+        .trilhas-select:focus { border-color: #6d745f !important; box-shadow: 0 0 0 2px rgba(109,116,95,.15) !important; }
+        .trilhas-input:focus  { border-color: #6d745f !important; box-shadow: 0 0 0 2px rgba(109,116,95,.15) !important; }
         @media (max-width: 640px) {
           .trilhas-dicas-grid { grid-template-columns: 1fr !important; }
 .trilhas-header-actions { flex-direction: column !important; width: 100% !important; }
@@ -279,22 +283,35 @@ function TrilhasContent() {
       `}</style>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="hero-dark" style={{ background: '#2a2e25', padding: '36px 28px' }}>
+      <div style={{
+        position: 'relative', overflow: 'hidden', background: '#141612',
+        borderBottom: '1px solid rgba(109,116,95,.25)', padding: '32px 28px 28px',
+      }}>
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            backgroundImage: `url("data:image/svg+xml,${encodeURIComponent('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'900\' height=\'500\' viewBox=\'0 0 900 500\'><g fill=\'none\' stroke=\'%236d745f\' stroke-opacity=\'.18\' stroke-width=\'1.3\'><path d=\'M750,80 C820,120 870,200 850,300 C830,400 760,450 670,440 C580,430 520,370 530,280 C540,190 620,100 700,80 C720,74 738,72 750,80 Z\'/><path d=\'M750,40 C840,90 910,190 885,310 C860,430 775,490 670,475 C565,460 490,385 505,275 C520,165 620,60 715,42 C728,39 740,37 750,40 Z\'/><path d=\'M750,115 C800,148 835,215 818,295 C800,375 743,415 668,406 C593,397 548,346 556,276 C564,206 630,138 692,118 C712,112 732,108 750,115 Z\'/><path d=\'M750,150 C782,172 802,228 788,292 C774,355 728,386 668,378 C608,370 574,326 580,272 C586,218 636,170 682,155 C704,148 728,145 750,150 Z\'/></g></svg>')}"`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'right center',
+          }}
+        />
+
         <div style={{
-          maxWidth: 1200, margin: '0 auto',
-          display: 'flex', alignItems: 'center',
+          position: 'relative', zIndex: 1, maxWidth: 1200, margin: '0 auto',
+          display: 'flex', alignItems: 'flex-end',
           justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
         }}>
           <div>
             <h1 style={{
-              fontFamily: 'var(--font-barlow-condensed), sans-serif',
-              fontSize: 36, fontWeight: 800,
+              fontFamily: 'var(--font-barlow-condensed)',
+              fontSize: 'clamp(36px, 5vw, 50px)', fontWeight: 800,
               textTransform: 'uppercase',
-              color: '#FFFFFF', lineHeight: 1.1, margin: 0,
+              color: '#F4F3EF', lineHeight: 0.95, margin: 0,
             }}>
               Trilhas
             </h1>
-            <p style={{ color: '#9CA3AF', fontSize: 14, margin: '8px 0 0' }}>
+            <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.7)', margin: '9px 0 0', lineHeight: 1.5 }}>
               {estadoSelecionado
                 ? `${filtered.length} trilha${filtered.length !== 1 ? 's' : ''}${pumptracks.length > 0 ? ` · ${pumptracks.length} pump track${pumptracks.length !== 1 ? 's' : ''}` : ''} em ${filtroLabel}`
                 : 'Selecione um estado para ver as trilhas'}
@@ -305,11 +322,11 @@ function TrilhasContent() {
             <Link
               href="/trilhas/cadastrar"
               style={{
-                background: '#6d745f', color: '#fff',
-                borderRadius: 8, padding: '10px 20px',
-                fontSize: 13, fontWeight: 600,
-                textDecoration: 'none', whiteSpace: 'nowrap',
-                display: 'flex', alignItems: 'center',
+                background: '#F4F3EF', color: '#0E0F0D',
+                borderRadius: 999, padding: '8px 18px',
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700,
+                fontSize: 14, letterSpacing: '.5px', textTransform: 'uppercase',
+                textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
               }}
             >
               + Cadastrar trilha
@@ -318,11 +335,8 @@ function TrilhasContent() {
         </div>
       </div>
 
-      {/* Faixa de acento */}
-      <div style={{ background: '#a8b899', height: 3 }} />
-
       {/* ── Filtros ─────────────────────────────────────────────────────── */}
-      <div className="trilhas-filter-bar" style={{ background: '#f4f5f0', borderBottom: '0.5px solid #E5E7EB', padding: '16px 28px' }}>
+      <div className="trilhas-filter-bar" style={{ background: '#F5F6F2', borderBottom: '1px solid rgba(0,0,0,.07)', padding: '14px 28px' }}>
         <div
           className="trilhas-filtros"
           style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}
@@ -339,7 +353,7 @@ function TrilhasContent() {
                   ...fieldBase,
                   appearance: 'none', WebkitAppearance: 'none',
                   padding: '10px 40px 10px 14px',
-                  color: '#9CA3AF',
+                  color: 'rgba(0,0,0,.35)',
                   cursor: 'pointer', width: 220,
                 }}
               >
@@ -349,7 +363,7 @@ function TrilhasContent() {
                   return <option key={m.id} value={m.id}>{label}</option>
                 })}
               </select>
-              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6d745f', pointerEvents: 'none' }} />
             </div>
           )}
 
@@ -363,7 +377,7 @@ function TrilhasContent() {
                 ...fieldBase,
                 appearance: 'none', WebkitAppearance: 'none',
                 padding: '10px 40px 10px 14px',
-                color: estadoSelecionado ? '#2a2e25' : '#9CA3AF',
+                color: estadoSelecionado ? '#1A1D18' : 'rgba(0,0,0,.35)',
                 cursor: 'pointer', width: 200,
               }}
             >
@@ -384,14 +398,14 @@ function TrilhasContent() {
                   ...fieldBase,
                   appearance: 'none', WebkitAppearance: 'none',
                   padding: '10px 40px 10px 14px',
-                  color: cidadeSelecionada ? '#2a2e25' : '#9CA3AF',
+                  color: cidadeSelecionada ? '#1A1D18' : 'rgba(0,0,0,.35)',
                   cursor: 'pointer', width: 220,
                 }}
               >
                 <option value="">Todas as cidades</option>
                 {cidades.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6d745f', pointerEvents: 'none' }} />
             </div>
           )}
 
@@ -406,21 +420,21 @@ function TrilhasContent() {
                   ...fieldBase,
                   appearance: 'none', WebkitAppearance: 'none',
                   padding: '10px 40px 10px 14px',
-                  color: localidadeSelecionada ? '#2a2e25' : '#9CA3AF',
+                  color: localidadeSelecionada ? '#1A1D18' : 'rgba(0,0,0,.35)',
                   cursor: 'pointer', width: 220,
                 }}
               >
                 <option value="">Todas as localidades</option>
                 {localidadesOpts.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
-              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6B7280', pointerEvents: 'none' }} />
+              <IconChevronDown size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#6d745f', pointerEvents: 'none' }} />
             </div>
           )}
 
           {/* Input de busca */}
           {estadoSelecionado && (
             <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-              <IconSearch size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
+              <IconSearch size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9AA093', pointerEvents: 'none' }} />
               <input
                 type="text"
                 placeholder="Buscar trilha ou pump track..."
@@ -445,39 +459,39 @@ function TrilhasContent() {
               style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 24 }}
             >
               {[
-                { icon: 'ti-map-2',        color: '#a8b899', title: 'Selecione seu estado',   text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
-                { icon: 'ti-star',         color: '#a8b899', title: 'Favorite suas trilhas',  text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
-                { icon: 'ti-message-star', color: '#a8b899', title: 'Avalie as trilhas',      text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
-              ].map(({ icon, color, title, text }) => (
+                { Icon: IconMap2,        title: 'Selecione seu estado',   text: 'Escolha o estado para ver todas as trilhas monitoradas com condições em tempo real.' },
+                { Icon: IconStar,        title: 'Favorite suas trilhas',  text: 'Salve suas trilhas favoritas para acessar rapidamente as condições no dashboard.' },
+                { Icon: IconMessageStar, title: 'Avalie as trilhas',      text: 'Compartilhe como estava a trilha com outros riders — sua experiência ajuda a comunidade.' },
+              ].map(({ Icon, title, text }) => (
                 <div
                   key={title}
-                  style={{ background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #E5E7EB', padding: 20 }}
+                  style={{ background: '#FFFFFF', borderRadius: 14, border: '1px solid rgba(0,0,0,.07)', padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}
                 >
-                  <i className={`ti ${icon}`} style={{ fontSize: 24, color, display: 'block', marginBottom: 12 }} />
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: '0 0 6px' }}>{title}</p>
+                  <Icon size={22} color="#6d745f" style={{ display: 'block', marginBottom: 12 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#1A1D18', margin: '0 0 6px' }}>{title}</p>
                   <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: 0 }}>{text}</p>
                 </div>
               ))}
 
               {/* Card Pump Track — destaque roxo */}
               <div style={{
-                background: '#FFFFFF', borderRadius: 12,
-                border: '0.5px solid #DDD6FE', padding: 20,
-                position: 'relative', overflow: 'hidden',
+                background: '#FFFFFF', borderRadius: 14,
+                border: '1px solid rgba(124,58,237,.2)', padding: 20,
+                position: 'relative', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)',
               }}>
                 <div style={{
                   position: 'absolute', top: 0, left: 0, right: 0, height: 3,
                   background: 'linear-gradient(90deg, #7C3AED, #A78BFA)',
                 }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <IconRoute size={24} style={{ color: '#7C3AED' }} />
+                  <IconRoute size={22} style={{ color: '#7C3AED' }} />
                   <span style={{
-                    background: '#EDE9FE', color: '#7C3AED',
+                    background: 'rgba(124,58,237,.1)', color: '#7C3AED',
                     fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
                     letterSpacing: '0.06em', textTransform: 'uppercase',
                   }}>Novo</span>
                 </div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: '0 0 6px' }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#1A1D18', margin: '0 0 6px' }}>
                   Pump Tracks no mapa
                 </p>
                 <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.55, margin: '0 0 12px' }}>
@@ -486,7 +500,7 @@ function TrilhasContent() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {['Asfalto', 'Terra', 'Homologado', 'Waze'].map(tag => (
                     <span key={tag} style={{
-                      fontSize: 11, color: '#7C3AED', background: '#EDE9FE',
+                      fontSize: 11, color: '#7C3AED', background: 'rgba(124,58,237,.08)',
                       borderRadius: 999, padding: '2px 8px',
                     }}>{tag}</span>
                   ))}
@@ -497,9 +511,9 @@ function TrilhasContent() {
               {mantenedoresList.length > 0 && (
                 <div style={{
                   gridColumn: '1 / -1',
-                  background: '#FFFFFF', borderRadius: 12,
-                  border: '0.5px solid #c8d4be', padding: 20,
-                  position: 'relative', overflow: 'hidden',
+                  background: '#FFFFFF', borderRadius: 14,
+                  border: '1px solid rgba(109,116,95,.2)', padding: 20,
+                  position: 'relative', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.04)',
                 }}>
                   <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
@@ -507,11 +521,11 @@ function TrilhasContent() {
                   }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <IconShieldCheck size={22} style={{ color: '#6d745f' }} />
-                    <p style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25', margin: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: '#1A1D18', margin: 0 }}>
                       Mantenedores & Bike Parks
                     </p>
                     <span style={{
-                      background: '#dcfce7', color: '#15803d',
+                      background: 'rgba(34,197,94,.1)', color: '#15803d',
                       fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '2px 8px',
                       letterSpacing: '0.06em', textTransform: 'uppercase',
                     }}>
@@ -529,7 +543,7 @@ function TrilhasContent() {
                         style={{
                           fontSize: 12, fontWeight: 600,
                           color: '#4a6741', background: '#f0f3ec',
-                          border: '0.5px solid #c8d4be', borderRadius: 999,
+                          border: '1px solid rgba(109,116,95,.2)', borderRadius: 999,
                           padding: '4px 12px', textDecoration: 'none',
                         }}
                       >
@@ -567,7 +581,7 @@ function TrilhasContent() {
                     href="/trilhas/cadastrar"
                     style={{
                       display: 'inline-block',
-                      background: '#6d745f', color: '#fff',
+                      background: '#1A1D18', color: '#F4F3EF',
                       borderRadius: 8, padding: '12px 24px',
                       fontSize: 14, fontWeight: 600, textDecoration: 'none',
                     }}
@@ -577,14 +591,18 @@ function TrilhasContent() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filtered.map(t => (
-                  <TrilhaCard
-                    key={t.id}
-                    trilha={t}
-                    isFavorito={favoritos.has(t.id)}
-                    onToggleFavorito={toggleFavorito}
-                  />
+                  <div key={t.id} style={{ position: 'relative' }}>
+                    <DashboardTrailCard trilha={t} />
+                    <div style={{ position: 'absolute', top: 10, right: 44, zIndex: 10 }}>
+                      <FavoritoButton
+                        isFavorito={favoritos.has(t.id)}
+                        onClick={() => toggleFavorito(t.id)}
+                        size="sm"
+                      />
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -593,23 +611,23 @@ function TrilhasContent() {
             {pumptracks.length > 0 && (
               <div style={{ marginTop: filtered.length > 0 ? 40 : 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+                  <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,.08)' }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{
-                      background: '#EDE9FE', color: '#7C3AED',
+                      background: 'rgba(124,58,237,.1)', color: '#7C3AED',
                       borderRadius: 999, padding: '3px 12px',
                       fontSize: 12, fontWeight: 700, letterSpacing: '0.06em',
                       textTransform: 'uppercase',
                     }}>
                       Pump Tracks
                     </span>
-                    <span style={{ fontSize: 12, color: '#9CA3AF' }}>
+                    <span style={{ fontSize: 12, color: '#9AA093' }}>
                       {pumptracks.length} local{pumptracks.length !== 1 ? 'is' : ''}
                     </span>
                   </div>
-                  <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+                  <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,.08)' }} />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {pumptracks.map(pt => (
                     <PumpTrackCard key={pt.id} pt={pt} />
                   ))}
@@ -625,7 +643,7 @@ function TrilhasContent() {
 
 export default function TrilhasPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f4f5f0' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#F5F6F2' }} />}>
       <TrilhasContent />
     </Suspense>
   )
