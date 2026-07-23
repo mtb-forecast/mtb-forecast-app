@@ -104,7 +104,10 @@ export default function FeedEventCard({ item }: { item: FeedItem }) {
   return (
     <div style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Link
+          href={`/perfil/${item.user_id}`}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}
+        >
           <span style={{
             width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
             background: '#eef1e9', color: '#6d745f',
@@ -115,7 +118,7 @@ export default function FeedEventCard({ item }: { item: FeedItem }) {
           </span>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1D18' }}>{nome}</span>
           <span style={{ fontSize: 12, color: '#9AA093' }}>comentou</span>
-        </div>
+        </Link>
         <Stars count={item.estrelas} />
       </div>
 
