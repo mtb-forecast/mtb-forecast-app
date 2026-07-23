@@ -127,9 +127,12 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
             fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 12,
             textTransform: 'uppercase', letterSpacing: '.5px',
             padding: '3px 9px', borderRadius: 6, background: cs.bg, color: cs.textColor,
+            maxWidth: 'calc(100% - 72px)', overflow: 'hidden',
           }}>
-            <ChipIcon size={10} stroke={2.5} color={cs.textColor} />
-            {veredictoText ?? 'Sem dados'}
+            <ChipIcon size={10} stroke={2.5} color={cs.textColor} style={{ flexShrink: 0 }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {veredictoText ?? 'Sem dados'}
+            </span>
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
