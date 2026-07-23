@@ -5,7 +5,7 @@ import { Condicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
 import { deveAlertarRajada } from '@/lib/display'
-import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract } from '@tabler/icons-react'
+import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract, IconUsers, IconChevronRight } from '@tabler/icons-react'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
@@ -43,7 +43,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
   const userId = session.user.id
   const { id } = await params
 
-  const [{ data: td }, { data: fav }] = await Promise.all([
+  const [{ data: td }, { data: fav }, { count: favoritosCount }] = await Promise.all([
     sb.from('trilhas')
       .select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med, gerado_em), localidades(cidade, estado, localidade), mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url)`)
       .eq('id', id)
@@ -51,6 +51,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
       .order('bloco', { foreignTable: 'previsao_blocos' })
       .maybeSingle(),
     sb.from('favoritos').select('id').eq('user_id', userId).eq('trilha_id', id).maybeSingle(),
+    sb.from('favoritos').select('id', { count: 'exact', head: true }).eq('trilha_id', id),
   ])
 
   if (!td) notFound()
@@ -121,13 +122,23 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
             }}>
               {trilha.name}
             </h1>
-            <div style={{ flexShrink: 0 }}>
+            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
               <TrilhaAcoes
                 trilhaId={id}
                 trilhaNome={trilha.name}
                 initialIsFavorito={isFavorito}
                 userId={userId}
               />
+              {favoritosCount ? (
+                <Link href={`/trilhas/${id}/favoritos`} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 12, color: '#9a9d94', textDecoration: 'none',
+                }}>
+                  <IconUsers size={13} stroke={2} color="#9a9d94" />
+                  <span style={{ color: '#c9cdbf', fontWeight: 500 }}>{favoritosCount}</span> favoritados
+                  <IconChevronRight size={13} stroke={2} color="#9a9d94" />
+                </Link>
+              ) : null}
             </div>
           </div>
 

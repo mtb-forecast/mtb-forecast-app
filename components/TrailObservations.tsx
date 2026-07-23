@@ -48,6 +48,26 @@ function getDisplayName(obs: Observacao): string {
   return obs.profiles?.apelido || obs.profiles?.nome?.split(' ')[0] || obs.profiles?.email?.split('@')[0] || 'Rider'
 }
 
+function Avatar({ obs, size = 24 }: { obs: Observacao; size?: number }) {
+  const avatarUrl = obs.profiles?.avatar_url
+  return avatarUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={avatarUrl} alt="" style={{
+      width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
+    }} />
+  ) : (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: '#6d745f', color: '#fff',
+      fontSize: 10, fontWeight: 500,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0,
+    }}>
+      {getInitials(obs)}
+    </div>
+  )
+}
+
 function Stars({ count, size = 13 }: { count: number; size?: number }) {
   return (
     <span style={{ display: 'inline-flex', gap: 1 }}>
@@ -105,7 +125,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
 
     const obsQuery = supabase
       .from('observacoes_trilha')
-      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email, avatar_url)`)
       .eq('trilha_id', trilhaId)
 
     const [{ data: obs }, { data: favorito }] = await Promise.all([
@@ -141,7 +161,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
     const { data: newObs, error } = await supabase
       .from('observacoes_trilha')
       .insert(insertPayload)
-      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email)`)
+      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email, avatar_url)`)
       .single()
 
     setPublishing(false)
@@ -217,15 +237,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
                       href={`/perfil/${obs.user_id}`}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}
                     >
-                      <div style={{
-                        width: 24, height: 24, borderRadius: '50%',
-                        background: '#6d745f', color: '#fff',
-                        fontSize: 10, fontWeight: 500,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        {getInitials(obs)}
-                      </div>
+                      <Avatar obs={obs} />
                       <span style={{ fontSize: 12, fontWeight: 500, color: '#2a2e25' }}>{getDisplayName(obs)}</span>
                     </Link>
                     <Stars count={obs.estrelas} />
