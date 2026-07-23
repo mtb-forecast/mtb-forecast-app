@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 
 interface EndpointStat { chamadas: number; sucesso: number; falhas: number }
@@ -59,7 +60,7 @@ function taxaSucesso(ok: number, fail: number) {
 function TokensBadge({ input, output }: { input: number; output: number }) {
   if (!input && !output) return null
   return (
-    <span style={{ fontSize: 11, color: '#6b7280', display: 'inline-flex', gap: 6, marginTop: 2 }}>
+    <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093', display: 'inline-flex', gap: 6, marginTop: 2 }}>
       <span>↑ {(input / 1000).toFixed(1)}k in</span>
       <span>↓ {(output / 1000).toFixed(1)}k out</span>
     </span>
@@ -107,8 +108,8 @@ export default function ApiUsagePage() {
   useEffect(() => { if (!loading) load(dias) }, [loading, dias, load])
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ minHeight: '100vh', background: '#F5F6F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '2px solid rgba(0,0,0,.08)', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -117,23 +118,39 @@ export default function ApiUsagePage() {
   const maxDiario = Math.max(...(report?.serie_diaria.map(s => s.custo) ?? [0.0001]))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
+    <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
 
       {/* Header */}
-      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#a8b899', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 0, marginRight: 4 }}>←</button>
-              <h1 className="font-wheat" style={{ color: '#fff', fontSize: 28 }}>Consumo de APIs</h1>
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1px', background: '#6d745f', color: '#fff', borderRadius: 2, padding: '3px 8px' }}>ADMIN</span>
+      <div style={{ background: '#141612', borderBottom: '1px solid rgba(109,116,95,.25)', padding: '28px 32px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <Link href="/admin" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: 'rgba(154,160,147,.7)',
+            marginBottom: 16, textDecoration: 'none',
+          }}>
+            ← Admin
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+                fontSize: 'clamp(28px, 4vw, 38px)', textTransform: 'uppercase',
+                color: '#F4F3EF', lineHeight: 0.95, margin: 0,
+              }}>
+                Consumo de APIs
+              </h1>
+              <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.7)', marginTop: 8 }}>
+                Chamadas, tokens e custos estimados
+              </p>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {DIAS_OPTIONS.map(d => (
                 <button key={d} onClick={() => setDias(d)} style={{
-                  padding: '6px 14px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                  background: dias === d ? '#a8b899' : 'rgba(255,255,255,0.1)',
-                  color: dias === d ? '#1e2018' : '#ccc',
+                  padding: '7px 14px', borderRadius: 999,
+                  border: dias === d ? 'none' : '1px solid rgba(0,0,0,.1)',
+                  cursor: 'pointer', fontFamily: 'var(--font-dm-mono)', fontSize: 12,
+                  background: dias === d ? '#1A1D18' : '#FFFFFF',
+                  color: dias === d ? '#F4F3EF' : '#9AA093',
                 }}>
                   {d === 1 ? 'Hoje' : `${d}d`}
                 </button>
@@ -142,16 +159,15 @@ export default function ApiUsagePage() {
           </div>
         </div>
       </div>
-      <div style={{ background: '#a8b899', height: 3 }} />
 
-      <div style={{ padding: '32px 32px', maxWidth: 960, margin: '0 auto' }}>
+      <div style={{ padding: '24px 32px 48px', maxWidth: 900, margin: '0 auto' }}>
 
         {fetching && !report && (
-          <div style={{ textAlign: 'center', padding: 64, color: '#888' }}>Carregando...</div>
+          <div style={{ textAlign: 'center', padding: 64, color: '#9AA093' }}>Carregando...</div>
         )}
 
         {fetchError && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '16px 20px', color: '#dc2626', fontSize: 13 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 32, textAlign: 'center', color: '#DC2626', fontSize: 13 }}>
             <strong>Erro ao carregar dados:</strong> {fetchError}
           </div>
         )}
@@ -159,32 +175,32 @@ export default function ApiUsagePage() {
         {report && (
           <>
             {/* KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 28 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
               {[
                 { label: 'Custo estimado', value: `US$ ${fmt(report.total_custo_usd)}`, sub: `últimos ${report.dias}d` },
                 { label: 'Chamadas HTTP', value: report.total_chamadas.toLocaleString('pt-BR'), sub: 'APIs externas' },
                 { label: 'Execuções do pipeline', value: report.execucoes.toString(), sub: `últimos ${report.dias}d` },
                 { label: 'Custo/execução', value: report.execucoes ? `US$ ${fmt(report.total_custo_usd / report.execucoes)}` : '—', sub: 'média' },
               ].map(k => (
-                <div key={k.label} style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '16px 20px' }}>
-                  <p style={{ fontSize: 11, color: '#888', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 6 }}>{k.label}</p>
-                  <p style={{ fontSize: 24, fontWeight: 700, color: '#1e2018' }}>{k.value}</p>
-                  <p style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>{k.sub}</p>
+                <div key={k.label} style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 12, padding: '16px 18px' }}>
+                  <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#9AA093', marginBottom: 6 }}>{k.label}</p>
+                  <p style={{ fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 28, color: '#1A1D18' }}>{k.value}</p>
+                  <p style={{ fontSize: 12, color: '#9AA093', marginTop: 2 }}>{k.sub}</p>
                 </div>
               ))}
             </div>
 
             {/* Série diária de custo */}
             {report.serie_diaria.length > 1 && (
-              <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '20px 24px', marginBottom: 24 }}>
-                <p style={{ fontSize: 11, color: '#888', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 16 }}>Custo diário (USD)</p>
+              <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 12, padding: '16px 20px', marginBottom: 16 }}>
+                <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#9AA093', marginBottom: 12 }}>Custo diário (USD)</p>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 80 }}>
                   {report.serie_diaria.map(s => {
                     const h = maxDiario > 0 ? Math.max(4, (s.custo / maxDiario) * 72) : 4
                     return (
                       <div key={s.dia} title={`${s.dia}: US$ ${fmt(s.custo)}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        <div style={{ width: '100%', height: h, background: '#a8b899', borderRadius: '2px 2px 0 0', minHeight: 4 }} />
-                        <span style={{ fontSize: 9, color: '#aaa', whiteSpace: 'nowrap' }}>
+                        <div style={{ width: '100%', height: h, background: '#6d745f', borderRadius: '3px 3px 0 0', minHeight: 4 }} />
+                        <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: '#9AA093', whiteSpace: 'nowrap' }}>
                           {s.dia.slice(5)}
                         </span>
                       </div>
@@ -194,82 +210,86 @@ export default function ApiUsagePage() {
               </div>
             )}
 
-            {/* Tabela de APIs */}
-            <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 24 }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0' }}>
-                <p style={{ fontSize: 11, color: '#888', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Por API</p>
+            {/* Cards de API */}
+            {report.apis.length === 0 ? (
+              <div style={{ background: '#FFFFFF', borderRadius: 12, padding: 32, textAlign: 'center', color: '#9AA093', fontSize: 14, marginBottom: 16 }}>
+                Nenhum dado no período. O pipeline ainda não gravou registros nessa tabela.
               </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                {report.apis.map(api => {
+                  const barW = maxCusto > 0 ? (api.custo_usd / maxCusto) * 100 : 0
+                  const taxa  = taxaSucesso(api.sucesso, api.falhas)
+                  const isExp = expanded === api.api_name
+                  const color = API_COLOR[api.api_name] ?? '#6d745f'
 
-              {report.apis.length === 0 && (
-                <div style={{ padding: '32px 20px', textAlign: 'center', color: '#aaa', fontSize: 14 }}>
-                  Nenhum dado no período. O pipeline ainda não gravou registros nessa tabela.
-                </div>
-              )}
+                  return (
+                    <div key={api.api_name} style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 12, overflow: 'hidden' }}>
+                      <div
+                        onClick={() => setExpanded(isExp ? null : api.api_name)}
+                        style={{ padding: '16px 20px', cursor: 'pointer' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <span style={{
+                            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: 18,
+                            textTransform: 'uppercase', color, minWidth: 160,
+                          }}>
+                            {api.label}
+                          </span>
 
-              {report.apis.map(api => {
-                const barW = maxCusto > 0 ? (api.custo_usd / maxCusto) * 100 : 0
-                const taxa  = taxaSucesso(api.sucesso, api.falhas)
-                const isExp = expanded === api.api_name
-                const color = API_COLOR[api.api_name] ?? '#6d745f'
-
-                return (
-                  <div key={api.api_name}>
-                    <div
-                      onClick={() => setExpanded(isExp ? null : api.api_name)}
-                      style={{ padding: '16px 20px', borderBottom: '1px solid #f8f8f8', cursor: 'pointer', background: isExp ? '#fafafa' : '#fff' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                        <span style={{ fontWeight: 600, fontSize: 14, color: '#1e2018', minWidth: 160 }}>{api.label}</span>
-
-                        <div style={{ flex: 1, minWidth: 100 }}>
-                          <div style={{ height: 6, background: '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${barW}%`, background: color, borderRadius: 3 }} />
+                          <div style={{ flex: 1, minWidth: 100 }}>
+                            <div style={{ height: 4, background: 'rgba(0,0,0,.06)', borderRadius: 999, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${barW}%`, background: color, opacity: 0.7, borderRadius: 999 }} />
+                            </div>
                           </div>
+
+                          <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 15, fontWeight: 500, color: api.custo_usd > 0 ? '#1A1D18' : '#9AA093', minWidth: 100, textAlign: 'right' }}>
+                            {api.custo_usd > 0 ? `US$ ${fmt(api.custo_usd)}` : 'grátis'}
+                          </span>
+
+                          <div style={{ display: 'flex', gap: 12, fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: '#9AA093', minWidth: 160 }}>
+                            <span>{api.chamadas} chamadas</span>
+                            <span style={{ color: taxa < 90 ? '#EF4444' : '#22C55E', fontWeight: 500 }}>{taxa}% OK</span>
+                          </div>
+
+                          <span style={{ fontSize: 14, color: '#9AA093' }}>{isExp ? '▲' : '▼'}</span>
                         </div>
 
-                        <span style={{ fontSize: 15, fontWeight: 700, color: api.custo_usd > 0 ? '#1e2018' : '#aaa', minWidth: 100, textAlign: 'right' }}>
-                          {api.custo_usd > 0 ? `US$ ${fmt(api.custo_usd)}` : 'grátis'}
-                        </span>
-
-                        <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#666', minWidth: 160 }}>
-                          <span>{api.chamadas} chamadas</span>
-                          <span style={{ color: taxa < 90 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{taxa}% OK</span>
-                        </div>
-
-                        <span style={{ fontSize: 14, color: '#aaa' }}>{isExp ? '▲' : '▼'}</span>
+                        {(api.tokens_input > 0 || api.tokens_output > 0) && (
+                          <div style={{ marginTop: 6 }}>
+                            <TokensBadge input={api.tokens_input} output={api.tokens_output} />
+                          </div>
+                        )}
                       </div>
 
-                      {(api.tokens_input > 0 || api.tokens_output > 0) && (
-                        <div style={{ marginTop: 6, paddingLeft: 22 }}>
-                          <TokensBadge input={api.tokens_input} output={api.tokens_output} />
+                      {isExp && (
+                        <div style={{ borderTop: '1px solid rgba(0,0,0,.07)', padding: '12px 20px 16px' }}>
+                          <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#9AA093', marginBottom: 10 }}>Endpoints</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {Object.entries(api.endpoints).map(([ep, stat]) => (
+                              <div key={ep} style={{
+                                display: 'flex', gap: 16, alignItems: 'center',
+                                fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: '#6B7280',
+                                background: 'rgba(0,0,0,.02)', borderRadius: 6, padding: '5px 10px',
+                              }}>
+                                <code style={{ minWidth: 180 }}>{ep}</code>
+                                <span>{stat.chamadas} ch.</span>
+                                <span style={{ color: stat.falhas > 0 ? '#EF4444' : '#22C55E' }}>
+                                  {stat.sucesso} ok{stat.falhas > 0 ? ` / ${stat.falhas} falhas` : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
-
-                    {isExp && (
-                      <div style={{ background: '#fafafa', borderBottom: '1px solid #f0f0f0', padding: '12px 20px 12px 42px' }}>
-                        <p style={{ fontSize: 11, color: '#888', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: 10 }}>Endpoints</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {Object.entries(api.endpoints).map(([ep, stat]) => (
-                            <div key={ep} style={{ display: 'flex', gap: 16, fontSize: 12, color: '#555', alignItems: 'center' }}>
-                              <code style={{ background: '#f0f0f0', padding: '2px 8px', borderRadius: 4, fontSize: 11, color: '#333', minWidth: 180 }}>{ep}</code>
-                              <span>{stat.chamadas} ch.</span>
-                              <span style={{ color: stat.falhas > 0 ? '#dc2626' : '#16a34a' }}>
-                                {stat.sucesso} ok{stat.falhas > 0 ? ` / ${stat.falhas} falhas` : ''}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Nota de preços */}
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '12px 16px', fontSize: 12, color: '#92400e' }}>
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12, color: '#92400e' }}>
               <strong>Preços de referência:</strong> Claude Haiku 4.5 — US$0,80/MTok in · US$4,00/MTok out &nbsp;|&nbsp;
               Gemini 2.0 Flash — US$0,10/MTok in · US$0,40/MTok out &nbsp;|&nbsp;
               Groq Llama-3.3-70b — US$0,59/MTok &nbsp;|&nbsp;

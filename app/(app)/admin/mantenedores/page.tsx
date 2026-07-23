@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { IconChevronUp, IconPencil } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Mantenedor } from '@/lib/types'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
@@ -104,79 +105,88 @@ export default function MantenedoresAdminPage() {
   }
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div style={{ minHeight: '100vh', background: '#F5F6F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 32, height: 32, border: '2px solid rgba(0,0,0,.08)', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
+    <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
       {/* Header */}
-      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 800, margin: '0 auto' }}>
-          <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none' }}>
+      <div style={{ background: '#141612', borderBottom: '1px solid rgba(109,116,95,.25)', padding: '28px 32px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <Link href="/admin" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: 'rgba(154,160,147,.7)',
+            marginBottom: 16, textDecoration: 'none',
+          }}>
             ← Admin
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32, margin: 0 }}>Mantenedores</h1>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '1px', background: '#6d745f', color: '#fff', borderRadius: 2, padding: '3px 8px' }}>
-              ADMIN
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+                fontSize: 'clamp(28px, 4vw, 38px)', textTransform: 'uppercase',
+                color: '#F4F3EF', lineHeight: 0.95, margin: 0,
+              }}>
+                Mantenedores
+              </h1>
+              <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.7)', marginTop: 8 }}>
+                Parques e clubes mantendo trilhas
+              </p>
+            </div>
+            <button
+              onClick={() => { setShowNew(v => !v); setEditingId(null) }}
+              style={{
+                background: showNew ? 'rgba(244,243,239,.1)' : '#F4F3EF',
+                color: showNew ? '#F4F3EF' : '#0E0F0D',
+                border: showNew ? '1px solid rgba(244,243,239,.2)' : 'none',
+                borderRadius: 999, padding: '9px 18px',
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700,
+                fontSize: 14, textTransform: 'uppercase', letterSpacing: '.5px',
+                cursor: 'pointer', flexShrink: 0,
+              }}
+            >
+              {showNew ? 'Cancelar' : '+ Novo'}
+            </button>
           </div>
-          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
-            Parques, clubes e organizações que mantêm trilhas
-          </p>
         </div>
       </div>
-      <div style={{ background: '#a8b899', height: 3 }} />
 
-      <div style={{ padding: '32px', maxWidth: 800, margin: '0 auto' }}>
+      <div style={{ padding: '24px 32px 80px', maxWidth: 900, margin: '0 auto' }}>
 
         {msg && (
           <div style={{
-            background: msg.ok ? '#dcfce7' : '#fee2e2',
-            border: `1px solid ${msg.ok ? '#86efac' : '#fca5a5'}`,
-            color: msg.ok ? '#166534' : '#991b1b',
-            borderRadius: 6, padding: '10px 14px', marginBottom: 16, fontSize: 13,
+            background: msg.ok ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)',
+            border: `1px solid ${msg.ok ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}`,
+            color: msg.ok ? '#166534' : '#DC2626',
+            borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13,
           }}>
             {msg.text}
           </div>
         )}
 
-        {/* Botão novo */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button
-            onClick={() => { setShowNew(v => !v); setEditingId(null) }}
-            style={{
-              background: showNew ? '#e5e7eb' : '#2a2e25',
-              color: showNew ? '#6b7280' : '#fff',
-              border: 'none', borderRadius: 8,
-              padding: '10px 20px', fontSize: 13, fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {showNew ? 'Cancelar' : '+ Novo mantenedor'}
-          </button>
-        </div>
-
         {/* Formulário novo */}
         {showNew && (
           <form onSubmit={handleCreate} style={{
-            background: '#fff', border: '0.5px solid #e5e5e5',
-            borderRadius: 10, padding: 24, marginBottom: 16,
+            background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)',
+            borderRadius: 12, padding: 20, marginBottom: 16,
           }}>
-            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '2px', color: '#aaa', textTransform: 'uppercase', margin: '0 0 18px' }}>
+            <p style={{
+              fontFamily: 'var(--font-dm-mono)', fontSize: 10, textTransform: 'uppercase',
+              letterSpacing: '1.5px', color: '#9AA093', margin: '0 0 14px',
+            }}>
               Novo mantenedor
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <MantenedorFields form={newForm} onChange={setNewForm} />
               <button type="submit" disabled={saving || !newForm.nome.trim()} style={{
-                background: saving ? '#e5e7eb' : '#6d745f',
-                color: saving ? '#9ca3af' : '#fff',
-                border: 'none', borderRadius: 8,
+                background: saving ? 'rgba(0,0,0,.08)' : '#6d745f',
+                color: saving ? '#9AA093' : '#fff',
+                border: 'none', borderRadius: 999,
                 padding: '11px 0', fontSize: 14, fontWeight: 700,
                 cursor: saving ? 'not-allowed' : 'pointer', width: '100%',
               }}>
@@ -188,7 +198,7 @@ export default function MantenedoresAdminPage() {
 
         {/* Lista */}
         {mantenedores.length === 0 && !showNew && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 10, padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 12, padding: 32, textAlign: 'center', color: '#9AA093', fontSize: 14 }}>
             Nenhum mantenedor cadastrado ainda.
           </div>
         )}
@@ -196,8 +206,8 @@ export default function MantenedoresAdminPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {mantenedores.map(m => (
             <div key={m.id} style={{
-              background: '#fff', border: '0.5px solid #e5e5e5',
-              borderRadius: 10, overflow: 'hidden',
+              background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)',
+              borderRadius: 12, overflow: 'hidden',
             }}>
               {/* Row */}
               <div
@@ -216,7 +226,7 @@ export default function MantenedoresAdminPage() {
                   })
                   setShowNew(false)
                 }}
-                style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
+                style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
               >
                 {/* Logo preview */}
                 <div style={{
@@ -237,49 +247,56 @@ export default function MantenedoresAdminPage() {
                 </div>
 
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#2a2e25' }}>{m.nome_primario ?? m.nome}</div>
+                  <div style={{
+                    fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: 18,
+                    textTransform: 'uppercase', color: '#1A1D18',
+                  }}>
+                    {m.nome_primario ?? m.nome}
+                  </div>
                   {m.site_url && (
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                    <div style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: '#6d745f', marginTop: 2 }}>
                       {m.site_url.replace(/^https?:\/\//, '')}
                     </div>
                   )}
                 </div>
 
                 <span style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.5px',
-                  padding: '3px 8px', borderRadius: 4,
-                  background: m.ativo ? '#f0fdf4' : '#f9fafb',
-                  color: m.ativo ? '#16a34a' : '#9ca3af',
-                  border: `0.5px solid ${m.ativo ? '#86efac' : '#e5e7eb'}`,
+                  fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '0.5px',
+                  padding: '3px 8px', borderRadius: 999,
+                  background: m.ativo ? 'rgba(34,197,94,.1)' : 'rgba(0,0,0,.06)',
+                  color: m.ativo ? '#22C55E' : '#9AA093',
                 }}>
                   {m.ativo ? 'ATIVO' : 'INATIVO'}
                 </span>
 
-                <i className={`ti ${editingId === m.id ? 'ti-chevron-up' : 'ti-pencil'}`}
-                  style={{ fontSize: 14, color: '#8a9480', flexShrink: 0 }} />
+                {editingId === m.id
+                  ? <IconChevronUp size={14} style={{ color: '#9AA093', flexShrink: 0 }} />
+                  : <IconPencil size={14} style={{ color: '#9AA093', flexShrink: 0 }} />}
               </div>
 
               {/* Edit form inline */}
               {editingId === m.id && (
                 <form onSubmit={handleUpdate} style={{
-                  borderTop: '0.5px solid #e5e5e5',
-                  padding: '20px 20px 16px',
+                  borderTop: '1px solid rgba(0,0,0,.07)',
+                  padding: 16,
                   display: 'flex', flexDirection: 'column', gap: 12,
-                  background: '#fafaf8',
+                  background: 'rgba(248,249,245,.8)',
+                  margin: 12, marginTop: 0, borderRadius: 10,
+                  border: '1px solid rgba(109,116,95,.15)',
                 }}>
                   <MantenedorFields form={editForm} onChange={setEditForm} />
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button type="button" onClick={() => setEditingId(null)} style={{
-                      flex: '0 0 auto', padding: '11px 18px', borderRadius: 8,
-                      background: '#fff', border: '1.5px solid #e5e5e5',
-                      color: '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      flex: '0 0 auto', padding: '11px 18px', borderRadius: 999,
+                      background: 'transparent', border: '1px solid rgba(0,0,0,.1)',
+                      color: '#6B7280', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                     }}>
                       Cancelar
                     </button>
                     <button type="submit" disabled={saving || !editForm.nome.trim()} style={{
-                      flex: 1, background: saving ? '#e5e7eb' : '#6d745f',
-                      color: saving ? '#9ca3af' : '#fff', border: 'none',
-                      borderRadius: 8, padding: '11px 0',
+                      flex: 1, background: saving ? 'rgba(0,0,0,.08)' : '#6d745f',
+                      color: saving ? '#9AA093' : '#fff', border: 'none',
+                      borderRadius: 999, padding: '11px 0',
                       fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer',
                     }}>
                       {saving ? 'Salvando…' : 'Salvar'}
@@ -356,13 +373,16 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
 
   const inputS: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box',
-    background: '#fff', border: '1.5px solid #e5e5e5',
-    borderRadius: 8, padding: '10px 14px',
-    fontSize: 14, color: '#2a2e25', outline: 'none',
+    background: '#FFFFFF', border: '1px solid rgba(0,0,0,.1)',
+    borderRadius: 8, padding: '9px 12px',
+    fontSize: 13, color: '#1A1D18', outline: 'none',
   }
   const lbl = (text: string, required?: boolean) => (
-    <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 5 }}>
-      {text}{required && <span style={{ color: '#ef4444' }}> *</span>}
+    <label style={{
+      display: 'block', fontFamily: 'var(--font-dm-mono)', fontSize: 11,
+      letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', marginBottom: 5,
+    }}>
+      {text}{required && <span style={{ color: '#EF4444' }}> *</span>}
     </label>
   )
 
@@ -379,15 +399,15 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
       {/* Preview ao vivo */}
       <div>
         {lbl('Preview')}
-        <div style={{ background: '#2a2e25', borderRadius: 8, padding: '14px 18px' }}>
+        <div style={{ background: '#141612', borderRadius: 8, padding: '14px 18px' }}>
           <LogoMantenedor mantenedor={previewMant} contexto="pagina" />
         </div>
-        <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '10px 16px', marginTop: 4 }}>
+        <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 8, padding: '10px 16px', marginTop: 4 }}>
           <LogoMantenedor mantenedor={previewMant} contexto="card" />
         </div>
       </div>
 
-      <hr style={{ border: 'none', borderTop: '0.5px solid #e5e5e5', margin: '4px 0' }} />
+      <hr style={{ border: 'none', borderTop: '1px solid rgba(0,0,0,.07)', margin: '4px 0' }} />
 
       {/* Nome (identificação interna) */}
       <div>
@@ -395,7 +415,7 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
         <input style={inputS} value={form.nome}
           onChange={e => onChange({ ...form, nome: e.target.value })}
           placeholder="Ex: Parque Estadual da Serra do Mar" />
-        <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Usado internamente. O que aparece para o usuário é o Nome primário.</p>
+        <p style={{ fontSize: 11, color: '#9AA093', marginTop: 4 }}>Usado internamente. O que aparece para o usuário é o Nome primário.</p>
       </div>
 
       {/* Nome primário e secundário */}
@@ -405,7 +425,7 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
           <input style={inputS} value={form.nome_primario}
             onChange={e => onChange({ ...form, nome_primario: e.target.value })}
             placeholder="SHIMANO" />
-          <p style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Fallback: Nome interno</p>
+          <p style={{ fontSize: 11, color: '#9AA093', marginTop: 4 }}>Fallback: Nome interno</p>
         </div>
         <div>
           {lbl('Nome secundário')}
@@ -422,7 +442,7 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="color" value={form.cor_primaria}
               onChange={e => onChange({ ...form, cor_primaria: e.target.value })}
-              style={{ width: 40, height: 40, padding: 2, borderRadius: 6, border: '1.5px solid #e5e5e5', cursor: 'pointer', flexShrink: 0 }} />
+              style={{ width: 40, height: 40, padding: 2, borderRadius: 6, border: '1px solid rgba(0,0,0,.1)', cursor: 'pointer', flexShrink: 0 }} />
             <input style={{ ...inputS, flex: 1 }} value={form.cor_primaria}
               onChange={e => onChange({ ...form, cor_primaria: e.target.value })}
               placeholder="#ffffff" />
@@ -433,14 +453,14 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="color" value={form.cor_secundaria || '#ffffff'}
               onChange={e => onChange({ ...form, cor_secundaria: e.target.value })}
-              style={{ width: 40, height: 40, padding: 2, borderRadius: 6, border: '1.5px solid #e5e5e5', cursor: 'pointer', flexShrink: 0 }} />
+              style={{ width: 40, height: 40, padding: 2, borderRadius: 6, border: '1px solid rgba(0,0,0,.1)', cursor: 'pointer', flexShrink: 0 }} />
             <input style={{ ...inputS, flex: 1 }} value={form.cor_secundaria}
               onChange={e => onChange({ ...form, cor_secundaria: e.target.value })}
               placeholder="#c9a010 (opcional)" />
           </div>
           {form.cor_secundaria && (
             <button type="button" onClick={() => onChange({ ...form, cor_secundaria: '' })}
-              style={{ fontSize: 11, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}>
+              style={{ fontSize: 11, color: '#9AA093', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}>
               Remover cor secundária
             </button>
           )}
@@ -461,21 +481,21 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
             placeholder="https://... ou faça upload" />
           <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
             style={{
-              flexShrink: 0, padding: '10px 14px', borderRadius: 8,
-              background: uploading ? '#e5e7eb' : '#f4f5f0', border: '1.5px solid #e5e5e5',
-              color: uploading ? '#9ca3af' : '#2a2e25',
+              flexShrink: 0, padding: '9px 14px', borderRadius: 8,
+              background: uploading ? 'rgba(0,0,0,.06)' : '#F8F9F5', border: '1px solid rgba(0,0,0,.1)',
+              color: uploading ? '#9AA093' : '#1A1D18',
               fontSize: 13, fontWeight: 600, cursor: uploading ? 'not-allowed' : 'pointer',
             }}>
             {uploading ? 'Enviando…' : 'Upload'}
           </button>
           {form.logo_url && (
             <button type="button" onClick={() => onChange({ ...form, logo_url: '' })}
-              style={{ fontSize: 12, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}>
+              style={{ fontSize: 12, color: '#9AA093', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}>
               ✕
             </button>
           )}
         </div>
-        {uploadErr  && <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>{uploadErr}</p>}
+        {uploadErr  && <p style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>{uploadErr}</p>}
         {uploadInfo && <p style={{ fontSize: 12, color: '#6d745f', marginTop: 4 }}>{uploadInfo}</p>}
       </div>
 
@@ -501,7 +521,7 @@ function MantenedorFields({ form, onChange }: { form: FormState; onChange: (f: F
             background: '#fff', transition: 'left 0.2s',
           }} />
         </div>
-        <span style={{ fontSize: 14, color: '#2a2e25' }}>Ativo</span>
+        <span style={{ fontSize: 14, color: '#1A1D18' }}>Ativo</span>
       </label>
     </>
   )
