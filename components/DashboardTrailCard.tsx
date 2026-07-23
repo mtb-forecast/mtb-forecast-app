@@ -63,6 +63,14 @@ function soloFontSize(a: string | null | undefined): number {
   return 20
 }
 
+function chipLabel(v: string | null | undefined): string | null {
+  if (!v) return null
+  if (v.includes('DROP') || v.includes('LIBERADO')) return 'Drop liberado'
+  if (v.includes('ESPERAR') || v.includes('EVITAR') || v.includes('FECHADA')) return 'Melhor esperar'
+  if (v.includes('ATENÇÃO') || v.includes('ALERTA') || v.includes('AGUARDAR')) return 'Atenção'
+  return null  // qualquer outro texto (longo, desconhecido) = sem dados reais
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -82,6 +90,14 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
   const barColor = topBarColor(veredictoText)
   const cs       = chipStyle(veredictoText)
   const ChipIcon = chipIcon(veredictoText)
+
+  const labelCurto = chipLabel(veredictoText)
+  const isSemDados = !labelCurto
+
+  const chipBg        = isSemDados ? '#FEF9EE'  : cs.bg
+  const chipColor     = isSemDados ? '#92400e'  : cs.textColor
+  const chipBorder    = isSemDados ? '1px solid #fde68a' : 'none'
+  const chipIconColor = isSemDados ? '#f59e0b'  : cs.textColor
 
   const barData = useMemo(() => {
     const source = c?.previsao_24h ?? []
@@ -126,13 +142,15 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
             display: 'inline-flex', alignItems: 'center', gap: 5,
             fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 12,
             textTransform: 'uppercase', letterSpacing: '.5px',
-            padding: '3px 9px', borderRadius: 6, background: cs.bg, color: cs.textColor,
-            maxWidth: 'calc(100% - 72px)', overflow: 'hidden',
+            padding: '3px 9px', borderRadius: 6,
+            background: chipBg, color: chipColor, border: chipBorder,
+            flexShrink: 0,
           }}>
-            <ChipIcon size={10} stroke={2.5} color={cs.textColor} style={{ flexShrink: 0 }} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {veredictoText ?? 'Sem dados'}
-            </span>
+            {isSemDados
+              ? <IconStarFilled size={10} color="#f59e0b" />
+              : <ChipIcon size={10} stroke={2.5} color={chipIconColor} />
+            }
+            {isSemDados ? 'Favoritar' : labelCurto}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
