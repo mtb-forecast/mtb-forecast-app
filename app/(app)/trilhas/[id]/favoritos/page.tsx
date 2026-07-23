@@ -46,7 +46,6 @@ export default async function TrilhaFavoritosPage({ params }: { params: Promise<
     .from('favoritos')
     .select('id, user_id')
     .eq('trilha_id', trilhaId)
-    .order('created_at', { ascending: false })
 
   const userIds = Array.from(new Set((favoritos ?? []).map(f => f.user_id)))
 
