@@ -218,16 +218,28 @@ export type Observacao = {
 
 export type FeedEvento = {
   id: number
-  trilha_id: string
-  tipo: 'pipeline'
-  texto: string | null
-  veredicto: string | null
+  trilha_id?: string | null
+  tipo: 'pipeline' | 'seguida'
+  texto?: string | null
+  veredicto?: string | null
+  follower_id?: string | null
+  following_id?: string | null
   created_at: string
+}
+
+export type FeedPerfilMini = {
+  apelido: string | null
+  nome: string | null
+  avatar_url: string | null
 }
 
 export type FeedItem =
   | ({ kind: 'pipeline' } & FeedEvento & { trilha_nome?: string })
   | ({ kind: 'avaliacao' } & Observacao & { trilha_nome?: string })
+  | ({ kind: 'seguida' } & FeedEvento & {
+      follower_perfil?: FeedPerfilMini
+      following_perfil?: FeedPerfilMini
+    })
 
 export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'outros'] as const
 export type Regiao = typeof REGIOES[number]

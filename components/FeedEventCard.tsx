@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { IconBolt, IconStar, IconStarFilled } from '@tabler/icons-react'
-import type { FeedItem } from '@/lib/types'
+import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight } from '@tabler/icons-react'
+import type { FeedItem, FeedPerfilMini } from '@/lib/types'
 
 const CONDICOES: Record<string, { label: string; bg: string; color: string }> = {
   seco:  { label: 'Seco',            bg: '#e0f2fe', color: '#0369a1' },
@@ -53,7 +53,7 @@ function Stars({ count }: { count: number }) {
   )
 }
 
-function CardFooter({ createdAt, trilhaId }: { createdAt: string; trilhaId: string }) {
+function CardFooter({ createdAt, trilhaId }: { createdAt: string; trilhaId?: string | null }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -62,20 +62,72 @@ function CardFooter({ createdAt, trilhaId }: { createdAt: string; trilhaId: stri
       <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093' }}>
         {formatDateTime(createdAt)}
       </span>
-      <Link
-        href={`/trilhas/${trilhaId}`}
-        style={{ fontSize: 12, fontWeight: 600, color: '#6d745f', textDecoration: 'none' }}
-      >
-        Ver trilha ›
-      </Link>
+      {trilhaId && (
+        <Link
+          href={`/trilhas/${trilhaId}`}
+          style={{ fontSize: 12, fontWeight: 600, color: '#6d745f', textDecoration: 'none' }}
+        >
+          Ver trilha ›
+        </Link>
+      )}
     </div>
   )
+}
+
+function nomePerfil(p?: FeedPerfilMini): string {
+  return p?.apelido || p?.nome || 'Rider'
 }
 
 export default function FeedEventCard({ item }: { item: FeedItem }) {
   const cardStyle: React.CSSProperties = {
     background: '#fff', borderRadius: 12,
     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: 14,
+  }
+
+  if (item.kind === 'seguida') {
+    const followerNome = nomePerfil(item.follower_perfil)
+    const followingNome = nomePerfil(item.following_perfil)
+    return (
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: '#eef1e9', display: 'grid', placeItems: 'center',
+          }}>
+            <IconUserPlus size={14} style={{ color: '#6d745f' }} />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
+            textTransform: 'uppercase', color: '#9AA093',
+          }}>
+            Novo seguidor
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Link
+            href={`/perfil/${item.follower_id}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+          >
+            <Avatar name={followerNome} avatarUrl={item.follower_perfil?.avatar_url} size={22} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1D18' }}>{followerNome}</span>
+          </Link>
+          <IconArrowRight size={13} style={{ color: '#9AA093' }} />
+          <Link
+            href={`/perfil/${item.following_id}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+          >
+            <Avatar name={followingNome} avatarUrl={item.following_perfil?.avatar_url} size={22} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1D18' }}>{followingNome}</span>
+          </Link>
+        </div>
+        <p style={{ fontSize: 12, color: '#9AA093', margin: '4px 0 0' }}>
+          {followerNome} começou a seguir {followingNome}
+        </p>
+
+        <CardFooter createdAt={item.created_at} />
+      </div>
+    )
   }
 
   if (item.kind === 'pipeline') {
