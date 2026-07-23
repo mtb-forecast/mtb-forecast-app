@@ -89,7 +89,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <div style={{
         position: 'relative', overflow: 'hidden', background: '#141612',
-        borderBottom: '1px solid rgba(109,116,95,.25)', padding: '28px 32px 32px',
+        padding: '28px 32px 32px',
       }}>
         <div
           aria-hidden
