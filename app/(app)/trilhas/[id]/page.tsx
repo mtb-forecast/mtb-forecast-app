@@ -5,11 +5,12 @@ import { Condicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
 import { deveAlertarRajada } from '@/lib/display'
-import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract, IconUsers, IconChevronRight } from '@tabler/icons-react'
+import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract } from '@tabler/icons-react'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
 import TrilhaAcoes from './TrilhaAcoes'
+import FavoritosTrigger from './FavoritosTrigger'
 import TrailMapWithProfile from '@/components/TrailMapWithProfile'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -129,16 +130,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
                 initialIsFavorito={isFavorito}
                 userId={userId}
               />
-              {favoritosCount ? (
-                <Link href={`/trilhas/${id}/favoritos`} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  fontSize: 12, color: '#9a9d94', textDecoration: 'none',
-                }}>
-                  <IconUsers size={13} stroke={2} color="#9a9d94" />
-                  <span style={{ color: '#c9cdbf', fontWeight: 500 }}>{favoritosCount}</span> favoritados
-                  <IconChevronRight size={13} stroke={2} color="#9a9d94" />
-                </Link>
-              ) : null}
+              <FavoritosTrigger trilhaId={id} trilhaNome={trilha.name} count={favoritosCount ?? 0} />
             </div>
           </div>
 
