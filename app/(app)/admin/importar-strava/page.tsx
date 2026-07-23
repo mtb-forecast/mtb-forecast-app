@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -222,8 +222,8 @@ function ImportarStravaContent() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#F5F6F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid rgba(0,0,0,.08)', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
@@ -232,41 +232,38 @@ function ImportarStravaContent() {
   if (!isAdmin) return null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
+    <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
 
       {/* Header */}
-      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
+      <div style={{ background: '#141612', borderBottom: '1px solid rgba(109,116,95,.25)', padding: '28px 32px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <Link
-            href="/admin"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888', marginBottom: 20, textDecoration: 'none' }}
-          >
+          <Link href="/admin" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: 'rgba(154,160,147,.7)',
+            marginBottom: 16, textDecoration: 'none',
+          }}>
             ← Admin
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Importar via Strava</h1>
-            <span style={{
-              fontSize: 11, fontWeight: 600, letterSpacing: '1px',
-              background: '#FC4C02', color: '#fff',
-              borderRadius: 2, padding: '3px 8px',
-            }}>
-              ADMIN
-            </span>
-          </div>
-          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
+          <h1 style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            fontSize: 'clamp(28px, 4vw, 38px)', textTransform: 'uppercase',
+            color: '#F4F3EF', lineHeight: 0.95, margin: 0,
+          }}>
+            Importar Strava
+          </h1>
+          <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.7)', marginTop: 8 }}>
             {hasToken
               ? `${segments.length} segmento${segments.length !== 1 ? 's' : ''} ainda não importado${segments.length !== 1 ? 's' : ''}`
-              : 'Conecte seu Strava para importar segmentos favoritos como trilhas'}
+              : 'Segmentos favoritos → trilhas'}
           </p>
         </div>
       </div>
-      <div style={{ background: '#a8b899', height: 3 }} />
 
-      <div style={{ padding: '32px 32px 48px', maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ padding: '24px 32px 48px', maxWidth: 900, margin: '0 auto' }}>
 
         {/* Erro OAuth */}
         {erroParam && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '10px 14px', fontSize: 13, marginBottom: 20 }}>
+          <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', color: '#DC2626', borderRadius: 8, padding: '10px 14px', fontSize: 12, marginBottom: 20 }}>
             {erroParam === 'acesso_negado'
               ? 'Acesso negado pelo Strava. Tente novamente.'
               : 'Erro ao obter token do Strava. Tente novamente.'}
@@ -285,26 +282,30 @@ function ImportarStravaContent() {
 
         {/* Erro genérico */}
         {fetchError === 'generic' && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 4, padding: '10px 14px', fontSize: 13, marginBottom: 20 }}>
+          <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)', color: '#DC2626', borderRadius: 8, padding: '10px 14px', fontSize: 12, marginBottom: 20 }}>
             Erro ao buscar segmentos do Strava. Tente novamente ou reconecte sua conta.
           </div>
         )}
 
         {/* Sem token → botão de conexão */}
         {!hasToken && !fetchError && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 56, textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⭐</div>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#2a2e25', marginBottom: 8 }}>Conectar com Strava</h2>
-            <p style={{ fontSize: 14, color: '#888', maxWidth: 420, margin: '0 auto 32px' }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 12, padding: 56, textAlign: 'center' }}>
+            <h2 style={{
+              fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: 20,
+              textTransform: 'uppercase', color: '#1A1D18', marginBottom: 8,
+            }}>
+              Conectar com Strava
+            </h2>
+            <p style={{ fontSize: 14, color: '#6B7280', maxWidth: 420, margin: '0 auto 32px', lineHeight: 1.5 }}>
               Conecte sua conta Strava para importar seus segmentos favoritos como trilhas pendentes de aprovação.
             </p>
             <a
               href={stravaAuthUrl}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 10,
-                background: '#FC4C02', color: '#fff',
-                border: 'none', borderRadius: 4,
-                padding: '12px 28px', fontSize: 14, fontWeight: 600,
+                background: '#FC4C02', color: '#fff', borderRadius: 999,
+                padding: '12px 28px', fontFamily: 'var(--font-barlow-condensed)',
+                fontWeight: 700, fontSize: 15, textTransform: 'uppercase', letterSpacing: '.5px',
                 textDecoration: 'none',
               }}
             >
@@ -318,9 +319,9 @@ function ImportarStravaContent() {
 
         {/* Sem segmentos */}
         {hasToken && segments.length === 0 && !fetchError && (
-          <div style={{ background: '#fff', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: 40, textAlign: 'center' }}>
-            <p style={{ fontSize: 13, color: '#888' }}>Todos os segmentos favoritos já foram importados.</p>
-            <p style={{ fontSize: 12, color: '#bbb', marginTop: 8 }}>
+          <div style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 12, padding: 40, textAlign: 'center' }}>
+            <p style={{ fontSize: 13, color: '#9AA093' }}>Todos os segmentos favoritos já foram importados.</p>
+            <p style={{ fontSize: 12, color: '#9AA093', marginTop: 8 }}>
               Marque novos segmentos como favoritos no Strava para importá-los aqui.
             </p>
           </div>
@@ -329,18 +330,23 @@ function ImportarStravaContent() {
         {/* Lista de segmentos */}
         {hasToken && segments.length > 0 && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 500, color: '#2a2e25' }}>Segmentos não importados</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <span style={{
-                fontSize: 11, fontWeight: 600,
-                background: '#f4f5f0', color: '#888',
-                border: '0.5px solid #e5e5e5', borderRadius: 2, padding: '2px 8px',
+                fontFamily: 'var(--font-dm-mono)', fontSize: 10, textTransform: 'uppercase',
+                letterSpacing: '1.5px', color: '#9AA093',
               }}>
-                {segments.length} segmento{segments.length !== 1 ? 's' : ''}
+                Segmentos não importados
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-dm-mono)', fontSize: 10,
+                background: '#FFFFFF', color: '#9AA093',
+                border: '1px solid rgba(0,0,0,.1)', borderRadius: 999, padding: '2px 8px',
+              }}>
+                {segments.length}
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {segments.map(seg => {
                 const status = importStatus[seg.strava_segment_id] ?? 'idle'
                 const errMsg = importError[seg.strava_segment_id]
@@ -351,9 +357,8 @@ function ImportarStravaContent() {
                   <div
                     key={seg.strava_segment_id}
                     style={{
-                      background: '#fff',
-                      border: '0.5px solid #e5e5e5',
-                      borderRadius: 8, overflow: 'hidden',
+                      background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)',
+                      borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.04)',
                     }}
                   >
                     {/* Mapa ou placeholder */}
@@ -361,29 +366,28 @@ function ImportarStravaContent() {
                       <TrailMap polyline={seg.polyline} />
                     ) : tentouPolyline ? (
                       <div style={{
-                        height: 110, background: '#f4f5f0',
+                        height: 110, background: '#F8F9F5',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        borderBottom: '0.5px solid #e5e5e5',
+                        borderBottom: '1px solid rgba(0,0,0,.07)',
                       }}>
-                        <p style={{ fontSize: 12, color: '#bbb' }}>Mapa não disponível</p>
+                        <p style={{ fontSize: 12, color: '#9AA093' }}>Mapa não disponível</p>
                       </div>
                     ) : null}
 
-                    <div style={{ padding: 20 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: status === 'error' ? 12 : 0 }}>
+                    <div style={{ padding: '14px 18px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                         <div>
-                          <p style={{ fontSize: 15, fontWeight: 600, color: '#2a2e25' }}>{seg.name}</p>
-                          <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
-                            {seg.distance_km > 0 && (
-                              <span style={{ fontSize: 12, color: '#888' }}>📏 {seg.distance_km} km</span>
-                            )}
-                            {seg.desnivel_m > 0 && (
-                              <span style={{ fontSize: 12, color: '#888' }}>⛰ {seg.desnivel_m} m desnível</span>
-                            )}
+                          <p style={{
+                            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: 17,
+                            textTransform: 'uppercase', color: '#1A1D18',
+                          }}>
+                            {seg.name}
+                          </p>
+                          <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap', fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093' }}>
+                            {seg.distance_km > 0 && <span>{seg.distance_km} km</span>}
+                            {seg.desnivel_m > 0 && <span>{seg.desnivel_m} m desnível</span>}
                             {(seg.city || seg.state) && (
-                              <span style={{ fontSize: 12, color: '#bbb' }}>
-                                📍 {[seg.city, seg.state].filter(Boolean).join(', ')}
-                              </span>
+                              <span>{[seg.city, seg.state].filter(Boolean).join(', ')}</span>
                             )}
                           </div>
                         </div>
@@ -392,13 +396,12 @@ function ImportarStravaContent() {
                           onClick={() => importarSegmento(seg)}
                           disabled={isLoading}
                           style={{
-                            background: '#6d745f',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: 4,
-                            padding: '8px 20px', fontSize: 13, fontWeight: 500,
+                            background: isLoading ? 'rgba(0,0,0,.08)' : '#FC4C02',
+                            color: isLoading ? '#9AA093' : '#fff',
+                            border: 'none', borderRadius: 999,
+                            padding: '9px 20px', fontFamily: 'var(--font-barlow-condensed)',
+                            fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '.5px',
                             cursor: isLoading ? 'not-allowed' : 'pointer',
-                            opacity: isLoading ? 0.7 : 1,
                             display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
                           }}
                         >
@@ -416,9 +419,9 @@ function ImportarStravaContent() {
 
                       {status === 'error' && (
                         <div style={{
-                          background: '#fee2e2', border: '1px solid #fca5a5',
-                          color: '#991b1b', borderRadius: 4,
-                          padding: '8px 12px', fontSize: 12, marginTop: 12,
+                          background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.25)',
+                          color: '#DC2626', borderRadius: 8,
+                          padding: '10px 14px', fontSize: 12, marginTop: 12,
                         }}>
                           Erro ao importar: {errMsg || 'Tente novamente.'}
                         </div>
@@ -440,8 +443,8 @@ function ImportarStravaContent() {
 export default function ImportarStravaPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: '100vh', background: '#f4f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #e5e5e5', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#F5F6F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid rgba(0,0,0,.08)', borderTopColor: '#6d745f', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     }>

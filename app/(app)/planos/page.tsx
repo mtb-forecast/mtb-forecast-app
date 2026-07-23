@@ -2,10 +2,29 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { IconShieldCheck, IconCircleCheck } from '@tabler/icons-react'
 import { PLANOS } from '@/lib/stripe-config'
 import { supabase, getClientUser } from '@/lib/supabase'
 
 const PLANO_ORDER = ['plano_a', 'plano_b', 'plano_c'] as const
+
+const TOPO_SVG = `
+<svg xmlns='http://www.w3.org/2000/svg' width='900' height='400' viewBox='0 0 900 400'>
+  <g fill='none' stroke='%236d745f' stroke-opacity='.15' stroke-width='1.3'>
+    <path d='M700,60 C800,90 860,160 850,240 C840,320 770,360 690,350 C610,340 560,290 570,220 C580,150 630,80 700,60 Z'/>
+    <path d='M700,20 C820,50 900,140 885,240 C870,340 780,395 690,382 C600,370 540,305 552,220 C565,135 620,-10 700,20 Z'/>
+    <path d='M700,95 C770,115 815,165 808,225 C800,285 750,315 690,308 C630,300 592,262 599,215 C606,168 645,80 700,95 Z'/>
+  </g>
+</svg>
+`.replace(/\s+/g, ' ').trim()
+
+const TOPO_DATA_URI = `url("data:image/svg+xml,${encodeURIComponent(TOPO_SVG)}")`
+
+const input: React.CSSProperties = {
+  background: '#FFFFFF', border: '1px solid rgba(0,0,0,.1)', borderRadius: 8,
+  padding: '9px 12px', fontSize: 13, color: '#1A1D18', outline: 'none',
+  width: '100%', boxSizing: 'border-box',
+}
 
 export default function PlanosPage() {
   const router = useRouter()
@@ -80,33 +99,50 @@ export default function PlanosPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f4f5f0' }}>
+    <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
 
       {/* Header */}
-      <div style={{ background: '#2a2e25', padding: '40px 32px' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <h1 className="font-wheat" style={{ color: '#fff', fontSize: 32 }}>Planos</h1>
-          <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
+      <div style={{ position: 'relative', overflow: 'hidden', background: '#141612', borderBottom: '1px solid rgba(109,116,95,.25)', padding: '28px 32px' }}>
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            backgroundImage: TOPO_DATA_URI, backgroundSize: 'cover', backgroundPosition: 'right center',
+          }}
+        />
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 860, margin: '0 auto' }}>
+          <h1 style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            fontSize: 'clamp(28px, 4vw, 38px)', textTransform: 'uppercase',
+            color: '#F4F3EF', lineHeight: 0.95, margin: 0,
+          }}>
+            Planos
+          </h1>
+          <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: 'rgba(154,160,147,.7)', marginTop: 8 }}>
             Escolha o plano ideal para sua forma de pedalar
           </p>
         </div>
       </div>
-      <div style={{ background: '#a8b899', height: 3 }} />
 
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '40px 32px' }}>
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 32px 48px' }}>
 
         {/* Badge admin */}
         {profileLoaded && isAdmin && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            background: '#2a2e25', color: '#a8b899',
-            border: '1.5px solid #a8b899', borderRadius: 6,
-            padding: '12px 20px', marginBottom: 32,
+            background: 'rgba(109,116,95,.12)', color: '#6d745f',
+            border: '1px solid rgba(109,116,95,.3)', borderRadius: 10,
+            padding: '12px 18px', marginBottom: 28,
           }}>
-            <span style={{ fontSize: 16 }}>★</span>
+            <IconShieldCheck size={18} color="#6d745f" />
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Acesso Admin — Full Access</p>
-              <p style={{ fontSize: 12, color: '#aaa', margin: 0, marginTop: 2 }}>
+              <p style={{
+                fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800, fontSize: 14,
+                textTransform: 'uppercase', color: '#1A1D18', margin: 0,
+              }}>
+                Acesso Admin — Full Access
+              </p>
+              <p style={{ fontSize: 12, color: '#6d745f', margin: '2px 0 0' }}>
                 Sua conta tem acesso completo à plataforma.
               </p>
             </div>
@@ -118,7 +154,7 @@ export default function PlanosPage() {
           <>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: 16,
             }}>
               {PLANO_ORDER.map((planoId) => {
@@ -131,10 +167,11 @@ export default function PlanosPage() {
                   <div
                     key={planoId}
                     style={{
-                      background: '#fff',
-                      border: planoId === 'plano_b' ? '2px solid #2a2e25' : '0.5px solid #e5e5e5',
-                      borderRadius: 8,
+                      background: '#FFFFFF',
+                      border: planoId === 'plano_b' ? '2px solid #1A1D18' : '1px solid rgba(0,0,0,.07)',
+                      borderRadius: 14,
                       padding: 24,
+                      boxShadow: '0 2px 8px rgba(0,0,0,.04)',
                       display: 'flex',
                       flexDirection: 'column',
                       position: 'relative',
@@ -143,64 +180,51 @@ export default function PlanosPage() {
                   >
                     {emConstrucao && (
                       <div style={{
-                        position: 'absolute',
-                        top: -12,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        background: '#6d745f',
-                        border: 'none',
-                        borderRadius: 20,
-                        padding: '2px 12px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: '#fff',
-                        whiteSpace: 'nowrap',
+                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                        background: '#1A1D18', color: '#F4F3EF', borderRadius: 999,
+                        padding: '2px 12px', fontFamily: 'var(--font-barlow-condensed)',
+                        fontWeight: 700, fontSize: 11, textTransform: 'uppercase', whiteSpace: 'nowrap',
                       }}>
                         EM CONSTRUÇÃO
                       </div>
                     )}
                     {!emConstrucao && planoId === 'plano_b' && (
                       <div style={{
-                        position: 'absolute',
-                        top: -12,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        background: '#6d745f',
-                        border: 'none',
-                        borderRadius: 20,
-                        padding: '2px 12px',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: '#fff',
-                        whiteSpace: 'nowrap',
+                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                        background: '#1A1D18', color: '#F4F3EF', borderRadius: 999,
+                        padding: '2px 12px', fontFamily: 'var(--font-barlow-condensed)',
+                        fontWeight: 700, fontSize: 11, textTransform: 'uppercase', whiteSpace: 'nowrap',
                       }}>
                         MAIS POPULAR
                       </div>
                     )}
 
-                    <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>
+                    <p style={{
+                      fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1.5px',
+                      color: '#9AA093', textTransform: 'uppercase', marginBottom: 8,
+                    }}>
                       {plano.nome}
                     </p>
 
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
                       {isPago ? (
                         <>
-                          <span style={{ fontSize: 28, fontWeight: 700, color: '#2a2e25' }}>R${plano.preco}</span>
-                          <span style={{ fontSize: 13, color: '#888' }}>/mês</span>
+                          <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontSize: 28, fontWeight: 800, color: '#1A1D18' }}>R${plano.preco}</span>
+                          <span style={{ fontSize: 13, color: '#9AA093' }}>/mês</span>
                         </>
                       ) : (
-                        <span style={{ fontSize: 28, fontWeight: 700, color: '#2a2e25' }}>Grátis</span>
+                        <span style={{ fontFamily: 'var(--font-barlow-condensed)', fontSize: 28, fontWeight: 800, color: '#1A1D18' }}>Grátis</span>
                       )}
                     </div>
 
-                    <p style={{ fontSize: 12, color: '#888', marginBottom: 20, lineHeight: 1.4 }}>
+                    <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 20, lineHeight: 1.5 }}>
                       {plano.descricao}
                     </p>
 
                     <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                       {plano.features.map((f, i) => (
-                        <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#555' }}>
-                          <span style={{ color: '#16a34a', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                        <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#6B7280' }}>
+                          <IconCircleCheck size={14} color="#22C55E" style={{ flexShrink: 0, marginTop: 2 }} />
                           {f}
                         </li>
                       ))}
@@ -210,17 +234,12 @@ export default function PlanosPage() {
                       <button
                         disabled
                         style={{
-                          background: '#e5e5e5',
-                          color: '#999',
-                          border: '1.5px solid #e5e5e5',
-                          borderRadius: 4,
-                          padding: '10px 16px',
-                          fontSize: 13,
-                          fontWeight: 500,
+                          background: 'rgba(0,0,0,.06)', color: '#9AA093', border: 'none',
+                          borderRadius: 999, padding: '11px 18px',
+                          fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: 15,
+                          textTransform: 'uppercase', letterSpacing: '.5px',
                           cursor: 'not-allowed',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}
                       >
                         Em Construção
@@ -230,19 +249,15 @@ export default function PlanosPage() {
                         onClick={() => handleCheckout(planoId)}
                         disabled={isLoading}
                         style={{
-                          background: planoId === 'plano_b' ? '#2a2e25' : '#fff',
-                          color: planoId === 'plano_b' ? '#fff' : '#2a2e25',
-                          border: '1.5px solid #2a2e25',
-                          borderRadius: 4,
-                          padding: '10px 16px',
-                          fontSize: 13,
-                          fontWeight: 500,
+                          background: planoId === 'plano_b' ? '#1A1D18' : 'transparent',
+                          color: planoId === 'plano_b' ? '#F4F3EF' : '#1A1D18',
+                          border: planoId === 'plano_b' ? 'none' : '1.5px solid rgba(0,0,0,.2)',
+                          borderRadius: 999, padding: '11px 18px',
+                          fontFamily: 'var(--font-barlow-condensed)', fontWeight: 700, fontSize: 15,
+                          textTransform: 'uppercase', letterSpacing: '.5px',
                           cursor: isLoading ? 'not-allowed' : 'pointer',
                           opacity: isLoading ? 0.7 : 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 8,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                         }}
                       >
                         {isLoading && (
@@ -252,23 +267,15 @@ export default function PlanosPage() {
                       </button>
                     ) : !isPago ? (
                       <div style={{
-                        textAlign: 'center',
-                        fontSize: 13,
-                        color: '#888',
-                        padding: '10px 16px',
-                        border: '0.5px solid #e5e5e5',
-                        borderRadius: 4,
+                        textAlign: 'center', fontSize: 13, color: '#9AA093',
+                        padding: '11px 18px', border: '1px solid rgba(0,0,0,.08)', borderRadius: 999,
                       }}>
                         Plano atual
                       </div>
                     ) : (
                       <div style={{
-                        textAlign: 'center',
-                        fontSize: 13,
-                        color: '#888',
-                        padding: '10px 16px',
-                        border: '0.5px solid #e5e5e5',
-                        borderRadius: 4,
+                        textAlign: 'center', fontSize: 13, color: '#9AA093',
+                        padding: '11px 18px', border: '1px solid rgba(0,0,0,.08)', borderRadius: 999,
                       }}>
                         Incluído
                       </div>
@@ -279,23 +286,22 @@ export default function PlanosPage() {
             </div>
 
             {!isAdmin && (
-              <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', marginTop: 32 }}>
+              <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093', textAlign: 'center', marginTop: 28 }}>
                 Pagamento seguro via Stripe. Cancele a qualquer momento.
               </p>
             )}
           </>
         )}
 
-        {/* Distribuição de usuários — admin only */}
         {/* Seção de código promocional */}
         <div style={{
-          background: '#fff',
-          border: '0.5px solid #e5e5e5',
-          borderRadius: 8,
-          padding: 24,
-          marginTop: 32,
+          background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)',
+          borderRadius: 14, padding: 24, marginTop: 28,
         }}>
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '2px', color: '#888', textTransform: 'uppercase', marginBottom: 16 }}>
+          <p style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1.5px',
+            color: '#9AA093', textTransform: 'uppercase', marginBottom: 14,
+          }}>
             Código promocional
           </p>
 
@@ -305,30 +311,23 @@ export default function PlanosPage() {
               value={codigo}
               onChange={e => setCodigo(e.target.value)}
               placeholder="Digite seu código promocional"
-              className="input-field"
-              style={{ flex: 1, minWidth: 200, fontSize: 13, textTransform: 'uppercase' }}
+              style={{ ...input, flex: 1, minWidth: 200, textTransform: 'uppercase' }}
             />
             <button
               type="submit"
               disabled={promoLoading || !codigo.trim()}
               style={{
-                background: '#2a2e25',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 4,
-                padding: '10px 20px',
-                fontSize: 13,
-                fontWeight: 500,
+                background: (promoLoading || !codigo.trim()) ? 'rgba(0,0,0,.08)' : '#1A1D18',
+                color: (promoLoading || !codigo.trim()) ? '#9AA093' : '#F4F3EF',
+                border: 'none', borderRadius: 999,
+                padding: '10px 20px', fontFamily: 'var(--font-barlow-condensed)',
+                fontWeight: 700, fontSize: 14, textTransform: 'uppercase', letterSpacing: '.5px',
                 cursor: promoLoading || !codigo.trim() ? 'not-allowed' : 'pointer',
-                opacity: promoLoading || !codigo.trim() ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
               }}
             >
               {promoLoading && (
-                <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
               )}
               {promoLoading ? 'Aguarde...' : 'Resgatar'}
             </button>
@@ -336,13 +335,10 @@ export default function PlanosPage() {
 
           {promoStatus && (
             <div style={{
-              marginTop: 12,
-              padding: '10px 14px',
-              borderRadius: 4,
-              fontSize: 13,
-              background: promoStatus.type === 'success' ? '#dcfce7' : '#fee2e2',
-              border: `1px solid ${promoStatus.type === 'success' ? '#86efac' : '#fca5a5'}`,
-              color: promoStatus.type === 'success' ? '#166534' : '#991b1b',
+              marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13,
+              background: promoStatus.type === 'success' ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)',
+              border: `1px solid ${promoStatus.type === 'success' ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.25)'}`,
+              color: promoStatus.type === 'success' ? '#166534' : '#DC2626',
             }}>
               {promoStatus.msg}
             </div>
