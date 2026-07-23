@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import FeedEventCard from '@/components/FeedEventCard'
-import type { FeedItem, FeedEvento, Observacao } from '@/lib/types'
+import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini } from '@/lib/types'
 
 const TOPO_SVG = `
 <svg xmlns='http://www.w3.org/2000/svg' width='900' height='500' viewBox='0 0 900 500'>
@@ -32,19 +32,22 @@ export default async function FeedPage() {
   const trilhaIds = (favRows ?? []).map((f: { trilha_id: string }) => f.trilha_id)
   const followingIds = (followingRows ?? []).map((f: { following_id: string }) => f.following_id)
 
-  let items: FeedItem[] = []
+  // Pipeline: só trilhas favoritadas. Avaliações: trilhas favoritadas OU usuários seguidos.
+  // Seguida: sempre — novo seguidor (following_id = eu) OU alguém que eu sigo passou a seguir outra pessoa.
+  const eventosPromise = trilhaIds.length > 0
+    ? sb
+        .from('feed_eventos')
+        .select('id, trilha_id, tipo, texto, veredicto, created_at')
+        .eq('tipo', 'pipeline')
+        .in('trilha_id', trilhaIds)
+        .order('created_at', { ascending: false })
+        .limit(30)
+    : Promise.resolve({ data: [] as FeedEvento[] })
 
-  if (trilhaIds.length > 0 || followingIds.length > 0) {
-    const eventosPromise = trilhaIds.length > 0
-      ? sb
-          .from('feed_eventos')
-          .select('id, trilha_id, tipo, texto, veredicto, created_at')
-          .in('trilha_id', trilhaIds)
-          .order('created_at', { ascending: false })
-          .limit(30)
-      : Promise.resolve({ data: [] as FeedEvento[] })
-
-    // Avaliações de trilhas favoritadas OU de usuários seguidos (mesmo em trilhas não favoritadas)
+  const obsPromise = (() => {
+    if (trilhaIds.length === 0 && followingIds.length === 0) {
+      return Promise.resolve({ data: [] as Observacao[] })
+    }
     let obsQuery = sb
       .from('observacoes_trilha')
       .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, profiles (apelido, nome, email, avatar_url)')
@@ -56,39 +59,70 @@ export default async function FeedPage() {
     } else {
       obsQuery = obsQuery.in('user_id', followingIds)
     }
+    return obsQuery.order('created_at', { ascending: false }).limit(30)
+  })()
 
-    const [{ data: eventos }, { data: observacoes }] = await Promise.all([
-      eventosPromise,
-      obsQuery.order('created_at', { ascending: false }).limit(30),
-    ])
+  const seguidaOr = followingIds.length > 0
+    ? `following_id.eq.${userId},follower_id.in.(${followingIds.join(',')})`
+    : `following_id.eq.${userId}`
 
-    const trilhaIdsParaNome = Array.from(new Set([
-      ...(eventos ?? []).map((e: FeedEvento) => e.trilha_id),
-      ...((observacoes ?? []) as unknown as Observacao[]).map(o => o.trilha_id).filter(Boolean) as string[],
-    ]))
+  const seguidaPromise = sb
+    .from('feed_eventos')
+    .select('id, tipo, follower_id, following_id, created_at')
+    .eq('tipo', 'seguida')
+    .or(seguidaOr)
+    .order('created_at', { ascending: false })
+    .limit(30)
 
-    const { data: trilhasData } = trilhaIdsParaNome.length > 0
-      ? await sb.from('trilhas').select('id, name').in('id', trilhaIdsParaNome)
-      : { data: [] as { id: string; name: string }[] }
+  const [{ data: eventos }, { data: observacoes }, { data: seguidas }] = await Promise.all([
+    eventosPromise,
+    obsPromise,
+    seguidaPromise,
+  ])
 
-    const nomeById = new Map((trilhasData ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
+  const trilhaIdsParaNome = Array.from(new Set([
+    ...(eventos ?? []).map((e: FeedEvento) => e.trilha_id).filter(Boolean) as string[],
+    ...((observacoes ?? []) as unknown as Observacao[]).map(o => o.trilha_id).filter(Boolean) as string[],
+  ]))
 
-    const eventoItems: FeedItem[] = ((eventos ?? []) as FeedEvento[]).map(e => ({
-      kind: 'pipeline',
-      ...e,
-      trilha_nome: nomeById.get(e.trilha_id),
-    }))
+  const { data: trilhasData } = trilhaIdsParaNome.length > 0
+    ? await sb.from('trilhas').select('id, name').in('id', trilhaIdsParaNome)
+    : { data: [] as { id: string; name: string }[] }
 
-    const obsItems: FeedItem[] = ((observacoes ?? []) as unknown as Observacao[]).map(o => ({
-      kind: 'avaliacao',
-      ...o,
-      trilha_nome: o.trilha_id ? nomeById.get(o.trilha_id) : undefined,
-    }))
+  const nomeById = new Map((trilhasData ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
 
-    items = [...eventoItems, ...obsItems].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
-  }
+  const perfilIdsSeguida = Array.from(new Set(
+    ((seguidas ?? []) as FeedEvento[]).flatMap(s => [s.follower_id, s.following_id]).filter(Boolean) as string[]
+  ))
+
+  const { data: perfisData } = perfilIdsSeguida.length > 0
+    ? await sb.from('profiles').select('id, apelido, nome, avatar_url').in('id', perfilIdsSeguida)
+    : { data: [] as ({ id: string } & FeedPerfilMini)[] }
+
+  const perfilById = new Map((perfisData ?? []).map(p => [p.id, p as FeedPerfilMini]))
+
+  const eventoItems: FeedItem[] = ((eventos ?? []) as FeedEvento[]).map(e => ({
+    kind: 'pipeline',
+    ...e,
+    trilha_nome: e.trilha_id ? nomeById.get(e.trilha_id) : undefined,
+  }))
+
+  const obsItems: FeedItem[] = ((observacoes ?? []) as unknown as Observacao[]).map(o => ({
+    kind: 'avaliacao',
+    ...o,
+    trilha_nome: o.trilha_id ? nomeById.get(o.trilha_id) : undefined,
+  }))
+
+  const seguidaItems: FeedItem[] = ((seguidas ?? []) as FeedEvento[]).map(s => ({
+    kind: 'seguida',
+    ...s,
+    follower_perfil: s.follower_id ? perfilById.get(s.follower_id) : undefined,
+    following_perfil: s.following_id ? perfilById.get(s.following_id) : undefined,
+  }))
+
+  const items: FeedItem[] = [...eventoItems, ...obsItems, ...seguidaItems].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
