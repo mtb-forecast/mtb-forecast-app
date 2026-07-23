@@ -94,10 +94,10 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
   const labelCurto = chipLabel(veredictoText)
   const isSemDados = !labelCurto
 
-  const chipBg        = isSemDados ? '#FEF9EE'  : cs.bg
-  const chipColor     = isSemDados ? '#92400e'  : cs.textColor
-  const chipBorder    = isSemDados ? '1px solid #fde68a' : 'none'
-  const chipIconColor = isSemDados ? '#f59e0b'  : cs.textColor
+  const chipBg        = isSemDados ? '#F3F4F6'              : cs.bg
+  const chipColor     = isSemDados ? '#9AA093'              : cs.textColor
+  const chipBorder    = isSemDados ? '1px solid rgba(0,0,0,.08)' : 'none'
+  const chipIconColor = isSemDados ? '#9AA093'              : cs.textColor
 
   const barData = useMemo(() => {
     const source = c?.previsao_24h ?? []
@@ -146,11 +146,8 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
             background: chipBg, color: chipColor, border: chipBorder,
             flexShrink: 0,
           }}>
-            {isSemDados
-              ? <IconStarFilled size={10} color="#f59e0b" />
-              : <ChipIcon size={10} stroke={2.5} color={chipIconColor} />
-            }
-            {isSemDados ? 'Favoritar' : labelCurto}
+            <ChipIcon size={10} stroke={2.5} color={chipIconColor} />
+            {isSemDados ? 'Aguardando' : labelCurto}
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -236,55 +233,73 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
           </div>
         )}
 
-        {/* ── Data blocks ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, padding: '7px 11px 0' }}>
-          <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 7, padding: '6px 8px' }}>
-            <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
-              Solo
-            </p>
-            <p style={{
-              fontFamily: 'var(--font-dm-mono)', fontWeight: 500, lineHeight: 1.1, color: '#1A1D18',
-              marginTop: 4, marginBottom: 0, fontSize: soloFontSize(c?.aderencia_status),
+        {isSemDados ? (
+          <div style={{ margin: '8px 11px 10px' }}>
+            <div style={{
+              background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)',
+              borderRadius: 7, padding: '10px 12px', textAlign: 'center',
             }}>
-              {soloText(c?.aderencia_status)}
-            </p>
+              <p style={{
+                fontFamily: 'var(--font-dm-mono)', fontSize: 10,
+                color: '#9AA093', margin: 0, lineHeight: 1.6,
+              }}>
+                Favorite para ativar<br />o monitoramento de condições
+              </p>
+            </div>
           </div>
-          <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 7, padding: '6px 8px' }}>
-            <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
-              Última chuva
-            </p>
-            <p style={{
-              fontFamily: 'var(--font-dm-mono)', fontWeight: 500, lineHeight: 1.1, color: '#1A1D18',
-              marginTop: 4, marginBottom: 0, fontSize: 20,
-            }}>
-              {c?.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
-            </p>
-          </div>
-        </div>
+        ) : (
+          <>
+            {/* ── Data blocks ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, padding: '7px 11px 0' }}>
+              <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 7, padding: '6px 8px' }}>
+                <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
+                  Solo
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-dm-mono)', fontWeight: 500, lineHeight: 1.1, color: '#1A1D18',
+                  marginTop: 4, marginBottom: 0, fontSize: soloFontSize(c?.aderencia_status),
+                }}>
+                  {soloText(c?.aderencia_status)}
+                </p>
+              </div>
+              <div style={{ background: '#F8F9F5', border: '1px solid rgba(0,0,0,.06)', borderRadius: 7, padding: '6px 8px' }}>
+                <p style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, letterSpacing: '.5px', textTransform: 'uppercase', color: '#9AA093', margin: 0 }}>
+                  Última chuva
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-dm-mono)', fontWeight: 500, lineHeight: 1.1, color: '#1A1D18',
+                  marginTop: 4, marginBottom: 0, fontSize: 20,
+                }}>
+                  {c?.ultima_chuva_h != null ? fmtUltimaChuva(c.ultima_chuva_h) : '—'}
+                </p>
+              </div>
+            </div>
 
-        {/* ── Gráfico ── */}
-        <div style={{ padding: '6px 11px 8px' }}>
-          <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 25 }}>
-            {barData.map((b, i) => (
-              <div
-                key={i}
-                style={{
-                  flex: 1,
-                  height: `${b.height}%`,
-                  borderRadius: '2px 2px 0 0',
-                  background: b.isRain ? 'rgba(88,120,200,.75)' : 'rgba(109,116,95,.3)',
-                }}
-              />
-            ))}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, padding: '0 1px' }}>
-            {['08h', '12h', '16h', '20h'].map(label => (
-              <span key={label} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: 'rgba(155,161,150,.5)' }}>
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
+            {/* ── Gráfico ── */}
+            <div style={{ padding: '6px 11px 8px' }}>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 25 }}>
+                {barData.map((b, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: `${b.height}%`,
+                      borderRadius: '2px 2px 0 0',
+                      background: b.isRain ? 'rgba(88,120,200,.75)' : 'rgba(109,116,95,.3)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, padding: '0 1px' }}>
+                {['08h', '12h', '16h', '20h'].map(label => (
+                  <span key={label} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: 'rgba(155,161,150,.5)' }}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Link>
   )
