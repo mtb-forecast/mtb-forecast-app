@@ -64,3 +64,9 @@ CREATE TRIGGER trg_feed_evento_condicao
   AFTER INSERT ON public.condicoes
   FOR EACH ROW
   EXECUTE FUNCTION public.fn_feed_evento_condicao();
+
+-- Trigger functions só podem ser chamadas em contexto de trigger (NEW não
+-- existe fora dele), mas por ser SECURITY DEFINER o linter do Supabase
+-- acusa a função como executável via RPC por anon/authenticated. Fecha
+-- a superfície mesmo assim, por princípio de menor privilégio.
+REVOKE EXECUTE ON FUNCTION public.fn_feed_evento_condicao() FROM PUBLIC, anon, authenticated;
