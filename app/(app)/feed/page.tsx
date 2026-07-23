@@ -62,9 +62,11 @@ export default async function FeedPage() {
     return obsQuery.order('created_at', { ascending: false }).limit(30)
   })()
 
+  // Aparece no meu feed em 3 casos: alguém me seguiu, alguém que eu sigo seguiu outra pessoa,
+  // ou eu mesmo segui alguém (confirmação da minha própria ação).
   const seguidaOr = followingIds.length > 0
-    ? `following_id.eq.${userId},follower_id.in.(${followingIds.join(',')})`
-    : `following_id.eq.${userId}`
+    ? `following_id.eq.${userId},follower_id.eq.${userId},follower_id.in.(${followingIds.join(',')})`
+    : `following_id.eq.${userId},follower_id.eq.${userId}`
 
   const seguidaPromise = sb
     .from('feed_eventos')
