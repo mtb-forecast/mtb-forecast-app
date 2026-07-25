@@ -62,11 +62,10 @@ export default async function FeedPage() {
     return obsQuery.order('created_at', { ascending: false }).limit(30)
   })()
 
-  // Aparece no meu feed em 3 casos: alguém me seguiu, alguém que eu sigo seguiu outra pessoa,
-  // ou eu mesmo segui alguém (confirmação da minha própria ação).
-  const seguidaOr = followingIds.length > 0
-    ? `following_id.eq.${userId},follower_id.eq.${userId},follower_id.in.(${followingIds.join(',')})`
-    : `following_id.eq.${userId},follower_id.eq.${userId}`
+  // Só eventos em que eu (viewer) sou diretamente parte: fui seguido, ou eu segui
+  // alguém. NÃO mostra "alguém que eu sigo passou a seguir outra pessoa" — isso
+  // poluía o feed com atividade de terceiros sem relação comigo.
+  const seguidaOr = `following_id.eq.${userId},follower_id.eq.${userId}`
 
   const seguidaPromise = sb
     .from('feed_eventos')
@@ -182,7 +181,7 @@ export default async function FeedPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {items.map(item => (
-              <FeedEventCard key={`${item.kind}-${item.id}`} item={item} />
+              <FeedEventCard key={`${item.kind}-${item.id}`} item={item} viewerId={userId} />
             ))}
           </div>
         )}

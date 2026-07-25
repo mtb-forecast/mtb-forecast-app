@@ -78,7 +78,7 @@ function nomePerfil(p?: FeedPerfilMini): string {
   return p?.apelido || p?.nome || 'Rider'
 }
 
-export default function FeedEventCard({ item }: { item: FeedItem }) {
+export default function FeedEventCard({ item, viewerId }: { item: FeedItem; viewerId?: string }) {
   const cardStyle: React.CSSProperties = {
     background: '#fff', borderRadius: 12,
     boxShadow: '0 2px 12px rgba(0,0,0,0.06)', padding: 14,
@@ -87,6 +87,7 @@ export default function FeedEventCard({ item }: { item: FeedItem }) {
   if (item.kind === 'seguida') {
     const followerNome = nomePerfil(item.follower_perfil)
     const followingNome = nomePerfil(item.following_perfil)
+    const souOFollower = viewerId != null && item.follower_id === viewerId
     return (
       <div style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -100,7 +101,7 @@ export default function FeedEventCard({ item }: { item: FeedItem }) {
             fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
             textTransform: 'uppercase', color: '#9AA093',
           }}>
-            Novo seguidor
+            {souOFollower ? 'Você seguiu' : 'Novo seguidor'}
           </span>
         </div>
 
