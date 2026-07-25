@@ -1,5 +1,4 @@
 import { notFound, redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { Condicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
@@ -104,15 +103,6 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
         />
 
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 720, margin: '0 auto' }}>
-
-          {/* Voltar */}
-          <Link href="/trilhas" style={{
-            display: 'inline-block', fontFamily: 'var(--font-dm-mono)',
-            fontSize: 11, letterSpacing: '1px', color: 'rgba(154,160,147,.7)',
-            marginBottom: 18, textDecoration: 'none',
-          }}>
-            ← Voltar para trilhas
-          </Link>
 
           {/* Nome + ações */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>

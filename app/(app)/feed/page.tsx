@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import FeedEventCard from '@/components/FeedEventCard'
-import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini } from '@/lib/types'
+import FeedLoadMore from './FeedLoadMore'
+import { getFeedContext, fetchFeedItems, brtDayRange } from '@/lib/feed'
 
 const TOPO_SVG = `
 <svg xmlns='http://www.w3.org/2000/svg' width='900' height='500' viewBox='0 0 900 500'>
@@ -24,106 +25,10 @@ export default async function FeedPage() {
 
   const userId = session.user.id
 
-  const [{ data: favRows }, { data: followingRows }] = await Promise.all([
-    sb.from('favoritos').select('trilha_id').eq('user_id', userId),
-    sb.from('seguidores').select('following_id').eq('follower_id', userId),
-  ])
+  const { trilhaIds, followingIds } = await getFeedContext(sb, userId)
+  const todayItems = await fetchFeedItems(sb, userId, trilhaIds, followingIds, brtDayRange(0))
 
-  const trilhaIds = (favRows ?? []).map((f: { trilha_id: string }) => f.trilha_id)
-  const followingIds = (followingRows ?? []).map((f: { following_id: string }) => f.following_id)
-
-  // Pipeline: só trilhas favoritadas. Avaliações: trilhas favoritadas OU usuários seguidos.
-  // Seguida: sempre — novo seguidor (following_id = eu) OU alguém que eu sigo passou a seguir outra pessoa.
-  const eventosPromise = trilhaIds.length > 0
-    ? sb
-        .from('feed_eventos')
-        .select('id, trilha_id, tipo, texto, veredicto, created_at')
-        .eq('tipo', 'pipeline')
-        .in('trilha_id', trilhaIds)
-        .order('created_at', { ascending: false })
-        .limit(30)
-    : Promise.resolve({ data: [] as FeedEvento[] })
-
-  const obsPromise = (() => {
-    if (trilhaIds.length === 0 && followingIds.length === 0) {
-      return Promise.resolve({ data: [] as Observacao[] })
-    }
-    let obsQuery = sb
-      .from('observacoes_trilha')
-      .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, profiles (apelido, nome, email, avatar_url)')
-
-    if (trilhaIds.length > 0 && followingIds.length > 0) {
-      obsQuery = obsQuery.or(`trilha_id.in.(${trilhaIds.join(',')}),user_id.in.(${followingIds.join(',')})`)
-    } else if (trilhaIds.length > 0) {
-      obsQuery = obsQuery.in('trilha_id', trilhaIds)
-    } else {
-      obsQuery = obsQuery.in('user_id', followingIds)
-    }
-    return obsQuery.order('created_at', { ascending: false }).limit(30)
-  })()
-
-  // Só eventos em que eu (viewer) sou diretamente parte: fui seguido, ou eu segui
-  // alguém. NÃO mostra "alguém que eu sigo passou a seguir outra pessoa" — isso
-  // poluía o feed com atividade de terceiros sem relação comigo.
-  const seguidaOr = `following_id.eq.${userId},follower_id.eq.${userId}`
-
-  const seguidaPromise = sb
-    .from('feed_eventos')
-    .select('id, tipo, follower_id, following_id, created_at')
-    .eq('tipo', 'seguida')
-    .or(seguidaOr)
-    .order('created_at', { ascending: false })
-    .limit(30)
-
-  const [{ data: eventos }, { data: observacoes }, { data: seguidas }] = await Promise.all([
-    eventosPromise,
-    obsPromise,
-    seguidaPromise,
-  ])
-
-  const trilhaIdsParaNome = Array.from(new Set([
-    ...(eventos ?? []).map((e: FeedEvento) => e.trilha_id).filter(Boolean) as string[],
-    ...((observacoes ?? []) as unknown as Observacao[]).map(o => o.trilha_id).filter(Boolean) as string[],
-  ]))
-
-  const { data: trilhasData } = trilhaIdsParaNome.length > 0
-    ? await sb.from('trilhas').select('id, name').in('id', trilhaIdsParaNome)
-    : { data: [] as { id: string; name: string }[] }
-
-  const nomeById = new Map((trilhasData ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
-
-  const perfilIdsSeguida = Array.from(new Set(
-    ((seguidas ?? []) as FeedEvento[]).flatMap(s => [s.follower_id, s.following_id]).filter(Boolean) as string[]
-  ))
-
-  const { data: perfisData } = perfilIdsSeguida.length > 0
-    ? await sb.from('profiles').select('id, apelido, nome, avatar_url').in('id', perfilIdsSeguida)
-    : { data: [] as ({ id: string } & FeedPerfilMini)[] }
-
-  const perfilById = new Map((perfisData ?? []).map(p => [p.id, p as FeedPerfilMini]))
-
-  const eventoItems: FeedItem[] = ((eventos ?? []) as FeedEvento[]).map(e => ({
-    kind: 'pipeline',
-    ...e,
-    trilha_nome: e.trilha_id ? nomeById.get(e.trilha_id) : undefined,
-  }))
-
-  const obsItems: FeedItem[] = ((observacoes ?? []) as unknown as Observacao[]).map(o => ({
-    kind: 'avaliacao',
-    ...o,
-    trilha_nome: o.trilha_id ? nomeById.get(o.trilha_id) : undefined,
-  }))
-
-  const seguidaItems: FeedItem[] = ((seguidas ?? []) as FeedEvento[]).map(s => ({
-    kind: 'seguida',
-    ...s,
-    follower_perfil: s.follower_id ? perfilById.get(s.follower_id) : undefined,
-    following_perfil: s.following_id ? perfilById.get(s.following_id) : undefined,
-  }))
-
-  const items: FeedItem[] = [...eventoItems, ...obsItems, ...seguidaItems].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
+  const semRelacionamentos = trilhaIds.length === 0 && followingIds.length === 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
@@ -159,15 +64,13 @@ export default async function FeedPage() {
 
       {/* ── Conteúdo ── */}
       <div style={{ padding: '24px 28px 48px', maxWidth: 760, margin: '0 auto' }}>
-        {items.length === 0 ? (
+        {semRelacionamentos && todayItems.length === 0 ? (
           <div style={{
             background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16,
             padding: '40px 24px', textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,.05)',
           }}>
             <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 14, color: '#9AA093', marginBottom: 16 }}>
-              {trilhaIds.length === 0 && followingIds.length === 0
-                ? 'Favorite trilhas ou siga outros riders para acompanhar a atividade deles por aqui.'
-                : 'Nenhuma atividade ainda.'}
+              Favorite trilhas ou siga outros riders para acompanhar a atividade deles por aqui.
             </p>
             <Link href="/trilhas" style={{
               background: '#1A1D18', color: '#F4F3EF', fontWeight: 700,
@@ -179,11 +82,28 @@ export default async function FeedPage() {
             </Link>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {items.map(item => (
-              <FeedEventCard key={`${item.kind}-${item.id}`} item={item} viewerId={userId} />
-            ))}
-          </div>
+          <>
+            <span style={{
+              fontFamily: 'var(--font-dm-mono)', fontSize: 11, letterSpacing: '1.5px',
+              textTransform: 'uppercase', color: '#9AA093', display: 'block', marginBottom: 10,
+            }}>
+              Hoje
+            </span>
+
+            {todayItems.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#9AA093', marginBottom: 12 }}>
+                Nenhuma atividade hoje.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
+                {todayItems.map(item => (
+                  <FeedEventCard key={`${item.kind}-${item.id}`} item={item} viewerId={userId} />
+                ))}
+              </div>
+            )}
+
+            <FeedLoadMore viewerId={userId} />
+          </>
         )}
       </div>
     </div>
