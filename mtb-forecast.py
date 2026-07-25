@@ -2230,7 +2230,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "rain_12h":           veredicto_12h.get("rain"),
             "wind_ms":            resultado.get("wind"),
             "wind_12h":           veredicto_12h.get("wind"),
-            "pop_48h":            resultado.get("pop"),
+            "pop_24h":            resultado.get("pop"),
             "pop_12h":            veredicto_12h.get("pop"),
             "temp_max":           resultado.get("temp_max"),
             "temp_min":           resultado.get("temp_min"),

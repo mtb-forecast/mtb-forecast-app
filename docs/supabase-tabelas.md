@@ -703,7 +703,7 @@ Resultado do processamento do agente Python por trilha. Uma linha por trilha (DE
 | `wind_12h` | numeric | Vento sustentado máximo previsto 12h (m/s) |
 | `gust_max_kmh` | numeric | Rajada máxima prevista 24h (km/h) |
 | `temp_max` | numeric | Temperatura máxima prevista (°C) |
-| `pop_48h` | numeric | Probabilidade máxima de chuva 24h (%) — nome legado |
+| `pop_24h` | numeric | Probabilidade máxima de chuva 24h (%) |
 | `pop_12h` | numeric | Probabilidade máxima de chuva 12h (%) |
 | `janela` | text | Melhor janela para pedal calculada pelo agente |
 | `horarios_chuva` | text | Blocos com chuva prevista (JSON) |
