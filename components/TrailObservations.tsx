@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Observacao } from '@/lib/types'
 import FavoritoButton from '@/components/FavoritoButton'
+import { STATUS_TRILHA_OPTIONS, STATUS_TRILHA_MAX_SELECAO, statusTrilhaLabel } from '@/lib/statusTrilha'
 
 type Props = {
   trilhaId: string
@@ -120,6 +121,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
   const [estrelas, setEstrelas] = useState(0)
   const [texto, setTexto] = useState('')
   const [condicaoEncontrada, setCondicaoEncontrada] = useState<string | null>(null)
+  const [statusTrilha, setStatusTrilha] = useState<string[]>([])
   const [publishing, setPublishing] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -132,7 +134,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
 
     const obsQuery = supabase
       .from('observacoes_trilha')
-      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email, avatar_url)`)
+      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, status_trilha, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email, avatar_url)`)
       .eq('trilha_id', trilhaId)
 
     const [{ data: obs }, { data: favorito }] = await Promise.all([
@@ -160,15 +162,27 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
     setFavoritando(false)
   }
 
+  function toggleStatusTrilha(value: string) {
+    setStatusTrilha(prev => {
+      if (prev.includes(value)) return prev.filter(v => v !== value)
+      if (prev.length >= STATUS_TRILHA_MAX_SELECAO) return prev
+      return [...prev, value]
+    })
+  }
+
   async function handlePublish() {
     if (!userId || !condicaoEncontrada || estrelas === 0 || !texto.trim() || texto.length > 150) return
     setPublishing(true)
     setPublishError(null)
-    const insertPayload = { trilha_id: trilhaId, user_id: userId, estrelas, texto: texto.trim(), condicao_encontrada: condicaoEncontrada, veredicto_sistema: veredictoAtual || null }
+    const insertPayload = {
+      trilha_id: trilhaId, user_id: userId, estrelas, texto: texto.trim(),
+      condicao_encontrada: condicaoEncontrada, veredicto_sistema: veredictoAtual || null,
+      status_trilha: statusTrilha.length > 0 ? statusTrilha : null,
+    }
     const { data: newObs, error } = await supabase
       .from('observacoes_trilha')
       .insert(insertPayload)
-      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email, avatar_url)`)
+      .select(`id, trilha_id, estrelas, texto, condicao_encontrada, status_trilha, veredicto_sistema, created_at, user_id, profiles (apelido, nome, email, avatar_url)`)
       .single()
 
     setPublishing(false)
@@ -182,6 +196,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
       setEstrelas(0)
       setTexto('')
       setCondicaoEncontrada(null)
+      setStatusTrilha([])
       setPublishSuccess(true)
       setTimeout(() => setPublishSuccess(false), 3000)
     }
@@ -250,14 +265,26 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
                     <Stars count={obs.estrelas} />
                   </div>
 
-                  {obs.condicao_encontrada && (() => {
-                    const c = CONDICOES.find(x => x.value === obs.condicao_encontrada)
-                    return c ? (
-                      <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 10, background: c.bg, color: c.color, marginBottom: 6 }}>
-                        {c.label}
-                      </span>
-                    ) : null
-                  })()}
+                  {(obs.condicao_encontrada || obs.status_trilha?.length) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                      {obs.condicao_encontrada && (() => {
+                        const c = CONDICOES.find(x => x.value === obs.condicao_encontrada)
+                        return c ? (
+                          <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 10, background: c.bg, color: c.color }}>
+                            {c.label}
+                          </span>
+                        ) : null
+                      })()}
+                      {obs.status_trilha?.map(s => {
+                        const st = statusTrilhaLabel(s)
+                        return st ? (
+                          <span key={s} style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: st.bg, color: st.color }}>
+                            {st.label}
+                          </span>
+                        ) : null
+                      })}
+                    </div>
+                  )}
                   <p style={{ fontSize: 12, color: '#444', lineHeight: 1.5, marginBottom: 6 }}>{obs.texto}</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, color: '#aaa' }}>{formatDate(obs.created_at)}</span>
@@ -326,6 +353,34 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
                   {c.label}
                 </button>
               ))}
+            </div>
+
+            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>
+              Status da trilha <span style={{ textTransform: 'none', fontWeight: 400, letterSpacing: 0 }}>(opcional, até 2)</span>
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+              {STATUS_TRILHA_OPTIONS.map(s => {
+                const selected = statusTrilha.includes(s.value)
+                const disabled = !selected && statusTrilha.length >= STATUS_TRILHA_MAX_SELECAO
+                return (
+                  <button
+                    key={s.value}
+                    onClick={() => toggleStatusTrilha(s.value)}
+                    disabled={disabled}
+                    style={{
+                      fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 10,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      border: `1.5px solid ${selected ? s.color : '#e5e5e5'}`,
+                      background: selected ? s.bg : '#fff',
+                      color: selected ? s.color : '#888',
+                      opacity: disabled ? 0.5 : 1,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                )
+              })}
             </div>
 
             <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>

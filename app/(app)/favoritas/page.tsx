@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import FavoritasGrid from './FavoritasGrid'
 import type { TrilhaComCondicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
+import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
 
 const RANKING_VEREDICTO: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -79,6 +80,9 @@ export default async function FavoritasPage() {
       if (condicao && blocos?.length) condicao.previsao_24h = blocos
       return { ...t, condicao } as TrilhaComCondicao
     })
+
+    const statusMap = await fetchStatusAtivoPorTrilha(sb, mapped.map(t => t.id))
+    mapped.forEach(t => { t.status_ativo = statusMap[t.id] ?? null })
 
     mapped.sort((a, b) => {
       const vA = RANKING_VEREDICTO[selecionarVeredicto(a.condicao?.veredicto, a.condicao?.veredicto_12h) || ''] ?? 99

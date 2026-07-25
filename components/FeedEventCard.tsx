@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight } from '@tabler/icons-react'
 import type { FeedItem, FeedPerfilMini } from '@/lib/types'
+import { statusTrilhaLabel } from '@/lib/statusTrilha'
 
 const CONDICOES: Record<string, { label: string; bg: string; color: string }> = {
   seco:  { label: 'Seco',            bg: '#e0f2fe', color: '#0369a1' },
@@ -196,13 +197,28 @@ export default function FeedEventCard({ item, viewerId }: { item: FeedItem; view
         </p>
       )}
 
-      {condicao && (
-        <span style={{
-          display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '2px 8px',
-          borderRadius: 10, background: condicao.bg, color: condicao.color, marginBottom: 6,
-        }}>
-          Condição: {condicao.label}
-        </span>
+      {(condicao || item.status_trilha?.length) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+          {condicao && (
+            <span style={{
+              display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '2px 8px',
+              borderRadius: 10, background: condicao.bg, color: condicao.color,
+            }}>
+              Condição: {condicao.label}
+            </span>
+          )}
+          {item.status_trilha?.map(s => {
+            const st = statusTrilhaLabel(s)
+            return st ? (
+              <span key={s} style={{
+                display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px',
+                borderRadius: 10, background: st.bg, color: st.color,
+              }}>
+                {st.label}
+              </span>
+            ) : null
+          })}
+        </div>
       )}
 
       {item.texto && (
