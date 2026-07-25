@@ -102,13 +102,11 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
   const barData = useMemo(() => {
     const source = c?.previsao_24h ?? []
     const maxRain = Math.max(...source.map(b => b.rain_mm), 0.1)
-    return Array.from({ length: 8 }, (_, i) => {
-      const bloco = source[i]
-      return {
-        height: bloco ? Math.max(8, Math.round((bloco.rain_mm / maxRain) * 100)) : 8,
-        isRain: bloco ? bloco.rain_mm > 0.1 : false,
-      }
-    })
+    return source.map(bloco => ({
+      height: Math.max(8, Math.round((bloco.rain_mm / maxRain) * 100)),
+      isRain: bloco.rain_mm > 0.1,
+      label: bloco.label.split('→')[0],
+    }))
   }, [c?.previsao_24h])
 
   const tags = [trilha.trail_type, trilha.bioma].filter(Boolean).slice(0, 2) as string[]
@@ -291,9 +289,9 @@ function DashboardTrailCard({ trilha, avaliacao }: Props) {
                 ))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, padding: '0 1px' }}>
-                {['08h', '12h', '16h', '20h'].map(label => (
-                  <span key={label} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: 'rgba(155,161,150,.5)' }}>
-                    {label}
+                {barData.map((b, i) => (
+                  <span key={i} style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 9, color: 'rgba(155,161,150,.5)' }}>
+                    {b.label}
                   </span>
                 ))}
               </div>
