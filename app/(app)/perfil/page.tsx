@@ -748,7 +748,7 @@ export default function PerfilPage() {
                       fontSize: 13, fontWeight: 700, cursor: prefsSaving ? 'not-allowed' : 'pointer',
                       transition: 'background 0.15s, border-color 0.15s',
                     }}>
-                    {s.hora} <span style={{ fontWeight: 400, opacity: 0.85 }}>· {s.dias}</span>
+                    {s.hora}
                   </button>
                 )
               })}
