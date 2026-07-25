@@ -65,7 +65,7 @@ export type Condicao = {
   pico_3h: number
   chuva_solo_48h: number
   acumulo_ef: number
-  pop_48h?: number | null
+  pop_24h?: number | null
   pop_12h?: number | null
   horarios_chuva?: string | null
   ultima_chuva_h?: number | null

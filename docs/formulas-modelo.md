@@ -135,7 +135,7 @@ gust_max_ms = max(oc.get("gust_max", 0.0), om.get("gust_max", 0.0))  # máximo, 
 | `rain_mm` | OWM 70% + OM 30% | próximas **24h** | Precipitação total prevista |
 | `wind_ms` | OWM 70% + OM 30% | próximas **24h** | Vento sustentado máximo previsto (m/s) |
 | `gust_max_kmh` | max(OWM, OM) | próximas **24h** | Rajada máxima prevista (km/h) |
-| `pop_48h` | OWM 70% + OM 30% | próximas **24h** | Probabilidade máxima de chuva (%) — nome legado |
+| `pop_24h` | OWM 70% + OM 30% | próximas **24h** | Probabilidade máxima de chuva (%) |
 | `pico_3h` | OWM 70% + OM 30% | próximas **48h** | Maior acumulado em janela de 3h consecutivas |
 
 > **Nota:** `pico_3h` usa janela de 48h intencionalmente — captura picos extremos futuros.
