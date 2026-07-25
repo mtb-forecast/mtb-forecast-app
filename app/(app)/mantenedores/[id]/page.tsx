@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import type { Mantenedor, TrilhaComCondicao } from '@/lib/types'
 import MantenedorContent from './MantenedorContent'
+import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
 
 // Conteúdo muda quando admin edita trilhas — sem cache para garantir dados frescos
 export const dynamic = 'force-dynamic'
@@ -74,6 +75,9 @@ export default async function MantenedorPage({ params }: { params: Promise<{ id:
     if (condicao && blocos?.length) condicao.previsao_24h = blocos
     return { ...t, condicao } as TrilhaComCondicao
   })
+
+  const statusMap = await fetchStatusAtivoPorTrilha(supabase, trilhas.map(t => t.id))
+  trilhas.forEach(t => { t.status_ativo = statusMap[t.id] ?? null })
 
   return <MantenedorContent mantenedor={mantenedor as Mantenedor} trilhas={trilhas} />
 }

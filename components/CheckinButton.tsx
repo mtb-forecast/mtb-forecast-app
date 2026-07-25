@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { IconClipboardCheck, IconX, IconChevronRight, IconMapPin } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { formatLocalidade } from '@/lib/geocoding'
+import { STATUS_TRILHA_OPTIONS, STATUS_TRILHA_MAX_SELECAO } from '@/lib/statusTrilha'
 
 const HIDDEN_ON = ['/', '/login', '/cadastro']
 
@@ -35,6 +36,7 @@ export default function CheckinButton() {
   const [trilhas, setTrilhas] = useState<TrilhaFavorita[]>([])
   const [selecionada, setSelecionada] = useState<TrilhaFavorita | null>(null)
   const [condicao, setCondicao] = useState<string | null>(null)
+  const [statusTrilha, setStatusTrilha] = useState<string[]>([])
   const [texto, setTexto] = useState('')
   const [publishing, setPublishing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +73,7 @@ export default function CheckinButton() {
     setStep('lista')
     setSelecionada(null)
     setCondicao(null)
+    setStatusTrilha([])
     setTexto('')
     setError(null)
     setSuccess(false)
@@ -86,6 +89,14 @@ export default function CheckinButton() {
     setStep('form')
   }
 
+  function toggleStatusTrilha(value: string) {
+    setStatusTrilha(prev => {
+      if (prev.includes(value)) return prev.filter(v => v !== value)
+      if (prev.length >= STATUS_TRILHA_MAX_SELECAO) return prev
+      return [...prev, value]
+    })
+  }
+
   async function publicar() {
     if (!userId || !selecionada || !condicao || !texto.trim() || texto.length > 150) return
     setPublishing(true)
@@ -94,6 +105,7 @@ export default function CheckinButton() {
       trilha_id: selecionada.id,
       user_id: userId,
       condicao_encontrada: condicao,
+      status_trilha: statusTrilha.length > 0 ? statusTrilha : null,
       texto: texto.trim(),
       estrelas: 3,
     })
@@ -237,6 +249,33 @@ export default function CheckinButton() {
                             {c.label}
                           </button>
                         ))}
+                      </div>
+
+                      <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: '1.5px', color: '#888', textTransform: 'uppercase', marginBottom: 8 }}>
+                        Status da trilha <span style={{ textTransform: 'none', fontWeight: 400, letterSpacing: 0 }}>(opcional, até 2)</span>
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                        {STATUS_TRILHA_OPTIONS.map(s => {
+                          const selected = statusTrilha.includes(s.value)
+                          const disabled = !selected && statusTrilha.length >= STATUS_TRILHA_MAX_SELECAO
+                          return (
+                            <button
+                              key={s.value}
+                              onClick={() => toggleStatusTrilha(s.value)}
+                              disabled={disabled}
+                              style={{
+                                fontSize: 12, fontWeight: 500, padding: '5px 12px', borderRadius: 10,
+                                cursor: disabled ? 'not-allowed' : 'pointer',
+                                border: `1.5px solid ${selected ? s.color : '#e5e5e5'}`,
+                                background: selected ? s.bg : '#fff',
+                                color: selected ? s.color : '#888',
+                                opacity: disabled ? 0.5 : 1,
+                              }}
+                            >
+                              {s.label}
+                            </button>
+                          )
+                        })}
                       </div>
 
                       <textarea

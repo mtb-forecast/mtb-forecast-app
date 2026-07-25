@@ -65,7 +65,7 @@ export async function fetchFeedItems(
     }
     let obsQuery = sb
       .from('observacoes_trilha')
-      .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, veredicto_sistema, created_at, profiles (apelido, nome, email, avatar_url)')
+      .select('id, trilha_id, user_id, estrelas, texto, condicao_encontrada, status_trilha, veredicto_sistema, created_at, profiles (apelido, nome, email, avatar_url)')
 
     if (trilhaIds.length > 0 && followingIds.length > 0) {
       obsQuery = obsQuery.or(`trilha_id.in.(${trilhaIds.join(',')}),user_id.in.(${followingIds.join(',')})`)

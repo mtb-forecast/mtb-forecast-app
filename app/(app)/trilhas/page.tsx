@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
+import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import FavoritoButton from '@/components/FavoritoButton'
 import PumpTrackCard from '@/components/PumpTrackCard'
@@ -145,7 +146,8 @@ function TrilhasContent() {
             const arr = Array.isArray(t.condicoes) ? t.condicoes : []
             return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
           })
-          setTrilhasAll(mapped)
+          const statusMap = await fetchStatusAtivoPorTrilha(supabase, mapped.map(t => t.id))
+          setTrilhasAll(mapped.map(t => ({ ...t, status_ativo: statusMap[t.id] ?? null })))
         }
 
         if (ptData) {

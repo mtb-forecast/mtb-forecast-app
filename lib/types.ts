@@ -40,6 +40,7 @@ export type Trilha = {
   localidades?: { cidade: string; estado: string; localidade: string | null } | null
   previsao_blocos?: PrevisaoBloco[] | null
   mantenedor?: Mantenedor | null
+  status_ativo?: string[] | null
 }
 
 export type Condicao = {
@@ -206,6 +207,7 @@ export type Observacao = {
   estrelas: number
   texto: string
   condicao_encontrada?: string | null
+  status_trilha?: string[] | null
   veredicto_sistema?: string
   created_at: string
   profiles?: {

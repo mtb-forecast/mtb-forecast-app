@@ -8,6 +8,7 @@ import {
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
+import { statusTrilhaLabel } from '@/lib/statusTrilha'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
 import FavoritoButton from '@/components/FavoritoButton'
 
@@ -118,6 +119,25 @@ function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
               <IconChevronRight size={14} style={{ color: '#8a9480' }} />
             </div>
           </div>
+
+          {/* Status da trilha (relato dos riders) */}
+          {trilha.status_ativo && trilha.status_ativo.length > 0 && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {trilha.status_ativo.map(s => {
+                const st = statusTrilhaLabel(s)
+                return st ? (
+                  <span key={s} style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    fontSize: 10, fontWeight: 700,
+                    padding: '3px 8px', borderRadius: 999,
+                    background: st.bg, color: st.color,
+                  }}>
+                    {st.label}
+                  </span>
+                ) : null
+              })}
+            </div>
+          )}
 
           {/* Mantenedor */}
           {trilha.mantenedor && (
