@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 
 // Páginas raiz do BottomNav — sem botão voltar
-const TAB_ROOTS = ['/dashboard', '/trilhas', '/mapa', '/perfil']
+const TAB_ROOTS = ['/feed', '/dashboard', '/trilhas', '/gravar', '/mapa', '/perfil']
 
 export default function BackButton() {
   const router = useRouter()
