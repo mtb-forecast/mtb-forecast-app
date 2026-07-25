@@ -57,9 +57,9 @@ export default function DiaDetalheModal({
   const [error, setError] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const y = diaDate.getFullYear()
-  const mo = String(diaDate.getMonth() + 1).padStart(2, '0')
-  const dd = String(diaDate.getDate()).padStart(2, '0')
+  const y = diaDate.getUTCFullYear()
+  const mo = String(diaDate.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(diaDate.getUTCDate()).padStart(2, '0')
   const dateStr = `${y}-${mo}-${dd}`
 
   // Prevent body scroll while open
@@ -125,8 +125,8 @@ export default function DiaDetalheModal({
   // Bar chart max height
   const BAR_H = 80
 
-  const dayName   = DAY_NAMES[diaDate.getDay()]
-  const dateLabel = `${diaDate.getDate()} de ${MONTH_NAMES[diaDate.getMonth()]}`
+  const dayName   = DAY_NAMES[diaDate.getUTCDay()]
+  const dateLabel = `${diaDate.getUTCDate()} de ${MONTH_NAMES[diaDate.getUTCMonth()]}`
 
   return (
     <>

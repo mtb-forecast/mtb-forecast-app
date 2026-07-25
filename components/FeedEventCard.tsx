@@ -12,11 +12,12 @@ const CONDICOES: Record<string, { label: string; bg: string; color: string }> = 
 
 function formatDateTime(dateStr: string): string {
   const date = new Date(dateStr)
-  const dd = String(date.getDate()).padStart(2, '0')
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const hh = String(date.getHours()).padStart(2, '0')
-  const min = String(date.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm} ${hh}:${min}`
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
+  return `${get('day')}/${get('month')} ${get('hour')}:${get('minute')}`
 }
 
 function getInitials(name: string): string {

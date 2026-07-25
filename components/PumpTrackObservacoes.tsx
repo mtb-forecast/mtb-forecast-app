@@ -65,13 +65,22 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
   )
 }
 
+const TZ = 'America/Sao_Paulo'
+
+function brtDayKey(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+}
+
 function formatDate(d: string) {
   const date = new Date(d), now = new Date()
-  const t = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  if (date.toDateString() === now.toDateString()) return `Hoje, ${t}`
+  const t = date.toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+  const dayKey = brtDayKey(date)
+  if (dayKey === brtDayKey(now)) return `Hoje, ${t}`
   const y = new Date(now); y.setDate(y.getDate() - 1)
-  if (date.toDateString() === y.toDateString()) return `Ontem, ${t}`
-  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}, ${t}`
+  if (dayKey === brtDayKey(y)) return `Ontem, ${t}`
+  const parts = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit' }).formatToParts(date)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
+  return `${get('day')}/${get('month')}, ${t}`
 }
 
 function Avatar({ obs, size = 34 }: { obs: { profiles?: { apelido?: string; nome?: string; email?: string; avatar_url?: string | null } }; size?: number }) {
