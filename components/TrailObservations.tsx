@@ -26,17 +26,24 @@ const VEREDICTO_BADGE: Record<string, { bg: string; color: string }> = {
   'MELHOR ESPERAR': { bg: '#fee2e2', color: '#991b1b' },
 }
 
+const TZ = 'America/Sao_Paulo'
+
+function brtDayKey(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+}
+
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()
-  const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  if (date.toDateString() === now.toDateString()) return `Hoje, ${timeStr}`
+  const timeStr = date.toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+  const dayKey = brtDayKey(date)
+  if (dayKey === brtDayKey(now)) return `Hoje, ${timeStr}`
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
-  if (date.toDateString() === yesterday.toDateString()) return `Ontem, ${timeStr}`
-  const dd = String(date.getDate()).padStart(2, '0')
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  return `${dd}/${mm}, ${timeStr}`
+  if (dayKey === brtDayKey(yesterday)) return `Ontem, ${timeStr}`
+  const parts = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit' }).formatToParts(date)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00'
+  return `${get('day')}/${get('month')}, ${timeStr}`
 }
 
 function getInitials(obs: Observacao): string {

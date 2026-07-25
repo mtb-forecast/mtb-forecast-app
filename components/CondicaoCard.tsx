@@ -19,6 +19,18 @@ type Props = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const TZ = 'America/Sao_Paulo'
+
+// Minuto do dia (0-1439) no horário de Brasília, independente do fuso do dispositivo/navegador.
+function nowMinBRT(): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date())
+  const h = Number(parts.find(p => p.type === 'hour')?.value ?? 0)
+  const m = Number(parts.find(p => p.type === 'minute')?.value ?? 0)
+  return h * 60 + m
+}
+
 function verdictBadge(v: string): { bg: string; color: string } {
   if (v.trim() === 'DROP LIBERADO') return { bg: '#DCFCE7', color: '#15803D' }
   if (v.includes('MELHOR ESPERAR')) return { bg: '#FEE2E2', color: '#B91C1C' }
@@ -165,8 +177,7 @@ function moonPhaseInfo(p: number) {
 type SkyState = 'clear' | 'partly' | 'cloudy' | 'rain' | 'night-clear' | 'night-cloudy' | 'night-rain'
 
 function getSkyState(cloudCover: number, isRaining: boolean, srMin: number, ssMin: number): SkyState {
-  const now = new Date()
-  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const nowMin = nowMinBRT()
   const isNight = nowMin < srMin || nowMin > ssMin
   if (isNight) {
     if (isRaining)      return 'night-rain'
@@ -277,8 +288,7 @@ const skyTextColors: Record<SkyState, { txt: string; sub: string }> = {
 // P0=(30,130) P1=(170,18) P2=(310,130) — viewBox 340×158
 function getSunPosition(sunriseStr: string, sunsetStr: string): { left: string; top: string } | null {
   const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
-  const now = new Date()
-  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const nowMin = nowMinBRT()
   const srMin = toMin(sunriseStr)
   const ssMin = toMin(sunsetStr)
   const total = ssMin - srMin
@@ -294,8 +304,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase, tempC }: 
   cloudCover: number; isRaining: boolean; moonPhase: number; tempC?: number
 }) {
   const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0) }
-  const now    = new Date()
-  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const nowMin = nowMinBRT()
   const srMin  = toMin(sunrise), ssMin = toMin(sunset)
   const totalMin = ssMin - srMin
   const dh = Math.floor(totalMin / 60), dm = totalMin % 60
@@ -595,15 +604,24 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
     return null
   })()
 
-  // Próximos 3 dias
-  const hoje = new Date()
+  // Próximos 3 dias — ancorado no calendário de Brasília, não no fuso do dispositivo
+  const brtYMD = (d: Date): [number, number, number] => {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d)
+    return [
+      Number(parts.find(p => p.type === 'year')!.value),
+      Number(parts.find(p => p.type === 'month')!.value),
+      Number(parts.find(p => p.type === 'day')!.value),
+    ]
+  }
+  const [hy, hm, hd] = brtYMD(new Date())
+  const hojeUTC = Date.UTC(hy, hm - 1, hd)
   const fmtDia = (d: Date) => {
     const ns = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${ns[d.getDay()]}`
+    return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')} ${ns[d.getUTCDay()]}`
   }
-  const d1 = new Date(hoje); d1.setDate(hoje.getDate() + 1)
-  const d2 = new Date(hoje); d2.setDate(hoje.getDate() + 2)
-  const d3 = new Date(hoje); d3.setDate(hoje.getDate() + 3)
+  const d1 = new Date(hojeUTC + 86400000)
+  const d2 = new Date(hojeUTC + 2 * 86400000)
+  const d3 = new Date(hojeUTC + 3 * 86400000)
   const fdsDias = [
     { label: fmtDia(d1), v: condicao.fds_d1_veredicto, rain: condicao.fds_d1_rain, wind: condicao.fds_d1_wind, pop: condicao.fds_d1_pop, tmax: condicao.fds_d1_temp, tmin: condicao.fds_d1_temp_min },
     { label: fmtDia(d2), v: condicao.fds_d2_veredicto, rain: condicao.fds_d2_rain, wind: condicao.fds_d2_wind, pop: condicao.fds_d2_pop, tmax: condicao.fds_d2_temp, tmin: condicao.fds_d2_temp_min },
