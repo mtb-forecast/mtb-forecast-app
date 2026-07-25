@@ -2372,6 +2372,38 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             with urllib.request.urlopen(req_ins, timeout=10) as r:
                 pass
 
+        # Grava condicoes_log — snapshot append-only p/ análise histórica
+        # (condicoes é sobrescrita a cada execução, então sem isso não dá
+        # pra comparar pop/pico_3h/veredicto entre execuções passadas)
+        try:
+            payload_log = json.dumps({
+                "trilha_id":      trilha_id,
+                "gerado_em":      datetime.now(BRT).isoformat(),
+                "veredicto":      veredicto.get("texto"),
+                "pop_12h":        veredicto_12h.get("pop"),
+                "pop_24h":        resultado.get("pop"),
+                "pico_3h":        resultado.get("pico_3h"),
+                "rain_12h":       veredicto_12h.get("rain"),
+                "chuva_solo_48h": resultado.get("chuva_solo_48h"),
+                "acumulo_ef":     resultado.get("acumulo_ef"),
+                "ultima_chuva_h": resultado.get("ultima_chuva_h"),
+            }).encode("utf-8")
+            req_log = urllib.request.Request(
+                f"{SUPABASE_URL}/rest/v1/condicoes_log",
+                data=payload_log,
+                headers={
+                    "apikey":        SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type":  "application/json",
+                    "Prefer":        "return=minimal",
+                }
+            )
+            req_log.get_method = lambda: "POST"
+            with urllib.request.urlopen(req_log, timeout=10) as r:
+                pass
+        except Exception as exc:
+            print(f"  [Supabase] [condicoes_log] falha ao gravar histórico (ignorado): {exc}")
+
         return trilha_id
 
     except Exception as exc:
