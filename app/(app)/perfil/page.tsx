@@ -225,14 +225,12 @@ export default function PerfilPage() {
 
   // Notification
   const [receberEmail, setReceberEmail] = useState(false)
-  const [emailSaving, setEmailSaving] = useState(false)
-  const [emailSaved, setEmailSaved] = useState(false)
 
   // Preferências de dia/horário (compartilhadas entre email e Telegram)
   const [notifDias, setNotifDias] = useState<number[]>(DIAS_SEMANA.map(d => d.value))
   const [notifHorarios, setNotifHorarios] = useState<string[]>(REPORT_SCHEDULE.map(s => s.hora))
-  const [prefsSaving, setPrefsSaving] = useState(false)
-  const [prefsSaved, setPrefsSaved] = useState(false)
+  const [alertsSaving, setAlertsSaving] = useState(false)
+  const [alertsSaved, setAlertsSaved] = useState(false)
 
   // Avatar
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -304,6 +302,11 @@ export default function PerfilPage() {
     facebook !== (profile.facebook || '') ||
     stravaId !== (profile.strava_id || '')
   ))
+  const isAlertasDirty = !!(profile && (
+    receberEmail !== (profile.receber_email ?? false) ||
+    JSON.stringify([...notifDias].sort()) !== JSON.stringify([...(profile.notif_dias ?? DIAS_SEMANA.map(d => d.value))].sort()) ||
+    JSON.stringify([...notifHorarios].sort()) !== JSON.stringify([...(profile.notif_horarios ?? REPORT_SCHEDULE.map(s => s.hora))].sort())
+  ))
 
   // ── Actions ─────────────────────────────────────────────────────────────────
   async function handleSave() {
@@ -337,34 +340,33 @@ export default function PerfilPage() {
     }
   }
 
-  async function handleEmailToggle(v: boolean) {
-    if (!profile) return
-    setReceberEmail(v); setEmailSaving(true)
-    await supabase.from('profiles').update({ receber_email: v, ...(v ? { email_trilhas_favoritas: true } : {}) }).eq('id', profile.id)
-    setEmailSaving(false); setEmailSaved(true)
-    setTimeout(() => setEmailSaved(false), 2200)
+  function handleEmailToggle(v: boolean) {
+    setReceberEmail(v)
   }
 
-  async function handleToggleDia(dia: number) {
-    if (!profile) return
-    const novo = notifDias.includes(dia) ? notifDias.filter(d => d !== dia) : [...notifDias, dia].sort()
-    if (novo.length === 0) return // sempre precisa de ao menos 1 dia selecionado
-    setNotifDias(novo)
-    setPrefsSaving(true)
-    await supabase.from('profiles').update({ notif_dias: novo }).eq('id', profile.id)
-    setPrefsSaving(false); setPrefsSaved(true)
-    setTimeout(() => setPrefsSaved(false), 2200)
+  function handleToggleDia(dia: number) {
+    setNotifDias(notifDias.includes(dia) ? notifDias.filter(d => d !== dia) : [...notifDias, dia].sort())
   }
 
-  async function handleToggleHorario(hora: string) {
+  function handleToggleHorario(hora: string) {
+    setNotifHorarios(notifHorarios.includes(hora) ? notifHorarios.filter(h => h !== hora) : [...notifHorarios, hora])
+  }
+
+  async function handleSaveAlertas() {
     if (!profile) return
-    const novo = notifHorarios.includes(hora) ? notifHorarios.filter(h => h !== hora) : [...notifHorarios, hora]
-    if (novo.length === 0) return // sempre precisa de ao menos 1 janela selecionada
-    setNotifHorarios(novo)
-    setPrefsSaving(true)
-    await supabase.from('profiles').update({ notif_horarios: novo }).eq('id', profile.id)
-    setPrefsSaving(false); setPrefsSaved(true)
-    setTimeout(() => setPrefsSaved(false), 2200)
+    setAlertsSaving(true)
+    const { error } = await supabase.from('profiles').update({
+      receber_email: receberEmail,
+      ...(receberEmail ? { email_trilhas_favoritas: true } : {}),
+      notif_dias: notifDias,
+      notif_horarios: notifHorarios,
+    }).eq('id', profile.id)
+    setAlertsSaving(false)
+    if (!error) {
+      setProfile(prev => prev ? { ...prev, receber_email: receberEmail, notif_dias: notifDias, notif_horarios: notifHorarios } : prev)
+      setAlertsSaved(true)
+      setTimeout(() => setAlertsSaved(false), 2200)
+    }
   }
 
   async function handlePortal() {
@@ -675,12 +677,10 @@ export default function PerfilPage() {
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: T.text }}>Report diário por e-mail</span>
-              {emailSaving && <Spinner size={12} />}
-              {emailSaved && !emailSaving && <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>✓ Salvo</span>}
             </div>
             <span style={{ fontSize: 12, color: T.muted }}>Previsão das suas trilhas favoritas</span>
           </div>
-          <Toggle checked={receberEmail} onChange={handleEmailToggle} disabled={emailSaving} />
+          <Toggle checked={receberEmail} onChange={handleEmailToggle} disabled={alertsSaving} />
         </div>
 
         {receberEmail && (
@@ -710,21 +710,19 @@ export default function PerfilPage() {
           <div style={{ padding: '16px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dias da semana</span>
-              {prefsSaving && <Spinner size={12} />}
-              {prefsSaved && !prefsSaving && <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>✓ Salvo</span>}
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
               {DIAS_SEMANA.map(d => {
                 const ativo = notifDias.includes(d.value)
                 return (
-                  <button key={d.value} type="button" disabled={prefsSaving}
+                  <button key={d.value} type="button" disabled={alertsSaving}
                     onClick={() => handleToggleDia(d.value)}
                     style={{
                       width: 44, height: 36, borderRadius: 10,
                       border: `1px solid ${ativo ? T.primary : T.border}`,
                       background: ativo ? T.primary : '#fff',
                       color: ativo ? '#fff' : T.muted,
-                      fontSize: 12, fontWeight: 700, cursor: prefsSaving ? 'not-allowed' : 'pointer',
+                      fontSize: 12, fontWeight: 700, cursor: alertsSaving ? 'not-allowed' : 'pointer',
                       transition: 'background 0.15s, border-color 0.15s',
                     }}>
                     {d.label}
@@ -738,14 +736,14 @@ export default function PerfilPage() {
               {REPORT_SCHEDULE.map(s => {
                 const ativo = notifHorarios.includes(s.hora)
                 return (
-                  <button key={s.hora} type="button" disabled={prefsSaving}
+                  <button key={s.hora} type="button" disabled={alertsSaving}
                     onClick={() => handleToggleHorario(s.hora)}
                     style={{
                       padding: '9px 16px', borderRadius: 10,
                       border: `1px solid ${ativo ? T.primary : T.border}`,
                       background: ativo ? T.primary : '#fff',
                       color: ativo ? '#fff' : T.muted,
-                      fontSize: 13, fontWeight: 700, cursor: prefsSaving ? 'not-allowed' : 'pointer',
+                      fontSize: 13, fontWeight: 700, cursor: alertsSaving ? 'not-allowed' : 'pointer',
                       transition: 'background 0.15s, border-color 0.15s',
                     }}>
                     {s.hora}
@@ -756,6 +754,30 @@ export default function PerfilPage() {
             <p style={{ fontSize: 11, color: T.dim, marginTop: 14, lineHeight: 1.6 }}>
               Vale para e-mail e Telegram. O sistema só gera reports nessas janelas — fora delas você não recebe nada mesmo com o dia/horário marcado.
             </p>
+
+            {(notifDias.length === 0 || notifHorarios.length === 0) && (
+              <p style={{ fontSize: 11, color: '#d97706', marginTop: 8, lineHeight: 1.6 }}>
+                Nenhum {notifDias.length === 0 ? 'dia' : 'horário'} selecionado — você não vai receber nenhum report até marcar e salvar pelo menos um.
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSaveAlertas}
+              disabled={alertsSaving || !isAlertasDirty}
+              style={{
+                marginTop: 16, width: '100%',
+                background: alertsSaved ? '#22C55E' : (alertsSaving || !isAlertasDirty) ? 'rgba(0,0,0,.06)' : '#6d745f',
+                color: (alertsSaving || !isAlertasDirty) ? '#9AA093' : '#fff',
+                border: 'none', borderRadius: 12, padding: '13px',
+                fontSize: 14, fontWeight: 700, cursor: (alertsSaving || !isAlertasDirty) ? 'not-allowed' : 'pointer',
+                transition: 'background 0.2s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {alertsSaving && <Spinner size={14} />}
+              {alertsSaved ? '✓ Salvo!' : alertsSaving ? 'Salvando…' : isAlertasDirty ? 'Salvar alertas' : 'Nada para salvar'}
+            </button>
           </div>
         </ProfileSection>
       )}
