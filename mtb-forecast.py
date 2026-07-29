@@ -2142,24 +2142,12 @@ def _carregar_ids_com_favorito() -> set | None:
 def gravar_sem_favorito_bulk(trilhas: list) -> None:
     """
     Grava em lote registros 'SEM FAVORITO' em condicoes.
-    Usa DELETE bulk + INSERT bulk: 2 chamadas API no total, independente da quantidade.
+    Upsert bulk (on_conflict=trilha_id): 1 chamada API, atomica -- nunca existe
+    uma janela sem a linha (ao contrario do antigo DELETE bulk + INSERT bulk).
     """
     if not SUPABASE_KEY or not trilhas:
         return
     gerado_em = datetime.now(BRT).isoformat()
-    ids_str   = ",".join(t["id"] for t in trilhas)
-
-    url_del = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=in.({ids_str})"
-    req_del = urllib.request.Request(url_del, headers={
-        "apikey":        SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-    })
-    req_del.get_method = lambda: "DELETE"
-    try:
-        with urllib.request.urlopen(req_del, timeout=15):
-            pass
-    except Exception:
-        pass
 
     payload = json.dumps([{
         "trilha_id":        t["id"],
@@ -2169,18 +2157,18 @@ def gravar_sem_favorito_bulk(trilhas: list) -> None:
         "veredicto_12h":    "Favorite esta trilha para gerar as condições",
     } for t in trilhas]).encode("utf-8")
 
-    url_ins = f"{SUPABASE_URL}/rest/v1/condicoes"
+    url_ins = f"{SUPABASE_URL}/rest/v1/condicoes?on_conflict=trilha_id"
     req_ins = urllib.request.Request(url_ins, data=payload, headers={
         "apikey":        SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type":  "application/json",
-        "Prefer":        "return=minimal",
+        "Prefer":        "resolution=merge-duplicates,return=minimal",
     })
     req_ins.get_method = lambda: "POST"
     try:
         with urllib.request.urlopen(req_ins, timeout=15):
             pass
-        print(f"  [SEM FAVORITO] {len(trilhas)} trilha(s) gravadas em lote (2 chamadas API)")
+        print(f"  [SEM FAVORITO] {len(trilhas)} trilha(s) gravadas em lote (upsert, 1 chamada API)")
     except Exception as exc:
         print(f"  [Supabase] [ERRO] gravar_sem_favorito_bulk: {exc}")
 
@@ -2299,25 +2287,9 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "historico_atualizado_em": resultado.get("historico_atualizado_em"),
         }).encode("utf-8")
 
-        # DELETE registro anterior
-        url_delete = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=eq.{trilha_id}"
-        req_delete = urllib.request.Request(
-            url_delete,
-            headers={
-                "apikey":        SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type":  "application/json",
-            }
-        )
-        req_delete.get_method = lambda: "DELETE"
-        try:
-            with urllib.request.urlopen(req_delete, timeout=10) as r:
-                pass
-        except Exception:
-            pass
-
-        # INSERT novo registro
-        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes"
+        # Upsert (on_conflict=trilha_id): atomico, nunca existe uma janela sem
+        # a linha -- substitui o antigo DELETE + INSERT em 2 chamadas separadas.
+        url_insert = f"{SUPABASE_URL}/rest/v1/condicoes?on_conflict=trilha_id"
         req_insert = urllib.request.Request(
             url_insert,
             data=payload,
@@ -2325,7 +2297,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
                 "apikey":        SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
                 "Content-Type":  "application/json",
-                "Prefer":        "return=minimal",
+                "Prefer":        "resolution=merge-duplicates,return=minimal",
             }
         )
         req_insert.get_method = lambda: "POST"
