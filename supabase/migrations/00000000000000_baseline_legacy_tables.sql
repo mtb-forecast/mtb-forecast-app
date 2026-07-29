@@ -78,7 +78,6 @@ CREATE TABLE IF NOT EXISTS trilhas (
   bioma            text,
   aprovada         boolean DEFAULT false,
   created_at       timestamptz DEFAULT now(),
-  created_by       uuid,
   link_referencia  text,
   observacoes      text
 );
@@ -97,7 +96,7 @@ CREATE TABLE IF NOT EXISTS tabela_solo (
 
 CREATE TABLE IF NOT EXISTS configuracoes_sistema (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  chave       text NOT NULL,
+  chave       text NOT NULL UNIQUE,
   valor       text NOT NULL,
   descricao   text,
   updated_at  timestamptz DEFAULT now(),
