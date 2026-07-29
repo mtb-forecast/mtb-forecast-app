@@ -8,13 +8,14 @@ import {
 } from '@tabler/icons-react'
 import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
-import { rainColor, windColor, DISPLAY_THR } from '@/lib/display'
+import { rainColor, windColor, deveAlertarRajada } from '@/lib/display'
 import DiaDetalheModal from '@/components/DiaDetalheModal'
 
 type Props = {
   condicao: Condicao
   lat?: number
   lon?: number
+  exposicao?: string
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -474,7 +475,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase, tempC }: 
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function CondicaoCard({ condicao, lat, lon }: Props) {
+function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
   // ── Estado do modal e dados solares ──────────────────────────────────────
   type SelectedDay = {
     date: Date
@@ -635,7 +636,7 @@ function CondicaoCard({ condicao, lat, lon }: Props) {
   // Alertas 24h
   const isAlertaVeredicto = veredictoDisplay.toUpperCase().includes('ALERTA')
   const nivelVento   = condicao.alerta_vento_nivel ?? 0
-  const temRajada    = condicao.gust_max_kmh != null && condicao.gust_max_kmh >= DISPLAY_THR.rajada.fechada
+  const temRajada    = deveAlertarRajada(condicao.gust_max_kmh, exposicao)
   const chuvasPrev   = condicao.previsao_24h?.filter(b => b.rain_mm > 1) ?? []
   const temChuva24h  = chuvasPrev.length > 0
   const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta || isAlertaVeredicto
