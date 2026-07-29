@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
         <div
           style={{
             width: 1080,
-            height: 1080,
+            height: 1920,
             display: 'flex',
             flexDirection: 'column',
             background: `linear-gradient(150deg, ${FOREST_800} 0%, ${FOREST_600} 46%, ${FOREST_EDGE} 100%)`,
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
             <img
               src={topoTexture}
               width={1080}
-              height={1080}
+              height={1920}
               style={{ position: 'absolute', top: 0, left: 0, opacity: 0.55 }}
             />
           ) : null}
@@ -130,7 +130,7 @@ export async function GET(req: NextRequest) {
               top: 0,
               left: 0,
               width: 1080,
-              height: 1080,
+              height: 1920,
               display: 'flex',
               background: `linear-gradient(180deg, rgba(18,25,15,0.18) 0%, rgba(18,25,15,0.05) 26%, rgba(18,25,15,0.38) 62%, rgba(13,16,10,0.74) 100%)`,
             }}
@@ -143,10 +143,10 @@ export async function GET(req: NextRequest) {
               display: 'flex',
               flexDirection: 'column',
               flex: 1,
-              paddingTop: 64,
+              paddingTop: 140,
               paddingLeft: 80,
               paddingRight: 80,
-              paddingBottom: 56,
+              paddingBottom: 140,
               position: 'relative',
             }}
           >
@@ -184,13 +184,13 @@ export async function GET(req: NextRequest) {
             <div
               style={{
                 display: 'flex',
-                fontSize: 40,
+                fontSize: 52,
                 fontFamily: fontSans,
                 fontWeight: 800,
                 color: SAND_100,
                 lineHeight: 1.25,
                 letterSpacing: -1,
-                marginTop: 24,
+                marginTop: 32,
               }}
             >
               {noticia.frase_destaque}
@@ -198,13 +198,13 @@ export async function GET(req: NextRequest) {
 
             <div style={{ display: 'flex', flex: 1 }} />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 28, marginBottom: 24 }}>
               {bullets.map((b, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', fontSize: 18, fontFamily: fontMono, fontWeight: 400, color: MINT_400, letterSpacing: 2 }}>
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', fontSize: 22, fontFamily: fontMono, fontWeight: 400, color: MINT_400, letterSpacing: 2 }}>
                     {b.regiao}
                   </div>
-                  <div style={{ display: 'flex', fontSize: 24, fontFamily: fontSans, fontWeight: 400, color: '#eef2ea', lineHeight: 1.3 }}>
+                  <div style={{ display: 'flex', fontSize: 30, fontFamily: fontSans, fontWeight: 400, color: '#eef2ea', lineHeight: 1.3 }}>
                     {b.texto}
                   </div>
                 </div>
@@ -232,7 +232,7 @@ export async function GET(req: NextRequest) {
           </div>
         </div>
       ),
-      { width: 1080, height: 1080, fonts: fontList }
+      { width: 1080, height: 1920, fonts: fontList }
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message + '\n' + err.stack : String(err)

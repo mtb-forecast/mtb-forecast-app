@@ -6,7 +6,7 @@ sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repl
 """
 post_noticia_externa.py — Pesquisa notícias reais de clima extremo no Brasil
 (via web_search tool do Claude) e publica um resumo com as fontes de verdade
-retornadas pela busca, no feed do app e no Instagram.
+retornadas pela busca, no feed do app e no Stories do Instagram.
 
 Peça INDEPENDENTE de noticias_clima (que resume só dados das nossas trilhas).
 Aqui o conteúdo vem de uma busca real na web — as fontes exibidas ("fontes")
@@ -176,7 +176,7 @@ def _warmup(url: str) -> bool:
         return False
 
 
-def postar_instagram(noticia_id: int, noticia: dict, fontes: list[dict]) -> None:
+def postar_instagram(noticia_id: int) -> None:
     required = {
         "INSTAGRAM_ACCESS_TOKEN": IG_TOKEN,
         "INSTAGRAM_BUSINESS_ACCOUNT_ID": IG_USER_ID,
@@ -193,15 +193,11 @@ def postar_instagram(noticia_id: int, noticia: dict, fontes: list[dict]) -> None
     if not _warmup(image_url):
         return
 
-    caption = noticia["frase_destaque"] + "\n\n" + "\n".join(
-        f"{b['regiao']}: {b['texto']}" for b in noticia["bullets"]
-    )
-    if fontes:
-        caption += "\n\nFontes: " + ", ".join(f["titulo"] for f in fontes[:4])
-
+    # Stories não aceita "caption" na Graph API — o texto e as fontes já vão
+    # todos dentro da imagem (renderizados na rota OG).
     r = requests.post(
         f"{GRAPH_API}/{IG_USER_ID}/media",
-        data={"image_url": image_url, "caption": caption, "access_token": IG_TOKEN},
+        data={"image_url": image_url, "media_type": "STORIES", "access_token": IG_TOKEN},
         timeout=30,
     )
     if not r.ok:
@@ -254,7 +250,7 @@ def main():
 
     if POST_INSTAGRAM:
         print("\n[3/3] Postando no Instagram...")
-        postar_instagram(noticia_id, noticia, fontes)
+        postar_instagram(noticia_id)
     else:
         print("\nNOTICIA_EXTERNA_INSTAGRAM=0 — pulando post no Instagram.")
 
