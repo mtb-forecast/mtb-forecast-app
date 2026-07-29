@@ -2359,6 +2359,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
                     "label":     b.get("label", f"bloco_{i}"),
                     "rain_mm":   b.get("rain_mm", 0),
                     "wind_max":  b.get("wind_max", 0),
+                    "gust_max":  b.get("gust_max", 0),
                     "pop_max":   b.get("pop_max", 0),
                     "temp_med":  b.get("temp_med", 0),
                     "gerado_em": gerado_em,
@@ -2733,10 +2734,11 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             rain_mm  = round(sum(_precip_hora(h) for h in horas), 1)
             pop_max  = round(max((h.get("pop", 0) or 0 for h in horas), default=0) * 100)
             wind_max = round(max((h.get("wind_speed", 0) or 0 for h in horas), default=0), 1)
+            gust_max = round(max((h.get("wind_gust", 0.0) or 0.0 for h in horas), default=0.0) * 3.6, 1)
             temps    = [h.get("temp", 0) or 0 for h in horas]
             temp_med = round(sum(temps) / len(temps)) if temps else 0
             blocos.append({"label": label, "rain_mm": rain_mm, "pop_max": pop_max,
-                           "wind_max": wind_max, "temp_med": temp_med})
+                           "wind_max": wind_max, "gust_max": gust_max, "temp_med": temp_med})
         return blocos
 
     def estimar_horas_para_grip(blocos: list) -> tuple:

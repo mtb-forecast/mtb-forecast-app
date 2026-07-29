@@ -242,6 +242,7 @@ def compute_blocos_24h(hourly_oc: list, agora: datetime) -> list[dict]:
         ]
         prec     = [_precip_hora(h) for h in horas]
         wind     = [h.get("wind_speed", 0) or 0.0 for h in horas]
+        gust     = [h.get("wind_gust", 0) or 0.0 for h in horas]
         pop      = [h.get("pop", 0) or 0.0 for h in horas]
         temps    = [h.get("temp", 0) or 0.0 for h in horas]
         temp_med = round(sum(temps) / len(temps)) if temps else 0
@@ -251,6 +252,7 @@ def compute_blocos_24h(hourly_oc: list, agora: datetime) -> list[dict]:
             "rain_mm":  round(sum(prec), 1),
             "pop_max":  round(max(pop, default=0.0) * 100),
             "wind_max": round(max(wind, default=0.0), 1),
+            "gust_max": round(max(gust, default=0.0) * 3.6, 1),
             "temp_med": temp_med,
         })
     return blocos
@@ -427,6 +429,7 @@ def main():
                         "label":     b["label"],
                         "rain_mm":   b["rain_mm"],
                         "wind_max":  b["wind_max"],
+                        "gust_max":  b["gust_max"],
                         "pop_max":   b["pop_max"],
                         "temp_med":  b["temp_med"],
                         "gerado_em": gerado_em,

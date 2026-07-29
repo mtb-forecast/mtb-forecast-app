@@ -3,6 +3,7 @@ export type PrevisaoBloco = {
   label: string
   rain_mm: number
   wind_max: number
+  gust_max?: number | null
   pop_max: number
   temp_med: number
   gerado_em?: string | null
