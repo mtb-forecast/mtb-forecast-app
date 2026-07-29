@@ -245,7 +245,8 @@ export type NoticiaClima = {
 
 export type NoticiaExterna = {
   id: number
-  resumo: string
+  frase_destaque: string
+  bullets: { regiao: string; texto: string }[]
   fontes: { titulo: string; url: string }[]
   created_at: string
 }

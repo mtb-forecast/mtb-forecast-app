@@ -6,7 +6,7 @@ sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repl
 """
 post_noticia_externa.py — Pesquisa notícias reais de clima extremo no Brasil
 (via web_search tool do Claude) e publica um resumo com as fontes de verdade
-retornadas pela busca, no feed do app e no Instagram.
+retornadas pela busca, no feed do app e no Stories do Instagram.
 
 Peça INDEPENDENTE de noticias_clima (que resume só dados das nossas trilhas).
 Aqui o conteúdo vem de uma busca real na web — as fontes exibidas ("fontes")
@@ -58,26 +58,41 @@ _PROMPT = """Pesquise as principais notícias de HOJE sobre clima extremo no Bra
 (secas, temporais, ondas de calor, alertas meteorológicos regionais). Use a
 busca na web para encontrar fontes reais e recentes.
 
-Depois de pesquisar, escreva um resumo curto em português, estilo "visão
-geral" de agregador de notícias:
-- 1 frase de destaque (até 220 caracteres) resumindo o contraste climático
-  mais notável no país hoje
-- Até 4 bullets curtos (até 140 caracteres cada), um por região/tema,
-  baseados SOMENTE no que você encontrou nas fontes pesquisadas
+Depois de pesquisar, sua ÚLTIMA mensagem deve conter APENAS um JSON válido
+(sem markdown, sem cercas ```, sem texto explicando que você pesquisou, sem
+título) no formato exato:
+{
+  "frase_destaque": "1 frase (até 220 caracteres) resumindo o contraste climático mais notável no país hoje, tom direto de manchete, sem markdown",
+  "bullets": [
+    {"regiao": "NOME DA REGIÃO OU TEMA", "texto": "1 frase curta (até 140 caracteres) baseada só no que você encontrou"}
+  ]
+}
 
-NÃO invente números ou eventos que não estejam nas fontes encontradas. Se a
-busca não retornar nada relevante, diga isso claramente em vez de inventar.
-
-Responda com o texto corrido normalmente (não precisa ser JSON) — o resumo e
-os bullets serão extraídos do seu texto final."""
+Inclua no máximo 4 bullets. NÃO invente números ou eventos que não estejam nas
+fontes encontradas. Se a busca não retornar nada relevante, responda com
+frase_destaque explicando isso e bullets vazio — nunca invente pra preencher.
+Nunca use negrito, asteriscos, cabeçalhos markdown (#, ##) ou bullets com •
+dentro dos valores do JSON — texto corrido simples."""
 
 
 def _sb_headers() -> dict:
     return {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
 
 
-def pesquisar_e_resumir() -> tuple[str, list[dict]]:
-    """Chama o Claude com web_search, retorna (texto_final, fontes_citadas)."""
+def _parse_json_final(texto: str) -> dict:
+    texto = texto.strip()
+    if texto.startswith("```"):
+        texto = texto.strip("`").split("\n", 1)[-1]
+        if texto.rstrip().endswith("```"):
+            texto = texto.rstrip()[:-3]
+    return json.loads(texto)
+
+
+def pesquisar_e_resumir() -> tuple[dict, list[dict]]:
+    """Chama o Claude com web_search, retorna (noticia_json, fontes_citadas).
+
+    noticia_json = {"frase_destaque": str, "bullets": [{"regiao","texto"}]}
+    """
     if not ANTHROPIC_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY não configurada")
 
@@ -99,13 +114,16 @@ def pesquisar_e_resumir() -> tuple[str, list[dict]]:
 
     data = r.json()
 
-    texto_final = ""
+    # A resposta pode ter texto intermediário ("vou pesquisar...") intercalado
+    # com blocos de busca — só o ÚLTIMO bloco de texto é o JSON final pedido
+    # no prompt. Citações, porém, coletamos de todos os blocos de texto.
+    textos: list[str] = []
     fontes: list[dict] = []
     vistos: set[str] = set()
 
     for block in data.get("content", []):
         if block.get("type") == "text":
-            texto_final += block.get("text", "")
+            textos.append(block.get("text", ""))
             for cit in block.get("citations") or []:
                 url = cit.get("url")
                 titulo = cit.get("title") or url
@@ -113,16 +131,21 @@ def pesquisar_e_resumir() -> tuple[str, list[dict]]:
                     vistos.add(url)
                     fontes.append({"titulo": titulo, "url": url})
 
-    if not texto_final.strip():
+    if not textos:
         raise RuntimeError("Resposta do Claude veio vazia (sem texto final)")
 
-    return texto_final.strip(), fontes
+    noticia = _parse_json_final(textos[-1])
+    if "frase_destaque" not in noticia:
+        raise RuntimeError(f"JSON final sem frase_destaque: {textos[-1][:300]}")
+    noticia.setdefault("bullets", [])
+
+    return noticia, fontes
 
 
-def gravar_noticia(resumo: str, fontes: list[dict]) -> int:
+def gravar_noticia(noticia: dict, fontes: list[dict]) -> int:
     r = requests.post(
         f"{SUPABASE_URL}/rest/v1/noticias_externas",
-        json={"resumo": resumo, "fontes": fontes},
+        json={"frase_destaque": noticia["frase_destaque"], "bullets": noticia["bullets"], "fontes": fontes},
         headers={**_sb_headers(), "Content-Type": "application/json", "Prefer": "return=representation"},
         timeout=10,
     )
@@ -153,7 +176,7 @@ def _warmup(url: str) -> bool:
         return False
 
 
-def postar_instagram(noticia_id: int, resumo: str, fontes: list[dict]) -> None:
+def postar_instagram(noticia_id: int) -> None:
     required = {
         "INSTAGRAM_ACCESS_TOKEN": IG_TOKEN,
         "INSTAGRAM_BUSINESS_ACCOUNT_ID": IG_USER_ID,
@@ -170,13 +193,11 @@ def postar_instagram(noticia_id: int, resumo: str, fontes: list[dict]) -> None:
     if not _warmup(image_url):
         return
 
-    caption = resumo
-    if fontes:
-        caption += "\n\nFontes: " + ", ".join(f["titulo"] for f in fontes[:4])
-
+    # Stories não aceita "caption" na Graph API — o texto e as fontes já vão
+    # todos dentro da imagem (renderizados na rota OG).
     r = requests.post(
         f"{GRAPH_API}/{IG_USER_ID}/media",
-        data={"image_url": image_url, "caption": caption, "access_token": IG_TOKEN},
+        data={"image_url": image_url, "media_type": "STORIES", "access_token": IG_TOKEN},
         timeout=30,
     )
     if not r.ok:
@@ -211,8 +232,10 @@ def main():
         raise SystemExit("SUPABASE_URL e SUPABASE_SERVICE_KEY são obrigatórios")
 
     print("\n[1/3] Pesquisando na web e gerando resumo...")
-    resumo, fontes = pesquisar_e_resumir()
-    print(f"  ✓ Resumo:\n{resumo}\n")
+    noticia, fontes = pesquisar_e_resumir()
+    print(f"  ✓ {noticia['frase_destaque']}")
+    for b in noticia["bullets"]:
+        print(f"    • {b['regiao']}: {b['texto']}")
     print(f"  ✓ {len(fontes)} fonte(s) citada(s):")
     for f in fontes:
         print(f"    • {f['titulo']} — {f['url']}")
@@ -222,12 +245,12 @@ def main():
         return
 
     print("\n[2/3] Gravando em noticias_externas...")
-    noticia_id = gravar_noticia(resumo, fontes)
+    noticia_id = gravar_noticia(noticia, fontes)
     print(f"  ✓ Gravado (id={noticia_id})")
 
     if POST_INSTAGRAM:
         print("\n[3/3] Postando no Instagram...")
-        postar_instagram(noticia_id, resumo, fontes)
+        postar_instagram(noticia_id)
     else:
         print("\nNOTICIA_EXTERNA_INSTAGRAM=0 — pulando post no Instagram.")
 
