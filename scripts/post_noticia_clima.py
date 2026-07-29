@@ -113,6 +113,22 @@ def _fetch_trilhas() -> dict[str, dict]:
     return {t["id"]: t for t in r.json()}
 
 
+def _fetch_pumptracks() -> dict[str, dict]:
+    url = f"{SUPABASE_URL}/rest/v1/trilhas_pumptrack?select=id,nome,uf"
+    r = requests.get(url, headers=_sb_headers(), timeout=20)
+    if not r.ok:
+        raise RuntimeError(f"Erro ao buscar trilhas_pumptrack: {r.status_code} {r.text}")
+    return {p["id"]: p for p in r.json()}
+
+
+def _fetch_condicoes_pumptrack() -> list[dict]:
+    url = f"{SUPABASE_URL}/rest/v1/condicoes_pumptrack?select=pumptrack_id,rain_mm,wind_kmh"
+    r = requests.get(url, headers=_sb_headers(), timeout=20)
+    if not r.ok:
+        raise RuntimeError(f"Erro ao buscar condicoes_pumptrack: {r.status_code} {r.text}")
+    return r.json()
+
+
 def montar_estatisticas() -> dict:
     """Agrega condicoes + trilhas por macro-região."""
     condicoes = _fetch_condicoes()
@@ -148,6 +164,33 @@ def montar_estatisticas() -> dict:
         if rajada > stat["rajada_max"]["kmh"]:
             stat["rajada_max"] = {"trilha": trilha["name"], "kmh": round(rajada, 1)}
 
+    # Pump tracks: piso duro, sem modelo de solo/veredicto (condicoes_pumptrack
+    # só tem previsão de chuva/vento) — entram como métrica de clima à parte,
+    # nunca contam pro bucket LIBERADO/ALERTA/EVITAR.
+    pumptracks = _fetch_pumptracks()
+    for c in _fetch_condicoes_pumptrack():
+        pt = pumptracks.get(c.get("pumptrack_id"))
+        if not pt:
+            continue
+        macro = _macro_regiao(pt.get("uf") or "")
+        stat = por_macro.setdefault(macro, {
+            "total": 0, "LIBERADO": 0, "ALERTA": 0, "EVITAR": 0, "OUTRO": 0,
+            "chuva_max": {"trilha": None, "mm": 0.0},
+            "rajada_max": {"trilha": None, "kmh": 0.0},
+        })
+        pt_stat = stat.setdefault("pumptrack", {
+            "chuva_max": {"nome": None, "mm": 0.0},
+            "vento_max": {"nome": None, "kmh": 0.0},
+        })
+
+        chuva = c.get("rain_mm") or 0
+        if chuva > pt_stat["chuva_max"]["mm"]:
+            pt_stat["chuva_max"] = {"nome": pt["nome"], "mm": round(chuva, 1)}
+
+        vento = c.get("wind_kmh") or 0
+        if vento > pt_stat["vento_max"]["kmh"]:
+            pt_stat["vento_max"] = {"nome": pt["nome"], "kmh": round(vento, 1)}
+
     return por_macro
 
 
@@ -160,7 +203,24 @@ def _sanitizar_stats_para_prompt(stats: dict) -> dict:
     limpo = {}
     for macro, s in stats.items():
         s2 = dict(s)
+        sem_trilha_de_terra = s2.get("total", 0) == 0
         s2.pop("total", None)
+        if sem_trilha_de_terra:
+            # Região só tem dado de pump track — remove as chaves de trilha de
+            # terra zeradas (LIBERADO/ALERTA/EVITAR/OUTRO/chuva_max/rajada_max)
+            # pra não sugerir ao modelo que existem trilhas de terra ali.
+            for chave in ("LIBERADO", "ALERTA", "EVITAR", "OUTRO", "chuva_max", "rajada_max"):
+                s2.pop(chave, None)
+        if "pumptrack" in s2:
+            pt = dict(s2["pumptrack"])
+            if pt.get("chuva_max", {}).get("nome") is None:
+                pt.pop("chuva_max", None)
+            if pt.get("vento_max", {}).get("nome") is None:
+                pt.pop("vento_max", None)
+            if pt:
+                s2["pumptrack"] = pt
+            else:
+                s2.pop("pumptrack", None)
         limpo[macro] = s2
     return limpo
 
@@ -168,20 +228,30 @@ def _sanitizar_stats_para_prompt(stats: dict) -> dict:
 def _build_prompt(stats: dict) -> str:
     stats_prompt = _sanitizar_stats_para_prompt(stats)
     return f"""Você escreve para o feed do app MTB Forecaster, um serviço de previsão de
-condições de trilha de mountain bike no Brasil. Gere uma "visão geral" curta, no
-estilo de resumo jornalístico (como um card de notícia), SOMENTE com base nos
-dados agregados abaixo — não invente números, clima ou eventos que não estejam
-nos dados. Se uma região não aparece nos dados, não fale dela.
+condições de trilha de mountain bike no Brasil (trilhas de terra + pump tracks).
+Gere uma "visão geral" curta, no estilo de resumo jornalístico (como um card de
+notícia), SOMENTE com base nos dados agregados abaixo — não invente números,
+clima ou eventos que não estejam nos dados. Se uma região não aparece nos
+dados, não fale dela.
 
-Dados agregados por macro-região (contagem de trilhas por veredicto, maior
-acúmulo de chuva efetiva em mm, maior rajada de vento em km/h):
+Dados agregados por macro-região:
+- LIBERADO/ALERTA/EVITAR/OUTRO: contagem de trilhas de terra por veredicto
+- chuva_max / rajada_max: maior acúmulo de chuva efetiva (mm) / rajada de
+  vento (km/h) entre as trilhas de terra dessa região
+- pumptrack (quando presente): dado de PUMP TRACK — piso duro, sem modelo de
+  secagem de solo, então NUNCA tem veredicto. É só previsão de chuva/vento.
+  Se uma região só tiver a chave "pumptrack" (sem LIBERADO/ALERTA/EVITAR),
+  fale SOMENTE da previsão do pump track, não diga "trilhas liberadas" nem
+  cite contagem de veredicto ali — ela não existe pra pump track.
+
 {json.dumps(stats_prompt, ensure_ascii=False, indent=2)}
 
 REGRA CRÍTICA: você pode citar a contagem absoluta de trilhas por veredicto
 (ex: "37 trilhas em DROP LIBERADO", "2 trilhas em alerta"), mas NUNCA cite ou
 insinue o total/denominador de trilhas monitoradas (ex: "de 39 trilhas",
-"do total de", "das X monitoradas"). Não existe o número total nos dados
-acima de propósito — não estime nem infira esse valor.
+"do total de", "das X monitoradas"), nem quantos pump tracks existem numa
+região. Não existe o número total nos dados acima de propósito — não estime
+nem infira esse valor.
 
 Responda APENAS com um JSON válido (sem markdown, sem texto fora do JSON) no
 formato exato:
