@@ -1,0 +1,11 @@
+-- condicoes usava DELETE + INSERT por trilha (2 chamadas HTTP separadas, sem
+-- transação) para "substituir" o registro a cada rodada do pipeline. Se o
+-- processo morre entre o DELETE e o INSERT (crash, timeout, rate limit,
+-- reboot da máquina que dispara o run), a trilha fica sem nenhuma linha em
+-- condicoes até a próxima rodada bem-sucedida — foi o que esvaziou a tabela
+-- inteira em 28-29/07/2026.
+--
+-- UNIQUE(trilha_id) habilita upsert via PostgREST
+-- (?on_conflict=trilha_id + Prefer: resolution=merge-duplicates), que é
+-- atômico: nunca existe uma janela sem a linha.
+ALTER TABLE condicoes ADD CONSTRAINT condicoes_trilha_id_key UNIQUE (trilha_id);
