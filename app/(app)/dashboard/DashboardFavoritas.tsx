@@ -77,13 +77,14 @@ export default async function DashboardFavoritas({
   const [{ data: trilhasData }, { data: avaliacoes48h }] = await Promise.all([
     sb.from('trilhas')
       .select(`
-        id, name, bioma, trail_type, regiao,
+        id, name, bioma, trail_type, regiao, exposicao,
         localidades(cidade, estado, localidade),
         mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
         condicoes(
           veredicto, veredicto_12h,
           aderencia_status, aderencia_futura_status, aderencia_futura_label,
           pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
+          rajada_max_kmh, alerta_vento_nivel,
           texto_dinamico, frase_secagem, gerado_em
         ),
         ${PREVISAO_BLOCOS_SELECT}
@@ -202,7 +203,7 @@ async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondic
   const [{ data: trilhasData }, { count }] = await Promise.all([
     sb.from('trilhas')
       .select(`
-        id, name, bioma, trail_type, regiao,
+        id, name, bioma, trail_type, regiao, exposicao,
         localidades(cidade, estado, localidade),
         mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
         condicoes(
@@ -210,6 +211,7 @@ async function getVitrineData(estado: string): Promise<{ trilha: TrilhaComCondic
           aderencia_status, aderencia_score,
           aderencia_futura_status, aderencia_futura_label,
           pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
+          rajada_max_kmh, alerta_vento_nivel,
           texto_dinamico, frase_secagem, gerado_em
         ),
         ${PREVISAO_BLOCOS_SELECT},

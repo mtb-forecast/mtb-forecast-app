@@ -113,13 +113,14 @@ function TrilhasContent() {
           supabase
             .from('trilhas')
             .select(`
-              id, name, bioma, trail_type, regiao,
+              id, name, bioma, trail_type, regiao, exposicao,
               localidades(cidade, estado, localidade),
               mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url),
               condicoes(
                 veredicto, veredicto_12h,
                 aderencia_status, aderencia_futura_status, aderencia_futura_label,
                 pico_3h, wind_ms, chuva_solo_48h, ultima_chuva_h,
+                rajada_max_kmh, alerta_vento_nivel,
                 texto_dinamico, frase_secagem, gerado_em
               )
             `)

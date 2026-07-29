@@ -27,9 +27,17 @@ const ADERENCIA_SEVERIDADE: Record<string, number> = {
   'SECO': 0, 'GRIP PERFEITO': 1, 'BOA ADERÊNCIA - ÚMIDO': 2, 'BAIXA ADERÊNCIA': 3,
 }
 
-type CondicaoAlerta = Pick<Condicao,
-  'alerta_vento_nivel' | 'rajada_max_kmh' | 'previsao_24h' |
-  'aderencia_futura_status' | 'aderencia_futura_label' | 'aderencia_status'>
+// Campos redeclarados (em vez de Pick<Condicao, ...>) porque paginas com
+// select reduzido (mapa, perfil publico) podem devolver aderencia_status
+// nulo -- o tipo Condicao completo marca esse campo como string obrigatorio.
+type CondicaoAlerta = {
+  alerta_vento_nivel?: number | null
+  rajada_max_kmh?: number | null
+  previsao_24h?: Condicao['previsao_24h']
+  aderencia_futura_status?: string | null
+  aderencia_futura_label?: string | null
+  aderencia_status?: string | null
+}
 
 // Sinais de alerta que a UI mostra em caixas/badges dedicados (rajada prevista,
 // vento histórico, chuva prevista, piora futura da aderência) — cada um usa seu
