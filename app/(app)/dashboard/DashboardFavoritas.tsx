@@ -4,7 +4,7 @@ import { IconCircleCheck, IconAlertTriangle, IconHourglass } from '@tabler/icons
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import DashboardVitrine from './DashboardVitrine'
 import type { TrilhaComCondicao } from '@/lib/types'
-import { selecionarVeredicto } from '@/lib/veredicto'
+import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
 import { condicoesArray } from '@/lib/display'
 
@@ -132,7 +132,11 @@ export default async function DashboardFavoritas({
 
   let liberadas = 0, comAlerta = 0, aguardando = 0
   for (const t of favoritas) {
-    const v = selecionarVeredicto(t.condicao?.veredicto, t.condicao?.veredicto_12h) || ''
+    const vBase = selecionarVeredicto(t.condicao?.veredicto, t.condicao?.veredicto_12h)
+    // Mesma fonte usada por DashboardTrailCard/CondicaoCard/etc: nunca conta como
+    // "liberada" uma trilha que o card vai mostrar com alerta visível (rajada,
+    // vento, chuva prevista, piora futura).
+    const v = veredictoComAlerta(vBase, t.condicao, t.exposicao) || ''
     if (v === 'DROP LIBERADO') liberadas++
     else if (v === 'DROP LIBERADO - Veja os alertas' || v === 'MELHOR ESPERAR') comAlerta++
     else aguardando++
