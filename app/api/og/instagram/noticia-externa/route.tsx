@@ -10,9 +10,15 @@ interface Fonte {
   url: string
 }
 
+interface Bullet {
+  regiao: string
+  texto: string
+}
+
 interface NoticiaExterna {
   id: number
-  resumo: string
+  frase_destaque: string
+  bullets: Bullet[]
   fontes: Fonte[]
   created_at: string
 }
@@ -25,7 +31,7 @@ async function fetchNoticia(id: number | null): Promise<NoticiaExterna | null> {
   const headers = { apikey: key, Authorization: `Bearer ${key}` }
   const filtro = id ? `id=eq.${id}&` : ''
   const res = await fetch(
-    `${url}/rest/v1/noticias_externas?${filtro}select=id,resumo,fontes,created_at&order=created_at.desc&limit=1`,
+    `${url}/rest/v1/noticias_externas?${filtro}select=id,frase_destaque,bullets,fontes,created_at&order=created_at.desc&limit=1`,
     { headers, cache: 'no-store' },
   )
   if (!res.ok) return null
@@ -95,6 +101,7 @@ export async function GET(req: NextRequest) {
 
     const topoTexture = loadTextureDataUri('topo-mint.svg')
     const fontes = (noticia.fontes ?? []).slice(0, 4)
+    const bullets = (noticia.bullets ?? []).slice(0, 4)
 
     return new ImageResponse(
       (
@@ -186,10 +193,23 @@ export async function GET(req: NextRequest) {
                 marginTop: 24,
               }}
             >
-              {noticia.resumo}
+              {noticia.frase_destaque}
             </div>
 
             <div style={{ display: 'flex', flex: 1 }} />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 24 }}>
+              {bullets.map((b, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', fontSize: 18, fontFamily: fontMono, fontWeight: 400, color: MINT_400, letterSpacing: 2 }}>
+                    {b.regiao}
+                  </div>
+                  <div style={{ display: 'flex', fontSize: 24, fontFamily: fontSans, fontWeight: 400, color: '#eef2ea', lineHeight: 1.3 }}>
+                    {b.texto}
+                  </div>
+                </div>
+              ))}
+            </div>
 
             <div style={{ display: 'flex', height: 1, background: 'rgba(167,205,167,0.18)', marginBottom: 24 }} />
 

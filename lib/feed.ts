@@ -122,7 +122,7 @@ export async function fetchFeedItems(
   const noticiaExternaPromise = NOTICIA_EXTERNA_ATIVA
     ? sb
         .from('noticias_externas')
-        .select('id, resumo, fontes, created_at')
+        .select('id, frase_destaque, bullets, fontes, created_at')
         .gte('created_at', range.startUTC)
         .lt('created_at', range.endUTC)
         .order('created_at', { ascending: false })
