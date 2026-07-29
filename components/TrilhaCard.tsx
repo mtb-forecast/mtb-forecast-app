@@ -6,7 +6,7 @@ import {
   type TablerIcon,
 } from '@tabler/icons-react'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
-import { selecionarVeredicto } from '@/lib/veredicto'
+import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
 import { statusTrilhaLabel } from '@/lib/statusTrilha'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
@@ -63,10 +63,14 @@ type Props = {
 
 function TrilhaCard({ trilha, isFavorito, onToggleFavorito }: Props) {
   const c            = trilha.condicao
-  const veredictoText = selecionarVeredicto(c?.veredicto, c?.veredicto_12h)
+  const veredictoBase = selecionarVeredicto(c?.veredicto, c?.veredicto_12h)
+  // Mesma fonte usada por CondicaoCard/DashboardTrailCard/DashboardVitrine: nunca
+  // mostra "DROP LIBERADO" limpo ao lado de um alerta visível (rajada, vento,
+  // chuva, piora futura) que sozinho não bastou pra escalar o risco TOTAL no backend.
+  const veredictoText = veredictoComAlerta(veredictoBase, c, trilha.exposicao)
   const vcfg         = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const hasData      = c != null && vcfg != null
-  const has12h       = veredictoText !== null && veredictoText === c?.veredicto_12h?.trim()
+  const has12h       = veredictoBase !== null && veredictoBase === c?.veredicto_12h?.trim()
 
   const barColor = topBarColor(veredictoText)
   const vs       = verdictStyle(veredictoText)

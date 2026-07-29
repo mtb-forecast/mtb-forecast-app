@@ -7,7 +7,7 @@ import {
   IconSun, IconCloudRain, IconCloudStorm, IconCircleCheck, IconClockPause, IconUmbrella,
 } from '@tabler/icons-react'
 import { Condicao, VEREDICTO_CONFIG, PrevisaoBloco } from '@/lib/types'
-import { selecionarVeredicto } from '@/lib/veredicto'
+import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { rainColor, windColor, deveAlertarRajada } from '@/lib/display'
 import DiaDetalheModal from '@/components/DiaDetalheModal'
 
@@ -640,19 +640,15 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
   const chuvasPrev   = condicao.previsao_24h?.filter(b => b.rain_mm > 1) ?? []
   const temChuva24h  = chuvasPrev.length > 0
 
-  // Sinais de alerta que a caixa "ALERTAS" abaixo exibe, independente do texto
-  // cru do veredicto (que só escala pra "Veja os alertas" quando o risco TOTAL
-  // cruza o limiar — um único fator como rajada pode não ser suficiente). Se a
-  // caixa vai aparecer, o badge exibido tem que refletir isso: nunca mostrar
-  // "DROP LIBERADO" limpo ao lado de um alerta visível.
-  const hasAlertasSemTexto = nivelVento > 0 || temRajada || temChuva24h || hasAlerta
-  const veredictoDisplay = (hasAlertasSemTexto && veredictoRaw.trim() === 'DROP LIBERADO')
-    ? 'DROP LIBERADO - Veja os alertas'
-    : veredictoRaw
+  // veredictoComAlerta (lib/veredicto.ts): mesma fonte usada por DashboardTrailCard,
+  // TrilhaCard e DashboardVitrine — nunca mostra "DROP LIBERADO" limpo ao lado
+  // de um alerta visível (rajada, vento histórico, chuva prevista, piora futura),
+  // mesmo quando nenhum fator isolado bastou pra escalar o risco TOTAL no backend.
+  const veredictoDisplay = veredictoComAlerta(veredictoRaw, condicao, exposicao) ?? veredictoRaw
   const badge       = verdictBadge(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
   const isAlertaVeredicto = veredictoDisplay.toUpperCase().includes('ALERTA')
-  const hasAlertas   = hasAlertasSemTexto || isAlertaVeredicto
+  const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta || isAlertaVeredicto
 
   const ventoTextos: Record<number, { titulo: string; msg: string; cor: string; border: string }> = {
     1: { titulo: 'Vento moderado a forte nas últimas 48h', cor: '#713f12', border: '#fde047',
