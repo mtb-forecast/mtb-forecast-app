@@ -17,7 +17,8 @@ export const DISPLAY_THR = {
   rain48:  { verde: 10, laranja: 30 },   // mm — chuva acumulada 48h
   pico3h:  { verde: 5,  laranja: 10 },   // mm — pico em 3h
   vento:   { verde: 20, laranja: 40 },   // km/h — vento / rajada
-  rajada:  { aberta: 25, fechada: 30 },  // km/h — alerta rajada histórica por exposição
+  rajada:  { aberta: 25, fechada: 30 },  // km/h — limiar de alerta (histórico ou previsto) por exposição
+  rajadaTempestade: 40,                  // km/h — a partir daqui é "tempestade" (risco de queda de árvore), flat, sem distinção de exposição — espelha mtb-forecast.py
   picoMin: 3,                            // mm — mínimo para exibir tile pico_3h
 } as const
 
@@ -81,7 +82,7 @@ export function emojiTempo(rain: number | null | undefined, pop: number | null |
   return '🌤'
 }
 
-// Retorna true se a rajada histórica justifica exibir alerta (mesmo critério do Python).
+// Retorna true se a rajada (histórica ou prevista) justifica exibir alerta (mesmo critério do Python).
 export function deveAlertarRajada(
   kmh: number | null | undefined,
   exposicao: string | null | undefined,
@@ -91,4 +92,17 @@ export function deveAlertarRajada(
     ? DISPLAY_THR.rajada.aberta
     : DISPLAY_THR.rajada.fechada
   return kmh >= thresh
+}
+
+// Graduação de severidade da rajada (histórica ou prevista): 0 = sem alerta,
+// 1 = atenção (25–40 km/h), 2 = tempestade (≥40 km/h, risco de queda de árvore).
+// Espelha thresh_rajada/rajada_tempestade em mtb-forecast.py (veredicto()).
+export function rajadaSeveridade(
+  kmh: number | null | undefined,
+  exposicao: string | null | undefined,
+): 0 | 1 | 2 {
+  if (kmh == null) return 0
+  if (kmh >= DISPLAY_THR.rajadaTempestade) return 2
+  if (deveAlertarRajada(kmh, exposicao)) return 1
+  return 0
 }

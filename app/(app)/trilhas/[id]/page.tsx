@@ -273,7 +273,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
 
               {alertaRajada && c.alerta_rajada_kmh != null && (
                 <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: '0 8px 8px 0', padding: '10px 14px', fontSize: 12, color: '#713f12', fontWeight: 600, lineHeight: 1.5 }}>
-                  🟡 <b>Rajadas previstas nas próximas 48h</b><br />
+                  🟡 <b>Rajadas registradas nas próximas 48h</b><br />
                   <span style={{ fontWeight: 400, color: '#a16207' }}>
                     {trilha.exposicao?.toLowerCase() === 'aberta'
                       ? <>Rajadas de até <span className="font-mono">{c.alerta_rajada_kmh.toFixed(0)} km/h</span>. Trilha exposta — risco em descidas rápidas e cristas.</>
