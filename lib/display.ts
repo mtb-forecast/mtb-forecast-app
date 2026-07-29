@@ -17,7 +17,7 @@ export const DISPLAY_THR = {
   rain48:  { verde: 10, laranja: 30 },   // mm — chuva acumulada 48h
   pico3h:  { verde: 5,  laranja: 10 },   // mm — pico em 3h
   vento:   { verde: 20, laranja: 40 },   // km/h — vento / rajada
-  rajada:  { aberta: 30, fechada: 50 },  // km/h — alerta rajada histórica por exposição
+  rajada:  { aberta: 25, fechada: 30 },  // km/h — alerta rajada histórica por exposição
   picoMin: 3,                            // mm — mínimo para exibir tile pico_3h
 } as const
 

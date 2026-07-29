@@ -2064,11 +2064,12 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
 
     rajada_kmh = trail.get("rajada_max_kmh", 0.0) if trail else 0.0
     exposicao = (trail or {}).get("exposicao", "aberta")
-    thresh_rajada = 30.0 if exposicao == "aberta" else 50.0
-    if rajada_kmh >= 90.0:
-        # Rajada de tempestade: mesmo threshold de nivel_vento==3, mas aplicado à
-        # rajada PREVISTA (não histórica) — cobre o caso de tempestade ainda não
-        # observada nas últimas 48h mas já presente no forecast.
+    thresh_rajada = 25.0 if exposicao == "aberta" else 30.0
+    if rajada_kmh >= 40.0:
+        # Rajada de tempestade: aplicado à rajada PREVISTA (não histórica) --
+        # cobre o caso de tempestade ainda não observada nas últimas 48h mas
+        # já presente no forecast. Limiar recalibrado (era 90, mesmo do
+        # nivel_vento==3 historico) para sinalizar mais cedo.
         risco += peso_por_fator.get("rajada_tempestade", 3)
         motivos.append(f"rajada de tempestade prevista {rajada_kmh} km/h — risco severo de queda de árvores")
     elif rajada_kmh >= thresh_rajada:
@@ -3082,9 +3083,9 @@ def _aplicar_override_vento_futuro(resultado: dict) -> dict:
     """
     Override pós-modelo, espelha _aplicar_override_chuva_futura(): olha a rajada
     máxima prevista em fds (d1/d2/d3 — próximos 3 dias) e, se indicar tempestade
-    (>=90 km/h), força MELHOR ESPERAR mesmo com solo seco/GRIP — vento de tempestade
+    (>=50 km/h), força MELHOR ESPERAR mesmo com solo seco/GRIP — vento de tempestade
     é risco estrutural (queda de árvore), independente da aderência do solo.
-    Entre 65-90 km/h (ventos fortes, mas não tempestade), só escala DROP LIBERADO
+    Entre 40-50 km/h (ventos fortes, mas não tempestade), só escala DROP LIBERADO
     limpo para "Veja os alertas", sem forçar ESPERAR.
     Para remover: apagar esta função e a chamada no loop principal.
     """
@@ -3092,7 +3093,7 @@ def _aplicar_override_vento_futuro(resultado: dict) -> dict:
     rajadas = {d: (fds.get(d, {}).get("rajada") or 0.0) for d in ("d1", "d2", "d3")}
     rajada_max_fds = max(rajadas.values(), default=0.0)
 
-    if rajada_max_fds < 65.0:
+    if rajada_max_fds < 40.0:
         return resultado
 
     dia_pior = max(rajadas, key=rajadas.get)
@@ -3101,7 +3102,7 @@ def _aplicar_override_vento_futuro(resultado: dict) -> dict:
     vered = resultado.get("veredicto", {})
     texto_atual = vered.get("texto", "")
 
-    if rajada_max_fds >= 90.0:
+    if rajada_max_fds >= 50.0:
         vered["texto"] = "MELHOR ESPERAR"
         vered["emoji"] = "🌪️"
         vered["cor"]   = "#dc2626"
