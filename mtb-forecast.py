@@ -1072,13 +1072,13 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     vento_max_kmh  = round(sum(fontes_sustentado) / len(fontes_sustentado), 1) if fontes_sustentado else 0.0
     rajada_max_kmh = round(om_rajada_max, 1) if om_rajada_max is not None else None
 
-    # Classificação graduada de risco de vento (3 níveis)
+    # Classificação graduada de risco de vento (3 níveis) — recalibrado
     raj = rajada_max_kmh or 0.0
-    if vento_max_kmh > 90 or raj > 90:
+    if vento_max_kmh > 60 or raj > 55:
         nivel_vento = 3   # Tempestade — alto risco de queda de árvores pela raiz
-    elif vento_max_kmh > 65 or raj > 80:
+    elif vento_max_kmh > 55 or raj > 50:
         nivel_vento = 2   # Ventos fortes — árvores saudáveis em risco
-    elif vento_max_kmh > 55 or raj > 60:
+    elif vento_max_kmh > 45 or raj > 40:
         nivel_vento = 1   # Moderado a forte — galhos comprometidos
     else:
         nivel_vento = 0
@@ -2045,11 +2045,11 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
         solo_encharcado = aderencia.get("solo_descansado") is False  # acumulo_ef >= threshold
 
         if nivel >= 3:
-            # Tempestade (>90 km/h): sobe veredicto automaticamente
+            # Tempestade (>60 km/h sustentado ou >55 km/h rajada): sobe veredicto automaticamente
             risco += peso_por_fator.get("vento_estrutural_alto", 2)
             motivos.append("vento de tempestade — risco alto de queda de árvores")
         elif nivel == 2:
-            # Ventos fortes (65–90 km/h)
+            # Ventos fortes (55–60 km/h sustentado ou 50–55 km/h rajada)
             risco += peso_por_fator.get("vento_estrutural_med", 1)
             motivos.append("ventos fortes — árvores saudáveis em risco")
             # Combinação solo encharcado + ventos fortes: raízes instáveis → adicional
@@ -2057,7 +2057,7 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
                 risco += peso_por_fator.get("solo_encharcado", 1)
                 motivos.append("solo encharcado agrava risco de queda")
         elif nivel == 1:
-            # Moderado a forte (55–65 km/h): impacto só se solo encharcado
+            # Moderado a forte (45–55 km/h sustentado ou 40–50 km/h rajada): impacto só se solo encharcado
             if solo_encharcado:
                 risco += peso_por_fator.get("solo_encharcado", 1)
                 motivos.append("vento moderado com solo encharcado — galhos comprometidos")
