@@ -185,10 +185,18 @@ WHERE solo_type = 'terra';
 
 -- ============================================================
 -- PASSO 6: strava_segmentos_config
+-- Tabela removida manualmente da producao apos esta migration rodar
+-- (nunca teve CREATE TABLE versionado, nao existe mais nem e referenciada
+-- em nenhum codigo atual). Guard evita quebrar replay do zero em Preview
+-- Branch, onde ela nunca chega a existir.
 -- ============================================================
 
-UPDATE strava_segmentos_config SET solo_type = 'Terra'
-WHERE solo_type = 'terra';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'strava_segmentos_config') THEN
+    UPDATE strava_segmentos_config SET solo_type = 'Terra' WHERE solo_type = 'terra';
+  END IF;
+END$$;
 
 -- ============================================================
 -- PASSO 7: solo_type_config — desativar tipos antigos

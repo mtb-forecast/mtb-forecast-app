@@ -94,6 +94,33 @@ CREATE TABLE IF NOT EXISTS tabela_solo (
   updated_at   timestamptz DEFAULT now()
 );
 
+-- Estado anterior a 20260521084701_add_trail_type_config.sql (primeira
+-- migration versionada a referenciar esta tabela): sem coluna regiao
+-- (adicionada em 20260612141911_sul_regional_drying_and_enso.sql) e com
+-- UNIQUE(solo_type, exposicao) — nome de constraint auto-gerado pelo
+-- Postgres, que 20260612142833_meia_vida_regiao_explicit_all_regions.sql
+-- dropa pelo nome exato meia_vida_secagem_solo_type_exposicao_key.
+CREATE TABLE IF NOT EXISTS meia_vida_secagem (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  solo_type    text NOT NULL,
+  exposicao    text NOT NULL,
+  meia_vida_h  double precision NOT NULL,
+  updated_at   timestamptz DEFAULT timezone('utc'::text, now()),
+  UNIQUE (solo_type, exposicao)
+);
+
+-- Referenciada pela primeira vez em 20260612143626_threshold_e_enso_todas_macroregiao.sql
+-- (INSERT ... ON CONFLICT (regiao, mes)), mas nunca teve CREATE TABLE versionado.
+CREATE TABLE IF NOT EXISTS threshold_sazonal (
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  regiao               text NOT NULL,
+  mes                  integer NOT NULL CHECK (mes >= 1 AND mes <= 12),
+  threshold_descansado double precision NOT NULL,
+  threshold_saturado   double precision NOT NULL,
+  updated_at           timestamptz DEFAULT timezone('utc'::text, now()),
+  UNIQUE (regiao, mes)
+);
+
 CREATE TABLE IF NOT EXISTS configuracoes_sistema (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   chave       text NOT NULL UNIQUE,
