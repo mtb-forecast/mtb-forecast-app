@@ -1,0 +1,4 @@
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS facebook TEXT,
+  ADD COLUMN IF NOT EXISTS strava_id TEXT;

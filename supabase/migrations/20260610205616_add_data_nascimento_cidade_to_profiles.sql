@@ -1,0 +1,4 @@
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS data_nascimento DATE,
+  ADD COLUMN IF NOT EXISTS cidade TEXT;

@@ -1,0 +1,1 @@
+ALTER TABLE mantenedores DROP COLUMN IF EXISTS icone;

@@ -1,0 +1,1 @@
+ALTER TABLE condicoes_pumptrack ADD COLUMN IF NOT EXISTS pop_12h integer;

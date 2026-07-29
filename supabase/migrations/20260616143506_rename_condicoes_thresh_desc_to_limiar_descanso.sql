@@ -1,0 +1,1 @@
+ALTER TABLE condicoes RENAME COLUMN thresh_desc TO limiar_descanso;
