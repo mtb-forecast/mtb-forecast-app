@@ -2058,7 +2058,13 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
     gust_kmh = trail.get("gust_max_kmh", 0.0) if trail else 0.0
     exposicao = (trail or {}).get("exposicao", "aberta")
     thresh_gust = 30.0 if exposicao == "aberta" else 50.0
-    if gust_kmh >= thresh_gust:
+    if gust_kmh >= 90.0:
+        # Rajada de tempestade: mesmo threshold de nivel_vento==3, mas aplicado à
+        # rajada PREVISTA (não histórica) — cobre o caso de tempestade ainda não
+        # observada nas últimas 48h mas já presente no forecast.
+        risco += peso_por_fator.get("rajada_tempestade", 3)
+        motivos.append(f"rajada de tempestade prevista {gust_kmh} km/h — risco severo de queda de árvores")
+    elif gust_kmh >= thresh_gust:
         risco += peso_por_fator.get("rajada_prevista", 1)
         motivos.append(f"rajada prevista {gust_kmh} km/h ({exposicao})")
 
@@ -2267,18 +2273,21 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "fds_d1_veredicto":   fds.get("d1", {}).get("veredicto", {}).get("texto"),
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
+            "fds_d1_gust":        fds.get("d1", {}).get("gust"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
             "fds_d1_temp_min":    fds.get("d1", {}).get("temp_min"),
             "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
+            "fds_d2_gust":        fds.get("d2", {}).get("gust"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
             "fds_d2_temp_min":    fds.get("d2", {}).get("temp_min"),
             "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
+            "fds_d3_gust":        fds.get("d3", {}).get("gust"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
             "fds_d3_temp_min":    fds.get("d3", {}).get("temp_min"),
             "fds_d3_pop":         fds.get("d3", {}).get("pop"),
@@ -2652,6 +2661,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     _om_times  = _om_hourly_raw.get("time", [])
     _om_precip = _om_hourly_raw.get("precipitation", [])
     _om_wind   = _om_hourly_raw.get("windspeed_10m", [])
+    _om_gust   = _om_hourly_raw.get("windgusts_10m", [])
     _om_pop    = _om_hourly_raw.get("precipitation_probability", [])
     _om_temp   = _om_hourly_raw.get("temperature_2m", [])
     # Montar lista de dicts compatível com o formato interno usado por resumo_dia_oc
@@ -2660,6 +2670,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             "dt":    int(datetime.fromisoformat(t).replace(tzinfo=BRT).timestamp()),
             "precip": float(_om_precip[i] or 0.0),
             "wind":   float(_om_wind[i] or 0.0) / 3.6,   # km/h → m/s
+            "gust_kmh": float(_om_gust[i]) if i < len(_om_gust) and _om_gust[i] is not None else 0.0,
             "pop":    float(_om_pop[i] or 0.0) / 100.0,  # % → fração
             "temp":   float(_om_temp[i]) if i < len(_om_temp) and _om_temp[i] is not None else 0.0,
         }
@@ -2814,6 +2825,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             tm    = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
             tm_min = round(min((h.get("temp", 999) or 999 for h in dia_oc), default=0))
             w     = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
+            gust  = round(max((h.get("wind_gust", 0.0) or 0.0 for h in dia_oc), default=0.0) * 3.6, 1)
             clouds_pct = round(sum(h.get("clouds", 0) or 0 for h in dia_oc) / len(dia_oc)) if dia_oc else None
 
             r  = round(r_oc, 1)
@@ -2831,6 +2843,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             tm     = round(max(temps_om, default=0))
             tm_min = round(min(temps_om, default=0))
             w    = round(max((h["wind"] for h in dia_om), default=0.0), 1)
+            gust = round(max((h.get("gust_kmh", 0.0) or 0.0 for h in dia_om), default=0.0), 1)
             clouds_pct = None  # OM forecast sem cloudcover
             fonte_dia = "OM"
         else:
@@ -2842,11 +2855,14 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         # e a chuva do dia não entra em acumulo_ef — só aparecia no D+2.
         ef_pos_chuva = round(acumulo_ate_val + r, 1)
         ader = calcular_aderencia(r, trail, ef_pos_chuva, p3, mes, enso)
+        # Rajada do dia sobrepõe o gust_max_kmh "agora" do trail — sem isso, o
+        # veredicto de D+1/D+2/D+3 avaliaria vento com a rajada atual, não a do dia futuro.
+        trail_dia = {**trail, "gust_max_kmh": gust}
         return {
             "disponivel": True, "rain": r, "pop": pp, "temp_max": tm, "temp_min": tm_min,
-            "clouds_pct": clouds_pct, "wind": w,
+            "clouds_pct": clouds_pct, "wind": w, "gust": gust,
             "fonte_dia": fonte_dia,
-            "veredicto": veredicto(ader, r, w, p3, inc, trail, ef_pos_chuva, vento_hist),
+            "veredicto": veredicto(ader, r, w, p3, inc, trail_dia, ef_pos_chuva, vento_hist),
             "debug_model": {
                 "chuva_solo_48h": chuva_solo_48h,
                 "acumulo_ef": acumulo_ef,
@@ -3045,6 +3061,50 @@ def _aplicar_override_chuva_futura(resultado: dict) -> dict:
         vered["bg"]     = "#fffbeb"
 
     alerta = "chuva prevista nas próximas 12h — avalie as condições antes de pedalar"
+    motivo = vered.get("motivo") or ""
+    if alerta not in motivo:
+        vered["motivo"] = (motivo + ", " + alerta).lstrip(", ")
+
+    return resultado
+
+
+def _aplicar_override_vento_futuro(resultado: dict) -> dict:
+    """
+    Override pós-modelo, espelha _aplicar_override_chuva_futura(): olha a rajada
+    máxima prevista em fds (d1/d2/d3 — próximos 3 dias) e, se indicar tempestade
+    (>=90 km/h), força MELHOR ESPERAR mesmo com solo seco/GRIP — vento de tempestade
+    é risco estrutural (queda de árvore), independente da aderência do solo.
+    Entre 65-90 km/h (ventos fortes, mas não tempestade), só escala DROP LIBERADO
+    limpo para "Veja os alertas", sem forçar ESPERAR.
+    Para remover: apagar esta função e a chamada no loop principal.
+    """
+    fds = resultado.get("fds") or {}
+    gusts = {d: (fds.get(d, {}).get("gust") or 0.0) for d in ("d1", "d2", "d3")}
+    gust_max_fds = max(gusts.values(), default=0.0)
+
+    if gust_max_fds < 65.0:
+        return resultado
+
+    dia_pior = max(gusts, key=gusts.get)
+    label = {"d1": "amanhã", "d2": "em 2 dias", "d3": "em 3 dias"}[dia_pior]
+
+    vered = resultado.get("veredicto", {})
+    texto_atual = vered.get("texto", "")
+
+    if gust_max_fds >= 90.0:
+        vered["texto"] = "MELHOR ESPERAR"
+        vered["emoji"] = "🌪️"
+        vered["cor"]   = "#dc2626"
+        vered["bg"]    = "#fef2f2"
+        alerta = f"tempestade prevista {label} — rajadas de até {gust_max_fds:.0f} km/h, risco de queda de árvores"
+    else:
+        if texto_atual == "DROP LIBERADO":
+            vered["texto"] = "DROP LIBERADO - Veja os alertas"
+            vered["emoji"] = "⚠️"
+            vered["cor"]   = "#d97706"
+            vered["bg"]    = "#fffbeb"
+        alerta = f"ventos fortes previstos {label} — rajadas de até {gust_max_fds:.0f} km/h"
+
     motivo = vered.get("motivo") or ""
     if alerta not in motivo:
         vered["motivo"] = (motivo + ", " + alerta).lstrip(", ")
@@ -3875,6 +3935,7 @@ def main() -> None:
             try:
                 dados = processar_trilha(trail, datas)
                 dados = _aplicar_override_chuva_futura(dados)
+                dados = _aplicar_override_vento_futuro(dados)
                 dados = ajustar_por_observacoes(dados, trail)
                 resultados.append(dados)
                 trilha_id = gravar_supabase(trail["name"], dados)

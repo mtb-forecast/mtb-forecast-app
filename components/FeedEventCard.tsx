@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight } from '@tabler/icons-react'
+import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight, IconAlertTriangle } from '@tabler/icons-react'
 import type { FeedItem, FeedPerfilMini } from '@/lib/types'
 import { statusTrilhaLabel } from '@/lib/statusTrilha'
 
@@ -129,6 +129,44 @@ export default function FeedEventCard({ item, viewerId }: { item: FeedItem; view
         </p>
 
         <CardFooter createdAt={item.created_at} />
+      </div>
+    )
+  }
+
+  if (item.kind === 'tempestade') {
+    return (
+      <div style={{ ...cardStyle, background: '#fef2f2', border: '1px solid #fecaca' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: '#fee2e2', display: 'grid', placeItems: 'center',
+          }}>
+            <IconAlertTriangle size={14} style={{ color: '#dc2626' }} />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
+            textTransform: 'uppercase', color: '#dc2626', fontWeight: 700,
+          }}>
+            Alerta de tempestade
+          </span>
+        </div>
+
+        {item.trilha_nome && (
+          <p style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            fontSize: 18, textTransform: 'uppercase', color: '#1A1D18', margin: '0 0 4px',
+          }}>
+            {item.trilha_nome}
+          </p>
+        )}
+
+        {item.texto && (
+          <p style={{ fontSize: 13, color: '#7f1d1d', lineHeight: 1.5, margin: 0 }}>
+            {item.texto}
+          </p>
+        )}
+
+        <CardFooter createdAt={item.created_at} trilhaId={item.trilha_id} />
       </div>
     )
   }

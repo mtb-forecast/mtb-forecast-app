@@ -51,7 +51,7 @@ export async function fetchFeedItems(
     ? sb
         .from('feed_eventos')
         .select('id, trilha_id, tipo, texto, veredicto, created_at')
-        .eq('tipo', 'pipeline')
+        .in('tipo', ['pipeline', 'alerta_tempestade'])
         .in('trilha_id', trilhaIds)
         .gte('created_at', range.startUTC)
         .lt('created_at', range.endUTC)
@@ -124,10 +124,10 @@ export async function fetchFeedItems(
   const perfilById = new Map((perfisData ?? []).map(p => [p.id, p as FeedPerfilMini]))
 
   const eventoItems: FeedItem[] = ((eventos ?? []) as FeedEvento[]).map(e => ({
-    kind: 'pipeline',
+    kind: e.tipo === 'alerta_tempestade' ? 'tempestade' : 'pipeline',
     ...e,
     trilha_nome: e.trilha_id ? nomeById.get(e.trilha_id) : undefined,
-  }))
+  } as FeedItem))
 
   const obsItems: FeedItem[] = ((observacoes ?? []) as unknown as Observacao[]).map(o => ({
     kind: 'avaliacao',

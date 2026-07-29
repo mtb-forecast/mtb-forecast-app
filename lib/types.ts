@@ -221,7 +221,7 @@ export type Observacao = {
 export type FeedEvento = {
   id: number
   trilha_id?: string | null
-  tipo: 'pipeline' | 'seguida'
+  tipo: 'pipeline' | 'seguida' | 'alerta_tempestade'
   texto?: string | null
   veredicto?: string | null
   follower_id?: string | null
@@ -237,6 +237,7 @@ export type FeedPerfilMini = {
 
 export type FeedItem =
   | ({ kind: 'pipeline' } & FeedEvento & { trilha_nome?: string })
+  | ({ kind: 'tempestade' } & FeedEvento & { trilha_nome?: string })
   | ({ kind: 'avaliacao' } & Observacao & { trilha_nome?: string })
   | ({ kind: 'seguida' } & FeedEvento & {
       follower_perfil?: FeedPerfilMini
