@@ -58,6 +58,6 @@ INSERT INTO aderencia_descricoes (status, solo_type, texto, ativo) VALUES
 -- Multiplicador do fator de recuperacao de aderencia:
 --   acumulo_ef < thresh_local * aderencia_recovery_mult → rebaixa BAIXA para BOA
 -- ──────────────────────────────────────────────────────────────
-INSERT INTO configuracoes_sistema (chave, valor) VALUES
-  ('aderencia_recovery_mult', '2.5')
+INSERT INTO configuracoes_sistema (chave, valor, grupo) VALUES
+  ('aderencia_recovery_mult', '2.5', 'aderencia')
 ON CONFLICT (chave) DO NOTHING;

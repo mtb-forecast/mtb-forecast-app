@@ -90,7 +90,7 @@ INSERT INTO microclima_config (bioma, altitude_min, exposicao, mult_threshold, m
 -- 2C: configuracoes_sistema — INSERT apenas (tabela já existe)
 -- Limites de _ajustar_meia_vida_clima(): max(4.0, min(72.0, meia_vida))
 -- ──────────────────────────────────────────────────────────────
-INSERT INTO configuracoes_sistema (chave, valor) VALUES
-  ('meia_vida_min', '4'),
-  ('meia_vida_max', '72')
+INSERT INTO configuracoes_sistema (chave, valor, grupo) VALUES
+  ('meia_vida_min', '4', 'secagem'),
+  ('meia_vida_max', '72', 'secagem')
 ON CONFLICT (chave) DO NOTHING;
