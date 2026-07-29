@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { TrilhaComCondicao } from '@/lib/types'
 import CondicaoCard from '@/components/CondicaoCard'
 import { formatLocalidade } from '@/lib/geocoding'
+import { condicoesArray } from '@/lib/display'
 
 function LoadingSpin() {
   return (
@@ -81,7 +82,7 @@ function ComparacaoContent() {
       if (!data || data.length < 2) { router.replace('/dashboard'); return }
 
       const mapped = data.map((t: TrilhaComCondicao & { condicoes?: TrilhaComCondicao['condicao'][]; previsao_blocos?: import('@/lib/types').PrevisaoBloco[] }) => {
-        const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+        const arr = condicoesArray(t.condicoes)
         const condicao = arr[0] ?? undefined
         const blocos = Array.isArray(t.previsao_blocos) ? [...t.previsao_blocos].sort((a, b) => a.bloco - b.bloco) : null
         if (condicao && blocos?.length) condicao.previsao_24h = blocos

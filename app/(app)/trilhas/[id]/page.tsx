@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { Condicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
-import { deveAlertarRajada } from '@/lib/display'
+import { deveAlertarRajada, condicoesArray } from '@/lib/display'
 import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract } from '@tabler/icons-react'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
@@ -58,7 +58,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const trilha = td as any
-  const conds = Array.isArray(trilha.condicoes) ? trilha.condicoes : []
+  const conds = condicoesArray(trilha.condicoes)
   const c: Condicao | null = conds[0] ?? null
   const blocos = Array.isArray(trilha.previsao_blocos)
     ? [...trilha.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)

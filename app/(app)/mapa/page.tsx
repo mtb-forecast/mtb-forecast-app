@@ -6,6 +6,7 @@ import { supabase, getClientUser } from '@/lib/supabase'
 import type { Condicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { decodePolyline } from '@/lib/polyline'
+import { condicoesArray } from '@/lib/display'
 import 'leaflet/dist/leaflet.css'
 
 type TrilhaMapData = {
@@ -177,7 +178,7 @@ export default function MapaPage() {
     }
 
     trilhas.forEach((trilha) => {
-      const condicao = trilha.condicoes?.[0]
+      const condicao = condicoesArray(trilha.condicoes)[0]
       const hasFavorito = trilhasComFavorito.has(trilha.id)
       const inactive = !hasFavorito || !condicao
       const veredicto = inactive ? undefined : (selecionarVeredicto(condicao?.veredicto, condicao?.veredicto_12h) ?? undefined)

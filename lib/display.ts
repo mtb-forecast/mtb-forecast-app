@@ -2,6 +2,15 @@
 // Os limiares aqui são VISUAIS (quando um número fica verde/laranja/vermelho),
 // não lógicos de negócio (esses vivem no banco via Python agent).
 
+// condicoes.trilha_id tem UNIQUE constraint (upsert atômico no Python agent) —
+// o PostgREST embute `condicoes(*)` como objeto único (to-one), não mais como
+// array, mesmo a query pedindo .order(foreignTable: 'condicoes'). Normaliza
+// os dois formatos para não quebrar se o cache de schema do PostgREST variar.
+export function condicoesArray<T>(raw: T | T[] | null | undefined): T[] {
+  if (Array.isArray(raw)) return raw
+  return raw ? [raw] : []
+}
+
 // ── Limiares de exibição ───────────────────────────────────────────────────────
 
 export const DISPLAY_THR = {

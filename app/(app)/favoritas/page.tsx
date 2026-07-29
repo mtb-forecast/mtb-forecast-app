@@ -5,6 +5,7 @@ import FavoritasGrid from './FavoritasGrid'
 import type { TrilhaComCondicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
+import { condicoesArray } from '@/lib/display'
 
 const RANKING_VEREDICTO: Record<string, number> = {
   'DROP LIBERADO': 0,
@@ -72,7 +73,7 @@ export default async function FavoritasPage() {
       const blocos = Array.isArray(t.previsao_blocos)
         ? [...t.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
         : null
-      const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+      const arr = condicoesArray(t.condicoes)
       arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
         new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()
       )
