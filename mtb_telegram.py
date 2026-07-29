@@ -92,7 +92,7 @@ def _buscar_condicoes(trilha_ids: list) -> list:
     rows = _get(
         "condicoes"
         f"?select=trilha_id,aderencia_status,veredicto,veredicto_12h"
-        f",rain_mm,wind_ms,gust_max_kmh"
+        f",rain_mm,wind_ms,rajada_max_kmh"
         f",fds_d1_veredicto,fds_d1_rain,fds_d1_pop,fds_d1_temp,fds_d1_temp_min"
         f",fds_d2_veredicto,fds_d2_rain,fds_d2_pop,fds_d2_temp,fds_d2_temp_min"
         f",fds_d3_veredicto,fds_d3_rain,fds_d3_pop,fds_d3_temp,fds_d3_temp_min"
@@ -165,7 +165,7 @@ def _montar_mensagem(nome: str, trails: list, datas: dict, hoje_str: str) -> str
         verd       = ((t.get("veredicto_12h") or t.get("veredicto")) or "").strip()
         rain       = t.get("rain_mm", 0) or 0
         wind       = t.get("wind_ms", 0) or 0
-        gust       = t.get("gust_max_kmh", 0) or 0
+        rajada       = t.get("rajada_max_kmh", 0) or 0
         is_strava  = t.get("strava", False)
 
         verd_emoji = _VERD_EMOJI.get(verd, "•")
@@ -175,8 +175,8 @@ def _montar_mensagem(nome: str, trails: list, datas: dict, hoje_str: str) -> str
         linha  = f"{verd_emoji} *{name}*{strava_tag}\n"
         linha += f"   {adh_emoji} {adh} · {verd}\n"
         linha += f"   🌧 {rain}mm · 💨 {wind}m/s"
-        if gust and gust >= 30:
-            linha += f" · ⚡ rajada {gust}km/h"
+        if rajada and rajada >= 30:
+            linha += f" · ⚡ rajada {rajada}km/h"
         linha += "\n"
 
         # Previsão D+1 / D+2 / D+3 (só para trilhas públicas com dados FDS)

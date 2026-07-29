@@ -201,7 +201,7 @@ export default function DiaDetalheModal({
           {summaryWind != null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <IconWind size={14} style={{ color: '#6B7280' }} />
-              <span style={{ fontSize: 13, color: '#374151' }}>{summaryWind.toFixed(1)} m/s</span>
+              <span style={{ fontSize: 13, color: '#374151' }}>{(summaryWind * 3.6).toFixed(0)} km/h</span>
             </div>
           )}
           {solar && (

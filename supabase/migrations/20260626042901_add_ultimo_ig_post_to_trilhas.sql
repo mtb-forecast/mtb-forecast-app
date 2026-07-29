@@ -1,0 +1,1 @@
+ALTER TABLE trilhas ADD COLUMN IF NOT EXISTS ultimo_ig_post TIMESTAMPTZ;

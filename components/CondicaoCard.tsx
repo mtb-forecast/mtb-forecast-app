@@ -6,7 +6,7 @@ import {
   IconCloud, IconCalendar, IconChevronDown,
   IconSun, IconCloudRain, IconCloudStorm, IconCircleCheck, IconClockPause, IconUmbrella,
 } from '@tabler/icons-react'
-import { Condicao, VEREDICTO_CONFIG } from '@/lib/types'
+import { Condicao, VEREDICTO_CONFIG, PrevisaoBloco } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { rainColor, windColor, deveAlertarRajada } from '@/lib/display'
 import DiaDetalheModal from '@/components/DiaDetalheModal'
@@ -636,7 +636,10 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
   // Alertas 24h
   const isAlertaVeredicto = veredictoDisplay.toUpperCase().includes('ALERTA')
   const nivelVento   = condicao.alerta_vento_nivel ?? 0
-  const temRajada    = deveAlertarRajada(condicao.gust_max_kmh, exposicao)
+  const temRajada    = deveAlertarRajada(condicao.rajada_max_kmh, exposicao)
+  const blocoPicoRajada = (condicao.previsao_24h ?? []).reduce<PrevisaoBloco | null>(
+    (pico, b) => ((b.rajada_max ?? 0) > (pico?.rajada_max ?? 0) ? b : pico), null
+  )
   const chuvasPrev   = condicao.previsao_24h?.filter(b => b.rain_mm > 1) ?? []
   const temChuva24h  = chuvasPrev.length > 0
   const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta || isAlertaVeredicto
@@ -813,10 +816,15 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
                 )}
 
                 {/* Rajada prevista */}
-                {temRajada && condicao.gust_max_kmh != null && (
+                {temRajada && condicao.rajada_max_kmh != null && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F9FAFB', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#374151' }}>
-                    <IconWind size={14} style={{ color: windColor(condicao.gust_max_kmh) }} />
-                    <span>Rajada prevista de até <b className="font-mono">{condicao.gust_max_kmh.toFixed(0)} km/h</b> nas próximas 24h</span>
+                    <IconWind size={14} style={{ color: windColor(condicao.rajada_max_kmh) }} />
+                    <span>
+                      Rajada prevista de até <b className="font-mono">{condicao.rajada_max_kmh.toFixed(0)} km/h</b>{' '}
+                      {blocoPicoRajada && (blocoPicoRajada.rajada_max ?? 0) > 0
+                        ? <>entre <b className="font-mono">{blocoPicoRajada.label}</b></>
+                        : 'nas próximas 24h'}
+                    </span>
                   </div>
                 )}
 
@@ -893,7 +901,7 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
                     <IconCloud size={11} /> {b.pop_max}%
                   </span>
                   <span style={{ color: '#6B7280' }} className="font-mono">
-                    <IconWind size={11} /> {b.wind_max.toFixed(1)}m/s
+                    <IconWind size={11} /> {(b.wind_max * 3.6).toFixed(0)}km/h
                   </span>
                   <span style={{ color: '#9CA3AF', marginLeft: 'auto' }} className="font-mono">{b.temp_med}°C</span>
                 </div>
@@ -1018,7 +1026,7 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
                           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <IconWind size={12} style={{ opacity: 0.6 }} />Vento
                           </span>
-                          <span className="font-mono">{wind != null ? `${wind.toFixed(1)} m/s` : '—'}</span>
+                          <span className="font-mono">{wind != null ? `${(wind * 3.6).toFixed(0)} km/h` : '—'}</span>
                         </div>
                       </div>
 

@@ -3,6 +3,7 @@ export type PrevisaoBloco = {
   label: string
   rain_mm: number
   wind_max: number
+  rajada_max?: number | null
   pop_max: number
   temp_med: number
   gerado_em?: string | null
@@ -74,7 +75,7 @@ export type Condicao = {
   // Vento
   wind_ms: number
   wind_12h?: number | null
-  gust_max_kmh?: number | null
+  rajada_max_kmh?: number | null
 
   // Temperatura
   temp_max?: number | null

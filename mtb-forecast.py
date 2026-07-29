@@ -436,21 +436,21 @@ def _fetch_windy_forecast(trail: dict) -> dict | None:
     precip_raw = data.get("past3hprecip-surface", [])
     wu_raw     = data.get("wind_u-surface", [])
     wv_raw     = data.get("wind_v-surface", [])
-    gust_raw   = data.get("windGust-surface", [])
+    rajada_raw   = data.get("windGust-surface", [])
     temp_raw   = data.get("temp-surface", [])  # Kelvin
 
-    precip_48, wind_48, gust_48, temp_24 = [], [], [], []
+    precip_48, wind_48, rajada_48, temp_24 = [], [], [], []
     for i, t_ms in enumerate(ts):
         if t_ms < agora_ms or t_ms > limite_ms:
             continue
         p  = float(precip_raw[i]) if i < len(precip_raw) else 0.0
         wu = float(wu_raw[i])     if i < len(wu_raw)     else 0.0
         wv = float(wv_raw[i])     if i < len(wv_raw)     else 0.0
-        g  = float(gust_raw[i])   if i < len(gust_raw)   else 0.0
+        g  = float(rajada_raw[i])   if i < len(rajada_raw)   else 0.0
         tk = float(temp_raw[i])   if i < len(temp_raw)   else 298.15
         precip_48.append(max(p, 0.0))
         wind_48.append((wu ** 2 + wv ** 2) ** 0.5)
-        gust_48.append(g)
+        rajada_48.append(g)
         if len(temp_24) < 8:          # 8 × 3h = 24h
             temp_24.append(tk - 273.15)
 
@@ -461,7 +461,7 @@ def _fetch_windy_forecast(trail: dict) -> dict | None:
     rain_mm = round(sum(precip_48[:8]), 1)   # 24h
     pico_3h = round(max(precip_48, default=0.0), 1)
     wind_max = round(max(wind_48, default=0.0), 1)
-    gust_max = round(max(gust_48, default=0.0), 1)
+    rajada_max = round(max(rajada_48, default=0.0), 1)
     tmax = round(max(temp_24, default=25))
     tmin = round(min(temp_24, default=tmax))
 
@@ -476,7 +476,7 @@ def _fetch_windy_forecast(trail: dict) -> dict | None:
         "wind":     wind_max,
         "pop":      pop_est,
         "pico_3h":  pico_3h,
-        "gust_max": gust_max,
+        "rajada_max": rajada_max,
         "tmax":     tmax,
         "tmin":     tmin,
     }
@@ -525,12 +525,12 @@ def resumo_onecall(data: dict) -> dict | None:
         precip    = [h.get("rain", {}).get("1h", 0.0) or 0.0 for h in hourly]
         precip_48 = [h.get("rain", {}).get("1h", 0.0) or 0.0 for h in hourly_48]
         wind      = [h.get("wind_speed", 0.0) or 0.0 for h in hourly]
-        gusts     = [h.get("wind_gust", 0.0) or 0.0 for h in hourly]
+        rajadas     = [h.get("wind_gust", 0.0) or 0.0 for h in hourly]
         pop       = [h.get("pop", 0.0) or 0.0 for h in hourly]
 
         rain_mm  = round(sum(precip), 1)
         wind_max = round(max(wind, default=0.0), 1)
-        gust_max = round(max(gusts, default=0.0), 1)
+        rajada_max = round(max(rajadas, default=0.0), 1)
         pop_max  = round(max(pop, default=0.0) * 100)
         pico_3h  = round(
             max((sum(precip_48[i:i+3]) for i in range(max(1, len(precip_48) - 2))), default=0.0), 1
@@ -545,7 +545,7 @@ def resumo_onecall(data: dict) -> dict | None:
             "pico_3h":  pico_3h,
             "tmax":     tmax,
             "tmin":     tmin,
-            "gust_max": gust_max,
+            "rajada_max": rajada_max,
         }
     except (KeyError, TypeError):
         return None
@@ -1032,7 +1032,7 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
     lk = trail.get("local_key")
     try:
         if lk and lk in _CACHE_OM_VENTO_RAW:
-            times, speeds, gusts = _CACHE_OM_VENTO_RAW[lk]
+            times, speeds, rajadas = _CACHE_OM_VENTO_RAW[lk]
         else:
             url_om = (
                 "https://api.open-meteo.com/v1/forecast"
@@ -1054,13 +1054,13 @@ def fetch_vento_historico(trail: dict, ow_vento_max_kmh: float | None = None) ->
                     time.sleep(5)
             times  = data_om.get("hourly", {}).get("time", [])
             speeds = data_om.get("hourly", {}).get("windspeed_10m", [])
-            gusts  = data_om.get("hourly", {}).get("windgusts_10m", [])
+            rajadas  = data_om.get("hourly", {}).get("windgusts_10m", [])
             if lk:
-                _CACHE_OM_VENTO_RAW[lk] = (times, speeds, gusts)
+                _CACHE_OM_VENTO_RAW[lk] = (times, speeds, rajadas)
         passados = [i for i, t in enumerate(times) if t <= agora_str]
         if passados:
             om_vento_max  = max((speeds[i] for i in passados if speeds[i] is not None), default=None)
-            om_rajada_max = max((gusts[i]  for i in passados if i < len(gusts) and gusts[i] is not None), default=None)
+            om_rajada_max = max((rajadas[i]  for i in passados if i < len(rajadas) and rajadas[i] is not None), default=None)
     except Exception as exc:
         print(f"  [OM vento] Falha após 2 tentativas: {exc} — tentando WeatherAPI")
         om_vento_max, om_rajada_max = _fetch_vento_weatherapi(trail, agora)
@@ -1104,16 +1104,16 @@ def resumo_openmeteo(data: dict) -> dict:
         precip       = hourly.get("precipitation", [])[:24]
         precip_48    = hourly.get("precipitation", [])[:48]
         wind         = hourly.get("windspeed_10m", [])[:24]
-        gusts        = hourly.get("windgusts_10m", [])[:24]
+        rajadas        = hourly.get("windgusts_10m", [])[:24]
         pop          = hourly.get("precipitation_probability", [])[:24]
         temps        = hourly.get("temperature_2m", [])[:24]
         wind_ms      = [w / 3.6 for w in wind if w is not None]
-        gust_ms      = [g / 3.6 for g in gusts if g is not None]
+        rajada_ms      = [g / 3.6 for g in rajadas if g is not None]
         temps_valid  = [t for t in temps if t is not None]
         rain_mm      = sum(p for p in precip if p is not None)
         pop_max      = max((p for p in pop if p is not None), default=0)
         wind_max     = max(wind_ms, default=0)
-        gust_max     = max(gust_ms, default=0)
+        rajada_max     = max(rajada_ms, default=0)
         precip_clean = [p if p is not None else 0.0 for p in precip_48]
         pico_3h      = max(
             (sum(precip_clean[i:i+3]) for i in range(max(1, len(precip_clean) - 2))),
@@ -1126,7 +1126,7 @@ def resumo_openmeteo(data: dict) -> dict:
             "wind":     round(wind_max, 1),
             "pop":      round(pop_max),
             "pico_3h":  round(pico_3h, 1),
-            "gust_max": round(gust_max, 1),
+            "rajada_max": round(rajada_max, 1),
             "tmax":     tmax,
             "tmin":     tmin,
         }
@@ -1144,7 +1144,7 @@ _CACHE_OM_CLIMA_RAW: dict = {}     # local_key → {times, temp, humidity, cloud
 _CACHE_OW_DAY_SUMMARY: dict = {}   # local_key → {"chuva_ow_mm", "hoje", "ontem"}
 _CACHE_OM_FORECAST: dict = {}      # local_key → raw JSON forecast
 _CACHE_OM_CHUVA_RAW: dict = {}     # local_key → (times, precips)
-_CACHE_OM_VENTO_RAW: dict = {}     # local_key → (times, speeds, gusts)
+_CACHE_OM_VENTO_RAW: dict = {}     # local_key → (times, speeds, rajadas)
 _CACHE_OM_NOWCAST_RAW: dict = {}   # local_key → {time_str: precip_bruto_mm} — ICON seamless, past_hours=6
 _CACHE_THRESHOLD: dict = {}
 _CACHE_MEIA_VIDA: dict = {}
@@ -2055,18 +2055,18 @@ def veredicto(aderencia: dict, rain_mm: float, wind_ms: float, pico_3h: float = 
                 risco += peso_por_fator.get("solo_encharcado", 1)
                 motivos.append("vento moderado com solo encharcado — galhos comprometidos")
 
-    gust_kmh = trail.get("gust_max_kmh", 0.0) if trail else 0.0
+    rajada_kmh = trail.get("rajada_max_kmh", 0.0) if trail else 0.0
     exposicao = (trail or {}).get("exposicao", "aberta")
-    thresh_gust = 30.0 if exposicao == "aberta" else 50.0
-    if gust_kmh >= 90.0:
+    thresh_rajada = 30.0 if exposicao == "aberta" else 50.0
+    if rajada_kmh >= 90.0:
         # Rajada de tempestade: mesmo threshold de nivel_vento==3, mas aplicado à
         # rajada PREVISTA (não histórica) — cobre o caso de tempestade ainda não
         # observada nas últimas 48h mas já presente no forecast.
         risco += peso_por_fator.get("rajada_tempestade", 3)
-        motivos.append(f"rajada de tempestade prevista {gust_kmh} km/h — risco severo de queda de árvores")
-    elif gust_kmh >= thresh_gust:
+        motivos.append(f"rajada de tempestade prevista {rajada_kmh} km/h — risco severo de queda de árvores")
+    elif rajada_kmh >= thresh_rajada:
         risco += peso_por_fator.get("rajada_prevista", 1)
-        motivos.append(f"rajada prevista {gust_kmh} km/h ({exposicao})")
+        motivos.append(f"rajada prevista {rajada_kmh} km/h ({exposicao})")
 
     _sev = {"SECO": 0, "GRIP PERFEITO": 1, "BOA ADERÊNCIA - ÚMIDO": 2, "BAIXA ADERÊNCIA": 3}
     if aderencia_futura is not None:
@@ -2249,7 +2249,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "cloud_pct":          resultado.get("nublado_pct"),
             "humidity_pct":       resultado.get("umidade_pct"),
             "temp_media_c":       resultado.get("temp_media_c"),
-            "gust_max_kmh":       resultado.get("gust_max_kmh"),
+            "rajada_max_kmh":       resultado.get("rajada_max_kmh"),
             "horarios_chuva":     resultado.get("horarios_chuva"),
             "frase_secagem":      resultado.get("resumo_secagem_frase"),
             "solo_descansado":    aderencia.get("solo_descansado"),
@@ -2273,21 +2273,21 @@ def gravar_supabase(trilha_name: str, resultado: dict):
             "fds_d1_veredicto":   fds.get("d1", {}).get("veredicto", {}).get("texto"),
             "fds_d1_rain":        fds.get("d1", {}).get("rain"),
             "fds_d1_wind":        fds.get("d1", {}).get("wind"),
-            "fds_d1_gust":        fds.get("d1", {}).get("gust"),
+            "fds_d1_rajada":        fds.get("d1", {}).get("rajada"),
             "fds_d1_temp":        fds.get("d1", {}).get("temp_max"),
             "fds_d1_temp_min":    fds.get("d1", {}).get("temp_min"),
             "fds_d1_pop":         fds.get("d1", {}).get("pop"),
             "fds_d2_veredicto":   fds.get("d2", {}).get("veredicto", {}).get("texto"),
             "fds_d2_rain":        fds.get("d2", {}).get("rain"),
             "fds_d2_wind":        fds.get("d2", {}).get("wind"),
-            "fds_d2_gust":        fds.get("d2", {}).get("gust"),
+            "fds_d2_rajada":        fds.get("d2", {}).get("rajada"),
             "fds_d2_temp":        fds.get("d2", {}).get("temp_max"),
             "fds_d2_temp_min":    fds.get("d2", {}).get("temp_min"),
             "fds_d2_pop":         fds.get("d2", {}).get("pop"),
             "fds_d3_veredicto":   fds.get("d3", {}).get("veredicto", {}).get("texto"),
             "fds_d3_rain":        fds.get("d3", {}).get("rain"),
             "fds_d3_wind":        fds.get("d3", {}).get("wind"),
-            "fds_d3_gust":        fds.get("d3", {}).get("gust"),
+            "fds_d3_rajada":        fds.get("d3", {}).get("rajada"),
             "fds_d3_temp":        fds.get("d3", {}).get("temp_max"),
             "fds_d3_temp_min":    fds.get("d3", {}).get("temp_min"),
             "fds_d3_pop":         fds.get("d3", {}).get("pop"),
@@ -2359,6 +2359,7 @@ def gravar_supabase(trilha_name: str, resultado: dict):
                     "label":     b.get("label", f"bloco_{i}"),
                     "rain_mm":   b.get("rain_mm", 0),
                     "wind_max":  b.get("wind_max", 0),
+                    "rajada_max":  b.get("rajada_max", 0),
                     "pop_max":   b.get("pop_max", 0),
                     "temp_med":  b.get("temp_med", 0),
                     "gerado_em": gerado_em,
@@ -2470,7 +2471,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         wind        = oc["wind"]
         pop         = oc["pop"]
         pico_3h     = oc["pico_3h"]
-        gust_max_ms = oc.get("gust_max", 0.0)
+        rajada_max_ms = oc.get("rajada_max", 0.0)
         tmax        = oc["tmax"]
         tmin        = oc.get("tmin")
         fonte       = "OpenWeather"
@@ -2479,7 +2480,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         wind        = om["wind"]
         pop         = om["pop"]
         pico_3h     = om["pico_3h"]
-        gust_max_ms = om.get("gust_max", 0.0)
+        rajada_max_ms = om.get("rajada_max", 0.0)
         tmax        = om.get("tmax", 25)
         tmin        = om.get("tmin")
         fonte       = "Open-Meteo (fallback OW)"
@@ -2491,7 +2492,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             wind        = wapi["wind"]
             pop         = wapi["pop"]
             pico_3h     = wapi["pico_3h"]
-            gust_max_ms = wapi.get("gust_max", 0.0)
+            rajada_max_ms = wapi.get("rajada_max", 0.0)
             tmax        = wapi.get("tmax", 25)
             tmin        = wapi.get("tmin")
             fonte       = "WeatherAPI (fallback OW+OM)"
@@ -2502,7 +2503,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
                 wind        = windy["wind"]
                 pop         = windy["pop"]
                 pico_3h     = windy["pico_3h"]
-                gust_max_ms = windy.get("gust_max", 0.0)
+                rajada_max_ms = windy.get("rajada_max", 0.0)
                 tmax        = windy.get("tmax", 25)
                 tmin        = windy.get("tmin")
                 fonte       = "Windy (fallback OW+OM+WeatherAPI)"
@@ -2511,12 +2512,12 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
                 wind        = 0.0
                 pop         = 0
                 pico_3h     = 0.0
-                gust_max_ms = 0.0
+                rajada_max_ms = 0.0
                 tmax        = 25
                 tmin        = None
                 fonte       = "sem dados"
 
-    gust_max_kmh = round(gust_max_ms * 3.6, 1)
+    rajada_max_kmh = round(rajada_max_ms * 3.6, 1)
 
     inclinacao = calcular_inclinacao(trail)
 
@@ -2652,7 +2653,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     aderencia = calcular_aderencia(rain, trail, acumulo_ef, pico_3h, mes, enso,
                                    garoa_ativa=garoa_ativa,
                                    secagem_bloqueada=secagem_bloqueada)
-    trail["gust_max_kmh"] = gust_max_kmh
+    trail["rajada_max_kmh"] = rajada_max_kmh
     hourly_oc = (oc_raw or {}).get("hourly", [])[:48]
 
     # Horas do Open-Meteo para fallback de D+3 (4 dias = ~96h)
@@ -2661,7 +2662,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
     _om_times  = _om_hourly_raw.get("time", [])
     _om_precip = _om_hourly_raw.get("precipitation", [])
     _om_wind   = _om_hourly_raw.get("windspeed_10m", [])
-    _om_gust   = _om_hourly_raw.get("windgusts_10m", [])
+    _om_rajada   = _om_hourly_raw.get("windgusts_10m", [])
     _om_pop    = _om_hourly_raw.get("precipitation_probability", [])
     _om_temp   = _om_hourly_raw.get("temperature_2m", [])
     # Montar lista de dicts compatível com o formato interno usado por resumo_dia_oc
@@ -2670,7 +2671,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             "dt":    int(datetime.fromisoformat(t).replace(tzinfo=BRT).timestamp()),
             "precip": float(_om_precip[i] or 0.0),
             "wind":   float(_om_wind[i] or 0.0) / 3.6,   # km/h → m/s
-            "gust_kmh": float(_om_gust[i]) if i < len(_om_gust) and _om_gust[i] is not None else 0.0,
+            "rajada_kmh": float(_om_rajada[i]) if i < len(_om_rajada) and _om_rajada[i] is not None else 0.0,
             "pop":    float(_om_pop[i] or 0.0) / 100.0,  # % → fração
             "temp":   float(_om_temp[i]) if i < len(_om_temp) and _om_temp[i] is not None else 0.0,
         }
@@ -2708,10 +2709,10 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         inc      = calcular_inclinacao(trail)
         # Rajada máxima restrita às próximas 12h — evita que rajadas de h36–48
         # contaminem o veredicto de curto prazo com ATENÇÃO indevida
-        gust_12h = round(
+        rajada_12h = round(
             max((h.get("wind_gust", 0.0) or 0.0 for h in h12), default=0.0) * 3.6, 1
         )
-        trail_12h = {**trail, "gust_max_kmh": gust_12h}
+        trail_12h = {**trail, "rajada_max_kmh": rajada_12h}
         ader = calcular_aderencia(r, trail, acumulo_ef, p3, mes, enso)
         return {
             "rain": r, "pico_3h": p3, "pop": pp, "wind": w, "temp_max": tm,
@@ -2733,10 +2734,11 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             rain_mm  = round(sum(_precip_hora(h) for h in horas), 1)
             pop_max  = round(max((h.get("pop", 0) or 0 for h in horas), default=0) * 100)
             wind_max = round(max((h.get("wind_speed", 0) or 0 for h in horas), default=0), 1)
+            rajada_max = round(max((h.get("wind_gust", 0.0) or 0.0 for h in horas), default=0.0) * 3.6, 1)
             temps    = [h.get("temp", 0) or 0 for h in horas]
             temp_med = round(sum(temps) / len(temps)) if temps else 0
             blocos.append({"label": label, "rain_mm": rain_mm, "pop_max": pop_max,
-                           "wind_max": wind_max, "temp_med": temp_med})
+                           "wind_max": wind_max, "rajada_max": rajada_max, "temp_med": temp_med})
         return blocos
 
     def estimar_horas_para_grip(blocos: list) -> tuple:
@@ -2825,7 +2827,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             tm    = round(max((h.get("temp", 0) or 0 for h in dia_oc), default=0))
             tm_min = round(min((h.get("temp", 999) or 999 for h in dia_oc), default=0))
             w     = round(max((h.get("wind_speed", 0) or 0 for h in dia_oc), default=0), 1)
-            gust  = round(max((h.get("wind_gust", 0.0) or 0.0 for h in dia_oc), default=0.0) * 3.6, 1)
+            rajada  = round(max((h.get("wind_gust", 0.0) or 0.0 for h in dia_oc), default=0.0) * 3.6, 1)
             clouds_pct = round(sum(h.get("clouds", 0) or 0 for h in dia_oc) / len(dia_oc)) if dia_oc else None
 
             r  = round(r_oc, 1)
@@ -2843,7 +2845,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
             tm     = round(max(temps_om, default=0))
             tm_min = round(min(temps_om, default=0))
             w    = round(max((h["wind"] for h in dia_om), default=0.0), 1)
-            gust = round(max((h.get("gust_kmh", 0.0) or 0.0 for h in dia_om), default=0.0), 1)
+            rajada = round(max((h.get("rajada_kmh", 0.0) or 0.0 for h in dia_om), default=0.0), 1)
             clouds_pct = None  # OM forecast sem cloudcover
             fonte_dia = "OM"
         else:
@@ -2855,12 +2857,12 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         # e a chuva do dia não entra em acumulo_ef — só aparecia no D+2.
         ef_pos_chuva = round(acumulo_ate_val + r, 1)
         ader = calcular_aderencia(r, trail, ef_pos_chuva, p3, mes, enso)
-        # Rajada do dia sobrepõe o gust_max_kmh "agora" do trail — sem isso, o
+        # Rajada do dia sobrepõe o rajada_max_kmh "agora" do trail — sem isso, o
         # veredicto de D+1/D+2/D+3 avaliaria vento com a rajada atual, não a do dia futuro.
-        trail_dia = {**trail, "gust_max_kmh": gust}
+        trail_dia = {**trail, "rajada_max_kmh": rajada}
         return {
             "disponivel": True, "rain": r, "pop": pp, "temp_max": tm, "temp_min": tm_min,
-            "clouds_pct": clouds_pct, "wind": w, "gust": gust,
+            "clouds_pct": clouds_pct, "wind": w, "rajada": rajada,
             "fonte_dia": fonte_dia,
             "veredicto": veredicto(ader, r, w, p3, inc, trail_dia, ef_pos_chuva, vento_hist),
             "debug_model": {
@@ -2991,7 +2993,7 @@ def processar_trilha(trail: dict, datas: dict) -> dict:
         "bioma":          trail.get("bioma", "Desconhecido"),
         "trail_type":     trail.get("trail_type", "natural"),
         "exposicao_raw":  trail.get("exposicao", "aberta"),
-        "gust_max_kmh":   gust_max_kmh,
+        "rajada_max_kmh":   rajada_max_kmh,
         "desnivel_m":     trail.get("desnivel_m"),
         "extensao_km":    trail.get("extensao_km"),
         "inclinacao":     inclinacao,
@@ -3079,31 +3081,31 @@ def _aplicar_override_vento_futuro(resultado: dict) -> dict:
     Para remover: apagar esta função e a chamada no loop principal.
     """
     fds = resultado.get("fds") or {}
-    gusts = {d: (fds.get(d, {}).get("gust") or 0.0) for d in ("d1", "d2", "d3")}
-    gust_max_fds = max(gusts.values(), default=0.0)
+    rajadas = {d: (fds.get(d, {}).get("rajada") or 0.0) for d in ("d1", "d2", "d3")}
+    rajada_max_fds = max(rajadas.values(), default=0.0)
 
-    if gust_max_fds < 65.0:
+    if rajada_max_fds < 65.0:
         return resultado
 
-    dia_pior = max(gusts, key=gusts.get)
+    dia_pior = max(rajadas, key=rajadas.get)
     label = {"d1": "amanhã", "d2": "em 2 dias", "d3": "em 3 dias"}[dia_pior]
 
     vered = resultado.get("veredicto", {})
     texto_atual = vered.get("texto", "")
 
-    if gust_max_fds >= 90.0:
+    if rajada_max_fds >= 90.0:
         vered["texto"] = "MELHOR ESPERAR"
         vered["emoji"] = "🌪️"
         vered["cor"]   = "#dc2626"
         vered["bg"]    = "#fef2f2"
-        alerta = f"tempestade prevista {label} — rajadas de até {gust_max_fds:.0f} km/h, risco de queda de árvores"
+        alerta = f"tempestade prevista {label} — rajadas de até {rajada_max_fds:.0f} km/h, risco de queda de árvores"
     else:
         if texto_atual == "DROP LIBERADO":
             vered["texto"] = "DROP LIBERADO - Veja os alertas"
             vered["emoji"] = "⚠️"
             vered["cor"]   = "#d97706"
             vered["bg"]    = "#fffbeb"
-        alerta = f"ventos fortes previstos {label} — rajadas de até {gust_max_fds:.0f} km/h"
+        alerta = f"ventos fortes previstos {label} — rajadas de até {rajada_max_fds:.0f} km/h"
 
     motivo = vered.get("motivo") or ""
     if alerta not in motivo:
@@ -3675,9 +3677,9 @@ def prefetch_om_batch(trails: list) -> None:
             times   = h.get("time", [])
             precips = h.get("precipitation", [])
             speeds  = h.get("windspeed_10m", [])
-            gusts   = h.get("windgusts_10m", [])
+            rajadas   = h.get("windgusts_10m", [])
             _CACHE_OM_CHUVA_RAW[lk] = (times, precips)
-            _CACHE_OM_VENTO_RAW[lk] = (times, speeds, gusts)
+            _CACHE_OM_VENTO_RAW[lk] = (times, speeds, rajadas)
             _CACHE_OM_CLIMA_RAW[lk] = {
                 "times":         times,
                 "temp":          h.get("temperature_2m", []),

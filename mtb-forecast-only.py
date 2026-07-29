@@ -5,13 +5,13 @@ Módulo independente: NÃO toca no modelo de solo (acumulo_ef, aderencia_status,
 meia_vida_h, veredicto principal). Atualiza somente colunas de previsão futura.
 
 Colunas atualizadas em `condicoes` (PATCH):
-  rain_12h, wind_12h, gust_12h, pop_12h, pico_3h
+  rain_12h, wind_12h, rajada_12h, pop_12h, pico_3h
   veredicto_12h  — somente para UPGRADE (chuva ou rajada >= limiar, nunca rebaixa)
-  fds_d1_rain/wind/gust/pop/temp/temp_min
-  fds_d2_rain/wind/gust/pop/temp/temp_min
-  fds_d3_rain/wind/gust/pop/temp/temp_min
+  fds_d1_rain/wind/rajada/pop/temp/temp_min
+  fds_d2_rain/wind/rajada/pop/temp/temp_min
+  fds_d3_rain/wind/rajada/pop/temp/temp_min
 
-gust_12h/fds_d*_gust alimentam a detecção antecipada de tempestade (rajada
+rajada_12h/fds_d*_rajada alimentam a detecção antecipada de tempestade (rajada
 >=90km/h): como este job roda a cada hora (vs. 2-4x/dia do pipeline completo),
 é o mecanismo de early-warning mais rápido para vento iminente.
 
@@ -159,7 +159,7 @@ def fetch_om_forecast_batch(grupos: dict) -> dict:
             "times":   h.get("time", []),
             "precips": h.get("precipitation", []),
             "winds":   h.get("windspeed_10m", []),
-            "gusts":   h.get("windgusts_10m", []),
+            "rajadas":   h.get("windgusts_10m", []),
             "pops":    h.get("precipitation_probability", []),
             "temps":   h.get("temperature_2m", []),
         }
@@ -194,28 +194,28 @@ def _precip_hora(h: dict) -> float:
 
 
 def compute_12h_metrics(hourly_oc: list) -> tuple[float, float, int, float, float, float]:
-    """Retorna (rain_12h, wind_12h, pop_12h, pico_3h_48h, pico_12h, gust_12h)."""
+    """Retorna (rain_12h, wind_12h, pop_12h, pico_3h_48h, pico_12h, rajada_12h)."""
     h12 = hourly_oc[:12]
     h48 = hourly_oc[:48]
 
     prec_12 = [_precip_hora(h) for h in h12]
     prec_48 = [_precip_hora(h) for h in h48]
     wind_12 = [h.get("wind_speed", 0) or 0.0 for h in h12]
-    gust_12 = [h.get("wind_gust", 0) or 0.0 for h in h12]
+    rajada_12 = [h.get("wind_gust", 0) or 0.0 for h in h12]
     pop_12  = [h.get("pop", 0) or 0.0 for h in h12]
 
     rain_12h = round(sum(prec_12), 1)
     wind_12h = round(max(wind_12, default=0.0), 1)
-    gust_12h = round(max(gust_12, default=0.0) * 3.6, 1)   # m/s → km/h
+    rajada_12h = round(max(rajada_12, default=0.0) * 3.6, 1)   # m/s → km/h
     pop_12h  = round(max(pop_12, default=0.0) * 100)
     pico_48  = round(max((sum(prec_48[i:i+3]) for i in range(max(1, len(prec_48)-2))),
                          default=0.0), 1)
     pico_12  = round(max((sum(prec_12[i:i+3]) for i in range(max(1, len(prec_12)-2))),
                          default=0.0), 1)
-    return rain_12h, wind_12h, pop_12h, pico_48, pico_12, gust_12h
+    return rain_12h, wind_12h, pop_12h, pico_48, pico_12, rajada_12h
 
 
-def veredicto_12h_simples(rain_12h: float, pico_12h: float, gust_12h: float = 0.0) -> str | None:
+def veredicto_12h_simples(rain_12h: float, pico_12h: float, rajada_12h: float = 0.0) -> str | None:
     """
     Retorna texto de veredicto apenas para UPGRADE (chuva ou vento relevante
     detectado). Retorna None quando ambos estão baixos — evita rebaixar um
@@ -223,9 +223,9 @@ def veredicto_12h_simples(rain_12h: float, pico_12h: float, gust_12h: float = 0.
     Espelha a lógica de _aplicar_override_vento_futuro() do pipeline completo,
     mas roda a cada hora (early warning) em vez de 2-4x/dia.
     """
-    if rain_12h >= 10.0 or pico_12h >= 7.0 or gust_12h >= 90.0:
+    if rain_12h >= 10.0 or pico_12h >= 7.0 or rajada_12h >= 90.0:
         return "MELHOR ESPERAR"
-    if rain_12h >= 3.0 or pico_12h >= 3.0 or gust_12h >= 65.0:
+    if rain_12h >= 3.0 or pico_12h >= 3.0 or rajada_12h >= 65.0:
         return "DROP LIBERADO - Veja os alertas"
     return None
 
@@ -242,6 +242,7 @@ def compute_blocos_24h(hourly_oc: list, agora: datetime) -> list[dict]:
         ]
         prec     = [_precip_hora(h) for h in horas]
         wind     = [h.get("wind_speed", 0) or 0.0 for h in horas]
+        rajada     = [h.get("wind_gust", 0) or 0.0 for h in horas]
         pop      = [h.get("pop", 0) or 0.0 for h in horas]
         temps    = [h.get("temp", 0) or 0.0 for h in horas]
         temp_med = round(sum(temps) / len(temps)) if temps else 0
@@ -251,6 +252,7 @@ def compute_blocos_24h(hourly_oc: list, agora: datetime) -> list[dict]:
             "rain_mm":  round(sum(prec), 1),
             "pop_max":  round(max(pop, default=0.0) * 100),
             "wind_max": round(max(wind, default=0.0), 1),
+            "rajada_max": round(max(rajada, default=0.0) * 3.6, 1),
             "temp_med": temp_med,
         })
     return blocos
@@ -269,13 +271,13 @@ def compute_fds_owm(hourly_oc: list, agora: datetime) -> dict:
             continue
         prec = [_precip_hora(h) for h in horas]
         wind = [h.get("wind_speed", 0) or 0.0 for h in horas]
-        gust = [h.get("wind_gust", 0) or 0.0 for h in horas]
+        rajada = [h.get("wind_gust", 0) or 0.0 for h in horas]
         pop  = [h.get("pop", 0) or 0.0 for h in horas]
         ts   = [h.get("temp", 0) or 0.0 for h in horas]
         result[key] = {
             "rain":     round(sum(prec), 1),
             "wind":     round(max(wind, default=0.0), 1),
-            "gust":     round(max(gust, default=0.0) * 3.6, 1),   # m/s → km/h
+            "rajada":     round(max(rajada, default=0.0) * 3.6, 1),   # m/s → km/h
             "pop":      round(max(pop, default=0.0) * 100),
             "temp_max": round(max(ts, default=0.0)),
             "temp_min": round(min(ts, default=0.0)),
@@ -288,7 +290,7 @@ def compute_fds_om(om_data: dict, agora: datetime) -> dict:
     times   = om_data.get("times", [])
     precips = om_data.get("precips", [])
     winds   = om_data.get("winds", [])
-    gusts   = om_data.get("gusts", [])
+    rajadas   = om_data.get("rajadas", [])
     pops    = om_data.get("pops", [])
     temps   = om_data.get("temps", [])
 
@@ -300,13 +302,13 @@ def compute_fds_om(om_data: dict, agora: datetime) -> dict:
             continue
         ps = [precips[i] or 0.0 for i in idxs if i < len(precips)]
         ws = [winds[i]   or 0.0 for i in idxs if i < len(winds)]
-        gs = [gusts[i]   or 0.0 for i in idxs if i < len(gusts)]
+        gs = [rajadas[i]   or 0.0 for i in idxs if i < len(rajadas)]
         pp = [pops[i]    or 0.0 for i in idxs if i < len(pops)]
         ts = [temps[i]          for i in idxs if i < len(temps) and temps[i] is not None]
         result[key] = {
             "rain":     round(sum(ps), 1),
             "wind":     round(max(ws, default=0.0), 1),
-            "gust":     round(max(gs, default=0.0), 1),   # windgusts_10m do OM já vem em km/h
+            "rajada":     round(max(gs, default=0.0), 1),   # windgusts_10m do OM já vem em km/h
             "pop":      round(max(pp, default=0.0)),
             "temp_max": round(max(ts, default=0.0)) if ts else None,
             "temp_min": round(min(ts, default=0.0)) if ts else None,
@@ -375,12 +377,12 @@ def main():
 
         # ── métricas 12h (OWM) ──────────────────────────────────────
         if hourly_oc:
-            rain_12h, wind_12h, pop_12h, pico_3h, pico_12h, gust_12h = compute_12h_metrics(hourly_oc)
-            v12h   = veredicto_12h_simples(rain_12h, pico_12h, gust_12h)
+            rain_12h, wind_12h, pop_12h, pico_3h, pico_12h, rajada_12h = compute_12h_metrics(hourly_oc)
+            v12h   = veredicto_12h_simples(rain_12h, pico_12h, rajada_12h)
             blocos = compute_blocos_24h(hourly_oc, agora)
             fds_owm_data = compute_fds_owm(hourly_oc, agora)
         else:
-            rain_12h = wind_12h = pop_12h = pico_3h = gust_12h = None
+            rain_12h = wind_12h = pop_12h = pico_3h = rajada_12h = None
             v12h = None
             blocos = []
             fds_owm_data = {}
@@ -397,7 +399,7 @@ def main():
         patch: dict = {}
         if rain_12h is not None: patch["rain_12h"]  = rain_12h
         if wind_12h is not None: patch["wind_12h"]  = wind_12h
-        if gust_12h is not None: patch["gust_12h"]  = gust_12h
+        if rajada_12h is not None: patch["rajada_12h"]  = rajada_12h
         if pop_12h  is not None: patch["pop_12h"]   = pop_12h
         if pico_3h  is not None: patch["pico_3h"]   = pico_3h
         if v12h:                 patch["veredicto_12h"] = v12h  # nunca rebaixa
@@ -408,7 +410,7 @@ def main():
             p = f"fds_{dk}_"
             if d.get("rain")     is not None: patch[f"{p}rain"]     = d["rain"]
             if d.get("wind")     is not None: patch[f"{p}wind"]     = d["wind"]
-            if d.get("gust")     is not None: patch[f"{p}gust"]     = d["gust"]
+            if d.get("rajada")     is not None: patch[f"{p}rajada"]     = d["rajada"]
             if d.get("pop")      is not None: patch[f"{p}pop"]      = d["pop"]
             if d.get("temp_max") is not None: patch[f"{p}temp"]     = d["temp_max"]
             if d.get("temp_min") is not None: patch[f"{p}temp_min"] = d["temp_min"]
@@ -427,6 +429,7 @@ def main():
                         "label":     b["label"],
                         "rain_mm":   b["rain_mm"],
                         "wind_max":  b["wind_max"],
+                        "rajada_max":  b["rajada_max"],
                         "pop_max":   b["pop_max"],
                         "temp_med":  b["temp_med"],
                         "gerado_em": gerado_em,
