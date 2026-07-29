@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getClientUser } from '@/lib/supabase'
 import type { Condicao } from '@/lib/types'
-import { selecionarVeredicto } from '@/lib/veredicto'
+import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { decodePolyline } from '@/lib/polyline'
 import { condicoesArray } from '@/lib/display'
 import 'leaflet/dist/leaflet.css'
@@ -15,7 +15,10 @@ type TrilhaMapData = {
   lat: number
   lon: number
   polyline?: string | null
-  condicoes?: Pick<Condicao, 'veredicto' | 'veredicto_12h' | 'chuva_solo_48h' | 'ultima_chuva_h'>[]
+  exposicao?: string | null
+  condicoes?: Pick<Condicao,
+    'veredicto' | 'veredicto_12h' | 'chuva_solo_48h' | 'ultima_chuva_h' |
+    'rajada_max_kmh' | 'alerta_vento_nivel' | 'aderencia_status'>[]
 }
 
 type PumpTrackMapData = {
@@ -89,8 +92,8 @@ export default function MapaPage() {
           supabase
             .from('trilhas')
             .select(`
-              id, name, lat, lon, polyline,
-              condicoes(veredicto, veredicto_12h, chuva_solo_48h, ultima_chuva_h)
+              id, name, lat, lon, polyline, exposicao,
+              condicoes(veredicto, veredicto_12h, chuva_solo_48h, ultima_chuva_h, rajada_max_kmh, alerta_vento_nivel, aderencia_status)
             `)
             .eq('aprovada', true)
             .not('lat', 'is', null)
@@ -181,7 +184,9 @@ export default function MapaPage() {
       const condicao = condicoesArray(trilha.condicoes)[0]
       const hasFavorito = trilhasComFavorito.has(trilha.id)
       const inactive = !hasFavorito || !condicao
-      const veredicto = inactive ? undefined : (selecionarVeredicto(condicao?.veredicto, condicao?.veredicto_12h) ?? undefined)
+      const veredictoBase = inactive ? undefined : (selecionarVeredicto(condicao?.veredicto, condicao?.veredicto_12h) ?? undefined)
+      // Mesma fonte usada por CondicaoCard/DashboardTrailCard/TrilhaCard/DashboardVitrine.
+      const veredicto = inactive ? undefined : (veredictoComAlerta(veredictoBase ?? null, condicao, trilha.exposicao) ?? undefined)
       const cor = getVeredictoColor(veredicto)
       const label = getVeredictoLabel(veredicto)
 

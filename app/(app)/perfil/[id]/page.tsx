@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { IconLock } from '@tabler/icons-react'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import FollowButton from '@/components/FollowButton'
-import { selecionarVeredicto } from '@/lib/veredicto'
+import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
 import { condicoesArray } from '@/lib/display'
 
@@ -34,8 +34,13 @@ type TrilhaFavorita = {
   id: string
   name: string
   regiao: string
+  exposicao: string | null
   localidades: { cidade: string; estado: string; localidade: string | null } | null
-  condicoes: { veredicto: string | null; veredicto_12h: string | null }[] | null
+  condicoes: {
+    veredicto: string | null; veredicto_12h: string | null
+    rajada_max_kmh: number | null; alerta_vento_nivel: number | null
+    aderencia_status: string | null
+  }[] | null
 }
 
 export default async function PerfilPublicoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -81,9 +86,9 @@ export default async function PerfilPublicoPage({ params }: { params: Promise<{ 
       const { data } = await sb
         .from('trilhas')
         .select(`
-          id, name, regiao,
+          id, name, regiao, exposicao,
           localidades(cidade, estado, localidade),
-          condicoes(veredicto, veredicto_12h, gerado_em)
+          condicoes(veredicto, veredicto_12h, gerado_em, rajada_max_kmh, alerta_vento_nivel, aderencia_status)
         `)
         .in('id', trilhaIds)
         .eq('aprovada', true)
@@ -166,7 +171,9 @@ export default async function PerfilPublicoPage({ params }: { params: Promise<{ 
           }}>
             {trilhas.map(t => {
               const cond = condicoesArray(t.condicoes)[0]
-              const veredicto = selecionarVeredicto(cond?.veredicto, cond?.veredicto_12h)
+              const veredictoBase = selecionarVeredicto(cond?.veredicto, cond?.veredicto_12h)
+              // Mesma fonte usada por CondicaoCard/DashboardTrailCard/TrilhaCard/DashboardVitrine/mapa.
+              const veredicto = veredictoComAlerta(veredictoBase, cond, t.exposicao)
               const cs = chipStyle(veredicto)
               return (
                 <Link key={t.id} href={`/trilhas/${t.id}`} style={{ textDecoration: 'none' }}>
