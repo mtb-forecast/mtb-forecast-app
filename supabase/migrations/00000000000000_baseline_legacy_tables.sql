@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS condicoes (
   gust_max_kmh      double precision,
   janela            text,
   frase_secagem     text,
-  dados_json        jsonb
+  dados_json        jsonb,
+  thresh_desc       double precision, -- renomeada para limiar_descanso em 20260616143506_rename_condicoes_thresh_desc_to_limiar_descanso.sql
+  pop_48h           integer -- renomeada para pop_24h em 20260725104059_rename_condicoes_pop_48h_to_pop_24h.sql
 );
 
 CREATE TABLE IF NOT EXISTS profiles (
