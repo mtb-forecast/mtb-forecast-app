@@ -251,7 +251,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
         {/* ── Card: Condição do Solo ──────────────────────────────────── */}
         {c && (
           <div style={{ marginBottom: 12 }}>
-            <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} />
+            <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} exposicao={trilha.exposicao} />
           </div>
         )}
 

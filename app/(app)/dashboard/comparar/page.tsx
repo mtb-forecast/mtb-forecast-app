@@ -43,7 +43,7 @@ function TrilhaColumn({ trilha, label }: { trilha: TrilhaComCondicao; label: str
         </p>
       </div>
       {trilha.condicao ? (
-        <CondicaoCard condicao={trilha.condicao} />
+        <CondicaoCard condicao={trilha.condicao} exposicao={trilha.exposicao} />
       ) : (
         <div style={{
           background: '#fff', borderRadius: 12, padding: 24,
