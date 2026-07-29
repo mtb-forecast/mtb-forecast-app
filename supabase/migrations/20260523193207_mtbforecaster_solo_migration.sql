@@ -125,11 +125,16 @@ INSERT INTO aderencia_descricoes (solo_type, status, texto, ativo) VALUES
 -- PASSO 4: tabela_solo — INSERIR novos registros
 -- ============================================================
 
+-- Nota: PASSO 4 original tinha 2 pares de chave duplicada dentro do mesmo
+-- INSERT (TerraFerrico/Mata Atlântica/MG e Terra/Mata Atlântica/SP, cada
+-- um com 2 linhas de clay/sand diferentes) -- violava
+-- tabela_solo_unique_idx e nunca completou com sucesso em produção
+-- (tabela_solo não tem nenhuma linha com os novos solo_type ainda).
+-- Removidas as duplicatas (mantida 1 linha por chave) para o INSERT
+-- poder completar em um replay do zero.
 INSERT INTO tabela_solo (solo_type, bioma, regiao, clay_pct, sand_pct, texture_class) VALUES
-  ('TerraFerrico',      'Mata Atlântica', 'MG', 12, 58, 'Franco-arenoso'),
   ('TerraFerrico',      'Mata Atlântica', 'MG', 15, 55, 'Franco-arenoso'),
   ('Terra',             'Mata Atlântica', 'MG', 38, 32, 'Franco-argiloso'),
-  ('Terra',             'Mata Atlântica', 'SP', 38, 32, 'Franco-argiloso'),
   ('Terra',             'Mata Atlântica', 'SP', 40, 30, 'Argiloso'),
   ('Terra',             'Mata Atlântica', 'PR', 40, 30, 'Argiloso'),
   ('TerraAltaMontanha', 'Mata Atlântica', 'SP', 42, 22, 'Argiloso'),
