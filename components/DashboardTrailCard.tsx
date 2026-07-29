@@ -8,7 +8,7 @@ import {
   type TablerIcon,
 } from '@tabler/icons-react'
 import { TrilhaComCondicao, VEREDICTO_CONFIG } from '@/lib/types'
-import { selecionarVeredicto } from '@/lib/veredicto'
+import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
 import { statusTrilhaLabel } from '@/lib/statusTrilha'
 
@@ -66,9 +66,12 @@ function soloFontSize(a: string | null | undefined): number {
 
 function chipLabel(v: string | null | undefined): string | null {
   if (!v) return null
-  if (v.includes('DROP') || v.includes('LIBERADO')) return 'Drop liberado'
+  // Prioridade EVITAR/ESPERAR > ALERTA > LIBERADO (mesma ordem de topBarColor/
+  // chipStyle acima) -- "DROP LIBERADO - Veja os alertas" contém "DROP" E
+  // "ALERTA", então a checagem de ALERTA precisa vir antes da de LIBERADO.
   if (v.includes('ESPERAR') || v.includes('EVITAR') || v.includes('FECHADA')) return 'Melhor esperar'
   if (v.includes('ATENÇÃO') || v.includes('ALERTA') || v.includes('AGUARDAR')) return 'Atenção'
+  if (v.includes('DROP') || v.includes('LIBERADO')) return 'Drop liberado'
   return null  // qualquer outro texto (longo, desconhecido) = sem dados reais
 }
 
@@ -83,10 +86,14 @@ type Props = {
 
 function DashboardTrailCard({ trilha, avaliacao }: Props) {
   const c             = trilha.condicao
-  const veredictoText = selecionarVeredicto(c?.veredicto, c?.veredicto_12h)
+  const veredictoBase = selecionarVeredicto(c?.veredicto, c?.veredicto_12h)
+  // Mesma fonte usada por CondicaoCard/TrilhaCard/DashboardVitrine: nunca mostra
+  // "DROP LIBERADO" limpo ao lado de um alerta visível (rajada, vento, chuva,
+  // piora futura) que sozinho não bastou pra escalar o risco TOTAL no backend.
+  const veredictoText = veredictoComAlerta(veredictoBase, c, trilha.exposicao)
   const vcfg          = veredictoText ? (VEREDICTO_CONFIG[veredictoText] ?? null) : null
   const hasData       = c != null && vcfg != null
-  const has12h        = veredictoText !== null && veredictoText === c?.veredicto_12h?.trim()
+  const has12h        = veredictoBase !== null && veredictoBase === c?.veredicto_12h?.trim()
 
   const barColor = topBarColor(veredictoText)
   const cs       = chipStyle(veredictoText)
