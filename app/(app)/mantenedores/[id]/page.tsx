@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import type { Mantenedor, TrilhaComCondicao } from '@/lib/types'
 import MantenedorContent from './MantenedorContent'
 import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
+import { condicoesArray } from '@/lib/display'
 
 // Conteúdo muda quando admin edita trilhas — sem cache para garantir dados frescos
 export const dynamic = 'force-dynamic'
@@ -66,7 +67,7 @@ export default async function MantenedorPage({ params }: { params: Promise<{ id:
     const blocos = Array.isArray(t.previsao_blocos)
       ? [...t.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
       : null
-    const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+    const arr = condicoesArray(t.condicoes)
     // ordena por gerado_em desc para pegar a condição mais recente
     arr.sort((a: { gerado_em: string }, b: { gerado_em: string }) =>
       new Date(b.gerado_em).getTime() - new Date(a.gerado_em).getTime()

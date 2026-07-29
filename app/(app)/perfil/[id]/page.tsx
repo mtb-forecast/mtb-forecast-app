@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import FollowButton from '@/components/FollowButton'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
+import { condicoesArray } from '@/lib/display'
 
 const TOPO_SVG = `
 <svg xmlns='http://www.w3.org/2000/svg' width='900' height='500' viewBox='0 0 900 500'>
@@ -164,7 +165,7 @@ export default async function PerfilPublicoPage({ params }: { params: Promise<{ 
             display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12,
           }}>
             {trilhas.map(t => {
-              const cond = t.condicoes?.[0]
+              const cond = condicoesArray(t.condicoes)[0]
               const veredicto = selecionarVeredicto(cond?.veredicto, cond?.veredicto_12h)
               const cs = chipStyle(veredicto)
               return (

@@ -7,6 +7,7 @@ import { supabase, getClientUser } from '@/lib/supabase'
 import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
+import { condicoesArray } from '@/lib/display'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import FavoritoButton from '@/components/FavoritoButton'
 import PumpTrackCard from '@/components/PumpTrackCard'
@@ -143,7 +144,7 @@ function TrilhasContent() {
         if (trilhasData) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mapped = (trilhasData as any[]).map((t) => {
-            const arr = Array.isArray(t.condicoes) ? t.condicoes : []
+            const arr = condicoesArray(t.condicoes)
             return { ...t, condicao: arr[0] ?? undefined } as TrilhaComCondicao
           })
           const statusMap = await fetchStatusAtivoPorTrilha(supabase, mapped.map(t => t.id))
