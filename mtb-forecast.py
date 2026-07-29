@@ -1566,10 +1566,17 @@ def _lookup_bioma(trail: dict, mes: int = None) -> dict:
         alt_min = row.get("altitude_min")
         if alt_min is not None and altitude < alt_min:
             continue
-        # Aplica sazonalidade se estiver no período de dossel aberto
+        # Aplica sazonalidade se estiver no período de dossel aberto.
+        # ini <= fim: intervalo normal (ex: 4-9). ini > fim: intervalo cruza a
+        # virada do ano (ex: 11-2 = nov,dez,jan,fev) -- nenhum bioma usa isso
+        # hoje, mas o cascateamento cobre o caso pra nao quebrar silenciosamente
+        # se uma calibracao futura precisar.
         ini = row.get("mes_sazonal_inicio")
         fim = row.get("mes_sazonal_fim")
-        if mes and ini and fim and ini <= mes <= fim:
+        em_periodo = bool(mes and ini and fim and (
+            ini <= mes <= fim if ini <= fim else (mes >= ini or mes <= fim)
+        ))
+        if em_periodo:
             return {**row,
                 "chuva_penetracao": row["chuva_penetracao_sazonal"],
                 "vento_penetracao": row["vento_penetracao_sazonal"],
