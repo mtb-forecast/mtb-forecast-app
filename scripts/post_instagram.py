@@ -90,6 +90,12 @@ def fetch_trails_with_conditions(trail_id: str | None) -> list[dict]:
     result = []
     for t in trails:
         conds = t.get("condicoes") or []
+        # Embed trilhas->condicoes(*) virou to-one após UNIQUE(trilha_id) em
+        # condicoes (ver commit 3aaefe6) — PostgREST devolve objeto único em
+        # vez de array. Normaliza antes de iterar, senão `for c in conds`
+        # itera as CHAVES do dict (strings), quebrando c.get(...) abaixo.
+        if isinstance(conds, dict):
+            conds = [conds]
         real = [
             c for c in conds
             if c.get("veredicto") and PLACEHOLDER not in c["veredicto"].lower()
