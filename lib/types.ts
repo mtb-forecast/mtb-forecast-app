@@ -243,6 +243,13 @@ export type NoticiaClima = {
   created_at: string
 }
 
+export type NoticiaExterna = {
+  id: number
+  resumo: string
+  fontes: { titulo: string; url: string }[]
+  created_at: string
+}
+
 export type FeedItem =
   | ({ kind: 'pipeline' } & FeedEvento & { trilha_nome?: string })
   | ({ kind: 'tempestade' } & FeedEvento & { trilha_nome?: string })
@@ -252,6 +259,7 @@ export type FeedItem =
       following_perfil?: FeedPerfilMini
     })
   | ({ kind: 'noticia_clima' } & NoticiaClima)
+  | ({ kind: 'noticia_externa' } & NoticiaExterna)
 
 export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'outros'] as const
 export type Regiao = typeof REGIOES[number]

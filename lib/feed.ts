@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini, NoticiaClima } from './types'
+import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini, NoticiaClima, NoticiaExterna } from './types'
 
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000
 
@@ -7,6 +7,10 @@ const BRT_OFFSET_MS = 3 * 60 * 60 * 1000
 // scripts/post_noticia_clima.py). Setar false aqui remove o card do feed do
 // app instantaneamente, sem precisar desligar o workflow ou o script.
 const NOTICIA_CLIMA_ATIVO = true
+
+// Kill switch da notícia externa (busca real na web, gerada por
+// scripts/post_noticia_externa.py). Independente do switch acima.
+const NOTICIA_EXTERNA_ATIVA = true
 
 export type FeedRange = { startUTC: string; endUTC: string }
 
@@ -113,11 +117,24 @@ export async function fetchFeedItems(
         .limit(20)
     : Promise.resolve({ data: [] as NoticiaClima[] })
 
-  const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: noticiasClima }] = await Promise.all([
+  // Notícia externa: também broadcast, mesmo padrão da notícia climática,
+  // mas alimentada por busca real na web (não é dado interno das trilhas).
+  const noticiaExternaPromise = NOTICIA_EXTERNA_ATIVA
+    ? sb
+        .from('noticias_externas')
+        .select('id, resumo, fontes, created_at')
+        .gte('created_at', range.startUTC)
+        .lt('created_at', range.endUTC)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : Promise.resolve({ data: [] as NoticiaExterna[] })
+
+  const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: noticiasClima }, { data: noticiasExternas }] = await Promise.all([
     eventosPromise,
     obsPromise,
     seguidaPromise,
     noticiaClimaPromise,
+    noticiaExternaPromise,
   ])
 
   const trilhaIdsParaNome = Array.from(new Set([
@@ -165,7 +182,12 @@ export async function fetchFeedItems(
     ...n,
   }))
 
-  return [...eventoItems, ...obsItems, ...seguidaItems, ...noticiaClimaItems].sort(
+  const noticiaExternaItems: FeedItem[] = ((noticiasExternas ?? []) as NoticiaExterna[]).map(n => ({
+    kind: 'noticia_externa',
+    ...n,
+  }))
+
+  return [...eventoItems, ...obsItems, ...seguidaItems, ...noticiaClimaItems, ...noticiaExternaItems].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )
 }

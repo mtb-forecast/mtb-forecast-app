@@ -1,0 +1,59 @@
+name: Notícia Externa (busca real na web)
+
+# Pesquisa notícias reais de clima extremo no Brasil via web_search do Claude
+# e publica no feed do app + Instagram, citando as fontes reais retornadas.
+# INDEPENDENTE do pipeline principal e de noticia-clima.yml — não altera
+# nenhum dos dois.
+#
+# Para desligar no futuro: desabilite este workflow na aba Actions do GitHub
+# (Actions → Notícia Externa → "..." → Disable workflow), ou apague este
+# arquivo. Nenhuma outra parte do sistema depende dele.
+
+on:
+  schedule:
+    - cron: "0 10 * * *"  # 07h BRT — diário
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "DRY RUN (não grava nem posta de verdade)"
+        required: false
+        default: false
+        type: boolean
+      instagram:
+        description: "Postar também no Instagram"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  noticia-externa:
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_URL:                  https://eydlkvrjopffyqpdstzh.supabase.co
+      SUPABASE_SERVICE_KEY:          ${{ secrets.SUPABASE_SERVICE_KEY }}
+      ANTHROPIC_API_KEY:             ${{ secrets.ANTHROPIC_API_KEY }}
+      OG_API_BASE:                   https://mtbforecaster.com.br
+      INSTAGRAM_ACCESS_TOKEN:        ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+      DRY_RUN:                       ${{ inputs.dry_run == true && '1' || '0' }}
+      NOTICIA_EXTERNA_INSTAGRAM:     ${{ inputs.instagram == false && '0' || '1' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instalar dependências
+        run: pip install requests
+
+      - name: Pesquisar e publicar notícia externa
+        run: python scripts/post_noticia_externa.py

@@ -124,6 +124,11 @@ def montar_estatisticas() -> dict:
         trilha = trilhas.get(c.get("trilha_id"))
         if not trilha:
             continue
+        # Trilhas nunca favoritadas ficam com todos os campos zerados no upsert
+        # (ver gravar_sem_favorito_bulk) — acumulo_ef é None nesse caso. Excluir
+        # da agregação: não são condições reais, são placeholder.
+        if c.get("acumulo_ef") is None:
+            continue
         macro = _macro_regiao(trilha.get("regiao") or "")
         bucket = _bucket_veredicto(c.get("veredicto_12h") or c.get("veredicto"))
 
@@ -146,7 +151,22 @@ def montar_estatisticas() -> dict:
     return por_macro
 
 
+def _sanitizar_stats_para_prompt(stats: dict) -> dict:
+    """Remove o total por região antes de mandar pro Claude — a notícia pode
+    citar contagem absoluta por veredicto (ex: "37 trilhas em DROP LIBERADO"),
+    mas nunca o denominador. Expor "de 39 monitoradas" revela que a cobertura
+    de trilhas com dado real ainda é parcial, o que passa uma imagem de menos
+    robustez do que o produto tem."""
+    limpo = {}
+    for macro, s in stats.items():
+        s2 = dict(s)
+        s2.pop("total", None)
+        limpo[macro] = s2
+    return limpo
+
+
 def _build_prompt(stats: dict) -> str:
+    stats_prompt = _sanitizar_stats_para_prompt(stats)
     return f"""Você escreve para o feed do app MTB Forecaster, um serviço de previsão de
 condições de trilha de mountain bike no Brasil. Gere uma "visão geral" curta, no
 estilo de resumo jornalístico (como um card de notícia), SOMENTE com base nos
@@ -155,7 +175,13 @@ nos dados. Se uma região não aparece nos dados, não fale dela.
 
 Dados agregados por macro-região (contagem de trilhas por veredicto, maior
 acúmulo de chuva efetiva em mm, maior rajada de vento em km/h):
-{json.dumps(stats, ensure_ascii=False, indent=2)}
+{json.dumps(stats_prompt, ensure_ascii=False, indent=2)}
+
+REGRA CRÍTICA: você pode citar a contagem absoluta de trilhas por veredicto
+(ex: "37 trilhas em DROP LIBERADO", "2 trilhas em alerta"), mas NUNCA cite ou
+insinue o total/denominador de trilhas monitoradas (ex: "de 39 trilhas",
+"do total de", "das X monitoradas"). Não existe o número total nos dados
+acima de propósito — não estime nem infira esse valor.
 
 Responda APENAS com um JSON válido (sem markdown, sem texto fora do JSON) no
 formato exato:
