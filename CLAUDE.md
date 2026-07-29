@@ -79,13 +79,14 @@ Limite One Call 3.0 free: 1.000/dia. 4 execuções/dia ≈ 284 — folga confort
 
 ### `enso_regional_mult` (nova tabela)
 - ENSO phase × macro-região → multiplicador
-- NORTE e NORDESTE têm **lógica INVERSA**:
-  - El Niño no Norte/Nordeste = seca = threshold SOBE = modelo mais conservador (mult > 1.0)
-  - La Niña no Norte/Nordeste = chuva = threshold DESCE = modelo mais permissivo (mult < 1.0)
+- NORTE, NORDESTE e CENTRO-OESTE têm **lógica INVERSA** ao SUL:
+  - El Niño = seca (amazônica/nordestina/Cerrado) = threshold SOBE = modelo mais conservador (mult > 1.0)
+  - La Niña = chuva = threshold DESCE = modelo mais permissivo (mult < 1.0)
 - SUL: El Niño 0.69–0.79, La Niña 1.22–1.37
 - NORTE: El Niño 1.18–1.25, La Niña 0.75–0.85
 - NORDESTE: El Niño 1.25–1.35, La Niña 0.70–0.80
-- CENTRO-OESTE: El Niño 0.90–0.94, La Niña 1.06–1.12
+- CENTRO-OESTE: El Niño 1.08–1.12, La Niña 0.88–0.92 (efeito mais moderado que Norte/Nordeste,
+  mas mesma direção — Cerrado também seca no El Niño)
 
 ### `_enso_mult_regional(enso, uf)`
 - Substitui o `enso["mult"]` genérico de `enso_config`
@@ -95,7 +96,7 @@ Limite One Call 3.0 free: 1.000/dia. 4 execuções/dia ≈ 284 — folga confort
 
 ### Regras invioláveis do modelo regional
 - NUNCA usar o mult genérico de `enso_config` diretamente quando há `enso_regional_mult`
-- NORTE/NORDESTE têm lógica ENSO inversa — não "corrigir" esses multiplicadores para < 1.0 em El Niño
+- NORTE/NORDESTE/CENTRO-OESTE têm lógica ENSO inversa — não "corrigir" esses multiplicadores para < 1.0 em El Niño
 - A cascata de threshold (UF → macro → DEFAULT) é obrigatória — sem pular níveis
 
 ---
@@ -253,7 +254,7 @@ Override pós-modelo `_aplicar_override_chuva_futura()` escalona DROP LIBERADO:
 7. **NUNCA usar next/image para logo_url** — usar `<img>` nativo
 8. **Todas as alterações no branch `develop`**, nunca direto em `main`
 9. **Não usar `createClient` no nível de módulo** em Next.js — causa crash se env var ausente no Vercel
-10. **NORTE/NORDESTE têm lógica ENSO inversa** — não "corrigir" multiplicadores > 1.0 em El Niño
+10. **NORTE/NORDESTE/CENTRO-OESTE têm lógica ENSO inversa** — não "corrigir" multiplicadores > 1.0 em El Niño
 11. **Não recriar microclima_config como fonte ativa** — foi supersedida por `biomas`
 12. **Colunas de auditoria** (`cloud_pct`, `humidity_pct`, `temp_media_c`, `meia_vida_base_h`) devem ser gravadas em todo pipeline completo
 13. **NUNCA modificar o array ERA5 in-place no nowcast overlay** — sempre copiar com `list()` antes

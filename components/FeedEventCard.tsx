@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight, IconAlertTriangle } from '@tabler/icons-react'
+import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight, IconAlertTriangle, IconWorld, IconNews } from '@tabler/icons-react'
 import type { FeedItem, FeedPerfilMini } from '@/lib/types'
 import { statusTrilhaLabel } from '@/lib/statusTrilha'
 
@@ -129,6 +129,117 @@ export default function FeedEventCard({ item, viewerId }: { item: FeedItem; view
         </p>
 
         <CardFooter createdAt={item.created_at} />
+      </div>
+    )
+  }
+
+  if (item.kind === 'noticia_clima') {
+    return (
+      <div style={{ ...cardStyle, background: '#1e2e1a', border: '1px solid #2a4a2a' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: 'rgba(134,239,172,0.14)', display: 'grid', placeItems: 'center',
+          }}>
+            <IconWorld size={14} style={{ color: '#86efac' }} />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
+            textTransform: 'uppercase', color: '#86efac', fontWeight: 700,
+          }}>
+            Visão geral das trilhas
+          </span>
+        </div>
+
+        <p style={{
+          fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+          fontSize: 20, color: '#fbfbf6', lineHeight: 1.25, margin: '0 0 10px',
+        }}>
+          {item.frase_destaque}
+        </p>
+
+        {item.bullets?.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
+            {item.bullets.map((b, i) => (
+              <div key={i}>
+                <span style={{
+                  fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
+                  textTransform: 'uppercase', color: '#86efac',
+                }}>
+                  {b.regiao}
+                </span>
+                <p style={{ fontSize: 13, color: 'rgba(232,237,227,0.85)', lineHeight: 1.4, margin: 0 }}>
+                  {b.texto}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{
+          display: 'flex', alignItems: 'center', marginTop: 10, paddingTop: 10,
+          borderTop: '1px solid rgba(167,205,167,0.18)',
+        }}>
+          <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: 'rgba(167,205,167,0.55)' }}>
+            {formatDateTime(item.created_at)}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  if (item.kind === 'noticia_externa') {
+    return (
+      <div style={{ ...cardStyle, background: '#1e2e1a', border: '1px solid #2a4a2a' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: 'rgba(134,239,172,0.14)', display: 'grid', placeItems: 'center',
+          }}>
+            <IconNews size={14} style={{ color: '#86efac' }} />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
+            textTransform: 'uppercase', color: '#86efac', fontWeight: 700,
+          }}>
+            Clima extremo no Brasil
+          </span>
+        </div>
+
+        <p style={{
+          fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+          fontSize: 20, color: '#fbfbf6', lineHeight: 1.25, margin: '0 0 10px',
+        }}>
+          {item.resumo}
+        </p>
+
+        {item.fontes?.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+            {item.fontes.map((f, i) => (
+              <a
+                key={i}
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 11, color: '#86efac', textDecoration: 'none',
+                  padding: '2px 8px', borderRadius: 10, background: 'rgba(134,239,172,0.10)',
+                }}
+              >
+                {f.titulo}
+              </a>
+            ))}
+          </div>
+        )}
+
+        <div style={{
+          display: 'flex', alignItems: 'center', marginTop: 10, paddingTop: 10,
+          borderTop: '1px solid rgba(167,205,167,0.18)',
+        }}>
+          <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: 'rgba(167,205,167,0.55)' }}>
+            {formatDateTime(item.created_at)}
+          </span>
+        </div>
       </div>
     )
   }

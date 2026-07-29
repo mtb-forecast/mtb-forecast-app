@@ -1566,10 +1566,17 @@ def _lookup_bioma(trail: dict, mes: int = None) -> dict:
         alt_min = row.get("altitude_min")
         if alt_min is not None and altitude < alt_min:
             continue
-        # Aplica sazonalidade se estiver no período de dossel aberto
+        # Aplica sazonalidade se estiver no período de dossel aberto.
+        # ini <= fim: intervalo normal (ex: 4-9). ini > fim: intervalo cruza a
+        # virada do ano (ex: 11-2 = nov,dez,jan,fev) -- nenhum bioma usa isso
+        # hoje, mas o cascateamento cobre o caso pra nao quebrar silenciosamente
+        # se uma calibracao futura precisar.
         ini = row.get("mes_sazonal_inicio")
         fim = row.get("mes_sazonal_fim")
-        if mes and ini and fim and ini <= mes <= fim:
+        em_periodo = bool(mes and ini and fim and (
+            ini <= mes <= fim if ini <= fim else (mes >= ini or mes <= fim)
+        ))
+        if em_periodo:
             return {**row,
                 "chuva_penetracao": row["chuva_penetracao_sazonal"],
                 "vento_penetracao": row["vento_penetracao_sazonal"],
@@ -2139,6 +2146,34 @@ def _carregar_ids_com_favorito() -> set | None:
         return None
 
 
+# Upsert com merge-duplicates so sobrescreve as colunas presentes no payload --
+# ao contrario do antigo DELETE+INSERT, uma trilha desfavoritada nao teria mais
+# nenhum campo velho (rain_mm, meia_vida_h, veredicto antigo, etc.) limpo,
+# ficando com dados de dias atras "congelados" sob um gerado_em novo. Lista
+# explicita todo campo de condicoes fora trilha_id/gerado_em/aderencia_status/
+# veredicto/veredicto_12h como null para replicar a limpeza completa.
+_CONDICOES_CAMPOS_NULOS = {
+    "aderencia_score": None, "aderencia_desc": None,
+    "rain_mm": None, "rain_12h": None, "wind_ms": None, "wind_12h": None,
+    "pop_24h": None, "pop_12h": None, "temp_max": None, "temp_min": None,
+    "pico_3h": None, "chuva_solo_48h": None, "acumulo_ef": None, "ultima_chuva_h": None,
+    "meia_vida_base_h": None, "meia_vida_h": None, "cloud_pct": None, "humidity_pct": None,
+    "temp_media_c": None, "rajada_max_kmh": None, "horarios_chuva": None, "frase_secagem": None,
+    "solo_descansado": None, "limiar_descanso": None, "clay_pct": None, "sand_pct": None,
+    "texture_class": None, "inclinacao": None, "enso_fase": None, "enso_oni": None,
+    "fonte": None, "alerta_vento_nivel": None, "alerta_vento_kmh": None, "alerta_rajada_kmh": None,
+    "aderencia_futura_status": None, "aderencia_futura_label": None, "aderencia_futura_rain": None,
+    "texto_dinamico": None, "motivo_veredicto": None, "grip_threshold_ef": None,
+    "fds_d1_veredicto": None, "fds_d1_rain": None, "fds_d1_wind": None, "fds_d1_rajada": None,
+    "fds_d1_temp": None, "fds_d1_temp_min": None, "fds_d1_pop": None,
+    "fds_d2_veredicto": None, "fds_d2_rain": None, "fds_d2_wind": None, "fds_d2_rajada": None,
+    "fds_d2_temp": None, "fds_d2_temp_min": None, "fds_d2_pop": None,
+    "fds_d3_veredicto": None, "fds_d3_rain": None, "fds_d3_wind": None, "fds_d3_rajada": None,
+    "fds_d3_temp": None, "fds_d3_temp_min": None, "fds_d3_pop": None,
+    "dados_json": None, "historico_atualizado_em": None,
+}
+
+
 def gravar_sem_favorito_bulk(trilhas: list) -> None:
     """
     Grava em lote registros 'SEM FAVORITO' em condicoes.
@@ -2150,6 +2185,7 @@ def gravar_sem_favorito_bulk(trilhas: list) -> None:
     gerado_em = datetime.now(BRT).isoformat()
 
     payload = json.dumps([{
+        **_CONDICOES_CAMPOS_NULOS,
         "trilha_id":        t["id"],
         "gerado_em":        gerado_em,
         "aderencia_status": "SEM FAVORITO",

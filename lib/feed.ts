@@ -1,7 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini } from './types'
+import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini, NoticiaClima, NoticiaExterna } from './types'
 
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000
+
+// Kill switch da notícia climática (visão geral agregada, gerada por
+// scripts/post_noticia_clima.py). Setar false aqui remove o card do feed do
+// app instantaneamente, sem precisar desligar o workflow ou o script.
+const NOTICIA_CLIMA_ATIVO = true
+
+// Kill switch da notícia externa (busca real na web, gerada por
+// scripts/post_noticia_externa.py). Independente do switch acima.
+const NOTICIA_EXTERNA_ATIVA = true
 
 export type FeedRange = { startUTC: string; endUTC: string }
 
@@ -96,10 +105,36 @@ export async function fetchFeedItems(
     .order('created_at', { ascending: false })
     .limit(200)
 
-  const [{ data: eventos }, { data: observacoes }, { data: seguidas }] = await Promise.all([
+  // Notícia climática: broadcast para todos os usuários (não depende de
+  // favoritos/seguidores). Tabela isolada — ver lib/feed.ts NOTICIA_CLIMA_ATIVO.
+  const noticiaClimaPromise = NOTICIA_CLIMA_ATIVO
+    ? sb
+        .from('noticias_clima')
+        .select('id, frase_destaque, bullets, created_at')
+        .gte('created_at', range.startUTC)
+        .lt('created_at', range.endUTC)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : Promise.resolve({ data: [] as NoticiaClima[] })
+
+  // Notícia externa: também broadcast, mesmo padrão da notícia climática,
+  // mas alimentada por busca real na web (não é dado interno das trilhas).
+  const noticiaExternaPromise = NOTICIA_EXTERNA_ATIVA
+    ? sb
+        .from('noticias_externas')
+        .select('id, resumo, fontes, created_at')
+        .gte('created_at', range.startUTC)
+        .lt('created_at', range.endUTC)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : Promise.resolve({ data: [] as NoticiaExterna[] })
+
+  const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: noticiasClima }, { data: noticiasExternas }] = await Promise.all([
     eventosPromise,
     obsPromise,
     seguidaPromise,
+    noticiaClimaPromise,
+    noticiaExternaPromise,
   ])
 
   const trilhaIdsParaNome = Array.from(new Set([
@@ -142,7 +177,17 @@ export async function fetchFeedItems(
     following_perfil: s.following_id ? perfilById.get(s.following_id) : undefined,
   }))
 
-  return [...eventoItems, ...obsItems, ...seguidaItems].sort(
+  const noticiaClimaItems: FeedItem[] = ((noticiasClima ?? []) as NoticiaClima[]).map(n => ({
+    kind: 'noticia_clima',
+    ...n,
+  }))
+
+  const noticiaExternaItems: FeedItem[] = ((noticiasExternas ?? []) as NoticiaExterna[]).map(n => ({
+    kind: 'noticia_externa',
+    ...n,
+  }))
+
+  return [...eventoItems, ...obsItems, ...seguidaItems, ...noticiaClimaItems, ...noticiaExternaItems].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )
 }
