@@ -235,7 +235,17 @@ clima ou eventos que não estejam nos dados. Se uma região não aparece nos
 dados, não fale dela.
 
 Dados agregados por macro-região:
-- LIBERADO/ALERTA/EVITAR/OUTRO: contagem de trilhas de terra por veredicto
+- LIBERADO/ALERTA/EVITAR/OUTRO: contagem de trilhas de terra por veredicto.
+  São 3 categorias DIFERENTES, não intercambiáveis:
+  · LIBERADO = trilha liberada, pode pedalar
+  · ALERTA = ainda dá pra pedalar, mas com atenção (chuva recente, vento,
+    etc.) — NUNCA descreva ALERTA como "evitar", "não recomendado" ou
+    "situação de evitar". Use "em alerta" ou "que pede atenção".
+  · EVITAR = não pedalar agora. Só use as palavras "evitar"/"não recomendado"
+    para essa categoria — nunca para ALERTA.
+  Se uma região tem ALERTA:2 e EVITAR:0, a frase correta é "2 trilhas em
+  alerta" — NUNCA "2 em situação de evitar" (isso é inventar um dado que
+  não existe: o EVITAR real dessa região é zero).
 - chuva_max / rajada_max: maior acúmulo de chuva efetiva (mm) / rajada de
   vento (km/h) entre as trilhas de terra dessa região
 - pumptrack (quando presente): dado de PUMP TRACK — piso duro, sem modelo de
@@ -246,7 +256,11 @@ Dados agregados por macro-região:
 
 {json.dumps(stats_prompt, ensure_ascii=False, indent=2)}
 
-REGRA CRÍTICA: você pode citar a contagem absoluta de trilhas por veredicto
+REGRA CRÍTICA 1: LIBERADO, ALERTA e EVITAR são contagens separadas — nunca
+some, arredonde ou troque uma pela outra. Confira cada número contra a chave
+exata dos dados antes de escrever a frase final.
+
+REGRA CRÍTICA 2: você pode citar a contagem absoluta de trilhas por veredicto
 (ex: "37 trilhas em DROP LIBERADO", "2 trilhas em alerta"), mas NUNCA cite ou
 insinue o total/denominador de trilhas monitoradas (ex: "de 39 trilhas",
 "do total de", "das X monitoradas"), nem quantos pump tracks existem numa
