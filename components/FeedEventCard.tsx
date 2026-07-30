@@ -80,6 +80,31 @@ function nomePerfil(p?: FeedPerfilMini): string {
   return p?.apelido || p?.nome || 'Rider'
 }
 
+// Mesmo esquema de cores do TrilhaCard (topBarColor/verdictStyle): verde =
+// liberado, âmbar = alerta, vermelho = evitar.
+function VeredictoBadges({ liberado, alerta, evitar }: { liberado?: number; alerta?: number; evitar?: number }) {
+  const itens: { n: number; label: string; bg: string; color: string }[] = [
+    { n: liberado ?? 0, label: 'liberadas', bg: '#d6edcc', color: '#2a6b1e' },
+    { n: alerta ?? 0,   label: 'em alerta', bg: '#fdf0cc', color: '#8a5e00' },
+    { n: evitar ?? 0,   label: 'evitar',    bg: '#fcd8d8', color: '#8a1a1a' },
+  ].filter(i => i.n > 0)
+
+  if (itens.length === 0) return null
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4, marginBottom: 4 }}>
+      {itens.map(i => (
+        <span key={i.label} style={{
+          fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+          background: i.bg, color: i.color,
+        }}>
+          {i.n} {i.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export default function FeedEventCard({ item, viewerId }: { item: FeedItem; viewerId?: string }) {
   const cardStyle: React.CSSProperties = {
     background: '#fff', borderRadius: 12,
@@ -156,12 +181,15 @@ export default function FeedEventCard({ item, viewerId }: { item: FeedItem; view
         </p>
 
         {item.bullets?.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {item.bullets.map((b, i) => (
-              <p key={i} style={{ fontSize: 13, color: '#444', lineHeight: 1.5, margin: 0 }}>
-                <span style={{ color: '#9AA093', textTransform: 'uppercase', fontSize: 11 }}>{b.regiao}: </span>
-                {b.texto}
-              </p>
+              <div key={i}>
+                <p style={{ fontSize: 13, color: '#444', lineHeight: 1.5, margin: 0 }}>
+                  <span style={{ color: '#9AA093', textTransform: 'uppercase', fontSize: 11 }}>{b.regiao}: </span>
+                  {b.texto}
+                </p>
+                <VeredictoBadges liberado={b.liberado} alerta={b.alerta} evitar={b.evitar} />
+              </div>
             ))}
           </div>
         )}

@@ -239,7 +239,7 @@ export type FeedPerfilMini = {
 export type NoticiaClima = {
   id: number
   frase_destaque: string
-  bullets: { regiao: string; texto: string }[]
+  bullets: { regiao: string; texto: string; liberado?: number; alerta?: number; evitar?: number }[]
   created_at: string
 }
 
