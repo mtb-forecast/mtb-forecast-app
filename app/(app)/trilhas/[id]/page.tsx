@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { Condicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
-import { deveAlertarRajada, condicoesArray } from '@/lib/display'
+import { condicoesArray } from '@/lib/display'
 import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract } from '@tabler/icons-react'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
@@ -70,9 +70,6 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
   const veredictoText = selecionarVeredicto(c?.veredicto, c?.veredicto_12h)
 
   const isQuadrilatero = trilha.solo_type === 'ferro' || trilha.solo_type === 'misto_mg'
-
-  const alertaRajada = deveAlertarRajada(c?.alerta_rajada_kmh, trilha.exposicao)
-  const nivelVento = c?.alerta_vento_nivel ?? 0
 
   const clay = c?.clay_pct
   const fontes: string[] = []
@@ -252,59 +249,6 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
         {c && (
           <div style={{ marginBottom: 12 }}>
             <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} exposicao={trilha.exposicao} />
-          </div>
-        )}
-
-        {/* ── Card: Alertas ───────────────────────────────────────────── */}
-        {c && (alertaRajada || nivelVento > 0) && (
-          <div style={{
-            background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)',
-            borderRadius: 16, overflow: 'hidden', marginBottom: 12,
-            boxShadow: '0 2px 8px rgba(0,0,0,.04)',
-          }}>
-            <div style={{
-              padding: '12px 18px', borderBottom: '1px solid rgba(0,0,0,.07)',
-              fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1.5px',
-              textTransform: 'uppercase', color: '#9CA3AF',
-            }}>
-              Alertas
-            </div>
-            <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-              {alertaRajada && c.alerta_rajada_kmh != null && (
-                <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: '0 8px 8px 0', padding: '10px 14px', fontSize: 12, color: '#713f12', fontWeight: 600, lineHeight: 1.5 }}>
-                  🟡 <b>Rajadas registradas nas próximas 48h</b><br />
-                  <span style={{ fontWeight: 400, color: '#a16207' }}>
-                    {trilha.exposicao?.toLowerCase() === 'aberta'
-                      ? <>Rajadas de até <span className="font-mono">{c.alerta_rajada_kmh.toFixed(0)} km/h</span>. Trilha exposta — risco em descidas rápidas e cristas.</>
-                      : <>Rajadas de até <span className="font-mono">{c.alerta_rajada_kmh.toFixed(0)} km/h</span>. Mesmo em trilha fechada, rajadas acima de <span className="font-mono">50 km/h</span> podem atingir clareiras.</>}
-                  </span>
-                </div>
-              )}
-
-              {nivelVento > 0 && c.alerta_vento_kmh != null && (() => {
-                const cfg3 = {
-                  1: { bg: '#fefce8', border: '#fde047', corT: '#713f12', corS: '#a16207', emoji: '🟡',
-                    titulo: 'Vento moderado a forte nas últimas 48h',
-                    msg: 'Ventos entre 55–65 km/h podem quebrar galhos de árvores com saúde comprometida.' },
-                  2: { bg: '#fff7ed', border: '#fdba74', corT: '#7c2d12', corS: '#c2410c', emoji: '🟠',
-                    titulo: 'Ventos fortes nas últimas 48h',
-                    msg: 'Ventos entre 65–90 km/h podem derrubar árvores. Avalie as condições antes de pedalar.' },
-                  3: { bg: '#fef2f2', border: '#fca5a5', corT: '#7f1d1d', corS: '#b91c1c', emoji: '🔴',
-                    titulo: 'Risco alto — vento de tempestade',
-                    msg: 'Ventos acima de 90 km/h com risco severo de obstrução. Avalie presencialmente.' },
-                }
-                const n = Math.min(nivelVento as number, 3) as 1 | 2 | 3
-                const a = cfg3[n]
-                const rajada = c.alerta_rajada_kmh ? ` · rajada ${c.alerta_rajada_kmh.toFixed(0)} km/h` : ''
-                return (
-                  <div style={{ background: a.bg, borderLeft: `3px solid ${a.border}`, borderRadius: '0 8px 8px 0', padding: '10px 14px', fontSize: 12, color: a.corT, fontWeight: 600, lineHeight: 1.5 }}>
-                    {a.emoji} <b>{a.titulo}</b> (<span className="font-mono">{c.alerta_vento_kmh.toFixed(0)} km/h sustentado{rajada}</span>)<br />
-                    <span style={{ fontWeight: 400, color: a.corS }}>{a.msg}</span>
-                  </div>
-                )
-              })()}
-            </div>
           </div>
         )}
 

@@ -632,9 +632,12 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
     _aderSev(condicao.aderencia_futura_status) > _aderSev(condicao.aderencia_status))
 
   // Alertas 24h
-  const nivelVento   = condicao.alerta_vento_nivel ?? 0
-  const sevRajada    = rajadaSeveridade(condicao.rajada_max_kmh, exposicao)
-  const temRajada    = sevRajada > 0
+  const nivelVento    = condicao.alerta_vento_nivel ?? 0
+  const sevRajada     = rajadaSeveridade(condicao.rajada_max_kmh, exposicao)
+  const temRajada     = sevRajada > 0
+  // Rajada HISTÓRICA (já observada nas últimas 48h) — distinta de sevRajada/rCfg
+  // acima, que é a rajada PREVISTA (forecast). Campo próprio: alerta_rajada_kmh.
+  const alertaRajadaHist = deveAlertarRajada(condicao.alerta_rajada_kmh, exposicao)
   const blocoPicoRajada = (condicao.previsao_24h ?? []).reduce<PrevisaoBloco | null>(
     (pico, b) => ((b.rajada_max ?? 0) > (pico?.rajada_max ?? 0) ? b : pico), null
   )
@@ -649,7 +652,7 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
   const badge       = verdictBadge(veredictoDisplay)
   const borderColor = verdictBorderColor(veredictoDisplay)
   const isAlertaVeredicto = veredictoDisplay.toUpperCase().includes('ALERTA')
-  const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta || isAlertaVeredicto
+  const hasAlertas   = nivelVento > 0 || temRajada || temChuva24h || hasAlerta || isAlertaVeredicto || alertaRajadaHist
 
   const ventoTextos: Record<number, { titulo: string; msg: string; cor: string; border: string }> = {
     1: { titulo: 'Vento moderado a forte nas últimas 48h', cor: '#713f12', border: '#fde047',
@@ -816,6 +819,21 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
                         ? <span className="font-mono"> ({condicao.aderencia_futura_rain.toFixed(1)}mm previstos)</span> : null}
                     </div>
                     <span style={{ fontSize: 11, color: '#B45309', paddingLeft: 19 }}>Evite a trilha neste período.</span>
+                  </div>
+                )}
+
+                {/* Rajada histórica (já observada nas últimas 48h) */}
+                {alertaRajadaHist && condicao.alerta_rajada_kmh != null && (
+                  <div style={{ background: '#FFFBEB', borderLeft: '3px solid #F59E0B', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, color: '#713f12', fontWeight: 600 }}>
+                      🟡 Rajadas registradas nas últimas 48h
+                      <span className="font-mono"> · {condicao.alerta_rajada_kmh.toFixed(0)} km/h</span>
+                    </div>
+                    <p style={{ fontSize: 11, color: '#a16207', margin: '3px 0 0', paddingLeft: 19 }}>
+                      {exposicao?.toLowerCase() === 'aberta'
+                        ? <>Trilha exposta — risco em descidas rápidas e cristas.</>
+                        : <>Mesmo em trilha fechada, rajadas acima de <span className="font-mono">50 km/h</span> podem atingir clareiras.</>}
+                    </p>
                   </div>
                 )}
 
