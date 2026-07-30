@@ -8,6 +8,9 @@ export const dynamic = 'force-dynamic'
 interface Bullet {
   regiao: string
   texto: string
+  liberado?: number
+  alerta?: number
+  evitar?: number
 }
 
 interface Noticia {
@@ -26,6 +29,7 @@ async function fetchNoticia(id: number | null): Promise<Noticia | null> {
   const filtro = id ? `id=eq.${id}&` : ''
   const res = await fetch(
     `${url}/rest/v1/noticias_clima?${filtro}select=id,frase_destaque,bullets,created_at&order=created_at.desc&limit=1`,
+    // bullets já vem com liberado/alerta/evitar (calculados em Python, não pelo Claude)
     { headers, cache: 'no-store' },
   )
   if (!res.ok) return null
@@ -191,16 +195,36 @@ export async function GET(req: NextRequest) {
 
             {/* Bullets por região */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-              {bullets.map((b, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', fontSize: 24, fontFamily: fontMono, fontWeight: 400, color: MINT_400, letterSpacing: 2 }}>
-                    {b.regiao}
+              {bullets.map((b, i) => {
+                const badges = [
+                  { n: b.liberado ?? 0, label: 'liberadas', bg: 'rgba(74,222,128,0.16)', color: '#4ADE80' },
+                  { n: b.alerta ?? 0,   label: 'em alerta', bg: 'rgba(251,191,36,0.16)', color: '#FBBF24' },
+                  { n: b.evitar ?? 0,   label: 'evitar',    bg: 'rgba(248,113,113,0.16)', color: '#F87171' },
+                ].filter(x => x.n > 0)
+                return (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', fontSize: 24, fontFamily: fontMono, fontWeight: 400, color: MINT_400, letterSpacing: 2 }}>
+                      {b.regiao}
+                    </div>
+                    {badges.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'row', gap: 10 }}>
+                        {badges.map(bd => (
+                          <div key={bd.label} style={{
+                            display: 'flex', fontSize: 20, fontFamily: fontSans, fontWeight: 700,
+                            color: bd.color, background: bd.bg, paddingTop: 6, paddingBottom: 6,
+                            paddingLeft: 16, paddingRight: 16,
+                          }}>
+                            {bd.n} {bd.label}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', fontSize: 34, fontFamily: fontSans, fontWeight: 400, color: '#eef2ea', lineHeight: 1.35 }}>
+                      {b.texto}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', fontSize: 34, fontFamily: fontSans, fontWeight: 400, color: '#eef2ea', lineHeight: 1.35 }}>
-                    {b.texto}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <div style={{ display: 'flex', height: 1, background: 'rgba(167,205,167,0.18)', marginTop: 40 }} />

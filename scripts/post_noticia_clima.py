@@ -234,36 +234,39 @@ notícia), SOMENTE com base nos dados agregados abaixo — não invente números
 clima ou eventos que não estejam nos dados. Se uma região não aparece nos
 dados, não fale dela.
 
-Dados agregados por macro-região:
+Dados agregados por macro-região (contexto — a contagem por veredicto NÃO
+deve aparecer no seu texto, ver regra abaixo):
 - LIBERADO/ALERTA/EVITAR/OUTRO: contagem de trilhas de terra por veredicto
 - chuva_max / rajada_max: maior acúmulo de chuva efetiva (mm) / rajada de
   vento (km/h) entre as trilhas de terra dessa região
 - pumptrack (quando presente): dado de PUMP TRACK — piso duro, sem modelo de
   secagem de solo, então NUNCA tem veredicto. É só previsão de chuva/vento.
-  Se uma região só tiver a chave "pumptrack" (sem LIBERADO/ALERTA/EVITAR),
-  fale SOMENTE da previsão do pump track, não diga "trilhas liberadas" nem
-  cite contagem de veredicto ali — ela não existe pra pump track.
 
 {json.dumps(stats_prompt, ensure_ascii=False, indent=2)}
 
-REGRA CRÍTICA: você pode citar a contagem absoluta de trilhas por veredicto
-(ex: "37 trilhas em DROP LIBERADO", "2 trilhas em alerta"), mas NUNCA cite ou
-insinue o total/denominador de trilhas monitoradas (ex: "de 39 trilhas",
-"do total de", "das X monitoradas"), nem quantos pump tracks existem numa
-região. Não existe o número total nos dados acima de propósito — não estime
-nem infira esse valor.
+REGRA CRÍTICA — NÃO cite números de trilhas por veredicto (não escreva "37
+trilhas em DROP LIBERADO", "2 em alerta", "3 liberadas" etc.). Esses números
+são exibidos separadamente pelo sistema, de forma exata — se você os citar em
+texto livre, o risco de errar a contagem ou confundir ALERTA com EVITAR é
+alto. Sua frase e seus bullets devem descrever só o CLIMA (chuva, vento,
+temperatura) e a tendência geral (ex: "tempo seco predomina", "chuva
+concentrada no Sul"), nunca contagens de trilha.
+
+Também NUNCA cite ou insinue o total/denominador de trilhas monitoradas (ex:
+"de 39 trilhas", "do total de", "das X monitoradas"), nem quantos pump tracks
+existem numa região — esse número não existe nos dados de propósito.
 
 Responda APENAS com um JSON válido (sem markdown, sem texto fora do JSON) no
 formato exato:
 {{
-  "frase_destaque": "1 frase (até 220 caracteres) resumindo o contraste regional mais notável entre as trilhas monitoradas hoje",
+  "frase_destaque": "1 frase (até 220 caracteres) resumindo o contraste climático regional mais notável hoje — só clima, sem contagem de trilhas",
   "bullets": [
-    {{"regiao": "NOME DA MACRO-REGIÃO", "texto": "1 frase curta (até 140 caracteres) sobre a condição predominante das trilhas nessa região"}}
+    {{"regiao": "NOME DA MACRO-REGIÃO", "texto": "1 frase curta (até 120 caracteres) só sobre o clima dessa região (chuva/vento/temperatura) — sem contagem de trilhas"}}
   ]
 }}
 
 Inclua no máximo 4 bullets, priorizando as regiões com dado mais relevante
-(mais trilhas em EVITAR, maior chuva ou maior rajada). Tom direto, sem
+(maior chuva, maior rajada, ou pior situação de veredicto). Tom direto, sem
 alarmismo, sem emojis, sem markdown."""
 
 
@@ -306,6 +309,22 @@ def gerar_texto_claude(stats: dict) -> dict:
             time.sleep(2 ** attempt)
 
     raise RuntimeError(f"Falha ao gerar texto via Claude: {last_err}")
+
+
+def _anexar_contagens(noticia: dict, stats: dict) -> dict:
+    """Anexa contagem exata de veredicto (liberado/alerta/evitar) a cada
+    bullet, calculada aqui em Python a partir de `stats` — nunca pelo Claude.
+    Mantém LIBERADO e "DROP LIBERADO - Veja os alertas" (bucket ALERTA)
+    como categorias sempre separadas, com o mesmo esquema de cores do
+    TrilhaCard (verde/âmbar/vermelho), exibidas como badge no card, não
+    dependendo do texto livre do modelo pra não errar a contagem."""
+    for b in noticia.get("bullets", []):
+        chave = (b.get("regiao") or "").strip().upper()
+        s = stats.get(chave, {})
+        b["liberado"] = s.get("LIBERADO", 0)
+        b["alerta"] = s.get("ALERTA", 0)
+        b["evitar"] = s.get("EVITAR", 0)
+    return noticia
 
 
 def gravar_noticia(noticia: dict) -> int:
@@ -423,9 +442,10 @@ def main():
 
     print("\n[2/3] Gerando texto via Claude...")
     noticia = gerar_texto_claude(stats)
+    noticia = _anexar_contagens(noticia, stats)
     print(f"  ✓ {noticia['frase_destaque']}")
     for b in noticia["bullets"]:
-        print(f"    • {b['regiao']}: {b['texto']}")
+        print(f"    • {b['regiao']}: {b['texto']} (liberado={b['liberado']} alerta={b['alerta']} evitar={b['evitar']})")
 
     if DRY_RUN:
         print("\nDRY RUN — nada foi gravado nem postado.")
