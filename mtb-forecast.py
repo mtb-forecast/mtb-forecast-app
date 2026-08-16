@@ -3246,7 +3246,7 @@ def _resumo_secagem_local(r: dict) -> str:
     elif reducao_pct >= 40:
         parte_chuva = f"Choveu {bruto}mm nas últimas 48h. Com a secagem natural, o impacto efetivo no solo é de {efetivo}mm"
     else:
-        parte_chuva = f"Choveu {bruto}mm nas últimas 48h e boa parte ainda está retida — acúmulo efetivo de {efetivo}mm"
+        parte_chuva = f"Choveu {bruto}mm nas últimas 48h e boa parte ainda está retida no solo — cerca de {efetivo}mm"
 
     if ult_h is None:     parte_tempo = ""
     elif ult_h < 3:       parte_tempo = f", e a chuva parou há menos de {max(1,round(ult_h))}h"
@@ -3490,12 +3490,27 @@ FUTURO:
 - Dia 3: {_fds_str(fds.get("d3", {}))}
 - Prazo até boa aderência (mesmo cálculo da barra "Estado do Solo" do app): {estimativa_secagem}
 
+Escreva em tom conversacional, como se estivesse avisando um amigo antes de ele sair
+pra pedalar — NÃO como um relatório técnico. Evite jargão de hidrologia/solo:
+- NUNCA escreva "meia-vida de secagem", "dossel", "acúmulo efetivo" ou termos assim.
+  Traduza esses conceitos pra linguagem natural, por exemplo:
+  · meia-vida alta / drenagem lenta → "esse tipo de mata segura a umidade por mais
+    tempo", "esse solo demora mais pra secar"
+  · meia-vida baixa / drenagem rápida → "esse solo seca rápido", "a água escoa bem aqui"
+  · dossel fechado protegendo o solo → "a mata fechada não deixa o sol bater direito
+    no chão", "com essa cobertura de árvores, a trilha demora mais pra secar"
+- Pode e deve citar os números de chuva (mm) e tempo (horas/dias) — eles ajudam o
+  rider a entender a situação. Só o vocabulário técnico deve ser evitado.
+
 Estilo obrigatório — escreva como o exemplo abaixo, direto e com os números:
-"Choveu 31.4mm nas últimas 48h, mas a maior parte já escoou — impacto real no solo é de apenas 6.3mm, com a última chuva há 9h. Este solo drena bem. O solo está úmido — avalie as condições antes de pedalar."
+"Choveu 31.4mm nas últimas 48h, mas a maior parte já escoou — no solo mesmo ainda tem
+uns 6.3mm de umidade, e a última chuva foi há 9h. Esse solo seca rápido. Tá com boa
+aderência — pode ir sem medo."
 
 Regras:
-- Frase 1: chuva bruta das últimas 48h + contraste com impacto real (acumulo_ef) + tempo desde última chuva
-- Frase 2: característica do solo ou bioma (drenagem, meia-vida, dossel) — use o dado de meia-vida
+- Frase 1: chuva bruta das últimas 48h + contraste com o que realmente ficou no solo
+  (acumulo_ef, sem chamar de "acúmulo efetivo") + tempo desde última chuva
+- Frase 2: como esse solo/mata se comporta (seca rápido ou demora), em linguagem natural
 - Frase 3: estado atual da aderência + recomendação direta coerente com o veredicto
 - Se pico previsto >= 3mm: adicione frase curta alertando que chuva está chegando
 - Se mencionar prazo para a trilha secar/melhorar (ex: "em X dias", "no Yº dia"), use
