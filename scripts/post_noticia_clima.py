@@ -396,7 +396,7 @@ def _publish_container(creation_id: str) -> str | None:
     return media_id
 
 
-def postar_instagram(noticia_id: int) -> None:
+def postar_instagram(noticia_id: int) -> bool:
     required = {
         "INSTAGRAM_ACCESS_TOKEN": IG_TOKEN,
         "INSTAGRAM_BUSINESS_ACCOUNT_ID": IG_USER_ID,
@@ -404,20 +404,20 @@ def postar_instagram(noticia_id: int) -> None:
     missing = [k for k, v in required.items() if not v]
     if missing:
         print(f"  ⚠ Env vars ausentes p/ Instagram: {', '.join(missing)} — pulando post")
-        return
+        return False
 
     if not _check_token():
-        return
+        return False
 
     image_url = f"{OG_API_BASE}/api/og/instagram/noticia?id={noticia_id}"
     if not _warmup(image_url):
-        return
+        return False
 
     cid = _create_stories_container(image_url)
     if not cid:
-        return
+        return False
     time.sleep(5)
-    _publish_container(cid)
+    return _publish_container(cid) is not None
 
 
 def main():
@@ -457,7 +457,15 @@ def main():
 
     if POST_INSTAGRAM:
         print("\nPostando no Instagram...")
-        postar_instagram(noticia_id)
+        ok = postar_instagram(noticia_id)
+        if not ok:
+            # Notícia já está gravada e visível no feed do app — só o post no
+            # Instagram falhou. Falha o workflow (em vez de sair 0 em silêncio)
+            # para ficar visível na aba Actions do GitHub.
+            raise SystemExit(
+                f"✗ Notícia climática gravada (id={noticia_id}), mas o post no "
+                "Instagram falhou — ver mensagens acima para a causa."
+            )
     else:
         print("\nNOTICIA_CLIMA_INSTAGRAM=0 — pulando post no Instagram.")
 
