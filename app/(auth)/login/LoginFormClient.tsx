@@ -72,7 +72,7 @@ function LoginFormInner() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current)
-        window.location.href = '/dashboard'
+        window.location.href = '/feed'
       }
     })
     return () => subscription.unsubscribe()
