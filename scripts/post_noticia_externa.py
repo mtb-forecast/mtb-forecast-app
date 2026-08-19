@@ -85,7 +85,14 @@ def _parse_json_final(texto: str) -> dict:
         texto = texto.strip("`").split("\n", 1)[-1]
         if texto.rstrip().endswith("```"):
             texto = texto.rstrip()[:-3]
-    return json.loads(texto)
+        texto = texto.strip()
+    # O modelo às vezes emenda uma frase antes/depois do JSON mesmo com o
+    # prompt pedindo "APENAS JSON" — extrai do primeiro '{' ao último '}'
+    # em vez de assumir que a string inteira é o objeto.
+    inicio, fim = texto.find("{"), texto.rfind("}")
+    if inicio == -1 or fim == -1 or fim < inicio:
+        raise RuntimeError(f"Nenhum objeto JSON encontrado no texto final: {texto[:300]!r}")
+    return json.loads(texto[inicio:fim + 1])
 
 
 def pesquisar_e_resumir() -> tuple[dict, list[dict]]:
@@ -98,7 +105,7 @@ def pesquisar_e_resumir() -> tuple[dict, list[dict]]:
 
     payload = {
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 1024,
+        "max_tokens": 2048,
         "tools": [_WEB_SEARCH_TOOL],
         "messages": [{"role": "user", "content": _PROMPT}],
     }
@@ -131,12 +138,18 @@ def pesquisar_e_resumir() -> tuple[dict, list[dict]]:
                     vistos.add(url)
                     fontes.append({"titulo": titulo, "url": url})
 
-    if not textos:
-        raise RuntimeError("Resposta do Claude veio vazia (sem texto final)")
+    textos_nao_vazios = [t for t in textos if t.strip()]
+    if not textos_nao_vazios:
+        stop_reason = data.get("stop_reason")
+        raise RuntimeError(
+            f"Resposta do Claude veio sem nenhum bloco de texto não-vazio "
+            f"(stop_reason={stop_reason!r}, {len(textos)} bloco(s) de texto no total)"
+        )
 
-    noticia = _parse_json_final(textos[-1])
+    ultimo = textos_nao_vazios[-1]
+    noticia = _parse_json_final(ultimo)
     if "frase_destaque" not in noticia:
-        raise RuntimeError(f"JSON final sem frase_destaque: {textos[-1][:300]}")
+        raise RuntimeError(f"JSON final sem frase_destaque: {ultimo[:300]}")
     noticia.setdefault("bullets", [])
 
     return noticia, fontes

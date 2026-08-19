@@ -52,7 +52,7 @@ export default function AuthCallbackPage() {
             }).eq('id', session.user.id)
           }
 
-          router.replace('/dashboard')
+          router.replace('/feed')
           return
         }
 
@@ -61,7 +61,7 @@ export default function AuthCallbackPage() {
           if (event === 'SIGNED_IN' && session?.user) {
             subscription.unsubscribe()
             clearTimeout(timeout)
-            router.replace('/dashboard')
+            router.replace('/feed')
           }
         })
 

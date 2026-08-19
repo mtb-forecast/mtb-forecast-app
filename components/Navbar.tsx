@@ -98,7 +98,7 @@ export default function Navbar() {
           justifyContent: 'space-between',
         }}>
           <Link
-            href={isLoggedIn ? '/dashboard' : '/'}
+            href={isLoggedIn ? '/feed' : '/'}
             style={{
               fontWeight: 800,
               letterSpacing: '0.08em',
