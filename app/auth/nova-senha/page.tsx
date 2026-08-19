@@ -31,7 +31,7 @@ export default function NovaSenhaPage() {
       setError('Não foi possível atualizar a senha. O link pode ter expirado.')
     } else {
       setSuccess(true)
-      setTimeout(() => router.replace('/dashboard'), 2500)
+      setTimeout(() => router.replace('/feed'), 2500)
     }
   }
 
