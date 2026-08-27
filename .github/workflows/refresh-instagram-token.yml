@@ -51,3 +51,19 @@ jobs:
       - name: Limpar arquivo temporário
         if: always()
         run: rm -f /tmp/new_token.txt /tmp/refresh_output.txt
+
+      - name: Alertar falha via Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN:      ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ADMIN_TELEGRAM_CHAT_ID:  ${{ secrets.ADMIN_TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$ADMIN_TELEGRAM_CHAT_ID" ]; then
+            echo "TELEGRAM_BOT_TOKEN ou ADMIN_TELEGRAM_CHAT_ID ausente — alerta não enviado"
+            exit 0
+          fi
+          MSG=$(printf '🔴 <b>Renovar Token Instagram falhou</b>\n\nA renovação automática do token do Instagram nao funcionou. Verifique os logs:\nhttps://github.com/%s/actions/runs/%s\n\nSe o token ja expirou, gere um novo manualmente no Graph API Explorer e atualize o secret INSTAGRAM_ACCESS_TOKEN.' "${{ github.repository }}" "${{ github.run_id }}")
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${ADMIN_TELEGRAM_CHAT_ID}" \
+            --data-urlencode "parse_mode=HTML" \
+            --data-urlencode "text=${MSG}"
