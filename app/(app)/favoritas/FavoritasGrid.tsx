@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { favoritarTrilha, desfavoritarTrilha } from '@/lib/favoritos'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import FavoritoButton from '@/components/FavoritoButton'
 import type { TrilhaComCondicao } from '@/lib/types'
@@ -26,9 +26,9 @@ export default function FavoritasGrid({ initialTrilhas, initialFavIds, userId }:
       // Optimistic: remove imediatamente da UI
       setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
       setTrilhas(prev => prev.filter(t => t.id !== trilhaId))
-      await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
+      await desfavoritarTrilha(userId, trilhaId)
     } else {
-      await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
+      await favoritarTrilha(userId, trilhaId)
       setFavoritos(prev => new Set([...prev, trilhaId]))
     }
   }, [userId]) // estável — lê favoritos via ref
