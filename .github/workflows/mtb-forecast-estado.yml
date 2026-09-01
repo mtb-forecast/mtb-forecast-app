@@ -84,6 +84,9 @@ jobs:
       - name: Run Agent MTB Forecaster (${{ github.event.inputs.estado }})
         run: python mtb-forecast.py 2>&1 | tee debug_$(date +%Y-%m-%d)_${{ github.event.inputs.estado }}.log
 
+      - name: Agregar trilhas compostas (pior caso entre trechos)
+        run: python scripts/agregar_trilhas_compostas.py
+
       - name: Upload debug log
         if: always()
         uses: actions/upload-artifact@v4
