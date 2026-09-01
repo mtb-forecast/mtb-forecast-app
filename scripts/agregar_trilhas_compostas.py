@@ -51,8 +51,8 @@ Kill switch:
 
 import json
 import os
-
-import requests
+import urllib.error
+import urllib.request
 
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "")
@@ -88,13 +88,19 @@ def _sb_headers() -> dict:
     }
 
 
+def _http_json(url: str, headers: dict, method: str = "GET", data: bytes | None = None, timeout: int = 20):
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        body = r.read()
+        return json.loads(body) if body else None
+
+
 def carregar_segmentos() -> dict[str, list[str]]:
     """trilha_composta_id -> [trilha_componente_id, ...]"""
     url = f"{SUPABASE_URL}/rest/v1/trilha_segmentos?select=trilha_composta_id,trilha_componente_id"
-    r = requests.get(url, headers=_sb_headers(), timeout=20)
-    r.raise_for_status()
+    rows = _http_json(url, _sb_headers())
     grupos: dict[str, list[str]] = {}
-    for row in r.json():
+    for row in rows:
         grupos.setdefault(row["trilha_composta_id"], []).append(row["trilha_componente_id"])
     return grupos
 
@@ -110,9 +116,8 @@ def carregar_condicoes(trilha_ids: list[str]) -> dict[str, dict]:
         f"&select=trilha_id,veredicto,veredicto_12h,aderencia_status"
         f",frase_secagem,chuva_solo_48h,ultima_chuva_h,texto_dinamico"
     )
-    r = requests.get(url, headers=_sb_headers(), timeout=20)
-    r.raise_for_status()
-    return {row["trilha_id"]: row for row in r.json()}
+    rows = _http_json(url, _sb_headers())
+    return {row["trilha_id"]: row for row in rows}
 
 
 def carregar_nomes(trilha_ids: list[str]) -> dict[str, str]:
@@ -120,15 +125,13 @@ def carregar_nomes(trilha_ids: list[str]) -> dict[str, str]:
         return {}
     ids_str = ",".join(trilha_ids)
     url = f"{SUPABASE_URL}/rest/v1/trilhas?id=in.({ids_str})&select=id,name"
-    r = requests.get(url, headers=_sb_headers(), timeout=20)
-    r.raise_for_status()
-    return {row["id"]: row["name"] for row in r.json()}
+    rows = _http_json(url, _sb_headers())
+    return {row["id"]: row["name"] for row in rows}
 
 
 def patch_condicao(trilha_id: str, campos: dict) -> None:
     url = f"{SUPABASE_URL}/rest/v1/condicoes?trilha_id=eq.{trilha_id}"
-    r = requests.patch(url, headers=_sb_headers(), data=json.dumps(campos), timeout=20)
-    r.raise_for_status()
+    _http_json(url, _sb_headers(), method="PATCH", data=json.dumps(campos).encode("utf-8"))
 
 
 # ── texto_dinamico da trilha composta ───────────────────────────────────────
@@ -189,22 +192,24 @@ Regras:
 def _gerar_texto_composta_deepseek(prompt: str) -> str | None:
     if not DEEPSEEK_KEY:
         return None
-    payload = {
+    payload = json.dumps({
         "model": "deepseek-chat",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 250,
         "temperature": 0.7,
-    }
+    }).encode("utf-8")
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {DEEPSEEK_KEY}"}
     for attempt in range(2):
         try:
-            r = requests.post("https://api.deepseek.com/chat/completions", json=payload, headers=headers, timeout=30)
-            if not r.ok:
-                print(f"  [DeepSeek texto composta] HTTP {r.status_code} (tentativa {attempt+1})")
-                if r.status_code in (400, 402):
-                    return None
-                continue
-            return r.json()["choices"][0]["message"]["content"].strip()
+            data = _http_json(
+                "https://api.deepseek.com/chat/completions", headers,
+                method="POST", data=payload, timeout=30,
+            )
+            return data["choices"][0]["message"]["content"].strip()
+        except urllib.error.HTTPError as exc:
+            print(f"  [DeepSeek texto composta] HTTP {exc.code} (tentativa {attempt+1})")
+            if exc.code in (400, 402):
+                return None
         except Exception as exc:
             print(f"  [DeepSeek texto composta] Erro (tentativa {attempt+1}): {exc}")
     return None
@@ -213,22 +218,22 @@ def _gerar_texto_composta_deepseek(prompt: str) -> str | None:
 def _gerar_texto_composta_claude(prompt: str) -> str | None:
     if not ANTHROPIC_KEY:
         return None
-    payload = {
+    payload = json.dumps({
         "model": "claude-haiku-4-5-20251001",
         "max_tokens": 250,
         "messages": [{"role": "user", "content": prompt}],
-    }
+    }).encode("utf-8")
     headers = {
         "Content-Type": "application/json",
         "x-api-key": ANTHROPIC_KEY,
         "anthropic-version": "2023-06-01",
     }
     try:
-        r = requests.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=30)
-        if not r.ok:
-            print(f"  [Claude texto composta] HTTP {r.status_code}")
-            return None
-        return r.json()["content"][0]["text"].strip()
+        data = _http_json(
+            "https://api.anthropic.com/v1/messages", headers,
+            method="POST", data=payload, timeout=30,
+        )
+        return data["content"][0]["text"].strip()
     except Exception as exc:
         print(f"  [Claude texto composta] Erro: {exc}")
         return None
