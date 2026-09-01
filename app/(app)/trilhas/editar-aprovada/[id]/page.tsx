@@ -592,7 +592,7 @@ function EditarAprovadaContent() {
           {/* ── Trechos / trilha composta (admin only) ── */}
           {isAdmin && (
             <SectionCard title="8. Trechos (trilha composta)">
-              <TrilhaSegmentosEditor trilhaId={id} />
+              <TrilhaSegmentosEditor trilhaId={id} polyline={polyline} />
             </SectionCard>
           )}
 
