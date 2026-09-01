@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  IconChevronDown, IconSearch, IconPencil, IconTrash, IconAlertTriangle,
+  IconChevronDown, IconSearch, IconPencil, IconTrash, IconAlertTriangle, IconCircleCheck,
 } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 
@@ -51,6 +51,7 @@ function AdminTrilhasContent() {
   const [somentePendentes, setSomentePendentes] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId]   = useState<string | null>(null)
   const [deleting, setDeleting]         = useState(false)
+  const [revisando, setRevisando]       = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -130,6 +131,23 @@ function AdminTrilhasContent() {
     if (res.ok) {
       setTodas(prev => prev.filter(t => t.id !== id))
       setConfirmDeleteId(null)
+    }
+  }
+
+  // Marca a trilha como revisada: limpa o aviso "AJUSTE NECESSÁRIO" de
+  // observacoes. Ação explícita e separada de "Editar" — salvar o formulário
+  // não prova que os placeholders (solo_type/exposicao/trail_type/regiao)
+  // foram de fato corrigidos, então quem confirma é o admin, aqui.
+  async function handleMarcarRevisado(id: string) {
+    setRevisando(id)
+    const res = await fetch('/api/admin/editar-trilha', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, observacoes: null }),
+    })
+    setRevisando(null)
+    if (res.ok) {
+      setTodas(prev => prev.map(t => t.id === id ? { ...t, observacoes: null } : t))
     }
   }
 
@@ -335,6 +353,24 @@ function AdminTrilhasContent() {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {pendente && (
+                            <button
+                              onClick={() => handleMarcarRevisado(t.id)}
+                              disabled={revisando === t.id}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 5,
+                                fontSize: 12, fontWeight: 600, color: '#15803D',
+                                padding: '6px 12px', background: 'rgba(21,128,61,.06)',
+                                borderRadius: 8, border: '1px solid rgba(21,128,61,.2)',
+                                cursor: revisando === t.id ? 'not-allowed' : 'pointer',
+                                opacity: revisando === t.id ? 0.6 : 1,
+                              }}
+                              title="Confirma que solo, exposição, tipo de trilha e região já foram revisados"
+                            >
+                              <IconCircleCheck size={13} />
+                              {revisando === t.id ? 'Marcando…' : 'Marcar revisado'}
+                            </button>
+                          )}
                           <Link
                             href={`/trilhas/editar-aprovada/${t.id}?from=admin${estado ? `&estado=${encodeURIComponent(estado)}` : ''}${cidade ? `&cidade=${encodeURIComponent(cidade)}` : ''}`}
                             style={{
