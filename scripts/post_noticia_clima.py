@@ -28,7 +28,8 @@ Uso:
 Env vars obrigatórias:
   SUPABASE_URL               ex: https://xxx.supabase.co
   SUPABASE_SERVICE_KEY       chave de serviço do Supabase
-  ANTHROPIC_API_KEY          para gerar o texto da visão geral
+  DEEPSEEK_API_KEY           provider primário do texto da visão geral
+  ANTHROPIC_API_KEY          fallback (usado se DeepSeek falhar/não configurada)
 
 Env vars opcionais (Instagram):
   OG_API_BASE                    ex: https://mtbforecaster.com.br
@@ -51,6 +52,7 @@ import requests
 SUPABASE_URL     = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY     = os.environ.get("SUPABASE_SERVICE_KEY", "")
 ANTHROPIC_KEY    = os.environ.get("ANTHROPIC_API_KEY", "")
+DEEPSEEK_KEY     = os.environ.get("DEEPSEEK_API_KEY", "")
 OG_API_BASE      = os.environ.get("OG_API_BASE", "https://mtbforecaster.com.br").rstrip("/")
 IG_TOKEN         = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 IG_USER_ID       = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
@@ -270,6 +272,53 @@ Inclua no máximo 4 bullets, priorizando as regiões com dado mais relevante
 alarmismo, sem emojis, sem markdown."""
 
 
+def _extrair_json(texto: str) -> dict:
+    texto = texto.strip()
+    # remove eventuais cercas de markdown que o modelo insista em usar
+    if texto.startswith("```"):
+        texto = texto.strip("`").split("\n", 1)[-1]
+        if texto.rstrip().endswith("```"):
+            texto = texto.rstrip()[:-3]
+    return json.loads(texto)
+
+
+def _gerar_texto_deepseek(stats: dict) -> dict | None:
+    """DeepSeek Chat (OpenAI-compatible) — provider primário. Retorna None se
+    falhar (sem chave, erro de rede, HTTP ou JSON inválido), acionando o
+    fallback para Claude."""
+    if not DEEPSEEK_KEY:
+        return None
+
+    prompt = _build_prompt(stats)
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 500,
+        "temperature": 0.7,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DEEPSEEK_KEY}",
+    }
+
+    for attempt in range(2):
+        try:
+            r = requests.post("https://api.deepseek.com/chat/completions", json=payload, headers=headers, timeout=30)
+            if not r.ok:
+                print(f"[DeepSeek Notícia Clima] HTTP {r.status_code} (tentativa {attempt+1}): {r.text}")
+                if r.status_code in (400, 402):
+                    return None
+                time.sleep(2)
+                continue
+            texto = r.json()["choices"][0]["message"]["content"]
+            print("[DeepSeek Notícia Clima] OK")
+            return _extrair_json(texto)
+        except Exception as exc:
+            print(f"[DeepSeek Notícia Clima] Erro (tentativa {attempt+1}): {exc}")
+            time.sleep(2)
+    return None
+
+
 def gerar_texto_claude(stats: dict) -> dict:
     if not ANTHROPIC_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY não configurada")
@@ -297,18 +346,24 @@ def gerar_texto_claude(stats: dict) -> dict:
                 time.sleep(2 ** attempt)
                 continue
             data = r.json()
-            texto = data["content"][0]["text"].strip()
-            # remove eventuais cercas de markdown que o modelo insista em usar
-            if texto.startswith("```"):
-                texto = texto.strip("`").split("\n", 1)[-1]
-                if texto.rstrip().endswith("```"):
-                    texto = texto.rstrip()[:-3]
-            return json.loads(texto)
+            texto = data["content"][0]["text"]
+            return _extrair_json(texto)
         except Exception as exc:
             last_err = str(exc)
             time.sleep(2 ** attempt)
 
     raise RuntimeError(f"Falha ao gerar texto via Claude: {last_err}")
+
+
+def gerar_texto(stats: dict) -> dict:
+    """DeepSeek é o provider primário (mais barato); Claude entra como
+    fallback só se o DeepSeek falhar ou não estiver configurado — mesmo
+    padrão usado em mtb-forecast.py para o texto_dinamico."""
+    texto = _gerar_texto_deepseek(stats)
+    if texto is not None:
+        return texto
+    print("[Notícia Clima] DeepSeek indisponível — usando Claude como fallback")
+    return gerar_texto_claude(stats)
 
 
 def _anexar_contagens(noticia: dict, stats: dict) -> dict:
@@ -440,8 +495,8 @@ def main():
         return
     print(f"  ✓ {len(stats)} macro-região(ões) com dados")
 
-    print("\n[2/3] Gerando texto via Claude...")
-    noticia = gerar_texto_claude(stats)
+    print("\n[2/3] Gerando texto...")
+    noticia = gerar_texto(stats)
     noticia = _anexar_contagens(noticia, stats)
     print(f"  ✓ {noticia['frase_destaque']}")
     for b in noticia["bullets"]:
