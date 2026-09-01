@@ -5,13 +5,19 @@ sys.stdout = _io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repl
 sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 """
 post_noticia_externa.py — Pesquisa notícias reais de clima extremo no Brasil
-(via web_search tool do Claude) e publica um resumo com as fontes de verdade
+(via Tavily Search API) e publica um resumo com as fontes de verdade
 retornadas pela busca, no feed do app e no Stories do Instagram.
 
 Peça INDEPENDENTE de noticias_clima (que resume só dados das nossas trilhas).
 Aqui o conteúdo vem de uma busca real na web — as fontes exibidas ("fontes")
-são exatamente as citações que a API de busca retornou, nunca inventadas.
-NUNCA adicionar selo de fonte que não veio de uma citação real da API.
+são exatamente os resultados que a Tavily retornou, nunca inventadas.
+NUNCA adicionar selo de fonte que não veio de um resultado real da busca.
+
+Arquitetura (ago/2026): busca (Tavily) e resumo (LLM) são etapas separadas —
+diferente do desenho anterior, que usava a tool web_search do Claude para
+fazer as duas coisas numa chamada só. Resumo tenta DeepSeek primeiro (mais
+barato), com Claude como fallback só de texto (sem tool de busca, já que as
+fontes vêm prontas da Tavily) — mesmo padrão de post_noticia_clima.py.
 
 Como desligar no futuro (qualquer uma destas opções basta):
   - Desativar o workflow noticia-externa.yml na aba Actions do GitHub.
@@ -25,9 +31,11 @@ Uso:
   DRY_RUN=1 python scripts/post_noticia_externa.py
 
 Env vars obrigatórias:
-  SUPABASE_URL, SUPABASE_SERVICE_KEY, ANTHROPIC_API_KEY
+  SUPABASE_URL, SUPABASE_SERVICE_KEY, TAVILY_API_KEY
 
-Env vars opcionais (Instagram):
+Env vars opcionais:
+  DEEPSEEK_API_KEY   provider primário do resumo (recomendado)
+  ANTHROPIC_API_KEY  fallback do resumo se DeepSeek falhar/não configurada
   OG_API_BASE, INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_BUSINESS_ACCOUNT_ID
 """
 
@@ -40,6 +48,8 @@ import requests
 
 SUPABASE_URL   = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY   = os.environ.get("SUPABASE_SERVICE_KEY", "")
+TAVILY_KEY     = os.environ.get("TAVILY_API_KEY", "")
+DEEPSEEK_KEY   = os.environ.get("DEEPSEEK_API_KEY", "")
 ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
 OG_API_BASE    = os.environ.get("OG_API_BASE", "https://mtbforecaster.com.br").rstrip("/")
 IG_TOKEN       = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
@@ -50,29 +60,10 @@ ENABLED        = os.environ.get("NOTICIA_EXTERNA_ENABLED", "1").strip() != "0"
 POST_INSTAGRAM = os.environ.get("NOTICIA_EXTERNA_INSTAGRAM", "1").strip() != "0"
 DRY_RUN        = os.environ.get("DRY_RUN", "").strip() == "1"
 
-# claude-haiku-4-5 não suporta a variante com dynamic filtering (_20260209) —
-# usar a variante básica, suficiente para uma busca simples e pontual.
-_WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search"}
-
-_PROMPT = """Pesquise as principais notícias de HOJE sobre clima extremo no Brasil
-(secas, temporais, ondas de calor, alertas meteorológicos regionais). Use a
-busca na web para encontrar fontes reais e recentes.
-
-Depois de pesquisar, sua ÚLTIMA mensagem deve conter APENAS um JSON válido
-(sem markdown, sem cercas ```, sem texto explicando que você pesquisou, sem
-título) no formato exato:
-{
-  "frase_destaque": "1 frase (até 220 caracteres) resumindo o contraste climático mais notável no país hoje, tom direto de manchete, sem markdown",
-  "bullets": [
-    {"regiao": "NOME DA REGIÃO OU TEMA", "texto": "1 frase curta (até 140 caracteres) baseada só no que você encontrou"}
-  ]
-}
-
-Inclua no máximo 4 bullets. NÃO invente números ou eventos que não estejam nas
-fontes encontradas. Se a busca não retornar nada relevante, responda com
-frase_destaque explicando isso e bullets vazio — nunca invente pra preencher.
-Nunca use negrito, asteriscos, cabeçalhos markdown (#, ##) ou bullets com •
-dentro dos valores do JSON — texto corrido simples."""
+_TAVILY_QUERY = (
+    "clima extremo Brasil hoje: seca, temporal, chuva forte, onda de calor, "
+    "alerta meteorológico regional"
+)
 
 
 def _sb_headers() -> dict:
@@ -95,19 +86,128 @@ def _parse_json_final(texto: str) -> dict:
     return json.loads(texto[inicio:fim + 1])
 
 
-def pesquisar_e_resumir() -> tuple[dict, list[dict]]:
-    """Chama o Claude com web_search, retorna (noticia_json, fontes_citadas).
+def buscar_fontes() -> list[dict]:
+    """Busca real na web via Tavily (topic=news, últimas 24h). Retorna lista
+    de {"titulo", "url", "resumo"} — nunca inventado, sempre resultado bruto
+    da API."""
+    if not TAVILY_KEY:
+        raise RuntimeError("TAVILY_API_KEY não configurada")
 
-    noticia_json = {"frase_destaque": str, "bullets": [{"regiao","texto"}]}
-    """
+    payload = {
+        "api_key": TAVILY_KEY,
+        "query": _TAVILY_QUERY,
+        "topic": "news",
+        "search_depth": "basic",  # 1 crédito/busca — suficiente pra manchete, mais barato que "advanced"
+        "days": 1,
+        "max_results": 8,
+        "include_answer": False,
+        "country": "brazil",
+    }
+    r = requests.post("https://api.tavily.com/search", json=payload, timeout=30)
+    if not r.ok:
+        raise RuntimeError(f"Erro na API Tavily: {r.status_code} {r.text}")
+
+    fontes = []
+    for item in r.json().get("results", []):
+        url = item.get("url")
+        if not url:
+            continue
+        fontes.append({
+            "titulo": item.get("title") or url,
+            "url": url,
+            "resumo": (item.get("content") or "")[:600],
+        })
+    return fontes
+
+
+def _build_prompt_resumo(fontes: list[dict]) -> str:
+    trechos = "\n\n".join(
+        f"[{i+1}] {f['titulo']}\nURL: {f['url']}\nTrecho: {f['resumo']}"
+        for i, f in enumerate(fontes)
+    )
+    return f"""Você é editor de notícias climáticas do app MTB Forecaster. Abaixo estão
+trechos reais de uma busca na web sobre clima extremo no Brasil hoje:
+
+{trechos or '(nenhum resultado retornado pela busca)'}
+
+Com base SOMENTE nesses trechos — NUNCA invente números, locais ou eventos que
+não estejam neles —, escreva um resumo estilo manchete de clima extremo no
+país. Responda APENAS com um JSON válido (sem markdown, sem cercas ```, sem
+texto fora do JSON) no formato exato:
+{{
+  "frase_destaque": "1 frase (até 220 caracteres) resumindo o contraste climático mais notável no país hoje, tom direto de manchete",
+  "bullets": [
+    {{"regiao": "NOME DA REGIÃO OU TEMA", "texto": "1 frase curta (até 140 caracteres) baseada só nos trechos acima", "fontes_indices": [1]}}
+  ]
+}}
+
+fontes_indices = lista dos números entre colchetes ([n]) dos trechos acima que
+embasam aquele bullet. Inclua no máximo 4 bullets. Se nenhum trecho tiver
+conteúdo relevante sobre clima extremo, responda com frase_destaque explicando
+isso e bullets vazio — nunca invente pra preencher. Nunca use negrito,
+asteriscos, cabeçalhos markdown (#, ##) ou bullets com • dentro dos valores do
+JSON — texto corrido simples."""
+
+
+def _montar_fontes_citadas(noticia: dict, fontes: list[dict]) -> list[dict]:
+    usados: set[int] = set()
+    for b in noticia.get("bullets", []):
+        for idx in (b.pop("fontes_indices", None) or []):
+            if isinstance(idx, int) and 1 <= idx <= len(fontes):
+                usados.add(idx)
+    return [{"titulo": fontes[i - 1]["titulo"], "url": fontes[i - 1]["url"]} for i in sorted(usados)]
+
+
+def _resumo_via_deepseek(fontes: list[dict]) -> dict | None:
+    """DeepSeek Chat — provider primário do resumo. Retorna None se falhar,
+    acionando o fallback para Claude."""
+    if not DEEPSEEK_KEY:
+        return None
+
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": _build_prompt_resumo(fontes)}],
+        "max_tokens": 700,
+        "temperature": 0.5,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DEEPSEEK_KEY}",
+    }
+
+    for attempt in range(2):
+        try:
+            r = requests.post("https://api.deepseek.com/chat/completions", json=payload, headers=headers, timeout=45)
+            if not r.ok:
+                print(f"[DeepSeek Notícia Externa] HTTP {r.status_code} (tentativa {attempt+1}): {r.text}")
+                if r.status_code in (400, 402):
+                    return None
+                time.sleep(2)
+                continue
+            texto = r.json()["choices"][0]["message"]["content"]
+            noticia = _parse_json_final(texto)
+            if "frase_destaque" not in noticia:
+                print(f"[DeepSeek Notícia Externa] JSON sem frase_destaque: {texto[:300]}")
+                return None
+            noticia.setdefault("bullets", [])
+            print("[DeepSeek Notícia Externa] OK")
+            return noticia
+        except Exception as exc:
+            print(f"[DeepSeek Notícia Externa] Erro (tentativa {attempt+1}): {exc}")
+            time.sleep(2)
+    return None
+
+
+def _resumo_via_claude(fontes: list[dict]) -> dict:
+    """Fallback: só gera texto a partir das fontes já buscadas — sem tool de
+    busca, que é o item mais caro do fluxo antigo."""
     if not ANTHROPIC_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY não configurada")
 
     payload = {
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 2048,
-        "tools": [_WEB_SEARCH_TOOL],
-        "messages": [{"role": "user", "content": _PROMPT}],
+        "max_tokens": 700,
+        "messages": [{"role": "user", "content": _build_prompt_resumo(fontes)}],
     }
     headers = {
         "Content-Type": "application/json",
@@ -115,44 +215,44 @@ def pesquisar_e_resumir() -> tuple[dict, list[dict]]:
         "anthropic-version": "2023-06-01",
     }
 
-    r = requests.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=60)
-    if not r.ok:
-        raise RuntimeError(f"Erro na API Anthropic: {r.status_code} {r.text}")
+    last_err = None
+    for attempt in range(3):
+        try:
+            r = requests.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=45)
+            if not r.ok:
+                last_err = f"HTTP {r.status_code}: {r.text}"
+                if r.status_code == 400:
+                    break
+                time.sleep(2 ** attempt)
+                continue
+            texto = r.json()["content"][0]["text"]
+            noticia = _parse_json_final(texto)
+            if "frase_destaque" not in noticia:
+                raise RuntimeError(f"JSON sem frase_destaque: {texto[:300]}")
+            noticia.setdefault("bullets", [])
+            return noticia
+        except Exception as exc:
+            last_err = str(exc)
+            time.sleep(2 ** attempt)
 
-    data = r.json()
+    raise RuntimeError(f"Falha ao gerar resumo via Claude: {last_err}")
 
-    # A resposta pode ter texto intermediário ("vou pesquisar...") intercalado
-    # com blocos de busca — só o ÚLTIMO bloco de texto é o JSON final pedido
-    # no prompt. Citações, porém, coletamos de todos os blocos de texto.
-    textos: list[str] = []
-    fontes: list[dict] = []
-    vistos: set[str] = set()
 
-    for block in data.get("content", []):
-        if block.get("type") == "text":
-            textos.append(block.get("text", ""))
-            for cit in block.get("citations") or []:
-                url = cit.get("url")
-                titulo = cit.get("title") or url
-                if url and url not in vistos:
-                    vistos.add(url)
-                    fontes.append({"titulo": titulo, "url": url})
+def buscar_e_resumir() -> tuple[dict, list[dict]]:
+    """Busca fontes reais (Tavily) e resume (DeepSeek, fallback Claude).
 
-    textos_nao_vazios = [t for t in textos if t.strip()]
-    if not textos_nao_vazios:
-        stop_reason = data.get("stop_reason")
-        raise RuntimeError(
-            f"Resposta do Claude veio sem nenhum bloco de texto não-vazio "
-            f"(stop_reason={stop_reason!r}, {len(textos)} bloco(s) de texto no total)"
-        )
+    Retorna (noticia_json, fontes_citadas). noticia_json =
+    {"frase_destaque": str, "bullets": [{"regiao","texto"}]}
+    """
+    fontes = buscar_fontes()
 
-    ultimo = textos_nao_vazios[-1]
-    noticia = _parse_json_final(ultimo)
-    if "frase_destaque" not in noticia:
-        raise RuntimeError(f"JSON final sem frase_destaque: {ultimo[:300]}")
-    noticia.setdefault("bullets", [])
+    noticia = _resumo_via_deepseek(fontes)
+    if noticia is None:
+        print("[Notícia Externa] DeepSeek indisponível — usando Claude como fallback")
+        noticia = _resumo_via_claude(fontes)
 
-    return noticia, fontes
+    fontes_citadas = _montar_fontes_citadas(noticia, fontes)
+    return noticia, fontes_citadas
 
 
 def gravar_noticia(noticia: dict, fontes: list[dict]) -> int:
@@ -246,7 +346,7 @@ def main():
         raise SystemExit("SUPABASE_URL e SUPABASE_SERVICE_KEY são obrigatórios")
 
     print("\n[1/3] Pesquisando na web e gerando resumo...")
-    noticia, fontes = pesquisar_e_resumir()
+    noticia, fontes = buscar_e_resumir()
     print(f"  ✓ {noticia['frase_destaque']}")
     for b in noticia["bullets"]:
         print(f"    • {b['regiao']}: {b['texto']}")

@@ -1,6 +1,6 @@
 name: Notícia Externa (busca real na web)
 
-# Pesquisa notícias reais de clima extremo no Brasil via web_search do Claude
+# Pesquisa notícias reais de clima extremo no Brasil via Tavily Search API
 # e publica no feed do app + Instagram, citando as fontes reais retornadas.
 # INDEPENDENTE do pipeline principal e de noticia-clima.yml — não altera
 # nenhum dos dois.
@@ -35,6 +35,8 @@ jobs:
     env:
       SUPABASE_URL:                  https://eydlkvrjopffyqpdstzh.supabase.co
       SUPABASE_SERVICE_KEY:          ${{ secrets.SUPABASE_SERVICE_KEY }}
+      TAVILY_API_KEY:                ${{ secrets.TAVILY_API_KEY }}
+      DEEPSEEK_API_KEY:              ${{ secrets.DEEPSEEK_API_KEY }}
       ANTHROPIC_API_KEY:             ${{ secrets.ANTHROPIC_API_KEY }}
       OG_API_BASE:                   https://mtbforecaster.com.br
       INSTAGRAM_ACCESS_TOKEN:        ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}

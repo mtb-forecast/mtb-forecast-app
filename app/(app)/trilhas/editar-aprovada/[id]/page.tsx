@@ -9,6 +9,7 @@ import { ESTADOS_BRASIL } from '@/lib/types'
 import { getSoloTypes, getBiomas, getExposicoes, getTrailTypes } from '@/lib/domain'
 import { geocodeLatLon, type GeoResult } from '@/lib/geocoding'
 import { encodePolyline } from '@/lib/polyline'
+import TrilhaSegmentosEditor from '@/components/TrilhaSegmentosEditor'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function extrairCoordenadas(url: string): { lat: number; lon: number } | null {
@@ -548,7 +549,7 @@ function EditarAprovadaContent() {
 
           {/* ── Calibração (admin only) ── */}
           {isAdmin && (
-            <SectionCard title="6. Calibração do modelo (admin)">
+            <SectionCard title="7. Calibração do modelo (admin)">
               <Field label="Sensibilidade (padrão 1.0)">
                 <input
                   type="number" step="0.05" min="0.1" max="3.0"
@@ -585,6 +586,13 @@ function EditarAprovadaContent() {
                   </tbody>
                 </table>
               </div>
+            </SectionCard>
+          )}
+
+          {/* ── Trechos / trilha composta (admin only) ── */}
+          {isAdmin && (
+            <SectionCard title="8. Trechos (trilha composta)">
+              <TrilhaSegmentosEditor trilhaId={id} polyline={polyline} />
             </SectionCard>
           )}
 
