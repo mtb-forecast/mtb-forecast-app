@@ -104,6 +104,7 @@ function EditarAprovadaContent() {
 
   // GPX
   const [polyline, setPolyline]       = useState<string | null>(null)
+  const [elevationProfile, setElevationProfile] = useState<{ lat: number; lon: number; ele: number }[] | null>(null)
   const [gpxImporting, setGpxImporting] = useState(false)
   const [gpxErro, setGpxErro]         = useState<string | null>(null)
   const [gpxOk, setGpxOk]             = useState<string | null>(null)
@@ -152,6 +153,7 @@ function EditarAprovadaContent() {
       setMantenedores((mants as { id: string; nome: string }[]) ?? [])
       setSensibilidade(t.sensibilidade != null ? String(t.sensibilidade) : '1')
       setPolyline(t.polyline ?? null)
+      setElevationProfile(t.elevation_profile ?? null)
 
       setSoloTypes(sts)
       setBiomas(bio)
@@ -252,6 +254,27 @@ function EditarAprovadaContent() {
       }
       if (distKm > 0.01) setExtensao(distKm.toFixed(2))
 
+      // Amostra máx. 200 pontos para o perfil de elevação (mesma lógica de
+      // /trilhas/cadastrar) -- sem isso o gráfico de elevação na página
+      // pública fica vazio mesmo com o GPX importado corretamente.
+      if (eles.length > 0 && lats.length > 0) {
+        const total = lats.length
+        const maxPts = 200
+        const step = total <= maxPts ? 1 : total / maxPts
+        const sampled: { lat: number; lon: number; ele: number }[] = []
+        for (let i = 0; i < maxPts && Math.round(i * step) < total; i++) {
+          const idx = Math.round(i * step)
+          sampled.push({ lat: lats[idx], lon: lons[idx], ele: eles[idx] ?? 0 })
+        }
+        const last = total - 1
+        if (sampled.length === 0 || sampled[sampled.length - 1].lat !== lats[last]) {
+          sampled.push({ lat: lats[last], lon: lons[last], ele: eles[last] ?? 0 })
+        }
+        setElevationProfile(sampled)
+      } else {
+        setElevationProfile(null)
+      }
+
       const parts = [`${pts.length} pontos`]
       if (distKm > 0.01) parts.push(`${distKm.toFixed(1)} km`)
       if (ganho > 1) parts.push(`${Math.round(ganho)}m desnível`)
@@ -305,6 +328,7 @@ function EditarAprovadaContent() {
       extensao_km: extensao ? parseFloat(extensao) : null,
       mantenedor_id: mantenedorId || null,
       polyline: polyline ?? null,
+      elevation_profile: elevationProfile ?? null,
       ...(localidadeId ? { localidade_id: localidadeId } : {}),
       ...(isAdmin ? { sensibilidade: sensibilidade ? parseFloat(sensibilidade) : 1.0 } : {}),
     }
