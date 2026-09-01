@@ -22,13 +22,22 @@ type Props = {
   trechos?: Trecho[]
 }
 
-// Paleta cíclica pras faixas do perfil de elevação -- cores distintas o
-// bastante entre si, mas discretas o suficiente pra não competir com a linha
-// de elevação (#6d745f) nem com o preenchimento padrão.
+// Paleta categórica validada (skill dataviz, references/palette.md) --
+// ordem fixa, nunca cíclica: garante Delta E >= 8 (CVD) e >= 15 (visão
+// normal) entre pares ADJACENTES, que é o caso aqui (faixas contíguas ao
+// longo do eixo de distância, nunca comparadas todas-contra-todas). Além do
+// slot 8, um 9º trecho não ganha cor gerada -- some pra CORES_TRECHO_OUTRO.
 const CORES_TRECHO = [
-  '#5B8DEF', '#F59E0B', '#A855F7', '#EC4899', '#14B8A6',
-  '#EF4444', '#84CC16', '#0EA5E9', '#F97316', '#8B5CF6',
+  '#2a78d6', // 1 azul
+  '#eb6834', // 2 laranja
+  '#1baf7a', // 3 água
+  '#eda100', // 4 amarelo
+  '#e87ba4', // 5 magenta
+  '#008300', // 6 verde
+  '#4a3aa7', // 7 violeta
+  '#e34948', // 8 vermelho
 ]
+const COR_TRECHO_OUTRO = '#898781' // ink mudo -- 9º+ trecho, sem hue gerado
 
 // Distância máxima pra um ponto do perfil de elevação ser considerado
 // "dentro" de um trecho -- pontos além disso ficam sem cor (são trecho de
@@ -177,7 +186,7 @@ export default function TrailMapWithProfile({
         const pontos: [number, number][] = t.polyline
           ? decodePolyline(t.polyline)
           : (t.lat != null && t.lon != null ? [[t.lat, t.lon] as [number, number]] : [])
-        return { idx, name: t.name, pontos, cor: CORES_TRECHO[idx % CORES_TRECHO.length] }
+        return { idx, name: t.name, pontos }
       })
       .filter(t => t.pontos.length > 0)
 
@@ -193,6 +202,17 @@ export default function TrailMapWithProfile({
       return melhorIdx
     })
 
+    // Cor atribuída por ORDEM DE APARIÇÃO ao longo da rota (0km -> fim), não
+    // pelo índice original do trecho -- garante que faixas vizinhas no
+    // gráfico nunca herdem cores vizinhas na paleta por coincidência de
+    // cadastro. Acima do 8º trecho distinto, usa a cor neutra (nunca gera hue).
+    const corPorTrechoIdx = new Map<number, string>()
+    for (const idx of trechoPorPonto) {
+      if (idx === -1 || corPorTrechoIdx.has(idx)) continue
+      const slot = corPorTrechoIdx.size
+      corPorTrechoIdx.set(idx, slot < CORES_TRECHO.length ? CORES_TRECHO[slot] : COR_TRECHO_OUTRO)
+    }
+
     type Banda = { trechoIdx: number; name: string; cor: string; x0: number; x1: number }
     const out: Banda[] = []
     let i = 0
@@ -202,7 +222,7 @@ export default function TrailMapWithProfile({
       while (j + 1 < trechoPorPonto.length && trechoPorPonto[j + 1] === idx) j++
       if (idx !== -1) {
         const t = trechosComPontos.find(tt => tt.idx === idx)!
-        out.push({ trechoIdx: idx, name: t.name, cor: t.cor, x0: elevData.toX(i), x1: elevData.toX(j) })
+        out.push({ trechoIdx: idx, name: t.name, cor: corPorTrechoIdx.get(idx)!, x0: elevData.toX(i), x1: elevData.toX(j) })
       }
       i = j + 1
     }
@@ -219,7 +239,19 @@ export default function TrailMapWithProfile({
     if (!elevData) return
     const rect = e.currentTarget.getBoundingClientRect()
     const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    const idx = Math.round(fraction * (elevData.pts.length - 1))
+    // Pontos do GPX não são igualmente espaçados por distância (velocidade
+    // varia ao longo do percurso) -- toX() posiciona cada ponto pela distância
+    // acumulada (dists[]), então o índice sob o cursor também precisa ser
+    // achado por distância, nunca por fração linear do índice (isso fazia a
+    // bolinha de hover dessincronizar do cursor em trechos com pontos mais
+    // esparsos/densos).
+    const targetDist = fraction * elevData.totalDist
+    let idx = 0
+    let melhorDist = Infinity
+    for (let i = 0; i < elevData.dists.length; i++) {
+      const d = Math.abs(elevData.dists[i] - targetDist)
+      if (d < melhorDist) { melhorDist = d; idx = i }
+    }
     setHoverIdx(idx)
     const pt = elevData.pts[idx]
     if (!mapRef.current) return
