@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { favoritarTrilha } from '@/lib/favoritos'
 import { Observacao } from '@/lib/types'
 import FavoritoButton from '@/components/FavoritoButton'
 import { STATUS_TRILHA_OPTIONS, STATUS_TRILHA_MAX_SELECAO, statusTrilhaLabel } from '@/lib/statusTrilha'
@@ -157,7 +158,7 @@ export default function TrailObservations({ trilhaId, veredictoAtual, isOwner }:
   async function handleFavoritar() {
     if (!userId || favoritando) return
     setFavoritando(true)
-    await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
+    await favoritarTrilha(userId, trilhaId)
     setPodeComentar(true)
     setFavoritando(false)
   }

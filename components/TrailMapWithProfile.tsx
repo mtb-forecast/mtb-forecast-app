@@ -6,6 +6,11 @@ import { decodePolyline } from '@/lib/polyline'
 
 type ElevPoint = { lat: number; lon: number; ele: number }
 
+// Trecho componente de uma trilha composta (ver trilha_segmentos / CLAUDE.md).
+// Só usado pra colorir o perfil de elevação -- não é a origem dos dados de
+// condição (isso continua vindo de TrilhaSegmentosBreakdown).
+type Trecho = { id: string; name: string; polyline: string | null; lat: number | null; lon: number | null }
+
 type Props = {
   polyline: string | null
   elevationProfile: ElevPoint[] | null
@@ -14,6 +19,38 @@ type Props = {
   altitude_m?: number | null
   lat?: number
   lon?: number
+  trechos?: Trecho[]
+}
+
+// Paleta cíclica pras faixas do perfil de elevação -- cores distintas o
+// bastante entre si, mas discretas o suficiente pra não competir com a linha
+// de elevação (#6d745f) nem com o preenchimento padrão.
+const CORES_TRECHO = [
+  '#5B8DEF', '#F59E0B', '#A855F7', '#EC4899', '#14B8A6',
+  '#EF4444', '#84CC16', '#0EA5E9', '#F97316', '#8B5CF6',
+]
+
+// Distância máxima pra um ponto do perfil de elevação ser considerado
+// "dentro" de um trecho -- pontos além disso ficam sem cor (são trecho de
+// conexão da trilha composta, não coberto por nenhuma trilha do catálogo).
+const RAIO_MATCH_M = 60
+
+function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function distanciaAtePontos(lat: number, lon: number, pontos: [number, number][]): number {
+  let min = Infinity
+  for (const [pLat, pLon] of pontos) {
+    const d = haversineM(lat, lon, pLat, pLon)
+    if (d < min) min = d
+  }
+  return min
 }
 
 function dot(color: string) {
@@ -34,7 +71,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default function TrailMapWithProfile({
-  polyline, elevationProfile, desnivel_m, extensao_km, altitude_m, lat, lon,
+  polyline, elevationProfile, desnivel_m, extensao_km, altitude_m, lat, lon, trechos,
 }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = useRef<any>(null)
@@ -129,6 +166,55 @@ export default function TrailMapWithProfile({
     return { pts, dists, totalDist, minE, maxE, xs, ys, line, fill, toX, toY }
   }, [elevationProfile])
 
+  // Casa cada ponto do perfil de elevação com o trecho componente mais
+  // próximo (dentro de RAIO_MATCH_M) e agrupa em faixas contíguas -- ver
+  // scripts/agregar_trilhas_compostas.py e o histórico da trilha composta.
+  const bandas = useMemo(() => {
+    if (!elevData || !trechos || trechos.length === 0) return []
+
+    const trechosComPontos = trechos
+      .map((t, idx) => {
+        const pontos: [number, number][] = t.polyline
+          ? decodePolyline(t.polyline)
+          : (t.lat != null && t.lon != null ? [[t.lat, t.lon] as [number, number]] : [])
+        return { idx, name: t.name, pontos, cor: CORES_TRECHO[idx % CORES_TRECHO.length] }
+      })
+      .filter(t => t.pontos.length > 0)
+
+    if (trechosComPontos.length === 0) return []
+
+    const trechoPorPonto = elevData.pts.map(p => {
+      let melhorIdx = -1
+      let melhorDist = RAIO_MATCH_M
+      for (const t of trechosComPontos) {
+        const d = distanciaAtePontos(p.lat, p.lon, t.pontos)
+        if (d < melhorDist) { melhorDist = d; melhorIdx = t.idx }
+      }
+      return melhorIdx
+    })
+
+    type Banda = { trechoIdx: number; name: string; cor: string; x0: number; x1: number }
+    const out: Banda[] = []
+    let i = 0
+    while (i < trechoPorPonto.length) {
+      const idx = trechoPorPonto[i]
+      let j = i
+      while (j + 1 < trechoPorPonto.length && trechoPorPonto[j + 1] === idx) j++
+      if (idx !== -1) {
+        const t = trechosComPontos.find(tt => tt.idx === idx)!
+        out.push({ trechoIdx: idx, name: t.name, cor: t.cor, x0: elevData.toX(i), x1: elevData.toX(j) })
+      }
+      i = j + 1
+    }
+    return out
+  }, [elevData, trechos])
+
+  const legendaTrechos = useMemo(() => {
+    const vistos = new Map<number, { name: string; cor: string }>()
+    for (const b of bandas) if (!vistos.has(b.trechoIdx)) vistos.set(b.trechoIdx, { name: b.name, cor: b.cor })
+    return [...vistos.values()]
+  }, [bandas])
+
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     if (!elevData) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -216,6 +302,14 @@ export default function TrailMapWithProfile({
                 </clipPath>
               </defs>
 
+              {bandas.map((b, i) => (
+                <rect
+                  key={i}
+                  x={b.x0} y={0} width={Math.max(1, b.x1 - b.x0)} height={64}
+                  fill={b.cor} opacity={0.16} clipPath="url(#elevClip)"
+                />
+              ))}
+
               <path d={elevData.fill} fill="url(#elevFill)" clipPath="url(#elevClip)" />
               <line x1={0} x2={648} y1={21} y2={21} stroke="rgba(0,0,0,.04)" strokeWidth={0.5} />
               <line x1={0} x2={648} y1={42} y2={42} stroke="rgba(0,0,0,.04)" strokeWidth={0.5} />
@@ -240,6 +334,19 @@ export default function TrailMapWithProfile({
               <text x={-4} y={66} textAnchor="end" fontFamily="var(--font-dm-mono)" fontSize={9} fill="#9AA093">{Math.round(elevData.minE)}m</text>
             </svg>
           </div>
+
+          {legendaTrechos.length > 0 && (
+            <div style={{
+              padding: '0 16px 12px', display: 'flex', flexWrap: 'wrap', gap: '6px 12px',
+            }}>
+              {legendaTrechos.map((t, i) => (
+                <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: t.cor, flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 10, color: '#6B7280' }}>{t.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { favoritarTrilha, desfavoritarTrilha } from '@/lib/favoritos'
 import FavoritoButton from '@/components/FavoritoButton'
 
 type Props = {
@@ -16,10 +16,10 @@ export default function TrilhaAcoes({ trilhaId, trilhaNome, initialIsFavorito, u
 
   async function toggleFavorito() {
     if (isFavorito) {
-      await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
+      await desfavoritarTrilha(userId, trilhaId)
       setIsFavorito(false)
     } else {
-      await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
+      await favoritarTrilha(userId, trilhaId)
       setIsFavorito(true)
     }
   }

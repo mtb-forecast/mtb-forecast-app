@@ -66,7 +66,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
   // como trilhas próprias no catálogo (ver trilha_segmentos / CLAUDE.md).
   const { data: segmentosRaw } = await sb
     .from('trilha_segmentos')
-    .select('ordem, trilha:trilhas!trilha_componente_id(id, name, condicoes(veredicto, veredicto_12h, gerado_em))')
+    .select('ordem, trilha:trilhas!trilha_componente_id(id, name, lat, lon, polyline, condicoes(veredicto, veredicto_12h, gerado_em))')
     .eq('trilha_composta_id', id)
     .order('ordem')
 
@@ -75,7 +75,11 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
     const t = Array.isArray(s.trilha) ? s.trilha[0] : s.trilha
     const condsT = condicoesArray(t?.condicoes)
     const ct = condsT[0] ?? null
-    return { id: t?.id as string, name: t?.name as string, veredicto: ct?.veredicto ?? null, veredicto_12h: ct?.veredicto_12h ?? null }
+    return {
+      id: t?.id as string, name: t?.name as string,
+      veredicto: ct?.veredicto ?? null, veredicto_12h: ct?.veredicto_12h ?? null,
+      lat: t?.lat as number | null, lon: t?.lon as number | null, polyline: t?.polyline as string | null,
+    }
   }).filter(s => s.id)
   const blocos = Array.isArray(trilha.previsao_blocos)
     ? [...trilha.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
@@ -247,6 +251,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
             altitude_m={trilha.altitude_m}
             lat={trilha.lat}
             lon={trilha.lon}
+            trechos={segmentos.map(s => ({ id: s.id, name: s.name, polyline: s.polyline, lat: s.lat, lon: s.lon }))}
           />
         </div>
 

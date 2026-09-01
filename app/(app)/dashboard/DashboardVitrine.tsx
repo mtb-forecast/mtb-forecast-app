@@ -8,7 +8,7 @@ import {
   IconMinus, IconCircleX, IconAlertTriangle, IconCircleCheck,
   type TablerIcon,
 } from '@tabler/icons-react'
-import { supabase } from '@/lib/supabase'
+import { favoritarTrilha } from '@/lib/favoritos'
 import { TrilhaComCondicao, VEREDICTO_CONFIG, ESTADOS_BRASIL } from '@/lib/types'
 import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
@@ -74,7 +74,7 @@ export default function DashboardVitrine({ trilha, userEstado, userId, totalTril
   async function handleFavoritar() {
     if (!trilha || !userId || loading) return
     setLoading(true)
-    await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilha.id })
+    await favoritarTrilha(userId, trilha.id)
     router.refresh()
     setLoading(false)
   }

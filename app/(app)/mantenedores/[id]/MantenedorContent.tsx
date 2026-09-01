@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getClientUser } from '@/lib/supabase'
+import { favoritarTrilha, desfavoritarTrilha } from '@/lib/favoritos'
 import DashboardTrailCard from '@/components/DashboardTrailCard'
 import FavoritoButton from '@/components/FavoritoButton'
 import type { Mantenedor, TrilhaComCondicao } from '@/lib/types'
@@ -42,10 +43,10 @@ export default function MantenedorContent({ mantenedor, trilhas }: Props) {
   const toggleFavorito = useCallback(async (trilhaId: string) => {
     if (!userId) return
     if (favoritos.has(trilhaId)) {
-      await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
+      await desfavoritarTrilha(userId, trilhaId)
       setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
     } else {
-      await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
+      await favoritarTrilha(userId, trilhaId)
       setFavoritos(prev => new Set([...prev, trilhaId]))
     }
   }, [userId, favoritos])

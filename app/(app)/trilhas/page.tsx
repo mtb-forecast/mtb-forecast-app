@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase, getClientUser } from '@/lib/supabase'
+import { favoritarTrilha, desfavoritarTrilha } from '@/lib/favoritos'
 import { TrilhaComCondicao, PumpTrack } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { fetchStatusAtivoPorTrilha } from '@/lib/statusTrilha'
@@ -216,10 +217,10 @@ function TrilhasContent() {
   const toggleFavorito = useCallback(async (trilhaId: string) => {
     if (!userId) return
     if (favoritos.has(trilhaId)) {
-      await supabase.from('favoritos').delete().eq('user_id', userId).eq('trilha_id', trilhaId)
+      await desfavoritarTrilha(userId, trilhaId)
       setFavoritos(prev => { const s = new Set(prev); s.delete(trilhaId); return s })
     } else {
-      await supabase.from('favoritos').insert({ user_id: userId, trilha_id: trilhaId })
+      await favoritarTrilha(userId, trilhaId)
       setFavoritos(prev => new Set([...prev, trilhaId]))
     }
   }, [userId, favoritos])
