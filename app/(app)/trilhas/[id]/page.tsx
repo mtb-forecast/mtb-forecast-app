@@ -11,6 +11,7 @@ import { LogoMantenedor } from '@/components/LogoMantenedor'
 import TrilhaAcoes from './TrilhaAcoes'
 import FavoritosTrigger from './FavoritosTrigger'
 import TrailMapWithProfile from '@/components/TrailMapWithProfile'
+import TrilhaSegmentosBreakdown from '@/components/TrilhaSegmentosBreakdown'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -60,6 +61,22 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
   const trilha = td as any
   const conds = condicoesArray(trilha.condicoes)
   const c: Condicao | null = conds[0] ?? null
+
+  // Trilha composta: percurso longo que passa por trechos já cadastrados
+  // como trilhas próprias no catálogo (ver trilha_segmentos / CLAUDE.md).
+  const { data: segmentosRaw } = await sb
+    .from('trilha_segmentos')
+    .select('ordem, trilha:trilhas!trilha_componente_id(id, name, condicoes(veredicto, veredicto_12h, gerado_em))')
+    .eq('trilha_composta_id', id)
+    .order('ordem')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const segmentos = ((segmentosRaw ?? []) as any[]).map(s => {
+    const t = Array.isArray(s.trilha) ? s.trilha[0] : s.trilha
+    const condsT = condicoesArray(t?.condicoes)
+    const ct = condsT[0] ?? null
+    return { id: t?.id as string, name: t?.name as string, veredicto: ct?.veredicto ?? null, veredicto_12h: ct?.veredicto_12h ?? null }
+  }).filter(s => s.id)
   const blocos = Array.isArray(trilha.previsao_blocos)
     ? [...trilha.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
     : null
@@ -251,6 +268,9 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
             <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} exposicao={trilha.exposicao} />
           </div>
         )}
+
+        {/* ── Trechos (trilha composta) ────────────────────────────────── */}
+        <TrilhaSegmentosBreakdown segmentos={segmentos} origemTrecho={c?.veredicto_origem_trecho} />
 
         {/* ── Avaliações dos riders ───────────────────────────────────── */}
         <div style={{

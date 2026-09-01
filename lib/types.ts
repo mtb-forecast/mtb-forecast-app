@@ -60,6 +60,9 @@ export type Condicao = {
   // Veredictos
   veredicto: string
   veredicto_12h?: string | null
+  // Preenchido só quando a trilha é composta (ver trilha_segmentos) e o
+  // veredicto foi escalado pelo pior caso de um trecho componente.
+  veredicto_origem_trecho?: string | null
 
   // Chuva
   rain_mm: number
