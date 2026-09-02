@@ -3,7 +3,8 @@ name: Agent MTB Forecaster
 on:
   schedule:
   # Ao alterar horários aqui, atualize também lib/schedule.ts (usado na UI do site)
-  - cron: "0 9 * * *"      # 06h BRT — todos os dias (Seg–Dom)
+  - cron: "7 8 * * *"      # dispara 05h07 BRT (Seg–Dom); minuto deslocado p/ evitar congestionamento do :00.
+                            # Janela de notificação continua "06h" (ver lib/schedule.ts) — não renomear.
   - cron: "0 19 * * *"     # 16h BRT — todos os dias (captura chuvas da tarde)
   - cron: "0 15 * * 5,6,0" # 12h BRT — Sex, Sáb, Dom
   - cron: "0 23 * * 5,6"   # 20h BRT — Sex e Sáb
