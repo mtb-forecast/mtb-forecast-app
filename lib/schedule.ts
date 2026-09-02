@@ -1,13 +1,15 @@
 // Mirrors .github/workflows/mtb-forecast-workflow.yml — schedule section.
 // Update this file whenever the workflow cron is changed.
 //
-//   cron: "0 9 * * *"      → 06h BRT — todos os dias (Seg–Dom)
+//   cron: "7 8 * * *"      → dispara 05h07 BRT, janela de notificação continua "06h" (Seg–Dom)
+//                             minuto deslocado p/ evitar congestionamento do :00; ver notif_horarios (CHECK
+//                             constraint no banco + mtb_telegram.py/mtb_email_html.py) — não renomear a janela
 //   cron: "0 19 * * *"     → 16h BRT — todos os dias (captura chuvas da tarde)
 //   cron: "0 15 * * 5,6,0" → 12h BRT — Sex, Sáb, Dom
 //   cron: "0 23 * * 5,6"   → 20h BRT — Sex e Sáb
 
 export const REPORT_SCHEDULE = [
-  { hora: '06h', dias: 'Seg–Dom', cron: '0 9 * * *'      },
+  { hora: '06h', dias: 'Seg–Dom', cron: '7 8 * * *'      },
   { hora: '12h', dias: 'Sex–Dom', cron: '0 15 * * 5,6,0' },
   { hora: '16h', dias: 'Seg–Dom', cron: '0 19 * * *'     },
   { hora: '20h', dias: 'Sex–Sáb', cron: '0 23 * * 5,6'   },
