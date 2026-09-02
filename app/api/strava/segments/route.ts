@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   const listRes = await fetch('https://www.strava.com/api/v3/segments/starred?per_page=50', {
     headers: { Authorization: `Bearer ${token}` },
   })
-  void logApiUsage('strava', 'segments/starred', { sucesso: listRes.ok ? 1 : 0, falhas: listRes.ok ? 0 : 1 })
+  await logApiUsage('strava', 'segments/starred', { sucesso: listRes.ok ? 1 : 0, falhas: listRes.ok ? 0 : 1 })
 
   if (!listRes.ok) {
     return NextResponse.json({ error: 'Erro ao buscar segmentos do Strava.' }, { status: listRes.status })

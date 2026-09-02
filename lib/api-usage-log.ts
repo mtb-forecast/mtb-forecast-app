@@ -1,6 +1,8 @@
 /**
  * logApiUsage — registra uma chamada de API externa na tabela api_usage_log.
- * Fire-and-forget: nunca lança exceção, não bloqueia o caller.
+ * Nunca lança exceção. Sempre usar `await` no call site (nunca `void`) —
+ * em runtime serverless, uma promise não aguardada pode ser cancelada assim
+ * que a resposta HTTP é enviada, perdendo o registro silenciosamente.
  */
 export async function logApiUsage(
   api: string,
@@ -9,10 +11,13 @@ export async function logApiUsage(
 ): Promise<void> {
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? ''
   const key  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? ''
-  if (!url || !key) return
+  if (!url || !key) {
+    console.warn(`[logApiUsage] SUPABASE_URL/SERVICE_KEY ausente — "${api}/${endpoint}" não registrado`)
+    return
+  }
 
   try {
-    await fetch(`${url}/rest/v1/api_usage_log`, {
+    const res = await fetch(`${url}/rest/v1/api_usage_log`, {
       method: 'POST',
       headers: {
         apikey: key,
@@ -30,7 +35,11 @@ export async function logApiUsage(
         custo_usd:    opts.custo_usd ?? 0,
       }),
     })
-  } catch {
-    // intencionalmente silencioso — log nunca deve quebrar o fluxo principal
+    if (!res.ok) {
+      console.warn(`[logApiUsage] Supabase recusou o registro de "${api}/${endpoint}": HTTP ${res.status} ${await res.text().catch(() => '')}`)
+    }
+  } catch (err) {
+    // nunca lança — logging não pode derrubar o fluxo principal, mas fica visível nos logs da função
+    console.warn(`[logApiUsage] Falha ao registrar "${api}/${endpoint}":`, err)
   }
 }
