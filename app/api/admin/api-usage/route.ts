@@ -20,6 +20,8 @@ const LABEL: Record<string, string> = {
   strava:         'Strava',
   openlandmap:    'OpenLandMap',
   deepseek:       'DeepSeek',
+  tavily:         'Tavily (busca web)',
+  instagram:      'Instagram (Graph API)',
 }
 
 export async function GET(req: Request) {

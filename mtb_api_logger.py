@@ -55,8 +55,8 @@ def log_api(
 
 def gravar_uso_api() -> None:
     """Agrega entradas acumuladas e grava em batch no Supabase ao final da execução."""
-    supabase_url = os.getenv("SUPABASE_URL", "")
-    supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "")
+    supabase_url = os.getenv("SUPABASE_URL", "") or os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
+    supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "") or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
     if _log and supabase_url and supabase_key:
         agg: dict[tuple, dict] = {}
@@ -144,8 +144,8 @@ def _verificar_limites_e_alertar() -> None:
     cadastrados em `api_limits` e dispara um alerta Telegram para o admin quando
     algum é estourado. Deduplica por `ultimo_alerta_em` — só realerta no próximo
     período. Nunca lança exceção: falha aqui não pode derrubar o pipeline."""
-    supabase_url = os.getenv("SUPABASE_URL", "")
-    supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "")
+    supabase_url = os.getenv("SUPABASE_URL", "") or os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
+    supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "") or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     if not supabase_url or not supabase_key:
         return
 

@@ -59,6 +59,8 @@ const API_COLOR: Record<string, string> = {
   strava:         '#fc4c02',
   openlandmap:    '#15803d',
   deepseek:       '#4d6bfe',
+  tavily:         '#0f766e',
+  instagram:      '#e1306c',
 }
 
 function fmt(n: number, decimals = 4) {
@@ -423,8 +425,9 @@ export default function ApiUsagePage() {
               Gemini 2.0 Flash — US$0,10/MTok in · US$0,40/MTok out &nbsp;|&nbsp;
               Groq Llama-3.3-70b — US$0,59/MTok &nbsp;|&nbsp;
               Resend — US$0,001/e-mail acima de 3.000/mês &nbsp;|&nbsp;
-              OWM, Open-Meteo, NOAA, Strava, OpenLandMap, Pollinations, Telegram — gratuitos.
+              OWM, Open-Meteo, NOAA, Strava, OpenLandMap, Pollinations, Telegram, Instagram (Graph API, limite 200 chamadas/hora) — gratuitos.
               DeepSeek Chat — US$0,27/MTok in · US$1,10/MTok out &nbsp;|&nbsp;
+              Tavily — free tier 1.000 créditos/mês (1 crédito/busca "basic") &nbsp;|&nbsp;
               Stripe não cobra por chamada de API (cobra % por transação).
               Custos são estimativas calculadas na hora da execução.
             </div>

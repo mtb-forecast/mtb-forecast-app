@@ -54,6 +54,9 @@ import os
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from mtb_api_logger import log_api, gravar_uso_api
+
 SUPABASE_URL      = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY      = os.environ.get("SUPABASE_SERVICE_KEY", "")
 DEEPSEEK_KEY      = os.environ.get("DEEPSEEK_API_KEY", "")
@@ -205,13 +208,19 @@ def _gerar_texto_composta_deepseek(prompt: str) -> str | None:
                 "https://api.deepseek.com/chat/completions", headers,
                 method="POST", data=payload, timeout=30,
             )
+            usage = data.get("usage", {})
+            log_api("deepseek", "chat_completions",
+                    tokens_in=usage.get("prompt_tokens", 0),
+                    tokens_out=usage.get("completion_tokens", 0), sucesso=1)
             return data["choices"][0]["message"]["content"].strip()
         except urllib.error.HTTPError as exc:
             print(f"  [DeepSeek texto composta] HTTP {exc.code} (tentativa {attempt+1})")
             if exc.code in (400, 402):
+                log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
                 return None
         except Exception as exc:
             print(f"  [DeepSeek texto composta] Erro (tentativa {attempt+1}): {exc}")
+    log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
     return None
 
 
@@ -233,9 +242,14 @@ def _gerar_texto_composta_claude(prompt: str) -> str | None:
             "https://api.anthropic.com/v1/messages", headers,
             method="POST", data=payload, timeout=30,
         )
+        usage = data.get("usage", {})
+        log_api("anthropic", "messages",
+                tokens_in=usage.get("input_tokens", 0),
+                tokens_out=usage.get("output_tokens", 0), sucesso=1)
         return data["content"][0]["text"].strip()
     except Exception as exc:
         print(f"  [Claude texto composta] Erro: {exc}")
+        log_api("anthropic", "messages", sucesso=0, falhas=1)
         return None
 
 
@@ -258,6 +272,13 @@ def gerar_texto_composta(nome_composta: str, cond_composta: dict, componentes: l
 
 
 def main() -> None:
+    try:
+        _main()
+    finally:
+        gravar_uso_api()
+
+
+def _main() -> None:
     print(f"MTB Forecaster — Agregação de trilhas compostas {'[DRY RUN]' if DRY_RUN else ''}")
 
     if not ENABLED:

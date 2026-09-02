@@ -37,6 +37,9 @@ from datetime import datetime, timezone
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from mtb_api_logger import log_api, gravar_uso_api
+
 # ─── Config ──────────────────────────────────────────────────────────────────
 
 OG_API_BASE  = os.environ.get("OG_API_BASE", "https://mtbforecaster.com.br").rstrip("/")
@@ -347,9 +350,11 @@ def check_token() -> bool:
     )
     if not r.ok:
         print(f"  ⚠ Token inválido ou expirado: {r.text}")
+        log_api("instagram", "me", sucesso=0, falhas=1)
         return False
     data = r.json()
     print(f"  ✓ Token OK — conta: {data.get('name')} ({data.get('id')})")
+    log_api("instagram", "me", sucesso=1)
     return True
 
 
@@ -361,9 +366,11 @@ def create_ig_container(image_url: str, caption: str) -> str | None:
     )
     if not r.ok:
         print(f"  ✗ Erro ao criar container: {r.status_code} {r.text}")
+        log_api("instagram", "media", sucesso=0, falhas=1)
         return None
     cid = r.json().get("id")
     print(f"  ✓ Container criado: {cid}")
+    log_api("instagram", "media", sucesso=1)
     return cid
 
 
@@ -375,9 +382,11 @@ def create_ig_stories_container(image_url: str) -> str | None:
     )
     if not r.ok:
         print(f"  ✗ Erro ao criar container de Stories: {r.status_code} {r.text}")
+        log_api("instagram", "media", sucesso=0, falhas=1)
         return None
     cid = r.json().get("id")
     print(f"  ✓ Container Stories criado: {cid}")
+    log_api("instagram", "media", sucesso=1)
     return cid
 
 
@@ -389,9 +398,11 @@ def publish_ig_container(creation_id: str) -> str | None:
     )
     if not r.ok:
         print(f"  ✗ Erro ao publicar: {r.status_code} {r.text}")
+        log_api("instagram", "media_publish", sucesso=0, falhas=1)
         return None
     media_id = r.json().get("id")
     print(f"  ✓ Publicado! media_id={media_id}")
+    log_api("instagram", "media_publish", sucesso=1)
     return media_id
 
 
@@ -415,6 +426,13 @@ def validate_env():
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    try:
+        _main()
+    finally:
+        gravar_uso_api()
+
+
+def _main():
     validate_env()
 
     print("=" * 60)

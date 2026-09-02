@@ -41,10 +41,14 @@ Env vars opcionais:
 
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 
 import requests
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from mtb_api_logger import log_api, gravar_uso_api
 
 SUPABASE_URL   = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY   = os.environ.get("SUPABASE_SERVICE_KEY", "")
@@ -105,7 +109,9 @@ def buscar_fontes() -> list[dict]:
     }
     r = requests.post("https://api.tavily.com/search", json=payload, timeout=30)
     if not r.ok:
+        log_api("tavily", "search", sucesso=0, falhas=1)
         raise RuntimeError(f"Erro na API Tavily: {r.status_code} {r.text}")
+    log_api("tavily", "search", sucesso=1)
 
     fontes = []
     for item in r.json().get("results", []):
@@ -181,20 +187,28 @@ def _resumo_via_deepseek(fontes: list[dict]) -> dict | None:
             if not r.ok:
                 print(f"[DeepSeek Notícia Externa] HTTP {r.status_code} (tentativa {attempt+1}): {r.text}")
                 if r.status_code in (400, 402):
+                    log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
                     return None
                 time.sleep(2)
                 continue
-            texto = r.json()["choices"][0]["message"]["content"]
+            body = r.json()
+            texto = body["choices"][0]["message"]["content"]
             noticia = _parse_json_final(texto)
             if "frase_destaque" not in noticia:
                 print(f"[DeepSeek Notícia Externa] JSON sem frase_destaque: {texto[:300]}")
+                log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
                 return None
             noticia.setdefault("bullets", [])
+            usage = body.get("usage", {})
+            log_api("deepseek", "chat_completions",
+                    tokens_in=usage.get("prompt_tokens", 0),
+                    tokens_out=usage.get("completion_tokens", 0), sucesso=1)
             print("[DeepSeek Notícia Externa] OK")
             return noticia
         except Exception as exc:
             print(f"[DeepSeek Notícia Externa] Erro (tentativa {attempt+1}): {exc}")
             time.sleep(2)
+    log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
     return None
 
 
@@ -225,16 +239,22 @@ def _resumo_via_claude(fontes: list[dict]) -> dict:
                     break
                 time.sleep(2 ** attempt)
                 continue
-            texto = r.json()["content"][0]["text"]
+            body = r.json()
+            texto = body["content"][0]["text"]
             noticia = _parse_json_final(texto)
             if "frase_destaque" not in noticia:
                 raise RuntimeError(f"JSON sem frase_destaque: {texto[:300]}")
             noticia.setdefault("bullets", [])
+            usage = body.get("usage", {})
+            log_api("anthropic", "messages",
+                    tokens_in=usage.get("input_tokens", 0),
+                    tokens_out=usage.get("output_tokens", 0), sucesso=1)
             return noticia
         except Exception as exc:
             last_err = str(exc)
             time.sleep(2 ** attempt)
 
+    log_api("anthropic", "messages", sucesso=0, falhas=1)
     raise RuntimeError(f"Falha ao gerar resumo via Claude: {last_err}")
 
 
@@ -333,6 +353,13 @@ def postar_instagram(noticia_id: int) -> bool:
 
 
 def main():
+    try:
+        _main()
+    finally:
+        gravar_uso_api()
+
+
+def _main():
     print("=" * 60)
     print(f"MTB Forecaster — Notícia Externa (busca real) {'[DRY RUN]' if DRY_RUN else ''}")
     print(f"Horário: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")

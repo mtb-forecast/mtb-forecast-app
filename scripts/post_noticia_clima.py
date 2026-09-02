@@ -49,6 +49,9 @@ from datetime import datetime, timezone
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from mtb_api_logger import log_api, gravar_uso_api
+
 SUPABASE_URL     = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY     = os.environ.get("SUPABASE_SERVICE_KEY", "")
 ANTHROPIC_KEY    = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -307,15 +310,22 @@ def _gerar_texto_deepseek(stats: dict) -> dict | None:
             if not r.ok:
                 print(f"[DeepSeek Notícia Clima] HTTP {r.status_code} (tentativa {attempt+1}): {r.text}")
                 if r.status_code in (400, 402):
+                    log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
                     return None
                 time.sleep(2)
                 continue
-            texto = r.json()["choices"][0]["message"]["content"]
+            body = r.json()
+            texto = body["choices"][0]["message"]["content"]
+            usage = body.get("usage", {})
+            log_api("deepseek", "chat_completions",
+                    tokens_in=usage.get("prompt_tokens", 0),
+                    tokens_out=usage.get("completion_tokens", 0), sucesso=1)
             print("[DeepSeek Notícia Clima] OK")
             return _extrair_json(texto)
         except Exception as exc:
             print(f"[DeepSeek Notícia Clima] Erro (tentativa {attempt+1}): {exc}")
             time.sleep(2)
+    log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
     return None
 
 
@@ -347,11 +357,16 @@ def gerar_texto_claude(stats: dict) -> dict:
                 continue
             data = r.json()
             texto = data["content"][0]["text"]
+            usage = data.get("usage", {})
+            log_api("anthropic", "messages",
+                    tokens_in=usage.get("input_tokens", 0),
+                    tokens_out=usage.get("output_tokens", 0), sucesso=1)
             return _extrair_json(texto)
         except Exception as exc:
             last_err = str(exc)
             time.sleep(2 ** attempt)
 
+    log_api("anthropic", "messages", sucesso=0, falhas=1)
     raise RuntimeError(f"Falha ao gerar texto via Claude: {last_err}")
 
 
@@ -476,6 +491,13 @@ def postar_instagram(noticia_id: int) -> bool:
 
 
 def main():
+    try:
+        _main()
+    finally:
+        gravar_uso_api()
+
+
+def _main():
     print("=" * 60)
     print(f"MTB Forecaster — Notícia Climática {'[DRY RUN]' if DRY_RUN else ''}")
     print(f"Horário: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
