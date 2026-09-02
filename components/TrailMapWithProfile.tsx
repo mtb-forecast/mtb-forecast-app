@@ -213,7 +213,7 @@ export default function TrailMapWithProfile({
       corPorTrechoIdx.set(idx, slot < CORES_TRECHO.length ? CORES_TRECHO[slot] : COR_TRECHO_OUTRO)
     }
 
-    type Banda = { trechoIdx: number; name: string; cor: string; x0: number; x1: number }
+    type Banda = { trechoIdx: number; name: string; cor: string; x0: number; x1: number; i0: number; i1: number }
     const out: Banda[] = []
     let i = 0
     while (i < trechoPorPonto.length) {
@@ -222,12 +222,19 @@ export default function TrailMapWithProfile({
       while (j + 1 < trechoPorPonto.length && trechoPorPonto[j + 1] === idx) j++
       if (idx !== -1) {
         const t = trechosComPontos.find(tt => tt.idx === idx)!
-        out.push({ trechoIdx: idx, name: t.name, cor: corPorTrechoIdx.get(idx)!, x0: elevData.toX(i), x1: elevData.toX(j) })
+        out.push({ trechoIdx: idx, name: t.name, cor: corPorTrechoIdx.get(idx)!, x0: elevData.toX(i), x1: elevData.toX(j), i0: i, i1: j })
       }
       i = j + 1
     }
     return out
   }, [elevData, trechos])
+
+  // Trecho a que pertence o ponto sob o cursor agora -- usado no tooltip de
+  // hover (mostra o nome do trecho, não só elevação/distância).
+  const trechoHover = useMemo(() => {
+    if (hoverIdx == null) return null
+    return bandas.find(b => hoverIdx >= b.i0 && hoverIdx <= b.i1) ?? null
+  }, [bandas, hoverIdx])
 
   const legendaTrechos = useMemo(() => {
     const vistos = new Map<number, { name: string; cor: string }>()
@@ -299,13 +306,20 @@ export default function TrailMapWithProfile({
           <div style={{ padding: '4px 16px 14px', position: 'relative' }}>
             {hoverIdx != null && (
               <div style={{
-                position: 'absolute', top: -44,
+                position: 'absolute', top: trechoHover ? -62 : -44,
                 left: `${(elevData.xs[hoverIdx] / 648) * 100}%`,
                 transform: 'translateX(-50%) translateY(0)',
                 background: '#1A1D18', color: '#F4F3EF', borderRadius: 7,
                 padding: '5px 10px', fontSize: 11, fontFamily: 'var(--font-dm-mono)',
                 pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 10,
+                textAlign: 'center',
               }}>
+                {trechoHover && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'center', marginBottom: 2 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: trechoHover.cor, flexShrink: 0 }} />
+                    <span style={{ fontWeight: 700, color: '#F4F3EF' }}>{trechoHover.name}</span>
+                  </div>
+                )}
                 <span style={{ color: '#4ADE80', fontWeight: 500 }}>{Math.round(elevData.pts[hoverIdx].ele)}m</span>
                 {' · '}{elevData.dists[hoverIdx].toFixed(1)}km
                 <div style={{
