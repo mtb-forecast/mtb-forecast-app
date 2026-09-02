@@ -21,6 +21,7 @@ const LABEL: Record<string, string> = {
   openlandmap:    'OpenLandMap',
   deepseek:       'DeepSeek',
   tavily:         'Tavily (busca web)',
+  instagram:      'Instagram (Graph API)',
 }
 
 export async function GET(req: Request) {

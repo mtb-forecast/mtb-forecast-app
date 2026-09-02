@@ -34,6 +34,9 @@ from datetime import datetime, timezone
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from mtb_api_logger import log_api, gravar_uso_api
+
 OG_API_BASE    = os.environ.get("OG_API_BASE", "https://mtbforecaster.com.br").rstrip("/")
 SUPABASE_URL   = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY   = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -96,9 +99,11 @@ def check_token() -> bool:
     )
     if not r.ok:
         print(f"  ⚠ Token inválido ou expirado: {r.text}")
+        log_api("instagram", "me", sucesso=0, falhas=1)
         return False
     data = r.json()
     print(f"  ✓ Token OK — conta: {data.get('name')} ({data.get('id')})")
+    log_api("instagram", "me", sucesso=1)
     return True
 
 
@@ -127,9 +132,11 @@ def create_feed_container(image_url: str, caption: str) -> str | None:
     )
     if not r.ok:
         print(f"  ✗ Erro ao criar container: {r.status_code} {r.text}")
+        log_api("instagram", "media", sucesso=0, falhas=1)
         return None
     cid = r.json().get("id")
     print(f"  ✓ Container criado: {cid}")
+    log_api("instagram", "media", sucesso=1)
     return cid
 
 
@@ -141,13 +148,22 @@ def publish_container(creation_id: str) -> str | None:
     )
     if not r.ok:
         print(f"  ✗ Erro ao publicar: {r.status_code} {r.text}")
+        log_api("instagram", "media_publish", sucesso=0, falhas=1)
         return None
     media_id = r.json().get("id")
     print(f"  ✓ Publicado! media_id={media_id}")
+    log_api("instagram", "media_publish", sucesso=1)
     return media_id
 
 
 def main():
+    try:
+        _main()
+    finally:
+        gravar_uso_api()
+
+
+def _main():
     parser = argparse.ArgumentParser(description="Posta dica no Instagram Feed (round-robin via Supabase)")
     parser.add_argument("--id", type=int, required=False,
                         help="ID da dica (1–20). Se omitido usa DICA_ID env ou round-robin automático.")
