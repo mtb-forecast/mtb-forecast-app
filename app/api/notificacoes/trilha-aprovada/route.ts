@@ -55,7 +55,7 @@ export async function POST(request: Request) {
             disable_web_page_preview: true,
           }),
         })
-        void logApiUsage('telegram', 'sendMessage', { sucesso: tgRes.ok ? 1 : 0, falhas: tgRes.ok ? 0 : 1 })
+        await logApiUsage('telegram', 'sendMessage', { sucesso: tgRes.ok ? 1 : 0, falhas: tgRes.ok ? 0 : 1 })
       }
     }
 
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
             `,
           }),
         })
-        void logApiUsage('resend', 'emails', { sucesso: emailRes.ok ? 1 : 0, falhas: emailRes.ok ? 0 : 1 })
+        await logApiUsage('resend', 'emails', { sucesso: emailRes.ok ? 1 : 0, falhas: emailRes.ok ? 0 : 1 })
       }
     }
 

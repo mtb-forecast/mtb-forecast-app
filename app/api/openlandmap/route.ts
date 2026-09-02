@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     const res = await fetch(url, { next: { revalidate: 86400 } })
-    void logApiUsage('openlandmap', 'query/point', { sucesso: res.ok ? 1 : 0, falhas: res.ok ? 0 : 1 })
+    await logApiUsage('openlandmap', 'query/point', { sucesso: res.ok ? 1 : 0, falhas: res.ok ? 0 : 1 })
     const data = await res.json()
     const props_data = data?.properties || {}
 

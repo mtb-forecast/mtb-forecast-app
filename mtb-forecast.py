@@ -489,7 +489,8 @@ def _fetch_windy_forecast(trail: dict) -> dict | None:
 def fetch_onecall(trail: dict) -> dict | None:
     lk = trail.get("local_key")
     if lk and lk in _CACHE_OW_ONECALL:
-        _log_api("openweathermap", "onecall", chamadas=1, sucesso=1)
+        # Cache hit — nenhuma chamada HTTP real acontece aqui, então não conta
+        # para o rastreamento de consumo (senão infla o número acima da quota real da OWM).
         return _CACHE_OW_ONECALL[lk]
     url = (
         "https://api.openweathermap.org/data/3.0/onecall"

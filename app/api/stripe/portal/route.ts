@@ -40,6 +40,6 @@ export async function POST(req: NextRequest) {
     return_url: `${appUrl}/perfil`,
   })
 
-  void logApiUsage('stripe', 'billingPortal.sessions.create', { sucesso: 1 })
+  await logApiUsage('stripe', 'billingPortal.sessions.create', { sucesso: 1 })
   return NextResponse.json({ url: session.url })
 }

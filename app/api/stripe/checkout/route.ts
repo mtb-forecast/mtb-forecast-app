@@ -59,6 +59,6 @@ export async function POST(req: NextRequest) {
     cancel_url: `${appUrl}/planos`,
   })
 
-  void logApiUsage('stripe', 'checkout.sessions.create', { sucesso: 1 })
+  await logApiUsage('stripe', 'checkout.sessions.create', { sucesso: 1 })
   return NextResponse.json({ url: session.url })
 }

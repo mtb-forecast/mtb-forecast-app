@@ -38,12 +38,12 @@ export async function POST(request: Request) {
     if (!res.ok) {
       const errorBody = await res.text()
       console.error(`[send-email] Resend error ${res.status}:`, errorBody)
-      void logApiUsage('resend', 'emails', { sucesso: 0, falhas: 1 })
+      await logApiUsage('resend', 'emails', { sucesso: 0, falhas: 1 })
       return NextResponse.json({ error: errorBody }, { status: res.status })
     }
 
     const data = await res.json()
-    void logApiUsage('resend', 'emails')
+    await logApiUsage('resend', 'emails')
     return NextResponse.json({ ok: true, id: data.id })
   } catch (error) {
     console.error('[send-email] Erro interno:', error)
