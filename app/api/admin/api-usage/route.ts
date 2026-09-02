@@ -83,6 +83,37 @@ export async function GET(req: Request) {
   // Execuções únicas no período
   const execucoes = new Set((data ?? []).map(r => (r as { execucao_id?: string }).execucao_id).filter(Boolean)).size
 
+  // Limites cadastrados x consumo do período corrente (dia/mês em curso — independe do filtro `dias`)
+  const { data: limitesRaw } = await supabaseAdmin
+    .from('api_limits')
+    .select('*')
+    .eq('ativo', true)
+
+  const agora = new Date()
+  const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()))
+  const inicioMes = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1))
+
+  const limites = []
+  for (const lim of limitesRaw ?? []) {
+    const inicio = lim.tipo === 'diario' ? inicioDia : inicioMes
+    const { data: usoRows } = await supabaseAdmin
+      .from('api_usage_log')
+      .select('chamadas, tokens_input, tokens_output, custo_usd')
+      .eq('api_name', lim.api_name)
+      .gte('criado_em', inicio.toISOString())
+
+    const consumido_chamadas = (usoRows ?? []).reduce((s, r) => s + (r.chamadas ?? 0), 0)
+    const consumido_tokens   = (usoRows ?? []).reduce((s, r) => s + (r.tokens_input ?? 0) + (r.tokens_output ?? 0), 0)
+    const consumido_custo_usd = (usoRows ?? []).reduce((s, r) => s + (r.custo_usd ?? 0), 0)
+
+    let pct = 0
+    if (lim.limite_chamadas) pct = Math.max(pct, consumido_chamadas / lim.limite_chamadas)
+    if (lim.limite_tokens) pct = Math.max(pct, consumido_tokens / lim.limite_tokens)
+    if (lim.limite_custo_usd) pct = Math.max(pct, consumido_custo_usd / lim.limite_custo_usd)
+
+    limites.push({ ...lim, consumido_chamadas, consumido_tokens, consumido_custo_usd, pct })
+  }
+
   // Série temporal diária de custo (últimos `dias` dias)
   const serie: Record<string, number> = {}
   for (const row of data ?? []) {
@@ -96,6 +127,7 @@ export async function GET(req: Request) {
     total_custo_usd: Object.values(agg).reduce((s, a) => s + a.custo_usd, 0),
     total_chamadas:  Object.values(agg).reduce((s, a) => s + a.chamadas, 0),
     apis: Object.values(agg).sort((a, b) => b.custo_usd - a.custo_usd),
+    limites,
     serie_diaria: Object.entries(serie)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([dia, custo]) => ({ dia, custo })),
