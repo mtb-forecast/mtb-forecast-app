@@ -22,6 +22,11 @@ const DICAS_BASE: Record<Modalidade, Record<CondicaoBucket, string[]>> = {
     UMIDO: ['Reduza ~1-2 psi para melhorar tração em curva.', 'Fique atento a raízes e pedras — ficam escorregadias mesmo com pneu bom.'],
     LAMA: ['Reduza a pressão para ganhar grip; risco de fura sobe, ande com atenção em pedras.', 'Se o trecho tiver muita lama grudenta, considere pneu de cravo alto.'],
   },
+  TRAIL: {
+    SECO: ['Pressão padrão de trilha seca, equilíbrio entre rolamento e grip.', 'Suspensão no setup de referência para o seu peso.'],
+    UMIDO: ['Reduza ~1 psi pra melhorar tração sem perder rolamento.', 'Cuidado extra em raízes, pedras e madeira molhada.'],
+    LAMA: ['Reduza a pressão para ganhar grip em subida e curva; risco de fura sobe.', 'Prefira linhas mais firmes do trajeto para evitar atoleiro.'],
+  },
   XC: {
     SECO: ['Pressão mais alta favorece rolamento — mantenha o setup padrão.', 'Sem necessidade de ajuste de suspensão.'],
     UMIDO: ['Reduza levemente a pressão (~1 psi) para não perder tração nas subidas.', 'Cuidado extra em raízes e pedras molhadas.'],
@@ -47,6 +52,7 @@ const SAG_ALVO_PCT: Record<Modalidade, [number, number]> = {
   XC: [0.20, 0.25],
   MTB_ESTRADA: [0.20, 0.25],
   CICLOTURISMO: [0.15, 0.20],
+  TRAIL: [0.22, 0.28],
   ENDURO: [0.25, 0.30],
   DOWNHILL: [0.30, 0.35],
 }
@@ -57,6 +63,7 @@ const SAG_ALVO_PCT: Record<Modalidade, [number, number]> = {
 // (não bloqueia o cadastro). XC aceita 0 na traseira (hardtail é comum na modalidade).
 const CURSO_TIPICO_MM: Record<Modalidade, { dianteiro: [number, number]; traseiro: [number, number] }> = {
   XC: { dianteiro: [80, 120], traseiro: [0, 120] },
+  TRAIL: { dianteiro: [120, 140], traseiro: [120, 140] },
   ENDURO: { dianteiro: [150, 170], traseiro: [140, 165] },
   DOWNHILL: { dianteiro: [180, 200], traseiro: [180, 250] },
   MTB_ESTRADA: { dianteiro: [0, 100], traseiro: [0, 100] },
