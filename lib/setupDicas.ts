@@ -1,7 +1,7 @@
 // Dicas de setup por bicicleta x condição da trilha.
 // Regra determinística — sem chamada de IA, sem custo de API, sem tocar no
 // pipeline Python. Textos calibrados manualmente, não vêm do banco.
-import { Bicicleta, Condicao, Modalidade } from './types'
+import { Bicicleta, Condicao, Modalidade, MODALIDADES } from './types'
 
 type CondicaoBucket = 'SECO' | 'UMIDO' | 'LAMA'
 
@@ -22,10 +22,20 @@ const DICAS_BASE: Record<Modalidade, Record<CondicaoBucket, string[]>> = {
     UMIDO: ['Reduza ~1-2 psi para melhorar tração em curva.', 'Fique atento a raízes e pedras — ficam escorregadias mesmo com pneu bom.'],
     LAMA: ['Reduza a pressão para ganhar grip; risco de fura sobe, ande com atenção em pedras.', 'Se o trecho tiver muita lama grudenta, considere pneu de cravo alto.'],
   },
+  TRAIL: {
+    SECO: ['Pressão padrão de trilha seca, equilíbrio entre rolamento e grip.', 'Suspensão no setup de referência para o seu peso.'],
+    UMIDO: ['Reduza ~1 psi pra melhorar tração sem perder rolamento.', 'Cuidado extra em raízes, pedras e madeira molhada.'],
+    LAMA: ['Reduza a pressão para ganhar grip em subida e curva; risco de fura sobe.', 'Prefira linhas mais firmes do trajeto para evitar atoleiro.'],
+  },
   XC: {
     SECO: ['Pressão mais alta favorece rolamento — mantenha o setup padrão.', 'Sem necessidade de ajuste de suspensão.'],
     UMIDO: ['Reduza levemente a pressão (~1 psi) para não perder tração nas subidas.', 'Cuidado extra em raízes e pedras molhadas.'],
     LAMA: ['Reduza a pressão para melhorar tração; aceite perder um pouco de rolamento.', 'Prefira linhas mais firmes do trajeto para evitar atoleiro.'],
+  },
+  DIRT_JUMP: {
+    SECO: ['Pressão alta e suspensão firme (pouco sag) — pista seca é o cenário ideal pra saltos.', 'Sem ajuste necessário.'],
+    UMIDO: ['Pista de terra batida molhada perde muito grip pra aterrissagem — reduza a pressão levemente e ande com cautela nas curvas.', 'Evite saltar em pouso molhado e escorregadio.'],
+    LAMA: ['Não recomendado andar de dirt jump/pumptrack com pista enlameada — risco alto de derrapagem no pouso.', 'Se for pumptrack de concreto, a lama não afeta a pista, só o acesso.'],
   },
   MTB_ESTRADA: {
     SECO: ['Pressão padrão de estrada/cascalho, sem ajuste.', ''],
@@ -47,8 +57,28 @@ const SAG_ALVO_PCT: Record<Modalidade, [number, number]> = {
   XC: [0.20, 0.25],
   MTB_ESTRADA: [0.20, 0.25],
   CICLOTURISMO: [0.15, 0.20],
+  TRAIL: [0.22, 0.28],
   ENDURO: [0.25, 0.30],
   DOWNHILL: [0.30, 0.35],
+  DIRT_JUMP: [0.10, 0.20],
+}
+
+// Faixa típica de curso de suspensão (mm) por modalidade, dianteira x traseira —
+// referência de mercado (fontes: revistabicicleta.com, treepbiker.com.br, ativo.com,
+// pedal.com.br), usada só pra sinalizar valor digitado que foge muito do comum
+// (não bloqueia o cadastro). XC aceita 0 na traseira (hardtail é comum na modalidade).
+const CURSO_TIPICO_MM: Record<Modalidade, { dianteiro: [number, number]; traseiro: [number, number] }> = {
+  XC: { dianteiro: [80, 120], traseiro: [0, 120] },
+  TRAIL: { dianteiro: [120, 140], traseiro: [120, 140] },
+  ENDURO: { dianteiro: [150, 170], traseiro: [140, 165] },
+  DOWNHILL: { dianteiro: [180, 200], traseiro: [180, 250] },
+  DIRT_JUMP: { dianteiro: [80, 100], traseiro: [0, 80] },
+  MTB_ESTRADA: { dianteiro: [0, 100], traseiro: [0, 100] },
+  CICLOTURISMO: { dianteiro: [0, 100], traseiro: [0, 100] },
+}
+
+function modalidadeLabel(v: Modalidade) {
+  return MODALIDADES.find(m => m.value === v)?.label ?? v
 }
 
 function ajusteTipoBike(tipo: Bicicleta['tipo']): string | null {
@@ -116,10 +146,10 @@ export function setupDica(bicicleta: Bicicleta, condicao: Pick<Condicao, 'aderen
         if (Math.abs(diff) >= 0.5) ajustes.push(`traseiro ${diff > 0 ? 'suba' : 'reduza'} ~${Math.abs(diff)} psi (está em ${bicicleta.psi_traseiro})`)
       }
       itens.push(ajustes.length
-        ? `Pra hoje (~${alvoD} psi dianteiro / ~${alvoT} psi traseiro): ${ajustes.join('; ')}.`
-        : `Seu PSI atual já está próximo do ideal pra hoje (~${alvoD} dianteiro / ~${alvoT} traseiro).`)
+        ? `Estimativa de ponto de partida pra hoje (~${alvoD} psi dianteiro / ~${alvoT} psi traseiro, baseado no seu peso): ${ajustes.join('; ')}.`
+        : `Seu PSI atual já está perto da estimativa de ponto de partida pra hoje (~${alvoD} dianteiro / ~${alvoT} traseiro) — ajuste fino conforme a sensação na trilha.`)
     } else {
-      itens.push(`PSI recomendado pra hoje: ~${alvoD} psi dianteiro / ~${alvoT} psi traseiro (baseado no seu peso).`)
+      itens.push(`Estimativa de ponto de partida pra hoje, baseada no seu peso: ~${alvoD} psi dianteiro / ~${alvoT} psi traseiro — não é uma recomendação precisa, ajuste conforme a sensação na trilha.`)
     }
   } else {
     itens.push(...DICAS_BASE[bicicleta.modalidade][bucket].filter(Boolean))
@@ -139,6 +169,41 @@ export function setupDica(bicicleta: Bicicleta, condicao: Pick<Condicao, 'aderen
 
 export type AnaliseCadastro = {
   itens: string[]
+  avisos: string[]
+}
+
+// Verifica se o que foi digitado é coerente com a própria sugestão calculada
+// (peso → PSI de referência, modalidade → curso típico). Não bloqueia o
+// cadastro — só sinaliza pro usuário revisar um valor que foge muito do comum.
+function verificarCoerencia(bicicleta: Bicicleta): string[] {
+  const avisos: string[] = []
+
+  if (bicicleta.peso_atleta_kg) {
+    const rec = psiRecomendadoBase(bicicleta.peso_atleta_kg)
+    if (bicicleta.psi_dianteiro != null && Math.abs(bicicleta.psi_dianteiro - rec.dianteiro) >= 3) {
+      avisos.push(`PSI dianteiro informado (${bicicleta.psi_dianteiro}) está bem ${bicicleta.psi_dianteiro > rec.dianteiro ? 'acima' : 'abaixo'} da estimativa pro seu peso (~${rec.dianteiro}) — confira se não é engano de digitação.`)
+    }
+    if (bicicleta.psi_traseiro != null && Math.abs(bicicleta.psi_traseiro - rec.traseiro) >= 3) {
+      avisos.push(`PSI traseiro informado (${bicicleta.psi_traseiro}) está bem ${bicicleta.psi_traseiro > rec.traseiro ? 'acima' : 'abaixo'} da estimativa pro seu peso (~${rec.traseiro}) — confira se não é engano de digitação.`)
+    }
+  }
+
+  if (bicicleta.tipo !== 'RIGIDA') {
+    const faixas = CURSO_TIPICO_MM[bicicleta.modalidade]
+    const modLabel = modalidadeLabel(bicicleta.modalidade)
+    const [minD, maxD] = faixas.dianteiro
+    const [minT, maxT] = faixas.traseiro
+    if (bicicleta.curso_dianteiro_mm != null && (bicicleta.curso_dianteiro_mm < minD - 10 || bicicleta.curso_dianteiro_mm > maxD + 10)) {
+      avisos.push(`Curso dianteiro de ${bicicleta.curso_dianteiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${minD}-${maxD}mm na dianteira) — confira se o valor está certo.`)
+    }
+    if (bicicleta.curso_traseiro_mm != null && (bicicleta.curso_traseiro_mm < minT - 10 || bicicleta.curso_traseiro_mm > maxT + 10)) {
+      avisos.push(`Curso traseiro de ${bicicleta.curso_traseiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${minT}-${maxT}mm na traseira) — confira se o valor está certo.`)
+    }
+  } else if (bicicleta.curso_dianteiro_mm != null || bicicleta.curso_traseiro_mm != null) {
+    avisos.push('Bike marcada como Rígida mas com curso de suspensão preenchido — confira o tipo cadastrado.')
+  }
+
+  return avisos
 }
 
 // Análise mostrada logo após o cadastro/edição da bike — independente da condição
@@ -148,29 +213,22 @@ export function analiseCadastroBicicleta(bicicleta: Bicicleta): AnaliseCadastro 
 
   if (bicicleta.peso_atleta_kg) {
     const rec = psiRecomendadoBase(bicicleta.peso_atleta_kg)
-    itens.push(`PSI de referência para o seu peso: ~${rec.dianteiro} psi dianteiro / ~${rec.traseiro} psi traseiro (ponto de partida — ajuste fino conforme a sensação na trilha).`)
-
-    if (bicicleta.psi_dianteiro != null && Math.abs(bicicleta.psi_dianteiro - rec.dianteiro) >= 3) {
-      itens.push(`Seu PSI dianteiro atual (${bicicleta.psi_dianteiro}) está bem ${bicicleta.psi_dianteiro > rec.dianteiro ? 'acima' : 'abaixo'} da referência para o seu peso — vale reavaliar.`)
-    }
-    if (bicicleta.psi_traseiro != null && Math.abs(bicicleta.psi_traseiro - rec.traseiro) >= 3) {
-      itens.push(`Seu PSI traseiro atual (${bicicleta.psi_traseiro}) está bem ${bicicleta.psi_traseiro > rec.traseiro ? 'acima' : 'abaixo'} da referência para o seu peso — vale reavaliar.`)
-    }
+    itens.push(`Estimativa de ponto de partida pro seu peso (não é uma recomendação precisa): ~${rec.dianteiro} psi dianteiro / ~${rec.traseiro} psi traseiro — use só como referência inicial e ajuste conforme a sensação na trilha.`)
   }
 
   if (bicicleta.tipo !== 'RIGIDA') {
     if (bicicleta.curso_dianteiro_mm) {
       const [min, max] = sagAlvoMm(bicicleta.curso_dianteiro_mm, bicicleta.modalidade)
-      itens.push(`Sag alvo na suspensão dianteira (${bicicleta.curso_dianteiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike.`)
+      itens.push(`Estimativa de sag na suspensão dianteira (${bicicleta.curso_dianteiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike — referência geral, o manual do fabricante pode indicar outra faixa.`)
     }
     if (bicicleta.curso_traseiro_mm) {
       const [min, max] = sagAlvoMm(bicicleta.curso_traseiro_mm, bicicleta.modalidade)
-      itens.push(`Sag alvo na suspensão traseira (${bicicleta.curso_traseiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike.`)
+      itens.push(`Estimativa de sag na suspensão traseira (${bicicleta.curso_traseiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike — referência geral, o manual do fabricante pode indicar outra faixa.`)
     }
   }
 
   const mullet = mulletNote(bicicleta)
   if (mullet) itens.push(mullet)
 
-  return { itens }
+  return { itens, avisos: verificarCoerencia(bicicleta) }
 }

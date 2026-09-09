@@ -171,7 +171,7 @@ export type Profile = {
 }
 
 export type TipoBicicleta = 'MTB' | 'EMTB' | 'RIGIDA'
-export type Modalidade = 'DOWNHILL' | 'ENDURO' | 'XC' | 'MTB_ESTRADA' | 'CICLOTURISMO'
+export type Modalidade = 'DOWNHILL' | 'ENDURO' | 'TRAIL' | 'XC' | 'DIRT_JUMP' | 'MTB_ESTRADA' | 'CICLOTURISMO'
 export type Aro = '26' | '27.5' | '29'
 
 export type Bicicleta = {
@@ -180,6 +180,7 @@ export type Bicicleta = {
   tipo: TipoBicicleta
   marca?: string | null
   modelo?: string | null
+  ano_modelo?: number | null
   modalidade: Modalidade
   ativa: boolean
   created_at: string
@@ -207,7 +208,9 @@ export const AROS: { value: Aro; label: string }[] = [
 export const MODALIDADES: { value: Modalidade; label: string }[] = [
   { value: 'DOWNHILL', label: 'Downhill' },
   { value: 'ENDURO', label: 'Enduro' },
+  { value: 'TRAIL', label: 'Trail / All-Mountain' },
   { value: 'XC', label: 'XC' },
+  { value: 'DIRT_JUMP', label: 'Dirt Jump / Freeride / Pumptrack' },
   { value: 'MTB_ESTRADA', label: 'MTB Estrada' },
   { value: 'CICLOTURISMO', label: 'Cicloturismo' },
 ]
