@@ -9,6 +9,7 @@ Não recalcula nada — é um leitor puro do banco.
 
 import json
 import os
+import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
@@ -131,6 +132,10 @@ def _enviar(chat_id: int, mensagem: str) -> bool:
         )
         with urllib.request.urlopen(req, timeout=10) as r:
             return r.status == 200
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        print(f"  [Telegram] Erro ao enviar para {chat_id}: HTTP {exc.code} — {body}")
+        return False
     except Exception as exc:
         print(f"  [Telegram] Erro ao enviar para {chat_id}: {exc}")
         return False
@@ -155,46 +160,75 @@ def _proximos_dias() -> dict:
     }
 
 
-def _montar_mensagem(nome: str, trails: list, datas: dict, hoje_str: str) -> str:
-    linhas = [f"🚵 *MTB Forecaster — {hoje_str}*\n"]
-    linhas.append(f"Olá, *{nome}*\\! Suas trilhas hoje:\n")
+# Telegram recusa sendMessage acima de 4096 caracteres (HTTP 400 Bad Request).
+# Usamos uma margem conservadora porque emojis/acentos podem contar mais de
+# 1 unidade em UTF-16 (o limite real do Telegram) do que em len() do Python.
+_TELEGRAM_LIMITE_CHARS = 3500
 
-    for t in trails:
-        name       = (t.get("trilhas") or {}).get("name") or t.get("name", "Trilha")
-        adh        = (t.get("aderencia_status") or "").strip()
-        verd       = ((t.get("veredicto_12h") or t.get("veredicto")) or "").strip()
-        rain       = t.get("rain_mm", 0) or 0
-        wind       = t.get("wind_ms", 0) or 0
-        rajada       = t.get("rajada_max_kmh", 0) or 0
-        is_strava  = t.get("strava", False)
 
-        verd_emoji = _VERD_EMOJI.get(verd, "•")
-        adh_emoji  = _ADH_EMOJI.get(adh, "•")
-        strava_tag = " 🟠 _Strava_" if is_strava else ""
+def _montar_bloco_trilha(t: dict, datas: dict) -> str:
+    name       = (t.get("trilhas") or {}).get("name") or t.get("name", "Trilha")
+    adh        = (t.get("aderencia_status") or "").strip()
+    verd       = ((t.get("veredicto_12h") or t.get("veredicto")) or "").strip()
+    rain       = t.get("rain_mm", 0) or 0
+    wind       = t.get("wind_ms", 0) or 0
+    rajada     = t.get("rajada_max_kmh", 0) or 0
+    is_strava  = t.get("strava", False)
 
-        linha  = f"{verd_emoji} *{name}*{strava_tag}\n"
-        linha += f"   {adh_emoji} {adh} · {verd}\n"
-        linha += f"   🌧 {rain}mm · 💨 {wind}m/s"
-        if rajada and rajada >= 30:
-            linha += f" · ⚡ rajada {rajada}km/h"
-        linha += "\n"
+    verd_emoji = _VERD_EMOJI.get(verd, "•")
+    adh_emoji  = _ADH_EMOJI.get(adh, "•")
+    strava_tag = " 🟠 _Strava_" if is_strava else ""
 
-        # Previsão D+1 / D+2 / D+3 (só para trilhas públicas com dados FDS)
-        for dk, label in [("d1", datas["d1"]), ("d2", datas["d2"]), ("d3", datas["d3"])]:
-            vt   = t.get(f"fds_{dk}_veredicto")
-            if not vt:
-                continue
-            rain_fds = t.get(f"fds_{dk}_rain") or 0
-            pop_fds  = t.get(f"fds_{dk}_pop")  or 0
-            tmax     = t.get(f"fds_{dk}_temp")     or "—"
-            tmin     = t.get(f"fds_{dk}_temp_min") or "—"
-            te = _emoji_tempo(rain_fds, pop_fds)
-            linha += f"   {label} {te} {tmax}°/{tmin}° · {vt}\n"
+    linha  = f"{verd_emoji} *{name}*{strava_tag}\n"
+    linha += f"   {adh_emoji} {adh} · {verd}\n"
+    linha += f"   🌧 {rain}mm · 💨 {wind}m/s"
+    if rajada and rajada >= 30:
+        linha += f" · ⚡ rajada {rajada}km/h"
+    linha += "\n"
 
-        linhas.append(linha)
+    # Previsão D+1 / D+2 / D+3 (só para trilhas públicas com dados FDS)
+    for dk, label in [("d1", datas["d1"]), ("d2", datas["d2"]), ("d3", datas["d3"])]:
+        vt   = t.get(f"fds_{dk}_veredicto")
+        if not vt:
+            continue
+        rain_fds = t.get(f"fds_{dk}_rain") or 0
+        pop_fds  = t.get(f"fds_{dk}_pop")  or 0
+        tmax     = t.get(f"fds_{dk}_temp")     or "—"
+        tmin     = t.get(f"fds_{dk}_temp_min") or "—"
+        te = _emoji_tempo(rain_fds, pop_fds)
+        linha += f"   {label} {te} {tmax}°/{tmin}° · {vt}\n"
 
-    linhas.append(f"🔗 [Ver detalhes]({APP_URL}/dashboard)")
-    return "\n".join(linhas)
+    return linha
+
+
+def _montar_mensagens(nome: str, trails: list, datas: dict, hoje_str: str) -> list[str]:
+    """Monta a mensagem em uma ou mais partes, respeitando o limite de 4096
+    caracteres do Telegram (usuários com muitas trilhas favoritas — ex. 20+
+    — estouram o limite numa mensagem só e a API responde 400 Bad Request)."""
+    header = f"🚵 *MTB Forecaster — {hoje_str}*\n\nOlá, *{nome}*\\! Suas trilhas hoje:\n\n"
+    footer = f"\n🔗 [Ver detalhes]({APP_URL}/dashboard)"
+
+    blocos = [_montar_bloco_trilha(t, datas) for t in trails]
+
+    mensagens: list[str] = []
+    atual = header
+    for bloco in blocos:
+        if len(atual) + len(bloco) > _TELEGRAM_LIMITE_CHARS and atual != header:
+            mensagens.append(atual.rstrip())
+            atual = ""
+        atual += bloco + "\n"
+    if atual.strip():
+        mensagens.append(atual.rstrip())
+    if not mensagens:
+        mensagens = [header.rstrip()]
+
+    mensagens[-1] += footer
+
+    if len(mensagens) > 1:
+        total = len(mensagens)
+        mensagens = [f"{m}\n\n_(parte {i + 1}/{total})_" for i, m in enumerate(mensagens)]
+
+    return mensagens
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -255,10 +289,17 @@ def main() -> None:
             ((r.get("veredicto_12h") or r.get("veredicto")) or "").strip(), 3
         ))
 
-        mensagem = _montar_mensagem(nome, trails, datas, hoje_str)
+        mensagens = _montar_mensagens(nome, trails, datas, hoje_str)
 
-        print(f"  Enviando para {nome} ({len(trails)} trilha(s))...")
-        ok = _enviar(int(chat_id), mensagem)
+        partes_str = f", {len(mensagens)} parte(s)" if len(mensagens) > 1 else ""
+        print(f"  Enviando para {nome} ({len(trails)} trilha(s){partes_str})...")
+        ok = True
+        for i, mensagem in enumerate(mensagens):
+            if not _enviar(int(chat_id), mensagem):
+                ok = False
+                break
+            if i < len(mensagens) - 1:
+                time.sleep(0.3)  # evita rate limit do Telegram entre partes
         print(f"  {'✓ Enviado' if ok else '✗ Falhou'}")
 
 
