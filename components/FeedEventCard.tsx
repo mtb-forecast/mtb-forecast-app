@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight, IconAlertTriangle, IconWorld, IconNews } from '@tabler/icons-react'
+import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight, IconAlertTriangle, IconWorld, IconNews, IconBulb } from '@tabler/icons-react'
 import type { FeedItem, FeedPerfilMini } from '@/lib/types'
 import { statusTrilhaLabel } from '@/lib/statusTrilha'
 
@@ -246,6 +246,50 @@ export default function FeedEventCard({ item, viewerId }: { item: FeedItem; view
               </a>
             ))}
           </div>
+        )}
+
+        <CardFooter createdAt={item.created_at} />
+      </div>
+    )
+  }
+
+  if (item.kind === 'dica') {
+    return (
+      <div style={{ ...cardStyle, background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: '#FEF3C7', display: 'grid', placeItems: 'center',
+          }}>
+            <IconBulb size={14} style={{ color: '#B45309' }} />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
+            textTransform: 'uppercase', color: '#B45309',
+          }}>
+            Novidade no app
+          </span>
+        </div>
+
+        <p style={{ fontSize: 14, color: '#1A1D18', lineHeight: 1.4, margin: '0 0 2px', fontWeight: 700 }}>
+          {item.titulo}
+        </p>
+        <p style={{ fontSize: 12.5, color: '#78716C', lineHeight: 1.4, margin: '0 0 8px' }}>
+          {item.subtitulo}
+        </p>
+
+        {item.itens?.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: item.rodape ? 8 : 0 }}>
+            {item.itens.map((it, i) => (
+              <p key={i} style={{ fontSize: 13, color: '#44403C', lineHeight: 1.5, margin: 0 }}>
+                <span style={{ marginRight: 6 }}>{it.emoji}</span>{it.texto}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {item.rodape && (
+          <p style={{ fontSize: 12, color: '#B45309', fontWeight: 600, margin: 0 }}>{item.rodape}</p>
         )}
 
         <CardFooter createdAt={item.created_at} />

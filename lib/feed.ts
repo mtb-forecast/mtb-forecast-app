@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini, NoticiaClima, NoticiaExterna } from './types'
+import type { FeedItem, FeedEvento, Observacao, FeedPerfilMini, NoticiaClima, NoticiaExterna, Dica } from './types'
 
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000
 
@@ -11,6 +11,11 @@ const NOTICIA_CLIMA_ATIVO = true
 // Kill switch da notícia externa (busca real na web, gerada por
 // scripts/post_noticia_externa.py). Independente do switch acima.
 const NOTICIA_EXTERNA_ATIVA = true
+
+// Kill switch das dicas (instagram_dicas) no feed do app — tabela originalmente
+// só alimentava o rodízio de post diário no Instagram; created_at (09/09/2026)
+// conecta ela ao /feed também, mostrando a dica no dia em que foi cadastrada.
+const DICAS_FEED_ATIVO = true
 
 export type FeedRange = { startUTC: string; endUTC: string }
 
@@ -129,12 +134,25 @@ export async function fetchFeedItems(
         .limit(20)
     : Promise.resolve({ data: [] as NoticiaExterna[] })
 
-  const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: noticiasClima }, { data: noticiasExternas }] = await Promise.all([
+  // Dicas: broadcast pra todos, filtrado por ativo=true e pelo mesmo range de data.
+  const dicasPromise = DICAS_FEED_ATIVO
+    ? sb
+        .from('instagram_dicas')
+        .select('id, titulo, subtitulo, itens, rodape, created_at')
+        .eq('ativo', true)
+        .gte('created_at', range.startUTC)
+        .lt('created_at', range.endUTC)
+        .order('created_at', { ascending: false })
+        .limit(20)
+    : Promise.resolve({ data: [] as Dica[] })
+
+  const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: noticiasClima }, { data: noticiasExternas }, { data: dicas }] = await Promise.all([
     eventosPromise,
     obsPromise,
     seguidaPromise,
     noticiaClimaPromise,
     noticiaExternaPromise,
+    dicasPromise,
   ])
 
   const trilhaIdsParaNome = Array.from(new Set([
@@ -187,7 +205,12 @@ export async function fetchFeedItems(
     ...n,
   }))
 
-  return [...eventoItems, ...obsItems, ...seguidaItems, ...noticiaClimaItems, ...noticiaExternaItems].sort(
+  const dicaItems: FeedItem[] = ((dicas ?? []) as Dica[]).map(d => ({
+    kind: 'dica',
+    ...d,
+  }))
+
+  return [...eventoItems, ...obsItems, ...seguidaItems, ...noticiaClimaItems, ...noticiaExternaItems, ...dicaItems].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )
 }
