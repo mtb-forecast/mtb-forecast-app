@@ -109,13 +109,7 @@ def _parse_json_final(texto: str) -> dict:
     return json.loads(texto[inicio:fim + 1])
 
 
-def buscar_fontes() -> list[dict]:
-    """Busca real na web via Tavily (topic=news, últimas 24h). Retorna lista
-    de {"titulo", "url", "resumo"} — nunca inventado, sempre resultado bruto
-    da API."""
-    if not TAVILY_KEY:
-        raise RuntimeError("TAVILY_API_KEY não configurada")
-
+def _tavily_search(include_domains: list[str] | None) -> list[dict]:
     payload = {
         "api_key": TAVILY_KEY,
         "query": _TAVILY_QUERY,
@@ -124,16 +118,42 @@ def buscar_fontes() -> list[dict]:
         "days": 1,
         "max_results": 8,
         "include_answer": False,
-        "include_domains": _TAVILY_DOMINIOS_BR,
     }
+    if include_domains:
+        payload["include_domains"] = include_domains
+
     r = requests.post("https://api.tavily.com/search", json=payload, timeout=30)
     if not r.ok:
         log_api("tavily", "search", sucesso=0, falhas=1)
         raise RuntimeError(f"Erro na API Tavily: {r.status_code} {r.text}")
     log_api("tavily", "search", sucesso=1)
+    return r.json().get("results", [])
+
+
+def buscar_fontes() -> list[dict]:
+    """Busca real na web via Tavily (topic=news, últimas 24h). Retorna lista
+    de {"titulo", "url", "resumo"} — nunca inventado, sempre resultado bruto
+    da API.
+
+    Tenta primeiro restrito a domínios brasileiros (_TAVILY_DOMINIOS_BR); o
+    índice de notícias da Tavily nem sempre tem artigo recente casando com a
+    query nesses domínios específicos, e um include_domains vazio de match
+    retorna results=[] mesmo quando a Tavily teria achado algo em domínios
+    fora da lista. Isso gerou falso negativo ("sem alerta no Brasil hoje")
+    num dia com alertas reais confirmados (SP, RJ Serrana, RS em 09/09/2026)
+    — se a busca restrita vier vazia, tenta de novo sem a restrição de
+    domínio, confiando no filtro de país que já existe no prompt do resumo
+    (_build_prompt_resumo) pra descartar trechos não-brasileiros."""
+    if not TAVILY_KEY:
+        raise RuntimeError("TAVILY_API_KEY não configurada")
+
+    results = _tavily_search(_TAVILY_DOMINIOS_BR)
+    if not results:
+        print("[Notícia Externa] Busca restrita a domínios BR veio vazia — tentando sem restrição de domínio")
+        results = _tavily_search(None)
 
     fontes = []
-    for item in r.json().get("results", []):
+    for item in results:
         url = item.get("url")
         if not url:
             continue
