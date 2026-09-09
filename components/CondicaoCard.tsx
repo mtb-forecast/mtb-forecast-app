@@ -11,6 +11,7 @@ import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { rainColor, windColor, deveAlertarRajada, rajadaSeveridade } from '@/lib/display'
 import { setupDica } from '@/lib/setupDicas'
 import DiaDetalheModal from '@/components/DiaDetalheModal'
+import SetupDicaModal from '@/components/SetupDicaModal'
 
 type Props = {
   condicao: Condicao
@@ -495,6 +496,7 @@ function CondicaoCard({ condicao, lat, lon, exposicao, bicicletaAtiva }: Props) 
     precipitation: number; cloudCover: number; tempC: number
   } | null>(null)
   const [rainSincePipeline, setRainSincePipeline] = useState<number | null>(null)
+  const [showDicaModal, setShowDicaModal] = useState(false)
 
   useEffect(() => {
     if (!lat || !lon) return
@@ -792,16 +794,19 @@ function CondicaoCard({ condicao, lat, lon, exposicao, bicicletaAtiva }: Props) 
           {bicicletaAtiva && aderenciaStr && (() => {
             const dica = setupDica(bicicletaAtiva, condicao)
             return (
-              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#111111', marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 400, marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
-                  {dica.titulo}
-                </div>
-                <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {dica.itens.map((item, i) => (
-                    <li key={i} style={{ fontSize: 13, fontWeight: 500 }}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowDicaModal(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: '#FEF9E7', border: '1px solid #FDE68A', borderRadius: 8,
+                  padding: '8px 12px', marginBottom: 14, cursor: 'pointer', width: '100%', textAlign: 'left',
+                }}
+              >
+                <IconInfoCircle size={15} style={{ color: '#D97706', flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: '#92400E', flex: 1 }}>{dica.titulo}</span>
+                <span style={{ fontSize: 11, color: '#B45309', fontWeight: 500, flexShrink: 0 }}>ver dica</span>
+              </button>
             )
           })()}
 
@@ -1117,6 +1122,14 @@ function CondicaoCard({ condicao, lat, lon, exposicao, bicicletaAtiva }: Props) 
         summaryTmin={selectedDay.tmin}
         summaryWind={selectedDay.wind}
         onClose={() => setSelectedDay(null)}
+      />
+    )}
+
+    {/* ── Modal de dica de setup ────────────────────────────────────── */}
+    {showDicaModal && bicicletaAtiva && aderenciaStr && (
+      <SetupDicaModal
+        dica={setupDica(bicicletaAtiva, condicao)}
+        onClose={() => setShowDicaModal(false)}
       />
     )}
     </>
