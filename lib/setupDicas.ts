@@ -32,6 +32,11 @@ const DICAS_BASE: Record<Modalidade, Record<CondicaoBucket, string[]>> = {
     UMIDO: ['Reduza levemente a pressão (~1 psi) para não perder tração nas subidas.', 'Cuidado extra em raízes e pedras molhadas.'],
     LAMA: ['Reduza a pressão para melhorar tração; aceite perder um pouco de rolamento.', 'Prefira linhas mais firmes do trajeto para evitar atoleiro.'],
   },
+  DIRT_JUMP: {
+    SECO: ['Pressão alta e suspensão firme (pouco sag) — pista seca é o cenário ideal pra saltos.', 'Sem ajuste necessário.'],
+    UMIDO: ['Pista de terra batida molhada perde muito grip pra aterrissagem — reduza a pressão levemente e ande com cautela nas curvas.', 'Evite saltar em pouso molhado e escorregadio.'],
+    LAMA: ['Não recomendado andar de dirt jump/pumptrack com pista enlameada — risco alto de derrapagem no pouso.', 'Se for pumptrack de concreto, a lama não afeta a pista, só o acesso.'],
+  },
   MTB_ESTRADA: {
     SECO: ['Pressão padrão de estrada/cascalho, sem ajuste.', ''],
     UMIDO: ['Reduza um pouco a pressão em trechos de terra molhada para mais tração.', ''],
@@ -55,6 +60,7 @@ const SAG_ALVO_PCT: Record<Modalidade, [number, number]> = {
   TRAIL: [0.22, 0.28],
   ENDURO: [0.25, 0.30],
   DOWNHILL: [0.30, 0.35],
+  DIRT_JUMP: [0.10, 0.20],
 }
 
 // Faixa típica de curso de suspensão (mm) por modalidade, dianteira x traseira —
@@ -66,6 +72,7 @@ const CURSO_TIPICO_MM: Record<Modalidade, { dianteiro: [number, number]; traseir
   TRAIL: { dianteiro: [120, 140], traseiro: [120, 140] },
   ENDURO: { dianteiro: [150, 170], traseiro: [140, 165] },
   DOWNHILL: { dianteiro: [180, 200], traseiro: [180, 250] },
+  DIRT_JUMP: { dianteiro: [80, 100], traseiro: [0, 80] },
   MTB_ESTRADA: { dianteiro: [0, 100], traseiro: [0, 100] },
   CICLOTURISMO: { dianteiro: [0, 100], traseiro: [0, 100] },
 }

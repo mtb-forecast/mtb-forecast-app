@@ -171,7 +171,7 @@ export type Profile = {
 }
 
 export type TipoBicicleta = 'MTB' | 'EMTB' | 'RIGIDA'
-export type Modalidade = 'DOWNHILL' | 'ENDURO' | 'TRAIL' | 'XC' | 'MTB_ESTRADA' | 'CICLOTURISMO'
+export type Modalidade = 'DOWNHILL' | 'ENDURO' | 'TRAIL' | 'XC' | 'DIRT_JUMP' | 'MTB_ESTRADA' | 'CICLOTURISMO'
 export type Aro = '26' | '27.5' | '29'
 
 export type Bicicleta = {
@@ -210,6 +210,7 @@ export const MODALIDADES: { value: Modalidade; label: string }[] = [
   { value: 'ENDURO', label: 'Enduro' },
   { value: 'TRAIL', label: 'Trail / All-Mountain' },
   { value: 'XC', label: 'XC' },
+  { value: 'DIRT_JUMP', label: 'Dirt Jump / Freeride / Pumptrack' },
   { value: 'MTB_ESTRADA', label: 'MTB Estrada' },
   { value: 'CICLOTURISMO', label: 'Cicloturismo' },
 ]
