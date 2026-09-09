@@ -69,6 +69,25 @@ _TAVILY_QUERY = (
     "alerta meteorológico regional"
 )
 
+# topic="news" NÃO suporta o parâmetro "country" da Tavily (documentado como
+# "Available only if topic is general") — com topic=news ele é silenciosamente
+# ignorado e a busca volta a ser global, trazendo notícias de qualquer país
+# que bata com termos genéricos como "alerta meteorológico regional" (ex.:
+# EUA). Fix: restringir via include_domains a fontes brasileiras em vez de
+# depender do country param.
+_TAVILY_DOMINIOS_BR = [
+    "g1.globo.com",
+    "climatempo.com.br",
+    "gov.br",
+    "inmet.gov.br",
+    "cnnbrasil.com.br",
+    "uol.com.br",
+    "metsul.com",
+    "folha.uol.com.br",
+    "r7.com",
+    "terra.com.br",
+]
+
 
 def _sb_headers() -> dict:
     return {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
@@ -105,7 +124,7 @@ def buscar_fontes() -> list[dict]:
         "days": 1,
         "max_results": 8,
         "include_answer": False,
-        "country": "brazil",
+        "include_domains": _TAVILY_DOMINIOS_BR,
     }
     r = requests.post("https://api.tavily.com/search", json=payload, timeout=30)
     if not r.ok:
@@ -136,10 +155,19 @@ trechos reais de uma busca na web sobre clima extremo no Brasil hoje:
 
 {trechos or '(nenhum resultado retornado pela busca)'}
 
-Com base SOMENTE nesses trechos — NUNCA invente números, locais ou eventos que
-não estejam neles —, escreva um resumo estilo manchete de clima extremo no
-país. Responda APENAS com um JSON válido (sem markdown, sem cercas ```, sem
-texto fora do JSON) no formato exato:
+IMPORTANTE — filtro de país: alguns trechos podem ser sobre clima em OUTROS
+países (ex.: EUA, Europa) mesmo a busca sendo direcionada ao Brasil. IGNORE
+COMPLETAMENTE qualquer trecho cujo local (cidade/estado/região) não seja
+claramente brasileiro — nunca use eventos, cidades ou alertas de outros
+países nos bullets, mesmo que o trecho fale de "risco regional" ou termos
+genéricos. Se, depois de descartar os trechos não-brasileiros, sobrar pouco
+ou nada de relevante, responda com frase_destaque dizendo que não há alerta
+de clima extremo relevante no Brasil hoje e bullets vazio.
+
+Com base SOMENTE nos trechos brasileiros — NUNCA invente números, locais ou
+eventos que não estejam neles —, escreva um resumo estilo manchete de clima
+extremo no país. Responda APENAS com um JSON válido (sem markdown, sem
+cercas ```, sem texto fora do JSON) no formato exato:
 {{
   "frase_destaque": "1 frase (até 220 caracteres) resumindo o contraste climático mais notável no país hoje, tom direto de manchete",
   "bullets": [
