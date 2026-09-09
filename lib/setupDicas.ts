@@ -116,10 +116,10 @@ export function setupDica(bicicleta: Bicicleta, condicao: Pick<Condicao, 'aderen
         if (Math.abs(diff) >= 0.5) ajustes.push(`traseiro ${diff > 0 ? 'suba' : 'reduza'} ~${Math.abs(diff)} psi (está em ${bicicleta.psi_traseiro})`)
       }
       itens.push(ajustes.length
-        ? `Pra hoje (~${alvoD} psi dianteiro / ~${alvoT} psi traseiro): ${ajustes.join('; ')}.`
-        : `Seu PSI atual já está próximo do ideal pra hoje (~${alvoD} dianteiro / ~${alvoT} traseiro).`)
+        ? `Estimativa de ponto de partida pra hoje (~${alvoD} psi dianteiro / ~${alvoT} psi traseiro, baseado no seu peso): ${ajustes.join('; ')}.`
+        : `Seu PSI atual já está perto da estimativa de ponto de partida pra hoje (~${alvoD} dianteiro / ~${alvoT} traseiro) — ajuste fino conforme a sensação na trilha.`)
     } else {
-      itens.push(`PSI recomendado pra hoje: ~${alvoD} psi dianteiro / ~${alvoT} psi traseiro (baseado no seu peso).`)
+      itens.push(`Estimativa de ponto de partida pra hoje, baseada no seu peso: ~${alvoD} psi dianteiro / ~${alvoT} psi traseiro — não é uma recomendação precisa, ajuste conforme a sensação na trilha.`)
     }
   } else {
     itens.push(...DICAS_BASE[bicicleta.modalidade][bucket].filter(Boolean))
@@ -148,24 +148,24 @@ export function analiseCadastroBicicleta(bicicleta: Bicicleta): AnaliseCadastro 
 
   if (bicicleta.peso_atleta_kg) {
     const rec = psiRecomendadoBase(bicicleta.peso_atleta_kg)
-    itens.push(`PSI de referência para o seu peso: ~${rec.dianteiro} psi dianteiro / ~${rec.traseiro} psi traseiro (ponto de partida — ajuste fino conforme a sensação na trilha).`)
+    itens.push(`Estimativa de ponto de partida pro seu peso (não é uma recomendação precisa): ~${rec.dianteiro} psi dianteiro / ~${rec.traseiro} psi traseiro — use só como referência inicial e ajuste conforme a sensação na trilha.`)
 
     if (bicicleta.psi_dianteiro != null && Math.abs(bicicleta.psi_dianteiro - rec.dianteiro) >= 3) {
-      itens.push(`Seu PSI dianteiro atual (${bicicleta.psi_dianteiro}) está bem ${bicicleta.psi_dianteiro > rec.dianteiro ? 'acima' : 'abaixo'} da referência para o seu peso — vale reavaliar.`)
+      itens.push(`Seu PSI dianteiro atual (${bicicleta.psi_dianteiro}) está bem ${bicicleta.psi_dianteiro > rec.dianteiro ? 'acima' : 'abaixo'} dessa estimativa — pode valer a pena reavaliar.`)
     }
     if (bicicleta.psi_traseiro != null && Math.abs(bicicleta.psi_traseiro - rec.traseiro) >= 3) {
-      itens.push(`Seu PSI traseiro atual (${bicicleta.psi_traseiro}) está bem ${bicicleta.psi_traseiro > rec.traseiro ? 'acima' : 'abaixo'} da referência para o seu peso — vale reavaliar.`)
+      itens.push(`Seu PSI traseiro atual (${bicicleta.psi_traseiro}) está bem ${bicicleta.psi_traseiro > rec.traseiro ? 'acima' : 'abaixo'} dessa estimativa — pode valer a pena reavaliar.`)
     }
   }
 
   if (bicicleta.tipo !== 'RIGIDA') {
     if (bicicleta.curso_dianteiro_mm) {
       const [min, max] = sagAlvoMm(bicicleta.curso_dianteiro_mm, bicicleta.modalidade)
-      itens.push(`Sag alvo na suspensão dianteira (${bicicleta.curso_dianteiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike.`)
+      itens.push(`Estimativa de sag na suspensão dianteira (${bicicleta.curso_dianteiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike — referência geral, o manual do fabricante pode indicar outra faixa.`)
     }
     if (bicicleta.curso_traseiro_mm) {
       const [min, max] = sagAlvoMm(bicicleta.curso_traseiro_mm, bicicleta.modalidade)
-      itens.push(`Sag alvo na suspensão traseira (${bicicleta.curso_traseiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike.`)
+      itens.push(`Estimativa de sag na suspensão traseira (${bicicleta.curso_traseiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike — referência geral, o manual do fabricante pode indicar outra faixa.`)
     }
   }
 
