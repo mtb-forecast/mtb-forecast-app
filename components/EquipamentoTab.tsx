@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { IconBike, IconPlus, IconTrash, IconStar, IconStarFilled } from '@tabler/icons-react'
+import { IconBike, IconPlus, IconTrash, IconStar, IconStarFilled, IconPencil, IconBulb } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
-import { Bicicleta, Modalidade, TipoBicicleta, TIPOS_BICICLETA, MODALIDADES } from '@/lib/types'
+import { Bicicleta, Modalidade, TipoBicicleta, Aro, TIPOS_BICICLETA, MODALIDADES, AROS } from '@/lib/types'
+import { analiseCadastroBicicleta } from '@/lib/setupDicas'
 
 const T = {
   card: '#FFFFFF', border: 'rgba(0,0,0,.07)', text: '#1A1D18', muted: '#6d745f', dim: '#9AA093', primary: '#6d745f',
@@ -13,6 +14,7 @@ const inp: React.CSSProperties = {
   borderRadius: 12, padding: '13px 16px', fontSize: 15, color: '#1A1D18', outline: 'none',
 }
 const sel: React.CSSProperties = { ...inp, cursor: 'pointer' }
+const lbl: React.CSSProperties = { fontSize: 11, color: T.dim, fontWeight: 600, marginBottom: 4, display: 'block' }
 
 function Spinner({ size = 14 }: { size?: number }) {
   return (
@@ -31,19 +33,56 @@ function tipoLabel(v: TipoBicicleta) {
   return TIPOS_BICICLETA.find(t => t.value === v)?.label ?? v
 }
 
+type FormState = {
+  tipo: TipoBicicleta
+  marca: string
+  modelo: string
+  modalidade: Modalidade
+  ativa: boolean
+  aroDianteiro: Aro | ''
+  aroTraseiro: Aro | ''
+  pesoAtleta: string
+  cursoDianteiro: string
+  cursoTraseiro: string
+  psiDianteiro: string
+  psiTraseiro: string
+}
+
+function estadoVazio(ativaPadrao: boolean): FormState {
+  return {
+    tipo: 'MTB', marca: '', modelo: '', modalidade: 'XC', ativa: ativaPadrao,
+    aroDianteiro: '', aroTraseiro: '', pesoAtleta: '', cursoDianteiro: '', cursoTraseiro: '', psiDianteiro: '', psiTraseiro: '',
+  }
+}
+
+function estadoDaBike(b: Bicicleta): FormState {
+  return {
+    tipo: b.tipo, marca: b.marca ?? '', modelo: b.modelo ?? '', modalidade: b.modalidade, ativa: b.ativa,
+    aroDianteiro: b.aro_dianteiro ?? '', aroTraseiro: b.aro_traseiro ?? '',
+    pesoAtleta: b.peso_atleta_kg != null ? String(b.peso_atleta_kg) : '',
+    cursoDianteiro: b.curso_dianteiro_mm != null ? String(b.curso_dianteiro_mm) : '',
+    cursoTraseiro: b.curso_traseiro_mm != null ? String(b.curso_traseiro_mm) : '',
+    psiDianteiro: b.psi_dianteiro != null ? String(b.psi_dianteiro) : '',
+    psiTraseiro: b.psi_traseiro != null ? String(b.psi_traseiro) : '',
+  }
+}
+
+function numOrNull(v: string): number | null {
+  if (!v.trim()) return null
+  const n = Number(v.replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
 export default function EquipamentoTab() {
   const [loading, setLoading] = useState(true)
   const [bikes, setBikes] = useState<Bicicleta[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
-
-  const [tipo, setTipo] = useState<TipoBicicleta>('MTB')
-  const [marca, setMarca] = useState('')
-  const [modelo, setModelo] = useState('')
-  const [modalidade, setModalidade] = useState<Modalidade>('XC')
-  const [ativa, setAtiva] = useState(true)
+  const [form, setForm] = useState<FormState>(estadoVazio(true))
+  const [analise, setAnalise] = useState<{ bikeId: string; itens: string[] } | null>(null)
 
   async function load() {
     const user = await getClientUser()
@@ -56,26 +95,64 @@ export default function EquipamentoTab() {
 
   useEffect(() => { load() }, [])
 
-  function resetForm() {
-    setTipo('MTB'); setMarca(''); setModelo(''); setModalidade('XC'); setAtiva(bikes.length === 0)
+  function abrirNovo() {
+    setEditingId(null)
+    setForm(estadoVazio(bikes.length === 0))
     setError(null)
+    setAnalise(null)
+    setShowForm(true)
   }
 
-  async function handleAdd() {
+  function abrirEdicao(b: Bicicleta) {
+    setEditingId(b.id)
+    setForm(estadoDaBike(b))
+    setError(null)
+    setAnalise(null)
+    setShowForm(true)
+  }
+
+  async function handleSalvar() {
     if (!userId) return
     setSaving(true)
     setError(null)
     try {
-      if (ativa) {
+      const payload = {
+        user_id: userId,
+        tipo: form.tipo,
+        marca: form.marca || null,
+        modelo: form.modelo || null,
+        modalidade: form.modalidade,
+        ativa: form.ativa,
+        aro_dianteiro: form.aroDianteiro || null,
+        aro_traseiro: form.aroTraseiro || null,
+        peso_atleta_kg: numOrNull(form.pesoAtleta),
+        curso_dianteiro_mm: form.tipo === 'RIGIDA' ? null : numOrNull(form.cursoDianteiro),
+        curso_traseiro_mm: form.tipo === 'RIGIDA' ? null : numOrNull(form.cursoTraseiro),
+        psi_dianteiro: numOrNull(form.psiDianteiro),
+        psi_traseiro: numOrNull(form.psiTraseiro),
+      }
+
+      if (form.ativa) {
         await supabase.from('bicicletas').update({ ativa: false }).eq('user_id', userId).eq('ativa', true)
       }
-      const { error: insertError } = await supabase.from('bicicletas').insert({
-        user_id: userId, tipo, marca: marca || null, modelo: modelo || null, modalidade, ativa,
-      })
-      if (insertError) throw insertError
+
+      let salva: Bicicleta | null = null
+      if (editingId) {
+        const { data, error: updError } = await supabase.from('bicicletas').update(payload).eq('id', editingId).select('*').single()
+        if (updError) throw updError
+        salva = data
+      } else {
+        const { data, error: insertError } = await supabase.from('bicicletas').insert(payload).select('*').single()
+        if (insertError) throw insertError
+        salva = data
+      }
+
       await load()
       setShowForm(false)
-      resetForm()
+      if (salva) {
+        const a = analiseCadastroBicicleta(salva)
+        if (a.itens.length) setAnalise({ bikeId: salva.id, itens: a.itens })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível salvar a bicicleta.')
     } finally {
@@ -86,6 +163,7 @@ export default function EquipamentoTab() {
   async function handleDelete(id: string) {
     await supabase.from('bicicletas').delete().eq('id', id)
     setBikes(prev => prev.filter(b => b.id !== id))
+    if (analise?.bikeId === id) setAnalise(null)
   }
 
   async function handleSetAtiva(id: string) {
@@ -102,34 +180,56 @@ export default function EquipamentoTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {bikes.map(b => (
-        <div key={b.id} style={{
-          background: T.card, borderRadius: 16, border: `1px solid ${T.border}`,
-          padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14,
-        }}>
+        <div key={b.id}>
           <div style={{
-            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-            background: 'rgba(0,0,0,.05)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: T.card, borderRadius: 16, border: `1px solid ${T.border}`,
+            padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14,
           }}>
-            <IconBike size={20} style={{ color: T.primary }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>
-              {[b.marca, b.modelo].filter(Boolean).join(' ') || tipoLabel(b.tipo)}
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+              background: 'rgba(0,0,0,.05)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <IconBike size={20} style={{ color: T.primary }} />
             </div>
-            <div style={{ fontSize: 12, color: T.muted }}>
-              {tipoLabel(b.tipo)} · {modalidadeLabel(b.modalidade)}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>
+                {[b.marca, b.modelo].filter(Boolean).join(' ') || tipoLabel(b.tipo)}
+              </div>
+              <div style={{ fontSize: 12, color: T.muted }}>
+                {tipoLabel(b.tipo)} · {modalidadeLabel(b.modalidade)}
+                {b.aro_dianteiro && b.aro_traseiro && b.aro_dianteiro !== b.aro_traseiro && ' · Mullet'}
+              </div>
             </div>
+            <button type="button" onClick={() => abrirEdicao(b)} title="Editar"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0 }}>
+              <IconPencil size={17} style={{ color: T.dim }} />
+            </button>
+            <button type="button" onClick={() => handleSetAtiva(b.id)} title={b.ativa ? 'Bike ativa' : 'Definir como ativa'}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0 }}>
+              {b.ativa
+                ? <IconStarFilled size={18} style={{ color: '#D4A017' }} />
+                : <IconStar size={18} style={{ color: T.dim }} />}
+            </button>
+            <button type="button" onClick={() => handleDelete(b.id)} title="Remover"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0 }}>
+              <IconTrash size={18} style={{ color: T.dim }} />
+            </button>
           </div>
-          <button type="button" onClick={() => handleSetAtiva(b.id)} title={b.ativa ? 'Bike ativa' : 'Definir como ativa'}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0 }}>
-            {b.ativa
-              ? <IconStarFilled size={18} style={{ color: '#D4A017' }} />
-              : <IconStar size={18} style={{ color: T.dim }} />}
-          </button>
-          <button type="button" onClick={() => handleDelete(b.id)} title="Remover"
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, flexShrink: 0 }}>
-            <IconTrash size={18} style={{ color: T.dim }} />
-          </button>
+
+          {analise?.bikeId === b.id && (
+            <div style={{
+              background: '#F9FAFB', border: `1px solid ${T.border}`, borderTop: 'none',
+              borderRadius: '0 0 16px 16px', margin: '-6px 4px 0', padding: '12px 16px 14px',
+              display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: T.dim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <IconBulb size={13} /> Análise da bike
+              </div>
+              {analise.itens.map((item, i) => (
+                <div key={i} style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>{item}</div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
 
@@ -143,26 +243,85 @@ export default function EquipamentoTab() {
       {showForm ? (
         <div style={{ background: T.card, borderRadius: 16, border: `1px solid ${T.border}`, padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 10 }}>
-            <select style={sel} value={tipo} onChange={e => setTipo(e.target.value as TipoBicicleta)}>
-              {TIPOS_BICICLETA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-            <select style={sel} value={modalidade} onChange={e => setModalidade(e.target.value as Modalidade)}>
-              {MODALIDADES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
+            <div style={{ flex: 1 }}>
+              <span style={lbl}>Tipo</span>
+              <select style={sel} value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoBicicleta }))}>
+                {TIPOS_BICICLETA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={lbl}>Modalidade</span>
+              <select style={sel} value={form.modalidade} onChange={e => setForm(f => ({ ...f, modalidade: e.target.value as Modalidade }))}>
+                {MODALIDADES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
           </div>
-          <input style={inp} type="text" placeholder="Marca (opcional)" value={marca} onChange={e => setMarca(e.target.value)} />
-          <input style={inp} type="text" placeholder="Modelo (opcional)" value={modelo} onChange={e => setModelo(e.target.value)} />
+
+          <input style={inp} type="text" placeholder="Marca (opcional)" value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))} />
+          <input style={inp} type="text" placeholder="Modelo (opcional)" value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))} />
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <span style={lbl}>Aro dianteiro</span>
+              <select style={sel} value={form.aroDianteiro} onChange={e => setForm(f => ({ ...f, aroDianteiro: e.target.value as Aro | '' }))}>
+                <option value="">—</option>
+                {AROS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={lbl}>Aro traseiro</span>
+              <select style={sel} value={form.aroTraseiro} onChange={e => setForm(f => ({ ...f, aroTraseiro: e.target.value as Aro | '' }))}>
+                <option value="">—</option>
+                {AROS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+              </select>
+            </div>
+          </div>
+          {form.aroDianteiro && form.aroTraseiro && form.aroDianteiro !== form.aroTraseiro && (
+            <div style={{ fontSize: 11.5, color: T.primary, fontWeight: 600 }}>Configuração Mullet identificada ✓</div>
+          )}
+
+          <div>
+            <span style={lbl}>Peso do atleta (kg)</span>
+            <input style={inp} type="number" inputMode="decimal" min={0} placeholder="Ex: 78" value={form.pesoAtleta} onChange={e => setForm(f => ({ ...f, pesoAtleta: e.target.value }))} />
+          </div>
+
+          {form.tipo !== 'RIGIDA' && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <span style={lbl}>Curso dianteiro (mm)</span>
+                <input style={inp} type="number" inputMode="numeric" min={0} placeholder="Ex: 150" value={form.cursoDianteiro} onChange={e => setForm(f => ({ ...f, cursoDianteiro: e.target.value }))} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <span style={lbl}>Curso traseiro (mm)</span>
+                <input style={inp} type="number" inputMode="numeric" min={0} placeholder="Ex: 140" value={form.cursoTraseiro} onChange={e => setForm(f => ({ ...f, cursoTraseiro: e.target.value }))} />
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <span style={lbl}>PSI dianteiro atual</span>
+              <input style={inp} type="number" inputMode="decimal" min={0} placeholder="Ex: 22" value={form.psiDianteiro} onChange={e => setForm(f => ({ ...f, psiDianteiro: e.target.value }))} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={lbl}>PSI traseiro atual</span>
+              <input style={inp} type="number" inputMode="decimal" min={0} placeholder="Ex: 24" value={form.psiTraseiro} onChange={e => setForm(f => ({ ...f, psiTraseiro: e.target.value }))} />
+            </div>
+          </div>
+
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.muted, cursor: 'pointer' }}>
-            <input type="checkbox" checked={ativa} onChange={e => setAtiva(e.target.checked)} />
+            <input type="checkbox" checked={form.ativa} onChange={e => setForm(f => ({ ...f, ativa: e.target.checked }))} />
             Usar como bike ativa (usada nas dicas de setup)
           </label>
+
           {error && <div style={{ fontSize: 12, color: '#DC2626' }}>{error}</div>}
+
           <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" onClick={() => { setShowForm(false); resetForm() }}
+            <button type="button" onClick={() => setShowForm(false)}
               style={{ flex: 1, background: 'rgba(0,0,0,.05)', color: T.text, border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               Cancelar
             </button>
-            <button type="button" onClick={handleAdd} disabled={saving}
+            <button type="button" onClick={handleSalvar} disabled={saving}
               style={{ flex: 1, background: saving ? 'rgba(0,0,0,.15)' : T.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               {saving && <Spinner size={14} />}
               {saving ? 'Salvando…' : 'Salvar'}
@@ -170,7 +329,7 @@ export default function EquipamentoTab() {
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => { resetForm(); setShowForm(true) }}
+        <button type="button" onClick={abrirNovo}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             background: 'transparent', border: `1px dashed ${T.dim}`, borderRadius: 16,

@@ -39,9 +39,51 @@ const DICAS_BASE: Record<Modalidade, Record<CondicaoBucket, string[]>> = {
   },
 }
 
+// Ajuste de PSI por condição em relação à referência de peso (psi)
+const AJUSTE_PSI_BUCKET: Record<CondicaoBucket, number> = { SECO: 0, UMIDO: -1, LAMA: -2 }
+
+// Sag alvo (% do curso) por modalidade — referência geral de trilha, não substitui manual do fabricante
+const SAG_ALVO_PCT: Record<Modalidade, [number, number]> = {
+  XC: [0.20, 0.25],
+  MTB_ESTRADA: [0.20, 0.25],
+  CICLOTURISMO: [0.15, 0.20],
+  ENDURO: [0.25, 0.30],
+  DOWNHILL: [0.30, 0.35],
+}
+
 function ajusteTipoBike(tipo: Bicicleta['tipo']): string | null {
   if (tipo === 'EMTB') return 'E-MTB é mais pesada — considere +1 psi em relação a uma bike convencional para compensar o peso extra.'
   if (tipo === 'RIGIDA') return 'Sem suspensão traseira, o pneu faz parte do amortecimento — evite pressões muito baixas mesmo em trilha molhada, para não perder controle.'
+  return null
+}
+
+function round1(n: number) {
+  return Math.round(n * 10) / 10
+}
+
+// Heurística clássica de MTB tubeless (não é cálculo de engenharia, é ponto de partida):
+// psi ≈ peso corporal (lb) / 7 na dianteira, / 6.5 na traseira.
+function psiRecomendadoBase(pesoKg: number): { dianteiro: number; traseiro: number } {
+  const pesoLb = pesoKg * 2.20462
+  return {
+    dianteiro: round1(pesoLb / 7),
+    traseiro: round1(pesoLb / 6.5),
+  }
+}
+
+function sagAlvoMm(cursoMm: number, modalidade: Modalidade): [number, number] {
+  const [min, max] = SAG_ALVO_PCT[modalidade]
+  return [Math.round(cursoMm * min), Math.round(cursoMm * max)]
+}
+
+function aroLabel(aro: string) {
+  return aro === '27.5' ? '27,5"' : `${aro}"`
+}
+
+function mulletNote(bicicleta: Bicicleta): string | null {
+  if (bicicleta.aro_dianteiro && bicicleta.aro_traseiro && bicicleta.aro_dianteiro !== bicicleta.aro_traseiro) {
+    return `Configuração mullet (${aroLabel(bicicleta.aro_dianteiro)} dianteira / ${aroLabel(bicicleta.aro_traseiro)} traseira) — o aro traseiro menor tem menos volume de ar; mantenha o PSI traseiro um pouco mais alto do que indicaria uma bike com os dois aros iguais.`
+  }
   return null
 }
 
@@ -50,15 +92,85 @@ export type SetupDica = {
   itens: string[]
 }
 
+// Dica cruzando a bike com a condição atual da trilha (usada no CondicaoCard).
 export function setupDica(bicicleta: Bicicleta, condicao: Pick<Condicao, 'aderencia_status'>): SetupDica {
   const bucket = bucketDeAderencia(condicao.aderencia_status)
-  const base = DICAS_BASE[bicicleta.modalidade][bucket].filter(Boolean)
-  const ajuste = ajusteTipoBike(bicicleta.tipo)
-
   const rotuloBucket = bucket === 'SECO' ? 'solo seco' : bucket === 'UMIDO' ? 'solo úmido' : 'solo com lama'
+  const itens: string[] = []
+
+  if (bicicleta.peso_atleta_kg) {
+    const rec = psiRecomendadoBase(bicicleta.peso_atleta_kg)
+    const delta = AJUSTE_PSI_BUCKET[bucket]
+    const alvoD = round1(rec.dianteiro + delta)
+    const alvoT = round1(rec.traseiro + delta)
+
+    const temAtual = bicicleta.psi_dianteiro != null || bicicleta.psi_traseiro != null
+    if (temAtual) {
+      const ajustes: string[] = []
+      if (bicicleta.psi_dianteiro != null) {
+        const diff = round1(alvoD - bicicleta.psi_dianteiro)
+        if (Math.abs(diff) >= 0.5) ajustes.push(`dianteiro ${diff > 0 ? 'suba' : 'reduza'} ~${Math.abs(diff)} psi (está em ${bicicleta.psi_dianteiro})`)
+      }
+      if (bicicleta.psi_traseiro != null) {
+        const diff = round1(alvoT - bicicleta.psi_traseiro)
+        if (Math.abs(diff) >= 0.5) ajustes.push(`traseiro ${diff > 0 ? 'suba' : 'reduza'} ~${Math.abs(diff)} psi (está em ${bicicleta.psi_traseiro})`)
+      }
+      itens.push(ajustes.length
+        ? `Pra hoje (~${alvoD} psi dianteiro / ~${alvoT} psi traseiro): ${ajustes.join('; ')}.`
+        : `Seu PSI atual já está próximo do ideal pra hoje (~${alvoD} dianteiro / ~${alvoT} traseiro).`)
+    } else {
+      itens.push(`PSI recomendado pra hoje: ~${alvoD} psi dianteiro / ~${alvoT} psi traseiro (baseado no seu peso).`)
+    }
+  } else {
+    itens.push(...DICAS_BASE[bicicleta.modalidade][bucket].filter(Boolean))
+  }
+
+  const ajusteTipo = ajusteTipoBike(bicicleta.tipo)
+  if (ajusteTipo) itens.push(ajusteTipo)
+
+  const mullet = mulletNote(bicicleta)
+  if (mullet) itens.push(mullet)
 
   return {
     titulo: `Dica de setup para ${rotuloBucket}`,
-    itens: ajuste ? [...base, ajuste] : base,
+    itens,
   }
+}
+
+export type AnaliseCadastro = {
+  itens: string[]
+}
+
+// Análise mostrada logo após o cadastro/edição da bike — independente da condição
+// da trilha, usa só os dados da própria bike (peso, curso, PSI, aros).
+export function analiseCadastroBicicleta(bicicleta: Bicicleta): AnaliseCadastro {
+  const itens: string[] = []
+
+  if (bicicleta.peso_atleta_kg) {
+    const rec = psiRecomendadoBase(bicicleta.peso_atleta_kg)
+    itens.push(`PSI de referência para o seu peso: ~${rec.dianteiro} psi dianteiro / ~${rec.traseiro} psi traseiro (ponto de partida — ajuste fino conforme a sensação na trilha).`)
+
+    if (bicicleta.psi_dianteiro != null && Math.abs(bicicleta.psi_dianteiro - rec.dianteiro) >= 3) {
+      itens.push(`Seu PSI dianteiro atual (${bicicleta.psi_dianteiro}) está bem ${bicicleta.psi_dianteiro > rec.dianteiro ? 'acima' : 'abaixo'} da referência para o seu peso — vale reavaliar.`)
+    }
+    if (bicicleta.psi_traseiro != null && Math.abs(bicicleta.psi_traseiro - rec.traseiro) >= 3) {
+      itens.push(`Seu PSI traseiro atual (${bicicleta.psi_traseiro}) está bem ${bicicleta.psi_traseiro > rec.traseiro ? 'acima' : 'abaixo'} da referência para o seu peso — vale reavaliar.`)
+    }
+  }
+
+  if (bicicleta.tipo !== 'RIGIDA') {
+    if (bicicleta.curso_dianteiro_mm) {
+      const [min, max] = sagAlvoMm(bicicleta.curso_dianteiro_mm, bicicleta.modalidade)
+      itens.push(`Sag alvo na suspensão dianteira (${bicicleta.curso_dianteiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike.`)
+    }
+    if (bicicleta.curso_traseiro_mm) {
+      const [min, max] = sagAlvoMm(bicicleta.curso_traseiro_mm, bicicleta.modalidade)
+      itens.push(`Sag alvo na suspensão traseira (${bicicleta.curso_traseiro_mm}mm de curso): ${min}-${max}mm parado sobre a bike.`)
+    }
+  }
+
+  const mullet = mulletNote(bicicleta)
+  if (mullet) itens.push(mullet)
+
+  return { itens }
 }
