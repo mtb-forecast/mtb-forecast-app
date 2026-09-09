@@ -51,14 +51,16 @@ const SAG_ALVO_PCT: Record<Modalidade, [number, number]> = {
   DOWNHILL: [0.30, 0.35],
 }
 
-// Faixa típica de curso de suspensão (mm) por modalidade — referência de mercado,
-// usada só pra sinalizar valor digitado que foge muito do comum (não bloqueia o cadastro).
-const CURSO_TIPICO_MM: Record<Modalidade, [number, number]> = {
-  XC: [80, 120],
-  MTB_ESTRADA: [0, 100],
-  CICLOTURISMO: [0, 100],
-  ENDURO: [140, 170],
-  DOWNHILL: [180, 210],
+// Faixa típica de curso de suspensão (mm) por modalidade, dianteira x traseira —
+// referência de mercado (fontes: revistabicicleta.com, treepbiker.com.br, ativo.com,
+// pedal.com.br), usada só pra sinalizar valor digitado que foge muito do comum
+// (não bloqueia o cadastro). XC aceita 0 na traseira (hardtail é comum na modalidade).
+const CURSO_TIPICO_MM: Record<Modalidade, { dianteiro: [number, number]; traseiro: [number, number] }> = {
+  XC: { dianteiro: [80, 120], traseiro: [0, 120] },
+  ENDURO: { dianteiro: [150, 170], traseiro: [140, 165] },
+  DOWNHILL: { dianteiro: [180, 200], traseiro: [180, 250] },
+  MTB_ESTRADA: { dianteiro: [0, 100], traseiro: [0, 100] },
+  CICLOTURISMO: { dianteiro: [0, 100], traseiro: [0, 100] },
 }
 
 function modalidadeLabel(v: Modalidade) {
@@ -173,13 +175,15 @@ function verificarCoerencia(bicicleta: Bicicleta): string[] {
   }
 
   if (bicicleta.tipo !== 'RIGIDA') {
-    const [min, max] = CURSO_TIPICO_MM[bicicleta.modalidade]
+    const faixas = CURSO_TIPICO_MM[bicicleta.modalidade]
     const modLabel = modalidadeLabel(bicicleta.modalidade)
-    if (bicicleta.curso_dianteiro_mm != null && (bicicleta.curso_dianteiro_mm < min - 10 || bicicleta.curso_dianteiro_mm > max + 10)) {
-      avisos.push(`Curso dianteiro de ${bicicleta.curso_dianteiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${min}-${max}mm) — confira se o valor está certo.`)
+    const [minD, maxD] = faixas.dianteiro
+    const [minT, maxT] = faixas.traseiro
+    if (bicicleta.curso_dianteiro_mm != null && (bicicleta.curso_dianteiro_mm < minD - 10 || bicicleta.curso_dianteiro_mm > maxD + 10)) {
+      avisos.push(`Curso dianteiro de ${bicicleta.curso_dianteiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${minD}-${maxD}mm na dianteira) — confira se o valor está certo.`)
     }
-    if (bicicleta.curso_traseiro_mm != null && (bicicleta.curso_traseiro_mm < min - 10 || bicicleta.curso_traseiro_mm > max + 10)) {
-      avisos.push(`Curso traseiro de ${bicicleta.curso_traseiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${min}-${max}mm) — confira se o valor está certo.`)
+    if (bicicleta.curso_traseiro_mm != null && (bicicleta.curso_traseiro_mm < minT - 10 || bicicleta.curso_traseiro_mm > maxT + 10)) {
+      avisos.push(`Curso traseiro de ${bicicleta.curso_traseiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${minT}-${maxT}mm na traseira) — confira se o valor está certo.`)
     }
   } else if (bicicleta.curso_dianteiro_mm != null || bicicleta.curso_traseiro_mm != null) {
     avisos.push('Bike marcada como Rígida mas com curso de suspensão preenchido — confira o tipo cadastrado.')
