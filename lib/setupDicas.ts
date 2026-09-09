@@ -122,10 +122,15 @@ export type SetupDica = {
   itens: string[]
 }
 
+function nomeBicicleta(bicicleta: Bicicleta): string {
+  return [bicicleta.marca, bicicleta.modelo].filter(Boolean).join(' ')
+}
+
 // Dica cruzando a bike com a condição atual da trilha (usada no CondicaoCard).
 export function setupDica(bicicleta: Bicicleta, condicao: Pick<Condicao, 'aderencia_status'>): SetupDica {
   const bucket = bucketDeAderencia(condicao.aderencia_status)
   const rotuloBucket = bucket === 'SECO' ? 'solo seco' : bucket === 'UMIDO' ? 'solo úmido' : 'solo com lama'
+  const nomeBike = nomeBicicleta(bicicleta)
   const itens: string[] = []
 
   if (bicicleta.peso_atleta_kg) {
@@ -162,7 +167,7 @@ export function setupDica(bicicleta: Bicicleta, condicao: Pick<Condicao, 'aderen
   if (mullet) itens.push(mullet)
 
   return {
-    titulo: `Dica de setup para ${rotuloBucket}`,
+    titulo: nomeBike ? `Dica de setup para ${rotuloBucket} · ${nomeBike}` : `Dica de setup para ${rotuloBucket}`,
     itens,
   }
 }
