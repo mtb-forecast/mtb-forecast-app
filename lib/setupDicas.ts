@@ -1,7 +1,7 @@
 // Dicas de setup por bicicleta x condição da trilha.
 // Regra determinística — sem chamada de IA, sem custo de API, sem tocar no
 // pipeline Python. Textos calibrados manualmente, não vêm do banco.
-import { Bicicleta, Condicao, Modalidade } from './types'
+import { Bicicleta, Condicao, Modalidade, MODALIDADES } from './types'
 
 type CondicaoBucket = 'SECO' | 'UMIDO' | 'LAMA'
 
@@ -49,6 +49,20 @@ const SAG_ALVO_PCT: Record<Modalidade, [number, number]> = {
   CICLOTURISMO: [0.15, 0.20],
   ENDURO: [0.25, 0.30],
   DOWNHILL: [0.30, 0.35],
+}
+
+// Faixa típica de curso de suspensão (mm) por modalidade — referência de mercado,
+// usada só pra sinalizar valor digitado que foge muito do comum (não bloqueia o cadastro).
+const CURSO_TIPICO_MM: Record<Modalidade, [number, number]> = {
+  XC: [80, 120],
+  MTB_ESTRADA: [0, 100],
+  CICLOTURISMO: [0, 100],
+  ENDURO: [140, 170],
+  DOWNHILL: [180, 210],
+}
+
+function modalidadeLabel(v: Modalidade) {
+  return MODALIDADES.find(m => m.value === v)?.label ?? v
 }
 
 function ajusteTipoBike(tipo: Bicicleta['tipo']): string | null {
@@ -139,6 +153,39 @@ export function setupDica(bicicleta: Bicicleta, condicao: Pick<Condicao, 'aderen
 
 export type AnaliseCadastro = {
   itens: string[]
+  avisos: string[]
+}
+
+// Verifica se o que foi digitado é coerente com a própria sugestão calculada
+// (peso → PSI de referência, modalidade → curso típico). Não bloqueia o
+// cadastro — só sinaliza pro usuário revisar um valor que foge muito do comum.
+function verificarCoerencia(bicicleta: Bicicleta): string[] {
+  const avisos: string[] = []
+
+  if (bicicleta.peso_atleta_kg) {
+    const rec = psiRecomendadoBase(bicicleta.peso_atleta_kg)
+    if (bicicleta.psi_dianteiro != null && Math.abs(bicicleta.psi_dianteiro - rec.dianteiro) >= 3) {
+      avisos.push(`PSI dianteiro informado (${bicicleta.psi_dianteiro}) está bem ${bicicleta.psi_dianteiro > rec.dianteiro ? 'acima' : 'abaixo'} da estimativa pro seu peso (~${rec.dianteiro}) — confira se não é engano de digitação.`)
+    }
+    if (bicicleta.psi_traseiro != null && Math.abs(bicicleta.psi_traseiro - rec.traseiro) >= 3) {
+      avisos.push(`PSI traseiro informado (${bicicleta.psi_traseiro}) está bem ${bicicleta.psi_traseiro > rec.traseiro ? 'acima' : 'abaixo'} da estimativa pro seu peso (~${rec.traseiro}) — confira se não é engano de digitação.`)
+    }
+  }
+
+  if (bicicleta.tipo !== 'RIGIDA') {
+    const [min, max] = CURSO_TIPICO_MM[bicicleta.modalidade]
+    const modLabel = modalidadeLabel(bicicleta.modalidade)
+    if (bicicleta.curso_dianteiro_mm != null && (bicicleta.curso_dianteiro_mm < min - 10 || bicicleta.curso_dianteiro_mm > max + 10)) {
+      avisos.push(`Curso dianteiro de ${bicicleta.curso_dianteiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${min}-${max}mm) — confira se o valor está certo.`)
+    }
+    if (bicicleta.curso_traseiro_mm != null && (bicicleta.curso_traseiro_mm < min - 10 || bicicleta.curso_traseiro_mm > max + 10)) {
+      avisos.push(`Curso traseiro de ${bicicleta.curso_traseiro_mm}mm é incomum pra ${modLabel} (bikes dessa modalidade costumam ter ${min}-${max}mm) — confira se o valor está certo.`)
+    }
+  } else if (bicicleta.curso_dianteiro_mm != null || bicicleta.curso_traseiro_mm != null) {
+    avisos.push('Bike marcada como Rígida mas com curso de suspensão preenchido — confira o tipo cadastrado.')
+  }
+
+  return avisos
 }
 
 // Análise mostrada logo após o cadastro/edição da bike — independente da condição
@@ -149,13 +196,6 @@ export function analiseCadastroBicicleta(bicicleta: Bicicleta): AnaliseCadastro 
   if (bicicleta.peso_atleta_kg) {
     const rec = psiRecomendadoBase(bicicleta.peso_atleta_kg)
     itens.push(`Estimativa de ponto de partida pro seu peso (não é uma recomendação precisa): ~${rec.dianteiro} psi dianteiro / ~${rec.traseiro} psi traseiro — use só como referência inicial e ajuste conforme a sensação na trilha.`)
-
-    if (bicicleta.psi_dianteiro != null && Math.abs(bicicleta.psi_dianteiro - rec.dianteiro) >= 3) {
-      itens.push(`Seu PSI dianteiro atual (${bicicleta.psi_dianteiro}) está bem ${bicicleta.psi_dianteiro > rec.dianteiro ? 'acima' : 'abaixo'} dessa estimativa — pode valer a pena reavaliar.`)
-    }
-    if (bicicleta.psi_traseiro != null && Math.abs(bicicleta.psi_traseiro - rec.traseiro) >= 3) {
-      itens.push(`Seu PSI traseiro atual (${bicicleta.psi_traseiro}) está bem ${bicicleta.psi_traseiro > rec.traseiro ? 'acima' : 'abaixo'} dessa estimativa — pode valer a pena reavaliar.`)
-    }
   }
 
   if (bicicleta.tipo !== 'RIGIDA') {
@@ -172,5 +212,5 @@ export function analiseCadastroBicicleta(bicicleta: Bicicleta): AnaliseCadastro 
   const mullet = mulletNote(bicicleta)
   if (mullet) itens.push(mullet)
 
-  return { itens }
+  return { itens, avisos: verificarCoerencia(bicicleta) }
 }

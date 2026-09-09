@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { IconBike, IconPlus, IconTrash, IconStar, IconStarFilled, IconPencil, IconBulb } from '@tabler/icons-react'
+import { IconBike, IconPlus, IconTrash, IconStar, IconStarFilled, IconPencil, IconBulb, IconAlertTriangle } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Bicicleta, Modalidade, TipoBicicleta, Aro, TIPOS_BICICLETA, MODALIDADES, AROS } from '@/lib/types'
 import { analiseCadastroBicicleta } from '@/lib/setupDicas'
@@ -101,7 +101,7 @@ export default function EquipamentoTab() {
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(estadoVazio(true))
-  const [analise, setAnalise] = useState<{ bikeId: string; itens: string[] } | null>(null)
+  const [analise, setAnalise] = useState<{ bikeId: string; itens: string[]; avisos: string[] } | null>(null)
 
   async function load() {
     const user = await getClientUser()
@@ -176,7 +176,7 @@ export default function EquipamentoTab() {
       setShowForm(false)
       if (salva) {
         const a = analiseCadastroBicicleta(salva)
-        if (a.itens.length) setAnalise({ bikeId: salva.id, itens: a.itens })
+        if (a.itens.length || a.avisos.length) setAnalise({ bikeId: salva.id, itens: a.itens, avisos: a.avisos })
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível salvar a bicicleta.')
@@ -245,14 +245,28 @@ export default function EquipamentoTab() {
             <div style={{
               background: '#F9FAFB', border: `1px solid ${T.border}`, borderTop: 'none',
               borderRadius: '0 0 16px 16px', margin: '-6px 4px 0', padding: '12px 16px 14px',
-              display: 'flex', flexDirection: 'column', gap: 6,
+              display: 'flex', flexDirection: 'column', gap: 10,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: T.dim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <IconBulb size={13} /> Análise da bike
-              </div>
-              {analise.itens.map((item, i) => (
-                <div key={i} style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>{item}</div>
-              ))}
+              {analise.avisos.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#B45309', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <IconAlertTriangle size={13} /> Confira antes de sair pra trilha
+                  </div>
+                  {analise.avisos.map((aviso, i) => (
+                    <div key={i} style={{ fontSize: 12.5, color: '#92400E', lineHeight: 1.5 }}>{aviso}</div>
+                  ))}
+                </div>
+              )}
+              {analise.itens.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: T.dim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <IconBulb size={13} /> Análise da bike
+                  </div>
+                  {analise.itens.map((item, i) => (
+                    <div key={i} style={{ fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>{item}</div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
