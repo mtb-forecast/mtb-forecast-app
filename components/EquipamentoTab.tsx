@@ -37,6 +37,7 @@ type FormState = {
   tipo: TipoBicicleta
   marca: string
   modelo: string
+  anoModelo: string
   modalidade: Modalidade
   ativa: boolean
   aroDianteiro: Aro | ''
@@ -50,14 +51,14 @@ type FormState = {
 
 function estadoVazio(ativaPadrao: boolean): FormState {
   return {
-    tipo: 'MTB', marca: '', modelo: '', modalidade: 'XC', ativa: ativaPadrao,
+    tipo: 'MTB', marca: '', modelo: '', anoModelo: '', modalidade: 'XC', ativa: ativaPadrao,
     aroDianteiro: '', aroTraseiro: '', pesoAtleta: '', cursoDianteiro: '', cursoTraseiro: '', psiDianteiro: '', psiTraseiro: '',
   }
 }
 
 function estadoDaBike(b: Bicicleta): FormState {
   return {
-    tipo: b.tipo, marca: b.marca ?? '', modelo: b.modelo ?? '', modalidade: b.modalidade, ativa: b.ativa,
+    tipo: b.tipo, marca: b.marca ?? '', modelo: b.modelo ?? '', anoModelo: b.ano_modelo != null ? String(b.ano_modelo) : '', modalidade: b.modalidade, ativa: b.ativa,
     aroDianteiro: b.aro_dianteiro ?? '', aroTraseiro: b.aro_traseiro ?? '',
     pesoAtleta: b.peso_atleta_kg != null ? String(b.peso_atleta_kg) : '',
     cursoDianteiro: b.curso_dianteiro_mm != null ? String(b.curso_dianteiro_mm) : '',
@@ -71,6 +72,24 @@ function numOrNull(v: string): number | null {
   if (!v.trim()) return null
   const n = Number(v.replace(',', '.'))
   return Number.isFinite(n) ? n : null
+}
+
+function validarForm(form: FormState): string | null {
+  if (!form.marca.trim()) return 'Informe a marca.'
+  if (!form.modelo.trim()) return 'Informe o modelo.'
+  if (!form.anoModelo.trim()) return 'Informe o ano do modelo.'
+  const ano = numOrNull(form.anoModelo)
+  if (ano == null || ano < 1990 || ano > 2100) return 'Ano do modelo inválido.'
+  if (!form.aroDianteiro) return 'Informe o aro dianteiro.'
+  if (!form.aroTraseiro) return 'Informe o aro traseiro.'
+  if (!form.pesoAtleta.trim()) return 'Informe o peso do atleta.'
+  if (form.tipo !== 'RIGIDA') {
+    if (!form.cursoDianteiro.trim()) return 'Informe o curso de suspensão dianteira.'
+    if (!form.cursoTraseiro.trim()) return 'Informe o curso de suspensão traseira.'
+  }
+  if (!form.psiDianteiro.trim()) return 'Informe o PSI dianteiro atual.'
+  if (!form.psiTraseiro.trim()) return 'Informe o PSI traseiro atual.'
+  return null
 }
 
 export default function EquipamentoTab() {
@@ -113,14 +132,20 @@ export default function EquipamentoTab() {
 
   async function handleSalvar() {
     if (!userId) return
+    const erroValidacao = validarForm(form)
+    if (erroValidacao) {
+      setError(erroValidacao)
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const payload = {
         user_id: userId,
         tipo: form.tipo,
-        marca: form.marca || null,
-        modelo: form.modelo || null,
+        marca: form.marca,
+        modelo: form.modelo,
+        ano_modelo: numOrNull(form.anoModelo),
         modalidade: form.modalidade,
         ativa: form.ativa,
         aro_dianteiro: form.aroDianteiro || null,
@@ -193,7 +218,7 @@ export default function EquipamentoTab() {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>
-                {[b.marca, b.modelo].filter(Boolean).join(' ') || tipoLabel(b.tipo)}
+                {[b.marca, b.modelo, b.ano_modelo ? String(b.ano_modelo) : null].filter(Boolean).join(' ') || tipoLabel(b.tipo)}
               </div>
               <div style={{ fontSize: 12, color: T.muted }}>
                 {tipoLabel(b.tipo)} · {modalidadeLabel(b.modalidade)}
@@ -257,20 +282,23 @@ export default function EquipamentoTab() {
             </div>
           </div>
 
-          <input style={inp} type="text" placeholder="Marca (opcional)" value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))} />
-          <input style={inp} type="text" placeholder="Modelo (opcional)" value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))} />
+          <input style={inp} type="text" placeholder="Marca" required value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input style={{ ...inp, flex: 2 }} type="text" placeholder="Modelo" required value={form.modelo} onChange={e => setForm(f => ({ ...f, modelo: e.target.value }))} />
+            <input style={{ ...inp, flex: 1 }} type="number" inputMode="numeric" placeholder="Ano" required min={1990} max={2100} value={form.anoModelo} onChange={e => setForm(f => ({ ...f, anoModelo: e.target.value }))} />
+          </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
               <span style={lbl}>Aro dianteiro</span>
-              <select style={sel} value={form.aroDianteiro} onChange={e => setForm(f => ({ ...f, aroDianteiro: e.target.value as Aro | '' }))}>
+              <select style={sel} required value={form.aroDianteiro} onChange={e => setForm(f => ({ ...f, aroDianteiro: e.target.value as Aro | '' }))}>
                 <option value="">—</option>
                 {AROS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>
               <span style={lbl}>Aro traseiro</span>
-              <select style={sel} value={form.aroTraseiro} onChange={e => setForm(f => ({ ...f, aroTraseiro: e.target.value as Aro | '' }))}>
+              <select style={sel} required value={form.aroTraseiro} onChange={e => setForm(f => ({ ...f, aroTraseiro: e.target.value as Aro | '' }))}>
                 <option value="">—</option>
                 {AROS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
               </select>
@@ -282,18 +310,18 @@ export default function EquipamentoTab() {
 
           <div>
             <span style={lbl}>Peso do atleta (kg)</span>
-            <input style={inp} type="number" inputMode="decimal" min={0} placeholder="Ex: 78" value={form.pesoAtleta} onChange={e => setForm(f => ({ ...f, pesoAtleta: e.target.value }))} />
+            <input style={inp} type="number" inputMode="decimal" min={0} required placeholder="Ex: 78" value={form.pesoAtleta} onChange={e => setForm(f => ({ ...f, pesoAtleta: e.target.value }))} />
           </div>
 
           {form.tipo !== 'RIGIDA' && (
             <div style={{ display: 'flex', gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <span style={lbl}>Curso dianteiro (mm)</span>
-                <input style={inp} type="number" inputMode="numeric" min={0} placeholder="Ex: 150" value={form.cursoDianteiro} onChange={e => setForm(f => ({ ...f, cursoDianteiro: e.target.value }))} />
+                <input style={inp} type="number" inputMode="numeric" min={0} required placeholder="Ex: 150" value={form.cursoDianteiro} onChange={e => setForm(f => ({ ...f, cursoDianteiro: e.target.value }))} />
               </div>
               <div style={{ flex: 1 }}>
                 <span style={lbl}>Curso traseiro (mm)</span>
-                <input style={inp} type="number" inputMode="numeric" min={0} placeholder="Ex: 140" value={form.cursoTraseiro} onChange={e => setForm(f => ({ ...f, cursoTraseiro: e.target.value }))} />
+                <input style={inp} type="number" inputMode="numeric" min={0} required placeholder="Ex: 140" value={form.cursoTraseiro} onChange={e => setForm(f => ({ ...f, cursoTraseiro: e.target.value }))} />
               </div>
             </div>
           )}
@@ -301,11 +329,11 @@ export default function EquipamentoTab() {
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
               <span style={lbl}>PSI dianteiro atual</span>
-              <input style={inp} type="number" inputMode="decimal" min={0} placeholder="Ex: 22" value={form.psiDianteiro} onChange={e => setForm(f => ({ ...f, psiDianteiro: e.target.value }))} />
+              <input style={inp} type="number" inputMode="decimal" min={0} required placeholder="Ex: 22" value={form.psiDianteiro} onChange={e => setForm(f => ({ ...f, psiDianteiro: e.target.value }))} />
             </div>
             <div style={{ flex: 1 }}>
               <span style={lbl}>PSI traseiro atual</span>
-              <input style={inp} type="number" inputMode="decimal" min={0} placeholder="Ex: 24" value={form.psiTraseiro} onChange={e => setForm(f => ({ ...f, psiTraseiro: e.target.value }))} />
+              <input style={inp} type="number" inputMode="decimal" min={0} required placeholder="Ex: 24" value={form.psiTraseiro} onChange={e => setForm(f => ({ ...f, psiTraseiro: e.target.value }))} />
             </div>
           </div>
 

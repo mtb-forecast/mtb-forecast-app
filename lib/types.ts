@@ -180,6 +180,7 @@ export type Bicicleta = {
   tipo: TipoBicicleta
   marca?: string | null
   modelo?: string | null
+  ano_modelo?: number | null
   modalidade: Modalidade
   ativa: boolean
   created_at: string
