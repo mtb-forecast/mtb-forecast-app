@@ -7,14 +7,15 @@ import {
   IconBrandInstagram, IconBrandTelegram, IconSettings, IconBrandFacebook,
   IconBrandStrava, IconMail, IconCircleCheck, IconRocket, IconUser,
   IconMapPin, IconDeviceMobile, IconArrowRight, IconLogout, IconDeviceFloppy,
-  IconHeart, IconBell, IconCreditCard, IconPlug, IconPlus, IconShieldCheck,
+  IconHeart, IconBell, IconCreditCard, IconPlug, IconPlus, IconShieldCheck, IconBike,
 } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
 import { PLANOS } from '@/lib/stripe-config'
 import { REPORT_SCHEDULE } from '@/lib/schedule'
+import EquipamentoTab from '@/components/EquipamentoTab'
 
-type Tab = 'conta' | 'alertas' | 'plano' | 'integracoes'
+type Tab = 'conta' | 'alertas' | 'plano' | 'integracoes' | 'equipamento'
 type SheetField = 'telegram' | null
 type TrilhaCadastrada = {
   id: string; name: string; regiao: string; created_at: string
@@ -1081,10 +1082,12 @@ export default function PerfilPage() {
 
   const tabContent: Record<Tab, React.ReactNode> = {
     conta: tabConta, alertas: tabAlertas, plano: tabPlano, integracoes: tabIntegracoes,
+    equipamento: <EquipamentoTab />,
   }
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'conta',        label: 'Conta',        icon: <IconUser size={14} /> },
+    { id: 'equipamento',  label: 'Equipamento',  icon: <IconBike size={14} /> },
     { id: 'alertas',      label: 'Alertas',      icon: <IconBell size={14} /> },
     { id: 'plano',        label: 'Plano',        icon: <IconCreditCard size={14} /> },
     { id: 'integracoes',  label: 'Integrações',  icon: <IconPlug size={14} /> },

@@ -170,6 +170,34 @@ export type Profile = {
   notif_horarios?: string[]
 }
 
+export type TipoBicicleta = 'MTB' | 'EMTB' | 'RIGIDA'
+export type Modalidade = 'DOWNHILL' | 'ENDURO' | 'XC' | 'MTB_ESTRADA' | 'CICLOTURISMO'
+
+export type Bicicleta = {
+  id: string
+  user_id: string
+  tipo: TipoBicicleta
+  marca?: string | null
+  modelo?: string | null
+  modalidade: Modalidade
+  ativa: boolean
+  created_at: string
+}
+
+export const TIPOS_BICICLETA: { value: TipoBicicleta; label: string }[] = [
+  { value: 'MTB', label: 'MTB' },
+  { value: 'EMTB', label: 'E-MTB' },
+  { value: 'RIGIDA', label: 'Rígida' },
+]
+
+export const MODALIDADES: { value: Modalidade; label: string }[] = [
+  { value: 'DOWNHILL', label: 'Downhill' },
+  { value: 'ENDURO', label: 'Enduro' },
+  { value: 'XC', label: 'XC' },
+  { value: 'MTB_ESTRADA', label: 'MTB Estrada' },
+  { value: 'CICLOTURISMO', label: 'Cicloturismo' },
+]
+
 export type TrilhaComCondicao = Trilha & {
   condicao?: Condicao
 }

@@ -44,7 +44,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
   const userId = session.user.id
   const { id } = await params
 
-  const [{ data: td }, { data: fav }, { count: favoritosCount }] = await Promise.all([
+  const [{ data: td }, { data: fav }, { count: favoritosCount }, { data: bicicletaAtiva }] = await Promise.all([
     sb.from('trilhas')
       .select(`*, condicoes(*), previsao_blocos(bloco, label, rain_mm, wind_max, pop_max, temp_med, gerado_em), localidades(cidade, estado, localidade), mantenedor:mantenedores(id,nome,nome_primario,nome_secundario,cor_primaria,cor_secundaria,logo_url,site_url)`)
       .eq('id', id)
@@ -53,6 +53,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
       .maybeSingle(),
     sb.from('favoritos').select('id').eq('user_id', userId).eq('trilha_id', id).maybeSingle(),
     sb.from('favoritos').select('id', { count: 'exact', head: true }).eq('trilha_id', id),
+    sb.from('bicicletas').select('*').eq('user_id', userId).eq('ativa', true).maybeSingle(),
   ])
 
   if (!td) notFound()
@@ -270,7 +271,7 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
         {/* ── Card: Condição do Solo ──────────────────────────────────── */}
         {c && (
           <div style={{ marginBottom: 12 }}>
-            <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} exposicao={trilha.exposicao} />
+            <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} exposicao={trilha.exposicao} bicicletaAtiva={bicicletaAtiva} />
           </div>
         )}
 

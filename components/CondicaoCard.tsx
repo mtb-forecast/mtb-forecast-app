@@ -6,9 +6,10 @@ import {
   IconCloud, IconCalendar, IconChevronDown,
   IconSun, IconCloudRain, IconCloudStorm, IconCircleCheck, IconClockPause, IconUmbrella,
 } from '@tabler/icons-react'
-import { Condicao, VEREDICTO_CONFIG, PrevisaoBloco } from '@/lib/types'
+import { Condicao, VEREDICTO_CONFIG, PrevisaoBloco, Bicicleta } from '@/lib/types'
 import { selecionarVeredicto, veredictoComAlerta } from '@/lib/veredicto'
 import { rainColor, windColor, deveAlertarRajada, rajadaSeveridade } from '@/lib/display'
+import { setupDica } from '@/lib/setupDicas'
 import DiaDetalheModal from '@/components/DiaDetalheModal'
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
   lat?: number
   lon?: number
   exposicao?: string
+  bicicletaAtiva?: Bicicleta | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -475,7 +477,7 @@ function SolarArc({ sunrise, sunset, cloudCover, isRaining, moonPhase, tempC }: 
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
+function CondicaoCard({ condicao, lat, lon, exposicao, bicicletaAtiva }: Props) {
   // ── Estado do modal e dados solares ──────────────────────────────────────
   type SelectedDay = {
     date: Date
@@ -786,6 +788,22 @@ function CondicaoCard({ condicao, lat, lon, exposicao }: Props) {
               {condicao.texto_dinamico}
             </div>
           )}
+
+          {bicicletaAtiva && aderenciaStr && (() => {
+            const dica = setupDica(bicicletaAtiva, condicao)
+            return (
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#111111', marginBottom: 14 }}>
+                <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 400, marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+                  {dica.titulo}
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {dica.itens.map((item, i) => (
+                    <li key={i} style={{ fontSize: 13, fontWeight: 500 }}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })()}
 
           {/* Barra Grip Perfeito */}
           <div>
