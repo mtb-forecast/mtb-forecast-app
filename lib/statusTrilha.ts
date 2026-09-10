@@ -2,7 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const STATUS_TRILHA_OPTIONS = [
   { value: 'fechada',         label: 'Fechada',         bg: '#fee2e2', color: '#991b1b' },
-  { value: 'manutencao',      label: 'Em Manutenção',   bg: '#fef9c3', color: '#854d0e' },
+  // 'manutencao' agora tem sentido POSITIVO — trilha com manutenção em dia
+  // (era "Em Manutenção", sentido de alerta; renomeado em 09/09/2026). O slug
+  // no banco continua 'manutencao' — mudar quebraria o CHECK constraint da
+  // coluna (supabase/migrations/20260725183224_add_status_trilha_observacoes.sql)
+  // e exigiria migração de dados; só o rótulo/cor exibidos mudaram.
+  { value: 'manutencao',      label: 'Bem Conservada',  bg: '#dcfce7', color: '#166534' },
   { value: 'sem_manutencao',  label: 'Sem Manutenção',  bg: '#ffedd5', color: '#9a3412' },
   { value: 'arvore_caida',    label: 'Árvore Caída',    bg: '#e0e7ff', color: '#3730a3' },
 ] as const
