@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { createSupabaseRouteClient } from '@/lib/supabase-server'
+import { notificarNovoMembroSelecao } from '@/lib/notificarSelecao'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -50,5 +51,17 @@ export async function POST(request: Request, { params }: Params) {
     .insert({ selecao_id: id, profile_id: profileId })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Notificação (Telegram + e-mail) — aguarda o envio (ambiente serverless pode
+  // matar a function antes de um fire-and-forget terminar); falha de envio não
+  // derruba a operação, que já está commitada (evento de Feed já gravado via trigger).
+  const [{ data: perfil }, { data: selecao }] = await Promise.all([
+    supabase.from('profiles').select('nome, apelido, email, telegram_ativo, telegram_chat_id').eq('id', profileId).maybeSingle(),
+    supabase.from('selecoes_trilhas').select('id, nome, data').eq('id', id).maybeSingle(),
+  ])
+  if (perfil && selecao) {
+    await notificarNovoMembroSelecao(perfil, selecao).catch((err) => console.error('[selecoes/membros] notificação falhou:', err))
+  }
+
   return NextResponse.json({ ok: true }, { status: 201 })
 }

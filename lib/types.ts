@@ -270,11 +270,13 @@ export type Observacao = {
 export type FeedEvento = {
   id: number
   trilha_id?: string | null
-  tipo: 'pipeline' | 'seguida' | 'alerta_tempestade'
+  tipo: 'pipeline' | 'seguida' | 'alerta_tempestade' | 'selecao_membro'
   texto?: string | null
   veredicto?: string | null
   follower_id?: string | null
   following_id?: string | null
+  selecao_id?: string | null
+  destinatario_id?: string | null
   created_at: string
 }
 
@@ -319,6 +321,7 @@ export type FeedItem =
   | ({ kind: 'noticia_clima' } & NoticiaClima)
   | ({ kind: 'noticia_externa' } & NoticiaExterna)
   | ({ kind: 'dica' } & Dica)
+  | ({ kind: 'selecao_membro' } & FeedEvento & { selecao_nome?: string; selecao_data?: string })
 
 export const REGIOES = ['SP', 'MG', 'RJ', 'PR', 'SC', 'RS', 'outros'] as const
 export type Regiao = typeof REGIOES[number]

@@ -111,6 +111,17 @@ export async function fetchFeedItems(
     .order('created_at', { ascending: false })
     .limit(200)
 
+  // Seleção: só o próprio destinatário vê "você foi adicionado" (não broadcast).
+  const selecaoMembroPromise = sb
+    .from('feed_eventos')
+    .select('id, tipo, texto, selecao_id, destinatario_id, created_at, selecoes_trilhas ( nome, data )')
+    .eq('tipo', 'selecao_membro')
+    .eq('destinatario_id', userId)
+    .gte('created_at', range.startUTC)
+    .lt('created_at', range.endUTC)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
   // Notícia climática: broadcast para todos os usuários (não depende de
   // favoritos/seguidores). Tabela isolada — ver lib/feed.ts NOTICIA_CLIMA_ATIVO.
   const noticiaClimaPromise = NOTICIA_CLIMA_ATIVO
@@ -150,10 +161,11 @@ export async function fetchFeedItems(
         .limit(20)
     : Promise.resolve({ data: [] as (Dica & { ultima_postagem: string })[] })
 
-  const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: noticiasClima }, { data: noticiasExternas }, { data: dicas }] = await Promise.all([
+  const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: selecaoMembros }, { data: noticiasClima }, { data: noticiasExternas }, { data: dicas }] = await Promise.all([
     eventosPromise,
     obsPromise,
     seguidaPromise,
+    selecaoMembroPromise,
     noticiaClimaPromise,
     noticiaExternaPromise,
     dicasPromise,
@@ -199,6 +211,17 @@ export async function fetchFeedItems(
     following_perfil: s.following_id ? perfilById.get(s.following_id) : undefined,
   }))
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selecaoMembroItems: FeedItem[] = ((selecaoMembros ?? []) as any[]).map(e => {
+    const sel = Array.isArray(e.selecoes_trilhas) ? e.selecoes_trilhas[0] : e.selecoes_trilhas
+    return {
+      kind: 'selecao_membro',
+      id: e.id, tipo: e.tipo, texto: e.texto, selecao_id: e.selecao_id,
+      destinatario_id: e.destinatario_id, created_at: e.created_at,
+      selecao_nome: sel?.nome, selecao_data: sel?.data,
+    }
+  })
+
   const noticiaClimaItems: FeedItem[] = ((noticiasClima ?? []) as NoticiaClima[]).map(n => ({
     kind: 'noticia_clima',
     ...n,
@@ -219,7 +242,7 @@ export async function fetchFeedItems(
     created_at: d.ultima_postagem,
   }))
 
-  return [...eventoItems, ...obsItems, ...seguidaItems, ...noticiaClimaItems, ...noticiaExternaItems, ...dicaItems].sort(
+  return [...eventoItems, ...obsItems, ...seguidaItems, ...selecaoMembroItems, ...noticiaClimaItems, ...noticiaExternaItems, ...dicaItems].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )
 }
