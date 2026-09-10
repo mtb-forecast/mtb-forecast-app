@@ -392,6 +392,36 @@ export const ADERENCIA_CONFIG: Record<string, { cor: string; emoji: string }> = 
   'BAIXA ADERÊNCIA': { cor: '#ef4444', emoji: '🔴' },
 }
 
+// ── Seleções de trilhas personalizadas ──────────────────────────────────────
+export type SelecaoTrilhas = {
+  id: string
+  nome: string
+  owner_id: string
+  data: string // YYYY-MM-DD
+  created_at: string
+  trilhas?: Trilha[]
+  membros?: SelecaoMembro[]
+  is_owner?: boolean
+}
+
+export type SelecaoMembro = {
+  id: string
+  selecao_id: string
+  profile_id: string
+  created_at: string
+  profile?: { id: string; nome?: string; apelido?: string; email?: string } | null
+}
+
+export type SelecaoConvite = {
+  id: string
+  selecao_id: string
+  token: string
+  criado_por: string
+  usado_por: string | null
+  expira_em: string
+  created_at: string
+}
+
 // Cores da caixa de frase de secagem, derivadas do status de aderência
 export const ADERENCIA_FRASE: Record<string, { bg: string; border: string }> = {
   'SECO':            { bg: '#f0fdf4', border: '#16a34a' },

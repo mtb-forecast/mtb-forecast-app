@@ -13,8 +13,9 @@ const NOTICIA_CLIMA_ATIVO = true
 const NOTICIA_EXTERNA_ATIVA = true
 
 // Kill switch das dicas (instagram_dicas) no feed do app — tabela originalmente
-// só alimentava o rodízio de post diário no Instagram; created_at (09/09/2026)
-// conecta ela ao /feed também, mostrando a dica no dia em que foi cadastrada.
+// só alimentava o rodízio de post diário no Instagram; conectada ao /feed também
+// (09/09/2026), mostrando a "dica do dia" no dia em que o rodízio a postou
+// (ultima_postagem), não em que ela foi cadastrada no banco.
 const DICAS_FEED_ATIVO = true
 
 export type FeedRange = { startUTC: string; endUTC: string }
@@ -134,17 +135,20 @@ export async function fetchFeedItems(
         .limit(20)
     : Promise.resolve({ data: [] as NoticiaExterna[] })
 
-  // Dicas: broadcast pra todos, filtrado por ativo=true e pelo mesmo range de data.
+  // Dicas: broadcast pra todos, filtrado por ativo=true. Usa ultima_postagem (quando
+  // o rodízio diário efetivamente postou no Instagram) em vez de created_at — assim
+  // a "dica do dia" aparece no feed todo dia, não só quando uma dica nova é cadastrada.
   const dicasPromise = DICAS_FEED_ATIVO
     ? sb
         .from('instagram_dicas')
-        .select('id, titulo, subtitulo, itens, rodape, created_at')
+        .select('id, titulo, subtitulo, itens, rodape, ultima_postagem')
         .eq('ativo', true)
-        .gte('created_at', range.startUTC)
-        .lt('created_at', range.endUTC)
-        .order('created_at', { ascending: false })
+        .not('ultima_postagem', 'is', null)
+        .gte('ultima_postagem', range.startUTC)
+        .lt('ultima_postagem', range.endUTC)
+        .order('ultima_postagem', { ascending: false })
         .limit(20)
-    : Promise.resolve({ data: [] as Dica[] })
+    : Promise.resolve({ data: [] as (Dica & { ultima_postagem: string })[] })
 
   const [{ data: eventos }, { data: observacoes }, { data: seguidas }, { data: noticiasClima }, { data: noticiasExternas }, { data: dicas }] = await Promise.all([
     eventosPromise,
@@ -205,9 +209,14 @@ export async function fetchFeedItems(
     ...n,
   }))
 
-  const dicaItems: FeedItem[] = ((dicas ?? []) as Dica[]).map(d => ({
+  const dicaItems: FeedItem[] = ((dicas ?? []) as (Dica & { ultima_postagem: string })[]).map(d => ({
     kind: 'dica',
-    ...d,
+    id: d.id,
+    titulo: d.titulo,
+    subtitulo: d.subtitulo,
+    itens: d.itens,
+    rodape: d.rodape,
+    created_at: d.ultima_postagem,
   }))
 
   return [...eventoItems, ...obsItems, ...seguidaItems, ...noticiaClimaItems, ...noticiaExternaItems, ...dicaItems].sort(
