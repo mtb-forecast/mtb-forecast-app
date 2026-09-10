@@ -57,25 +57,44 @@ function loadTextureDataUri(filename: string): string | null {
   }
 }
 
-// Hosts confiáveis pra ?bg= — rota é pública/sem auth, então SEM allowlist
-// isso é um SSRF: qualquer um poderia mandar bg=http://169.254.169.254/...
-// (metadata interno de cloud) ou varrer a rede interna da Vercel através
-// desse fetch server-side. Só Pollinations (fonte da imagem de IA) é aceito.
-const BG_HOSTS_PERMITIDOS = new Set(['image.pollinations.ai'])
+// Host confiável pra ?bg= — rota é pública/sem auth, então SEM essa validação
+// isso é um SSRF (CodeQL js/request-forgery, CWE-918): qualquer um poderia
+// mandar bg=http://169.254.169.254/... (metadado interno de cloud) ou varrer
+// a rede interna da Vercel através desse fetch server-side. Só Pollinations
+// (fonte da imagem de IA) é aceito — comparação direta de string (não via
+// Set/array, que o analisador estático do CodeQL não reconhece como barreira
+// de sanitização) e apenas porta https padrão (443), sem credenciais
+// embutidas na URL (user:pass@host, outro vetor de SSRF/parsing confuso).
+const BG_HOST_PERMITIDO = 'image.pollinations.ai'
 
 // Fundo opcional gerado por IA (Pollinations.ai, via ?bg=<url>) — usado pelo
 // Reels (scripts/post_reels_clima_extremo.py) pra deixar o vídeo mais vivo.
 // Busca server-side e embute como data URI (mesmo padrão de fontes/textura)
 // porque next/og (Satori) não aceita <img src> apontando pra URL externa.
-// Nunca deixa o Stories quebrar: se o param não vier, não for de um host
+// Nunca deixa o Stories quebrar: se o param não vier, não for do host
 // permitido, ou a busca falhar, cai de volta no gradiente atual —
 // comportamento 100% inalterado sem ?bg=.
 async function loadBackgroundDataUri(bgUrl: string | null): Promise<string | null> {
   if (!bgUrl) return null
   try {
     const parsed = new URL(bgUrl)
-    if (parsed.protocol !== 'https:' || !BG_HOSTS_PERMITIDOS.has(parsed.hostname)) return null
-    const res = await fetch(parsed.toString(), { signal: AbortSignal.timeout(15000) })
+    const portaPadrao = parsed.port === '' || parsed.port === '443'
+    if (
+      parsed.protocol !== 'https:' ||
+      parsed.hostname !== BG_HOST_PERMITIDO ||
+      !portaPadrao ||
+      parsed.username !== '' ||
+      parsed.password !== ''
+    ) {
+      return null
+    }
+    // redirect: 'error' — sem isso, o próprio host permitido poderia
+    // responder com um 3xx apontando pra um destino não validado (ex.: rede
+    // interna) e o fetch seguiria, contornando a checagem de hostname acima.
+    const res = await fetch(`https://${BG_HOST_PERMITIDO}${parsed.pathname}${parsed.search}`, {
+      signal: AbortSignal.timeout(15000),
+      redirect: 'error',
+    })
     if (!res.ok || !res.headers.get('content-type')?.startsWith('image/')) return null
     const buf = Buffer.from(await res.arrayBuffer())
     const contentType = res.headers.get('content-type') || 'image/jpeg'
