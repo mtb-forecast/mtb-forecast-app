@@ -57,16 +57,25 @@ function loadTextureDataUri(filename: string): string | null {
   }
 }
 
+// Hosts confiáveis pra ?bg= — rota é pública/sem auth, então SEM allowlist
+// isso é um SSRF: qualquer um poderia mandar bg=http://169.254.169.254/...
+// (metadata interno de cloud) ou varrer a rede interna da Vercel através
+// desse fetch server-side. Só Pollinations (fonte da imagem de IA) é aceito.
+const BG_HOSTS_PERMITIDOS = new Set(['image.pollinations.ai'])
+
 // Fundo opcional gerado por IA (Pollinations.ai, via ?bg=<url>) — usado pelo
 // Reels (scripts/post_reels_clima_extremo.py) pra deixar o vídeo mais vivo.
 // Busca server-side e embute como data URI (mesmo padrão de fontes/textura)
 // porque next/og (Satori) não aceita <img src> apontando pra URL externa.
-// Nunca deixa o Stories quebrar: se o param não vier ou a busca falhar, cai
-// de volta no gradiente atual — comportamento 100% inalterado sem ?bg=.
+// Nunca deixa o Stories quebrar: se o param não vier, não for de um host
+// permitido, ou a busca falhar, cai de volta no gradiente atual —
+// comportamento 100% inalterado sem ?bg=.
 async function loadBackgroundDataUri(bgUrl: string | null): Promise<string | null> {
   if (!bgUrl) return null
   try {
-    const res = await fetch(bgUrl, { signal: AbortSignal.timeout(15000) })
+    const parsed = new URL(bgUrl)
+    if (parsed.protocol !== 'https:' || !BG_HOSTS_PERMITIDOS.has(parsed.hostname)) return null
+    const res = await fetch(parsed.toString(), { signal: AbortSignal.timeout(15000) })
     if (!res.ok || !res.headers.get('content-type')?.startsWith('image/')) return null
     const buf = Buffer.from(await res.arrayBuffer())
     const contentType = res.headers.get('content-type') || 'image/jpeg'
