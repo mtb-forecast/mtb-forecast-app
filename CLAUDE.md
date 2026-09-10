@@ -243,6 +243,96 @@ Override pós-modelo `_aplicar_override_chuva_futura()` escalona DROP LIBERADO:
 
 ---
 
+## `texto_dinamico` — tom conversacional (ago/2026)
+
+`condicoes.texto_dinamico` é a análise por trilha gerada por IA (3–5 frases, exibida no
+`CondicaoCard.tsx` e usada como imagem dos Stories de condição no Instagram). Gerada em
+`_build_narrativa_prompt()` / `_gerar_narrativa_claude()` (`mtb-forecast.py`).
+
+### Regra de estilo (16/08/2026)
+Tom conversacional — "como avisar um amigo antes de ele sair pra pedalar" — nunca
+relatório técnico. Vocabulário de hidrologia/solo é proibido no texto final; traduzir
+pra linguagem natural:
+- meia-vida alta / drenagem lenta → "esse tipo de mata segura a umidade por mais tempo"
+- meia-vida baixa / drenagem rápida → "esse solo seca rápido"
+- dossel fechado → "a mata fechada não deixa o sol bater direito no chão"
+
+Números de chuva (mm) e tempo (horas/dias) continuam aparecendo — só o jargão técnico
+("meia-vida de secagem", "dossel", "acúmulo efetivo") deve ser evitado. O fallback local
+sem LLM (`_resumo_secagem_local()`) segue o mesmo princípio.
+
+---
+
+## Publicação no Instagram — arquitetura e robustez (ago/2026)
+
+### O que é postado e como
+| Origem | Script | Formato IG | Frequência |
+|---|---|---|---|
+| Condição de trilha | `scripts/post_instagram.py` | Stories (sem caption) | após cada rodada do pipeline (07h/13h BRT) |
+| Dica do dia | `scripts/post_instagram_dica.py` | **Feed** (com caption real) | diário, 06h30 BRT |
+| Notícia climática (interna) | `scripts/post_noticia_clima.py` | Stories (sem caption) | após cada rodada do pipeline |
+| Notícia externa (busca web) | `scripts/post_noticia_externa.py` | Stories (sem caption) | diário, 07h BRT |
+
+Stories não aceita `caption` na Graph API — todo texto vai renderizado dentro da imagem
+OG 1080x1920 (`/api/og/instagram/...`). Só a Dica do Dia é post de Feed de verdade.
+
+### Falhas de publicação devem ser visíveis (fix 16/08/2026, commit `bc0a74c`)
+Todo script que primeiro grava no banco e depois tenta postar no Instagram deve
+**propagar falha da etapa de Instagram** (`raise SystemExit`) em vez de engolir com
+`return` silencioso — mesmo que a gravação anterior já tenha funcionado. Um erro engolido
+faz o workflow do GitHub Actions terminar verde sem nada ter sido postado, e o problema só
+é percebido dias depois (foi exatamente o que aconteceu com notícia clima/externa antes
+desse fix — só o Story de condição de trilha estava postando).
+
+### Parsing de resposta do Claude com `web_search` (fix 16/08/2026, commit `d2aa268`)
+`post_noticia_externa.py` usa a tool `web_search` do Claude; a resposta pode conter um
+bloco de texto final **vazio** (truncamento por `max_tokens` baixo). Nunca assumir que o
+último bloco de texto é sempre o JSON final ou que a string inteira é JSON puro:
+- Filtrar blocos de texto vazios antes de escolher o "último"
+- Extrair o objeto JSON do primeiro `{` ao último `}` (tolera texto residual ao redor)
+- `max_tokens` mínimo 2048 quando `web_search` está no payload
+
+---
+
+## Reels de clima extremo (set/2026)
+
+### Motivação
+Diagnóstico de alcance parado no Instagram (10/09/2026): o mix era ~5 Stories/dia contra
+1 único post de Feed (Dica do dia), e zero Reels. Stories só alcançam quem já segue a
+conta — Reels é o único formato que o algoritmo empurra pra fora da base de seguidores
+(Explore/descoberta). Primeira ação: transformar a notícia externa (clima extremo Brasil,
+já existente) em Reels em vez de só Stories.
+
+### Arquitetura
+`scripts/post_reels_clima_extremo.py` — peça INDEPENDENTE de `post_noticia_externa.py`:
+lê a última linha já gravada em `noticias_externas` (não busca nem resume de novo, zero
+custo extra de Tavily/LLM) e cuida só da parte de vídeo + publicação como Reels.
+- **Imagem de fundo**: reaproveita a mesma rota OG vertical (1080x1920) já usada pro
+  Stories (`/api/og/instagram/noticia-externa`) — nenhum template novo.
+- **Vídeo**: ffmpeg (já vem instalado no runner `ubuntu-latest`) anima a imagem com zoom
+  lento (`zoompan`, efeito Ken Burns) e adiciona uma trilha ambiente **100% sintetizada**
+  (senoides geradas pelo próprio ffmpeg, nunca uma gravação de música real) — zero risco
+  de direito autoral, mas evita vídeo mudo.
+- **Caption real**: diferente do Stories, Reels aceita `caption` na Graph API — o texto
+  completo (frase de destaque + bullets + fontes + hashtags) vai na legenda.
+- **Storage**: vídeo sobe pro bucket público `reels` no Supabase Storage (Graph API exige
+  `video_url` publicamente acessível); publicação é assíncrona — precisa fazer polling de
+  `status_code=FINISHED` antes de `media_publish`.
+- **Controle de duplicidade**: coluna `noticias_externas.reels_postado_em` — se já
+  preenchida, o script sai sem reprocessar.
+- **Agendamento**: `reels-clima-extremo.yml`, 07h20 BRT, 20min depois de
+  `noticia-externa.yml` (07h BRT) pra garantir que a notícia do dia já foi gravada.
+
+### Regras
+- NUNCA usar faixa de áudio de música real (licenciada ou não) — só síntese via ffmpeg,
+  pra manter zero risco de direito autoral sem depender de curadoria manual de licença.
+- Kill-switches próprios: `REELS_CLIMA_EXTREMO_ENABLED`, `REELS_CLIMA_EXTREMO_INSTAGRAM`
+  (mesmo padrão de [[project_noticia_clima_e_externa]] — nunca engolir falha de publicação
+  em silêncio, ver invariante 15).
+- Isolado do pipeline principal e de `post_noticia_externa.py` — só leitura da tabela.
+
+---
+
 ## INVARIANTES DO SISTEMA — nunca regredir
 
 1. **NUNCA reintroduzir timemachine como fonte de precipitação**
@@ -258,3 +348,5 @@ Override pós-modelo `_aplicar_override_chuva_futura()` escalona DROP LIBERADO:
 11. **Não recriar microclima_config como fonte ativa** — foi supersedida por `biomas`
 12. **Colunas de auditoria** (`cloud_pct`, `humidity_pct`, `temp_media_c`, `meia_vida_base_h`) devem ser gravadas em todo pipeline completo
 13. **NUNCA modificar o array ERA5 in-place no nowcast overlay** — sempre copiar com `list()` antes
+14. **`texto_dinamico` nunca usa jargão técnico de solo/hidrologia** (meia-vida, dossel, acúmulo efetivo) — tom conversacional, números continuam
+15. **Etapas de publicação externa (Instagram, etc.) nunca engolem erro em silêncio** — sempre propagar pra falhar o workflow visivelmente, mesmo com a gravação no banco já feita
