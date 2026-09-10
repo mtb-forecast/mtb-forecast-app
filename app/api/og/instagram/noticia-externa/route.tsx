@@ -83,7 +83,21 @@ async function loadBackgroundDataUri(bgUrl: string | null): Promise<string | nul
       parsed.password ||
       !hasDefaultHttpsPort
     ) return null
-    const res = await fetch(parsed.toString(), {
+
+    const decodedPath = decodeURIComponent(parsed.pathname)
+    if (
+      !decodedPath.startsWith('/') ||
+      decodedPath.includes('..') ||
+      decodedPath.includes('\\') ||
+      !/\.(avif|gif|jpe?g|png|webp)$/i.test(decodedPath)
+    ) return null
+
+    const safeUrl = new URL(parsed.origin)
+    safeUrl.pathname = parsed.pathname
+    safeUrl.search = ''
+    safeUrl.hash = ''
+
+    const res = await fetch(safeUrl.toString(), {
       signal: AbortSignal.timeout(15000),
       redirect: 'error',
     })
