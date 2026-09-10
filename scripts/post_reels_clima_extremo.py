@@ -201,21 +201,22 @@ def _prompt_via_deepseek(texto: str) -> str | None:
         return None
 
 
-def montar_url_imagem_ia(noticia: dict) -> str:
+def montar_prompt_titulo(noticia: dict) -> str:
     texto = noticia["frase_destaque"] + " " + " ".join(
         b.get("texto", "") for b in noticia.get("bullets", [])
     )
     prompt = _prompt_via_deepseek(texto) or _prompt_heuristico(texto)
     print(f"  ✓ Prompt da cena de título: {prompt}")
-    prompt_encoded = urllib.parse.quote(prompt)
-    seed = noticia["id"]
-    return f"{POLLINATIONS_API}{prompt_encoded}?width=1080&height=1920&nologo=true&seed={seed}"
+    return prompt
 
 
-def baixar_imagem_fundo(noticia_id: int, destino: str, bg_url: str | None) -> None:
+def baixar_imagem_fundo(noticia_id: int, destino: str, bg_prompt: str | None) -> None:
+    # A rota OG nunca recebe uma URL pronta (CodeQL SSRF) — só o texto do
+    # prompt e a seed; ela mesma monta o endereço do Pollinations a partir de
+    # uma base fixa (ver app/api/og/instagram/noticia-externa/route.tsx).
     url = f"{OG_API_BASE}/api/og/instagram/noticia-externa?id={noticia_id}"
-    if bg_url:
-        url += f"&bg={urllib.parse.quote(bg_url, safe='')}"
+    if bg_prompt:
+        url += f"&bgPrompt={urllib.parse.quote(bg_prompt)}&bgSeed={noticia_id}"
     r = requests.get(url, timeout=60)
     if not r.ok or "image" not in r.headers.get("content-type", ""):
         raise RuntimeError(f"Falha ao baixar imagem de fundo: HTTP {r.status_code}")
@@ -260,7 +261,7 @@ def montar_cenas(noticia: dict, tmp: str) -> list[tuple[str, float]]:
     cenas: list[tuple[str, float]] = []
 
     caminho_titulo = os.path.join(tmp, "cena_0.png")
-    baixar_imagem_fundo(noticia["id"], caminho_titulo, montar_url_imagem_ia(noticia))
+    baixar_imagem_fundo(noticia["id"], caminho_titulo, montar_prompt_titulo(noticia))
     cenas.append((caminho_titulo, DURACAO_TITULO_S))
 
     for i, texto in enumerate(montar_textos_cenas_extra(noticia, N_CENAS_EXTRA), start=1):

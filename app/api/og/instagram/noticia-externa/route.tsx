@@ -57,44 +57,29 @@ function loadTextureDataUri(filename: string): string | null {
   }
 }
 
-// Host confiável pra ?bg= — rota é pública/sem auth, então SEM essa validação
-// isso é um SSRF (CodeQL js/request-forgery, CWE-918): qualquer um poderia
-// mandar bg=http://169.254.169.254/... (metadado interno de cloud) ou varrer
-// a rede interna da Vercel através desse fetch server-side. Só Pollinations
-// (fonte da imagem de IA) é aceito — comparação direta de string (não via
-// Set/array, que o analisador estático do CodeQL não reconhece como barreira
-// de sanitização) e apenas porta https padrão (443), sem credenciais
-// embutidas na URL (user:pass@host, outro vetor de SSRF/parsing confuso).
-const BG_HOST_PERMITIDO = 'image.pollinations.ai'
+// Base fixa do Pollinations — a rota NUNCA recebe uma URL de fora (era isso
+// que o CodeQL js/request-forgery (CWE-918) reclamava, mesmo depois de várias
+// tentativas de validar host/porta/path de uma URL vinda do query string: o
+// analisador estático considera qualquer fetch que reaproveite qualquer parte
+// de uma URL externa como request forgery, mesmo com allowlist). Fix
+// definitivo: a rota recebe só um PROMPT (texto) e uma SEED (número) — nunca
+// uma URL — e monta o endereço inteiro a partir dessa constante. Não existe
+// `new URL(valorExterno)` em nenhum ponto deste arquivo.
+const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt/'
 
-// Fundo opcional gerado por IA (Pollinations.ai, via ?bg=<url>) — usado pelo
-// Reels (scripts/post_reels_clima_extremo.py) pra deixar o vídeo mais vivo.
-// Busca server-side e embute como data URI (mesmo padrão de fontes/textura)
-// porque next/og (Satori) não aceita <img src> apontando pra URL externa.
-// Nunca deixa o Stories quebrar: se o param não vier, não for do host
-// permitido, ou a busca falhar, cai de volta no gradiente atual —
-// comportamento 100% inalterado sem ?bg=.
-async function loadBackgroundDataUri(bgUrl: string | null): Promise<string | null> {
-  if (!bgUrl) return null
+// Fundo opcional gerado por IA (Pollinations.ai, gratuito/sem chave) — usado
+// pelo Reels (scripts/post_reels_clima_extremo.py) pra deixar o vídeo mais
+// vivo. Busca server-side e embute como data URI (mesmo padrão de
+// fontes/textura) porque next/og (Satori) não aceita <img src> remoto.
+// Nunca deixa o Stories quebrar: sem `bgPrompt`, ou se a busca falhar, cai de
+// volta no gradiente atual — comportamento 100% inalterado.
+async function loadBackgroundDataUri(bgPrompt: string | null, bgSeed: string | null): Promise<string | null> {
+  if (!bgPrompt) return null
+  const prompt = bgPrompt.slice(0, 300) // teto de tamanho, nunca usado em URL/path traversal
+  const seed = Math.abs(parseInt(bgSeed ?? '0', 10) || 0)
+  const url = `${POLLINATIONS_BASE}${encodeURIComponent(prompt)}?width=1080&height=1920&nologo=true&seed=${seed}`
   try {
-    const parsed = new URL(bgUrl)
-    const portaPadrao = parsed.port === '' || parsed.port === '443'
-    if (
-      parsed.protocol !== 'https:' ||
-      parsed.hostname !== BG_HOST_PERMITIDO ||
-      !portaPadrao ||
-      parsed.username !== '' ||
-      parsed.password !== ''
-    ) {
-      return null
-    }
-    // redirect: 'error' — sem isso, o próprio host permitido poderia
-    // responder com um 3xx apontando pra um destino não validado (ex.: rede
-    // interna) e o fetch seguiria, contornando a checagem de hostname acima.
-    const res = await fetch(`https://${BG_HOST_PERMITIDO}${parsed.pathname}${parsed.search}`, {
-      signal: AbortSignal.timeout(15000),
-      redirect: 'error',
-    })
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000), redirect: 'error' })
     if (!res.ok || !res.headers.get('content-type')?.startsWith('image/')) return null
     const buf = Buffer.from(await res.arrayBuffer())
     const contentType = res.headers.get('content-type') || 'image/jpeg'
@@ -131,12 +116,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const idParam = searchParams.get('id')
     const id = idParam ? parseInt(idParam, 10) : null
-    const bgParam = searchParams.get('bg')
+    const bgPrompt = searchParams.get('bgPrompt')
+    const bgSeed = searchParams.get('bgSeed')
 
     const noticia = await fetchNoticia(id)
     if (!noticia) throw new Error('Nenhuma noticia_externa encontrada')
 
-    const bgDataUri = await loadBackgroundDataUri(bgParam)
+    const bgDataUri = await loadBackgroundDataUri(bgPrompt, bgSeed)
 
     const notoSans   = loadFont('noto-sans-regular.ttf')
     const dmSansBold = loadFont('dm-sans-800.ttf')
