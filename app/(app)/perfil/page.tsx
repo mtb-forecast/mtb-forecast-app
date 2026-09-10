@@ -8,6 +8,7 @@ import {
   IconBrandStrava, IconMail, IconCircleCheck, IconRocket, IconUser,
   IconMapPin, IconDeviceMobile, IconArrowRight, IconLogout, IconDeviceFloppy,
   IconHeart, IconBell, IconCreditCard, IconPlug, IconPlus, IconShieldCheck, IconBike,
+  IconCalendarEvent,
 } from '@tabler/icons-react'
 import { supabase, getClientUser } from '@/lib/supabase'
 import { Profile, Trilha, ESTADOS_BRASIL } from '@/lib/types'
@@ -636,6 +637,11 @@ export default function PerfilPage() {
           icon={<IconMapPin size={18} color="#6d745f" />} label="Que cadastrei"
           value={`${minhasTrilhas.length} trilha${minhasTrilhas.length !== 1 ? 's' : ''}`}
           onTap={() => { window.location.href = '/perfil/minhas-trilhas' }}
+        />
+        <Divider />
+        <InfoRow
+          icon={<IconCalendarEvent size={18} color="#6d745f" />} label="Minhas seleções" value="Rolês nomeados por data"
+          onTap={() => { window.location.href = '/selecoes' }}
         />
         <Divider />
         <InfoRow
