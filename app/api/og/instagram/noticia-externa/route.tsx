@@ -74,8 +74,19 @@ async function loadBackgroundDataUri(bgUrl: string | null): Promise<string | nul
   if (!bgUrl) return null
   try {
     const parsed = new URL(bgUrl)
-    if (parsed.protocol !== 'https:' || !BG_HOSTS_PERMITIDOS.has(parsed.hostname)) return null
-    const res = await fetch(parsed.toString(), { signal: AbortSignal.timeout(15000) })
+    const host = parsed.hostname.toLowerCase()
+    const hasDefaultHttpsPort = parsed.port === '' || parsed.port === '443'
+    if (
+      parsed.protocol !== 'https:' ||
+      !BG_HOSTS_PERMITIDOS.has(host) ||
+      parsed.username ||
+      parsed.password ||
+      !hasDefaultHttpsPort
+    ) return null
+    const res = await fetch(parsed.toString(), {
+      signal: AbortSignal.timeout(15000),
+      redirect: 'error',
+    })
     if (!res.ok || !res.headers.get('content-type')?.startsWith('image/')) return null
     const buf = Buffer.from(await res.arrayBuffer())
     const contentType = res.headers.get('content-type') || 'image/jpeg'
