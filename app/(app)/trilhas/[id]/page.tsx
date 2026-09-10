@@ -4,7 +4,7 @@ import { Condicao } from '@/lib/types'
 import { selecionarVeredicto } from '@/lib/veredicto'
 import { formatLocalidade } from '@/lib/geocoding'
 import { condicoesArray } from '@/lib/display'
-import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract } from '@tabler/icons-react'
+import { IconSun, IconRoute, IconArrowsUpDown, IconLayersSubtract, IconCalendarEvent } from '@tabler/icons-react'
 import TrailObservations from '@/components/TrailObservations'
 import CondicaoCard from '@/components/CondicaoCard'
 import { LogoMantenedor } from '@/components/LogoMantenedor'
@@ -12,6 +12,9 @@ import TrilhaAcoes from './TrilhaAcoes'
 import FavoritosTrigger from './FavoritosTrigger'
 import TrailMapWithProfile from '@/components/TrailMapWithProfile'
 import TrilhaSegmentosBreakdown from '@/components/TrilhaSegmentosBreakdown'
+import PrevisaoDoDiaCard from '@/components/PrevisaoDoDiaCard'
+import { buscarPrevisaoEstendida } from '@/lib/previsaoEstendida'
+import Link from 'next/link'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -36,13 +39,50 @@ const TOPO_SVG = `
 
 const TOPO_DATA_URI = `url("data:image/svg+xml,${encodeURIComponent(TOPO_SVG)}")`
 
-export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: string }> }) {
+type SearchParams = { data?: string; selecaoId?: string; selecaoNome?: string }
+
+// Datas em UTC-meia-noite âncoradas no calendário de Brasília — não no fuso do
+// dispositivo/servidor — mesmo padrão de components/CondicaoCard.tsx (brtYMD).
+function brtYMD(d: Date): [number, number, number] {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d)
+  return [
+    Number(parts.find(p => p.type === 'year')!.value),
+    Number(parts.find(p => p.type === 'month')!.value),
+    Number(parts.find(p => p.type === 'day')!.value),
+  ]
+}
+
+function fmtDiaLabel(dataYMD: string): string {
+  const [y, m, d] = dataYMD.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return dt.toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'long', day: '2-digit', month: '2-digit' })
+}
+
+export default async function TrilhaDetalhe({
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<SearchParams>
+}) {
   const sb = await createSupabaseServerClient()
   const { data: { session } } = await sb.auth.getSession()
   if (!session?.user) redirect('/login')
 
   const userId = session.user.id
   const { id } = await params
+  const sp = await searchParams
+
+  const dataAlvo = sp?.data && /^\d{4}-\d{2}-\d{2}$/.test(sp.data) ? sp.data : null
+  const selecaoId = sp?.selecaoId ?? null
+  const nomeSelecao = sp?.selecaoNome ?? null
+
+  let diasAte = 0
+  if (dataAlvo) {
+    const [hy, hm, hd] = brtYMD(new Date())
+    const hojeUTC = Date.UTC(hy, hm - 1, hd)
+    const [ay, am, ad] = dataAlvo.split('-').map(Number)
+    diasAte = Math.round((Date.UTC(ay, am - 1, ad) - hojeUTC) / 86400000)
+  }
 
   const [{ data: td }, { data: fav }, { count: favoritosCount }, { data: bicicletaAtiva }] = await Promise.all([
     sb.from('trilhas')
@@ -86,6 +126,50 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
     ? [...trilha.previsao_blocos].sort((a: { bloco: number }, b: { bloco: number }) => a.bloco - b.bloco)
     : null
   if (c && blocos?.length) c.previsao_24h = blocos
+
+  // Previsão pro dia do rolê (vem de /selecoes/[id] via ?data=), quando a data
+  // alvo é no futuro: D+1 a D+3 usa condicoes.fds_dN (já calculado pelo
+  // pipeline); além de D+3 usa previsão do tempo bruta isolada (Open-Meteo),
+  // já que o pipeline não calcula solo/aderência tão longe.
+  let previsaoRole: {
+    tipo: 'mtb' | 'clima'
+    dataLabel: string
+    veredicto?: string | null
+    rain: number | null
+    windKmh: number | null
+    pop: number | null
+    tmax: number | null
+    tmin: number | null
+  } | null = null
+
+  if (dataAlvo && diasAte >= 1 && diasAte <= 3 && c) {
+    const campos = diasAte === 1
+      ? { v: c.fds_d1_veredicto, rain: c.fds_d1_rain, wind: c.fds_d1_wind, pop: c.fds_d1_pop, tmax: c.fds_d1_temp, tmin: c.fds_d1_temp_min }
+      : diasAte === 2
+      ? { v: c.fds_d2_veredicto, rain: c.fds_d2_rain, wind: c.fds_d2_wind, pop: c.fds_d2_pop, tmax: c.fds_d2_temp, tmin: c.fds_d2_temp_min }
+      : { v: c.fds_d3_veredicto, rain: c.fds_d3_rain, wind: c.fds_d3_wind, pop: c.fds_d3_pop, tmax: c.fds_d3_temp, tmin: c.fds_d3_temp_min }
+    previsaoRole = {
+      tipo: 'mtb',
+      dataLabel: fmtDiaLabel(dataAlvo),
+      veredicto: campos.v,
+      rain: campos.rain ?? null,
+      windKmh: campos.wind != null ? campos.wind * 3.6 : null,
+      pop: campos.pop ?? null,
+      tmax: campos.tmax ?? null,
+      tmin: campos.tmin ?? null,
+    }
+  } else if (dataAlvo && diasAte > 3 && trilha.lat && trilha.lon) {
+    const ext = await buscarPrevisaoEstendida(trilha.lat, trilha.lon, dataAlvo)
+    previsaoRole = {
+      tipo: 'clima',
+      dataLabel: fmtDiaLabel(dataAlvo),
+      rain: ext?.rain ?? null,
+      windKmh: ext?.windKmh ?? null,
+      pop: ext?.pop ?? null,
+      tmax: ext?.tmax ?? null,
+      tmin: ext?.tmin ?? null,
+    }
+  }
 
   const isFavorito = !!fav
 
@@ -238,6 +322,29 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div style={{ padding: '24px 32px 48px', maxWidth: 720, margin: '0 auto' }}>
 
+        {/* ── Banner: previsão pro dia de um rolê (veio de /selecoes/[id]) ── */}
+        {previsaoRole && (
+          <div style={{
+            background: '#141612', border: '1px solid rgba(109,116,95,.35)', borderRadius: 14,
+            padding: '12px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <IconCalendarEvent size={16} style={{ color: '#9AA093', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 13, color: '#F4F3EF', flex: 1 }}>
+              Previsão pra <strong>{previsaoRole.dataLabel}</strong>
+              {nomeSelecao ? <> — rolê <strong>{nomeSelecao}</strong></> : null}
+              , não a condição de agora.
+            </span>
+            {selecaoId && (
+              <Link href={`/selecoes/${selecaoId}`} style={{
+                fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093',
+                textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+              }}>
+                ← seleção
+              </Link>
+            )}
+          </div>
+        )}
+
         {/* Mapa + elevação */}
         <div style={{
           background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)',
@@ -256,8 +363,13 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
           />
         </div>
 
-        {/* Sem condição */}
-        {!c && (
+        {/* ── Card: previsão pro dia do rolê (substitui a condição de agora) ── */}
+        {previsaoRole ? (
+          <div style={{ marginBottom: 12 }}>
+            <PrevisaoDoDiaCard {...previsaoRole} />
+          </div>
+        ) : !c ? (
+          /* Sem condição */
           <div style={{
             background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 16,
             padding: 24, textAlign: 'center', marginBottom: 12,
@@ -266,10 +378,8 @@ export default async function TrilhaDetalhe({ params }: { params: Promise<{ id: 
               Condições no próximo relatório (07:00 BRT)
             </p>
           </div>
-        )}
-
-        {/* ── Card: Condição do Solo ──────────────────────────────────── */}
-        {c && (
+        ) : (
+          /* ── Card: Condição do Solo ──────────────────────────────────── */
           <div style={{ marginBottom: 12 }}>
             <CondicaoCard condicao={c} lat={trilha.lat} lon={trilha.lon} exposicao={trilha.exposicao} bicicletaAtiva={bicicletaAtiva} />
           </div>

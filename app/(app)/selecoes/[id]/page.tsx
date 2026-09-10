@@ -163,7 +163,10 @@ export default function SelecaoDetalhePage({ params }: { params: Promise<{ id: s
               background: T.card, border: `1px solid ${T.border}`, borderRadius: 12,
               padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              <Link href={`/trilhas/${t.id}`} style={{ fontSize: 14, fontWeight: 600, color: T.text, textDecoration: 'none' }}>
+              <Link
+                href={`/trilhas/${t.id}?data=${selecao.data}&selecaoId=${selecao.id}&selecaoNome=${encodeURIComponent(selecao.nome)}`}
+                style={{ fontSize: 14, fontWeight: 600, color: T.text, textDecoration: 'none' }}
+              >
                 {t.name}
               </Link>
               <button onClick={() => removerTrilha(t.id)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex' }}>
