@@ -53,6 +53,11 @@ jobs:
       - name: Instalar dependências
         run: pip install requests
 
+      - name: Instalar ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Verificar ffmpeg
         run: ffmpeg -version
 

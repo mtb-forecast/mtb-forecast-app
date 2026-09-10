@@ -21,8 +21,9 @@ Vídeo: reaproveita a mesma imagem OG vertical (1080x1920) já usada pro
 Stories (/api/og/instagram/noticia-externa), anima com leve zoom (efeito Ken
 Burns, via ffmpeg zoompan) e adiciona uma trilha ambiente 100% sintetizada
 (ondas senoidais geradas pelo próprio ffmpeg — nunca uma faixa de música
-real, pra não ter risco nenhum de direito autoral). ffmpeg já vem instalado
-no runner ubuntu-latest do GitHub Actions.
+real, pra não ter risco nenhum de direito autoral). ffmpeg é instalado via
+apt-get no início do workflow (não vem mais pré-instalado no runner
+ubuntu-latest do GitHub Actions).
 
 Diferente do Stories, Reels aceita caption de verdade — o texto completo
 (frase de destaque + bullets + fontes) vai na legenda, não só embutido na
