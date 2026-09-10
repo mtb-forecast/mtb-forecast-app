@@ -6,7 +6,7 @@ sys.stderr = _io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repl
 """
 post_reels_clima_extremo.py — Transforma a notícia externa mais recente
 ([[noticias_externas]], gerada por scripts/post_noticia_externa.py) num Reels
-de ~15s e publica no Instagram.
+em formato slideshow (~15-18s) e publica no Instagram.
 
 Por quê Reels e não Stories: Stories só alcançam quem já segue a conta.
 Reels é o único formato que o Instagram empurra pra fora da base de
@@ -17,23 +17,30 @@ por ele (não busca nem resume de novo — zero custo extra de Tavily/LLM) e só
 cuida da parte de vídeo + publicação como Reels. Nunca reprocessa uma notícia
 que já tenha reels_postado_em preenchido.
 
-Vídeo: reaproveita a mesma rota OG vertical (1080x1920) já usada pro Stories
-(/api/og/instagram/noticia-externa), mas passando um parâmetro extra `bg`
-com uma imagem gerada por IA (Pollinations.ai — gratuito, sem chave/cadastro)
-relacionada ao conteúdo da notícia (chuva, seca, calor etc.), pra ficar mais
-vivo que só o gradiente estático. O prompt em inglês da imagem é gerado a
-partir do texto da notícia via DeepSeek (fallback: heurística por palavra-
-chave se a chave não estiver configurada ou a chamada falhar — nunca quebra
-o pipeline por causa da imagem). A rota OG busca essa imagem server-side e
-cai de volta no gradiente puro se a busca falhar (ver route.tsx) — o Stories
-nunca usa `bg` e continua com o visual antigo, inalterado.
+Vídeo — slideshow com várias imagens (pedido do usuário pra ficar mais
+"vivo" que uma imagem estática só):
+  1. Cena de título: reaproveita a mesma rota OG vertical (1080x1920) já
+     usada pro Stories (/api/og/instagram/noticia-externa), passando um
+     parâmetro extra `bg` com uma imagem gerada por IA relacionada ao
+     conteúdo geral da notícia. A rota OG nunca usa `bg` no Stories — visual
+     antigo dele fica 100% inalterado.
+  2. Cenas extras (até N_CENAS_EXTRA): uma foto pura de IA por bullet/região
+     da notícia (sem texto embutido); se tiver menos bullets que o número de
+     cenas, completa com variações de enquadramento da frase de destaque.
+Todas as imagens de IA vêm do Pollinations.ai (gratuito, sem chave/cadastro).
+O prompt em inglês de cada cena é gerado via DeepSeek a partir do texto
+daquela cena (fallback: heurística por palavra-chave se a chave não estiver
+configurada ou a chamada falhar). Cena extra que falhar no Pollinations é só
+pulada — nunca derruba o pipeline por causa de imagem; se todas falharem,
+sobra só a cena de título e o vídeo cai pro modo de imagem única (sem
+crossfade).
 
-Depois de composto (texto + imagem de fundo) pela rota OG, anima com leve
-zoom (efeito Ken Burns, via ffmpeg zoompan) e adiciona uma trilha ambiente
-100% sintetizada (ondas senoidais geradas pelo próprio ffmpeg — nunca uma
-faixa de música real, pra não ter risco nenhum de direito autoral). ffmpeg é
-instalado via apt-get no início do workflow (não vem mais pré-instalado no
-runner ubuntu-latest do GitHub Actions).
+As cenas são encadeadas com crossfade (ffmpeg xfade) e cada uma tem seu
+próprio zoom lento (efeito Ken Burns, via zoompan), sobre uma trilha
+ambiente 100% sintetizada (ondas senoidais geradas pelo próprio ffmpeg —
+nunca uma faixa de música real, pra não ter risco nenhum de direito
+autoral). ffmpeg é instalado via apt-get no início do workflow (não vem mais
+pré-instalado no runner ubuntu-latest do GitHub Actions).
 
 Diferente do Stories, Reels aceita caption de verdade — o texto completo
 (frase de destaque + bullets + fontes) vai na legenda, não só embutido na
@@ -85,6 +92,16 @@ DRY_RUN        = os.environ.get("DRY_RUN", "").strip() == "1"
 VIDEO_DURACAO_S = 15
 VIDEO_W, VIDEO_H = 1080, 1920
 VIDEO_FPS = 30
+
+# Slideshow: 1 cena de título (texto + imagem, via rota OG) + N cenas extras
+# (fotos puras geradas por IA, uma por bullet/região da notícia, sem texto),
+# com crossfade entre todas — pedido do usuário pra ficar "mais vivo" que uma
+# imagem estática só.
+N_CENAS_EXTRA = 3
+DURACAO_TITULO_S = 6
+DURACAO_CENA_S = 4
+CROSSFADE_S = 0.8
+VARIACOES_ENQUADRAMENTO = ["wide establishing shot", "aerial drone view", "close-up detail shot"]
 
 HASHTAGS = "#mtb #mountainbike #trilha #mtbbrasil #trailconditions #climaextremo #clima"
 
@@ -189,7 +206,7 @@ def montar_url_imagem_ia(noticia: dict) -> str:
         b.get("texto", "") for b in noticia.get("bullets", [])
     )
     prompt = _prompt_via_deepseek(texto) or _prompt_heuristico(texto)
-    print(f"  ✓ Prompt da imagem de fundo: {prompt}")
+    print(f"  ✓ Prompt da cena de título: {prompt}")
     prompt_encoded = urllib.parse.quote(prompt)
     seed = noticia["id"]
     return f"{POLLINATIONS_API}{prompt_encoded}?width=1080&height=1920&nologo=true&seed={seed}"
@@ -204,20 +221,66 @@ def baixar_imagem_fundo(noticia_id: int, destino: str, bg_url: str | None) -> No
         raise RuntimeError(f"Falha ao baixar imagem de fundo: HTTP {r.status_code}")
     with open(destino, "wb") as f:
         f.write(r.content)
-    print(f"  ✓ Imagem de fundo OK ({len(r.content) // 1024}KB)")
+    print(f"  ✓ Cena de título OK ({len(r.content) // 1024}KB)")
+
+
+def montar_textos_cenas_extra(noticia: dict, n: int) -> list[str]:
+    """Um texto por bullet/região da notícia (até n); se tiver menos bullets
+    que n, completa com variações de enquadramento da frase de destaque pra
+    sempre ter n fotos diferentes, mesmo em notícia com pouco conteúdo."""
+    textos = [b["texto"] for b in noticia.get("bullets", []) if b.get("texto")][:n]
+    i = 0
+    while len(textos) < n:
+        variacao = VARIACOES_ENQUADRAMENTO[i % len(VARIACOES_ENQUADRAMENTO)]
+        textos.append(f"{noticia['frase_destaque']} ({variacao})")
+        i += 1
+    return textos
+
+
+def baixar_imagem_pollinations(prompt: str, seed: int, destino: str) -> bool:
+    url = f"{POLLINATIONS_API}{urllib.parse.quote(prompt)}?width=1080&height=1920&nologo=true&seed={seed}"
+    try:
+        r = requests.get(url, timeout=30)
+        if not r.ok or "image" not in r.headers.get("content-type", ""):
+            print(f"  ⚠ Pollinations falhou pra {prompt!r}: HTTP {r.status_code}")
+            return False
+        with open(destino, "wb") as f:
+            f.write(r.content)
+        print(f"  ✓ Cena extra OK ({len(r.content) // 1024}KB): {prompt}")
+        return True
+    except Exception as exc:
+        print(f"  ⚠ Erro ao baixar cena extra do Pollinations: {exc}")
+        return False
+
+
+def montar_cenas(noticia: dict, tmp: str) -> list[tuple[str, float]]:
+    """Baixa a cena de título (texto + IA, via rota OG) e N cenas extras
+    (fotos puras de IA, uma por bullet). Cenas que falharem no Pollinations
+    são simplesmente puladas — o vídeo sai com menos cenas, nunca quebra."""
+    cenas: list[tuple[str, float]] = []
+
+    caminho_titulo = os.path.join(tmp, "cena_0.png")
+    baixar_imagem_fundo(noticia["id"], caminho_titulo, montar_url_imagem_ia(noticia))
+    cenas.append((caminho_titulo, DURACAO_TITULO_S))
+
+    for i, texto in enumerate(montar_textos_cenas_extra(noticia, N_CENAS_EXTRA), start=1):
+        prompt = _prompt_via_deepseek(texto) or _prompt_heuristico(texto)
+        caminho = os.path.join(tmp, f"cena_{i}.jpg")
+        if baixar_imagem_pollinations(prompt, noticia["id"] * 10 + i, caminho):
+            cenas.append((caminho, DURACAO_CENA_S))
+
+    return cenas
 
 
 def gerar_video(imagem_path: str, video_path: str) -> None:
-    """Anima a imagem estática com zoom lento (Ken Burns) e adiciona uma
-    trilha ambiente 100% sintetizada (senoides geradas pelo ffmpeg, nunca uma
-    gravação de música real — zero risco de direito autoral)."""
+    """Fallback pra quando só a cena de título ficou disponível (todas as
+    cenas extras falharam no Pollinations): 1 imagem só, com zoom, sem
+    crossfade — mesmo comportamento da primeira versão do Reels."""
     total_frames = VIDEO_DURACAO_S * VIDEO_FPS
     zoompan = (
         f"scale=8000:-1,zoompan=z='min(zoom+0.0008,1.15)':d={total_frames}:"
         f"s={VIDEO_W}x{VIDEO_H}:fps={VIDEO_FPS}"
     )
-    # Pad ambiente: duas senoides graves levemente dissonantes, com fade
-    # in/out, mixadas e atenuadas — textura de fundo, não "música".
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1", "-i", imagem_path,
@@ -239,6 +302,66 @@ def gerar_video(imagem_path: str, video_path: str) -> None:
     if resultado.returncode != 0:
         raise RuntimeError(f"ffmpeg falhou: {resultado.stderr[-2000:]}")
     print(f"  ✓ Vídeo gerado ({os.path.getsize(video_path) // 1024}KB)")
+
+
+def gerar_video_slideshow(cenas: list[tuple[str, float]], video_path: str) -> None:
+    """Anima cada cena com zoom lento (Ken Burns) e encadeia todas com
+    crossfade (ffmpeg xfade), sobre uma trilha ambiente 100% sintetizada
+    (senoides geradas pelo próprio ffmpeg — nunca uma gravação de música
+    real, zero risco de direito autoral)."""
+    if len(cenas) == 1:
+        gerar_video(cenas[0][0], video_path)
+        return
+
+    cf = CROSSFADE_S
+    inputs_args: list[str] = []
+    zoompan_parts: list[str] = []
+    for i, (caminho, duracao) in enumerate(cenas):
+        clip_dur = duracao + cf  # margem extra pro xfade ter frames sobrando
+        inputs_args += ["-loop", "1", "-t", str(clip_dur), "-i", caminho]
+        frames = int(round(clip_dur * VIDEO_FPS))
+        zoompan_parts.append(
+            f"[{i}:v]scale=8000:-1,zoompan=z='min(zoom+0.0006,1.12)':d={frames}:"
+            f"s={VIDEO_W}x{VIDEO_H}:fps={VIDEO_FPS},setsar=1[v{i}]"
+        )
+
+    xfade_parts: list[str] = []
+    running_label = "v0"
+    running_length = cenas[0][1]
+    for i in range(1, len(cenas)):
+        offset = running_length - cf
+        out_label = f"vx{i}"
+        xfade_parts.append(
+            f"[{running_label}][v{i}]xfade=transition=fade:duration={cf}:offset={offset:.3f}[{out_label}]"
+        )
+        running_label = out_label
+        running_length = running_length + cenas[i][1] - cf
+
+    total_duracao = running_length
+    n = len(cenas)
+    filter_complex = ";".join(zoompan_parts + xfade_parts) + (
+        f";[{n}:a]volume=0.10,afade=t=in:st=0:d=2,afade=t=out:st={total_duracao-2:.3f}:d=2[a1];"
+        f"[{n+1}:a]volume=0.07,afade=t=in:st=0:d=2,afade=t=out:st={total_duracao-2:.3f}:d=2[a2];"
+        f"[a1][a2]amix=inputs=2:duration=first[a]"
+    )
+
+    cmd = [
+        "ffmpeg", "-y",
+        *inputs_args,
+        "-f", "lavfi", "-i", f"sine=frequency=110:duration={total_duracao:.3f}",
+        "-f", "lavfi", "-i", f"sine=frequency=146.83:duration={total_duracao:.3f}",
+        "-filter_complex", filter_complex,
+        "-map", f"[{running_label}]", "-map", "[a]",
+        "-t", f"{total_duracao:.3f}",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(VIDEO_FPS),
+        "-c:a", "aac", "-b:a", "96k",
+        "-movflags", "+faststart",
+        video_path,
+    ]
+    resultado = subprocess.run(cmd, capture_output=True, text=True)
+    if resultado.returncode != 0:
+        raise RuntimeError(f"ffmpeg falhou: {resultado.stderr[-2000:]}")
+    print(f"  ✓ Vídeo gerado ({os.path.getsize(video_path) // 1024}KB, {total_duracao:.1f}s, {n} cenas)")
 
 
 def upload_video(video_path: str, noticia_id: int) -> str:
@@ -349,12 +472,10 @@ def main() -> None:
     print(f"[Reels Clima Extremo] Gerando Reels a partir da notícia #{noticia_id}")
 
     with tempfile.TemporaryDirectory() as tmp:
-        imagem_path = os.path.join(tmp, "fundo.png")
         video_path = os.path.join(tmp, "reels.mp4")
 
-        bg_url = montar_url_imagem_ia(noticia)
-        baixar_imagem_fundo(noticia_id, imagem_path, bg_url)
-        gerar_video(imagem_path, video_path)
+        cenas = montar_cenas(noticia, tmp)
+        gerar_video_slideshow(cenas, video_path)
 
         if DRY_RUN:
             print(f"[DRY RUN] Vídeo gerado em {video_path} — não vai subir nem postar")
