@@ -307,14 +307,39 @@ já existente) em Reels em vez de só Stories.
 `scripts/post_reels_clima_extremo.py` — peça INDEPENDENTE de `post_noticia_externa.py`:
 lê a última linha já gravada em `noticias_externas` (não busca nem resume de novo, zero
 custo extra de Tavily/LLM) e cuida só da parte de vídeo + publicação como Reels.
-- **Imagem de fundo**: reaproveita a mesma rota OG vertical (1080x1920) já usada pro
-  Stories (`/api/og/instagram/noticia-externa`) — nenhum template novo.
+- **Slideshow de várias cenas** (não uma imagem única): 1 cena de título + até `N_CENAS_EXTRA`
+  (3) cenas extras, encadeadas com crossfade (`ffmpeg xfade`) — pedido do usuário pra ficar
+  "mais vivo".
+  - **Cena de título**: reaproveita a mesma rota OG vertical (1080x1920) já usada pro Stories
+    (`/api/og/instagram/noticia-externa`) — nenhum template novo. A rota ganhou os parâmetros
+    opcionais `bgPrompt` (texto) e `bgSeed` (número) — sem `bgPrompt`, o visual do Stories fica
+    100% inalterado.
+  - **Cenas extras**: 1 foto pura de IA por bullet/região da notícia (sem texto embutido); se
+    tiver menos bullets que cenas, completa com variações de enquadramento
+    (`VARIACOES_ENQUADRAMENTO`) da frase de destaque.
+  - **Imagem gerada por IA**: todas vêm do Pollinations.ai (`image.pollinations.ai/prompt/`),
+    gratuito e sem chave/cadastro. O prompt em inglês de cada cena é gerado via DeepSeek
+    (`DEEPSEEK_API_KEY`, mesmo provider já usado no resumo); se a chave faltar ou a chamada
+    falhar, cai numa heurística por palavra-chave (seca/calor/frio/temporal/vento). Cena extra
+    que falhar no Pollinations é só pulada (nunca derruba o pipeline); se **todas** falharem,
+    sobra só a cena de título e o vídeo cai pro modo de imagem única sem crossfade
+    (`gerar_video`, função de fallback). Se a busca falhar na rota OG (timeout, Pollinations
+    fora do ar), o template cai de volta no gradiente puro.
+  - **SSRF (CodeQL, CWE-918, resolvido 10/09/2026)**: a primeira versão recebia `bg=<url
+    pronta>` na rota pública — mesmo validando host/porta/path da URL, o CodeQL continuava
+    marcando `js/request-forgery`, porque qualquer reaproveitamento de uma URL externa (mesmo
+    validada) no `fetch()` é sinalizado. Fix definitivo: a rota **nunca recebe uma URL**, só um
+    prompt (texto) e uma seed (número) — o endereço do Pollinations é montado inteiro a partir
+    de uma constante fixa (`POLLINATIONS_BASE`). Não existir `new URL(valorExterno)` no arquivo
+    é o que fecha o alerta de vez. NUNCA reintroduzir um parâmetro que aceite URL pronta nessa
+    rota (ou em qualquer rota pública) sem essa mesma garantia.
 - **Vídeo**: ffmpeg (instalado via `apt-get` no início do workflow — não vem mais
   pré-instalado no runner `ubuntu-latest`, ver `.github/workflows/reels-clima-extremo.yml`)
-  anima a imagem com zoom
-  lento (`zoompan`, efeito Ken Burns) e adiciona uma trilha ambiente **100% sintetizada**
-  (senoides geradas pelo próprio ffmpeg, nunca uma gravação de música real) — zero risco
-  de direito autoral, mas evita vídeo mudo.
+  anima cada cena com zoom lento (`zoompan`, efeito Ken Burns), encadeia com crossfade de
+  0.8s (`CROSSFADE_S`) e adiciona uma trilha ambiente **100% sintetizada** (senoides geradas
+  pelo próprio ffmpeg, nunca uma gravação de música real) — zero risco de direito autoral,
+  mas evita vídeo mudo. Duração final é variável (~15-18s) dependendo de quantas cenas
+  baixaram com sucesso.
 - **Caption real**: diferente do Stories, Reels aceita `caption` na Graph API — o texto
   completo (frase de destaque + bullets + fontes + hashtags) vai na legenda.
 - **Storage**: vídeo sobe pro bucket público `reels` no Supabase Storage (Graph API exige
