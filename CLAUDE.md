@@ -309,7 +309,9 @@ lê a última linha já gravada em `noticias_externas` (não busca nem resume de
 custo extra de Tavily/LLM) e cuida só da parte de vídeo + publicação como Reels.
 - **Imagem de fundo**: reaproveita a mesma rota OG vertical (1080x1920) já usada pro
   Stories (`/api/og/instagram/noticia-externa`) — nenhum template novo.
-- **Vídeo**: ffmpeg (já vem instalado no runner `ubuntu-latest`) anima a imagem com zoom
+- **Vídeo**: ffmpeg (instalado via `apt-get` no início do workflow — não vem mais
+  pré-instalado no runner `ubuntu-latest`, ver `.github/workflows/reels-clima-extremo.yml`)
+  anima a imagem com zoom
   lento (`zoompan`, efeito Ken Burns) e adiciona uma trilha ambiente **100% sintetizada**
   (senoides geradas pelo próprio ffmpeg, nunca uma gravação de música real) — zero risco
   de direito autoral, mas evita vídeo mudo.
