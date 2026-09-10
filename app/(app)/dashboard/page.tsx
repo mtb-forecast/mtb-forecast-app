@@ -157,35 +157,8 @@ export default async function DashboardPage() {
       {/* ── Conteúdo ─────────────────────────────────────────────────── */}
       <div style={{ padding: '24px 28px 48px', maxWidth: 1200, margin: '0 auto' }}>
 
-        <section>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-            <span style={{
-              fontFamily: 'var(--font-dm-mono)', fontSize: 11, letterSpacing: '1.5px',
-              textTransform: 'uppercase', color: '#6d745f',
-            }}>
-              Minhas trilhas favoritas
-            </span>
-            <Link href="/favoritas" style={BONE_BUTTON_STYLE}>
-              Ver todas →
-            </Link>
-          </div>
-
-          {/* Cards streamados — o browser já pintou o h1 (LCP) antes de chegar aqui */}
-          <Suspense fallback={
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-              <div className="spin-indicator" />
-            </div>
-          }>
-            <DashboardFavoritas
-              favTrilhaIds={favTrilhaIds}
-              userEstado={profile?.regiao ?? undefined}
-              userId={user.id}
-            />
-          </Suspense>
-        </section>
-
         {/* ── Minhas seleções ──────────────────────────────────────── */}
-        <section style={{ marginTop: 20 }}>
+        <section>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
             <span style={{
               fontFamily: 'var(--font-dm-mono)', fontSize: 11, letterSpacing: '1.5px',
@@ -246,6 +219,33 @@ export default async function DashboardPage() {
               </div>
             </Link>
           )}
+        </section>
+
+        <section style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <span style={{
+              fontFamily: 'var(--font-dm-mono)', fontSize: 11, letterSpacing: '1.5px',
+              textTransform: 'uppercase', color: '#6d745f',
+            }}>
+              Minhas trilhas favoritas
+            </span>
+            <Link href="/favoritas" style={BONE_BUTTON_STYLE}>
+              Ver todas →
+            </Link>
+          </div>
+
+          {/* Cards streamados — o browser já pintou o h1 (LCP) antes de chegar aqui */}
+          <Suspense fallback={
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+              <div className="spin-indicator" />
+            </div>
+          }>
+            <DashboardFavoritas
+              favTrilhaIds={favTrilhaIds}
+              userEstado={profile?.regiao ?? undefined}
+              userId={user.id}
+            />
+          </Suspense>
         </section>
 
         {/* ── Banner Pump Tracks ────────────────────────────────────── */}

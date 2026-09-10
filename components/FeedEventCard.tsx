@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight, IconAlertTriangle, IconWorld, IconNews, IconBulb } from '@tabler/icons-react'
+import { IconBolt, IconStar, IconStarFilled, IconUserPlus, IconArrowRight, IconAlertTriangle, IconWorld, IconNews, IconBulb, IconCalendarEvent } from '@tabler/icons-react'
 import type { FeedItem, FeedPerfilMini } from '@/lib/types'
 import { statusTrilhaLabel } from '@/lib/statusTrilha'
 
@@ -154,6 +154,60 @@ export default function FeedEventCard({ item, viewerId }: { item: FeedItem; view
         </p>
 
         <CardFooter createdAt={item.created_at} />
+      </div>
+    )
+  }
+
+  if (item.kind === 'selecao_membro') {
+    return (
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+            background: '#eef1e9', display: 'grid', placeItems: 'center',
+          }}>
+            <IconCalendarEvent size={14} style={{ color: '#6d745f' }} />
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-dm-mono)', fontSize: 10, letterSpacing: '1px',
+            textTransform: 'uppercase', color: '#9AA093',
+          }}>
+            Você foi convidado(a)
+          </span>
+        </div>
+
+        {item.selecao_nome && (
+          <p style={{
+            fontFamily: 'var(--font-barlow-condensed)', fontWeight: 800,
+            fontSize: 18, textTransform: 'uppercase', color: '#1A1D18', margin: '0 0 4px',
+          }}>
+            {item.selecao_nome}
+          </p>
+        )}
+
+        <p style={{ fontSize: 13, color: '#444', lineHeight: 1.5, margin: 0 }}>
+          Você entrou na seleção
+          {item.selecao_data && (
+            <> — {new Date(item.selecao_data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}</>
+          )}
+        </p>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0',
+        }}>
+          <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 11, color: '#9AA093' }}>
+            {formatDateTime(item.created_at)}
+          </span>
+          {item.selecao_id && (
+            <Link
+              href={`/selecoes/${item.selecao_id}`}
+              style={{ fontSize: 12, fontWeight: 600, color: '#6d745f', textDecoration: 'none' }}
+            >
+              Ver seleção ›
+            </Link>
+          )}
+        </div>
       </div>
     )
   }
