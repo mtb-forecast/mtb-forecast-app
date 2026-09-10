@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { IconAlertTriangle, IconBellOff, IconCheck, IconSun } from '@tabler/icons-react'
+import { IconAlertTriangle, IconBellOff, IconCheck, IconSun, IconCalendarEvent, IconPlus } from '@tabler/icons-react'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import DashboardFavoritas from './DashboardFavoritas'
 import DashboardFrase from './DashboardFrase'
@@ -49,6 +49,15 @@ export default async function DashboardPage() {
   const profile = profileData
   const name = profile?.apelido || profile?.nome?.split(' ')[0] || user.email?.split('@')[0]
   const favTrilhaIds = (favIds ?? []).map((f: { trilha_id: string }) => f.trilha_id)
+
+  // Seleções ativas (data >= hoje) que o usuário é dono ou membro — RLS já filtra por isso.
+  const hojeStr = new Date().toISOString().slice(0, 10)
+  const { data: selecoesAtivas } = await supabase
+    .from('selecoes_trilhas')
+    .select('id, nome, data')
+    .gte('data', hojeStr)
+    .order('data', { ascending: true })
+    .limit(3)
 
   return (
     <div style={{ minHeight: '100vh', background: '#F5F6F2' }}>
@@ -173,6 +182,70 @@ export default async function DashboardPage() {
               userId={user.id}
             />
           </Suspense>
+        </section>
+
+        {/* ── Minhas seleções ──────────────────────────────────────── */}
+        <section style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <span style={{
+              fontFamily: 'var(--font-dm-mono)', fontSize: 11, letterSpacing: '1.5px',
+              textTransform: 'uppercase', color: '#6d745f',
+            }}>
+              Minhas seleções
+            </span>
+            <Link href="/selecoes" style={BONE_BUTTON_STYLE}>
+              Ver todas →
+            </Link>
+          </div>
+
+          {selecoesAtivas && selecoesAtivas.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {selecoesAtivas.map((s) => (
+                <Link key={s.id} href={`/selecoes/${s.id}`} style={{
+                  background: '#FFFFFF', border: '1px solid rgba(0,0,0,.07)', borderRadius: 12,
+                  padding: '13px 18px', textDecoration: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{
+                      width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                      background: 'rgba(109,116,95,.1)', display: 'grid', placeItems: 'center',
+                    }}>
+                      <IconCalendarEvent size={15} stroke={2} color="#6d745f" />
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 14, fontWeight: 700, color: '#1A1D18' }}>
+                      {s.nome}
+                    </span>
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-dm-mono)', fontSize: 12, color: '#6d745f', whiteSpace: 'nowrap' }}>
+                    {new Date(s.data + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <Link href="/selecoes/nova" style={{ textDecoration: 'none', display: 'block' }}>
+              <div style={{
+                background: '#FFFFFF', border: '1px dashed rgba(0,0,0,.15)', borderRadius: 12,
+                padding: '13px 18px', display: 'flex', alignItems: 'center', gap: 12,
+              }}>
+                <span style={{
+                  width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                  background: 'rgba(109,116,95,.1)', display: 'grid', placeItems: 'center',
+                }}>
+                  <IconPlus size={15} stroke={2} color="#6d745f" />
+                </span>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 13, fontWeight: 700, color: '#1A1D18', margin: '0 0 2px' }}>
+                    Monte um rolê pra um dia certo
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-dm-sans)', fontSize: 11, color: '#6d745f', margin: 0 }}>
+                    Nomeie uma seleção de trilhas e chame a galera
+                  </p>
+                </div>
+              </div>
+            </Link>
+          )}
         </section>
 
         {/* ── Banner Pump Tracks ────────────────────────────────────── */}
