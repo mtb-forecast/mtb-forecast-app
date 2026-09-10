@@ -57,6 +57,25 @@ function loadTextureDataUri(filename: string): string | null {
   }
 }
 
+// Fundo opcional gerado por IA (Pollinations.ai, via ?bg=<url>) — usado pelo
+// Reels (scripts/post_reels_clima_extremo.py) pra deixar o vídeo mais vivo.
+// Busca server-side e embute como data URI (mesmo padrão de fontes/textura)
+// porque next/og (Satori) não aceita <img src> apontando pra URL externa.
+// Nunca deixa o Stories quebrar: se o param não vier ou a busca falhar, cai
+// de volta no gradiente atual — comportamento 100% inalterado sem ?bg=.
+async function loadBackgroundDataUri(bgUrl: string | null): Promise<string | null> {
+  if (!bgUrl) return null
+  try {
+    const res = await fetch(bgUrl, { signal: AbortSignal.timeout(15000) })
+    if (!res.ok || !res.headers.get('content-type')?.startsWith('image/')) return null
+    const buf = Buffer.from(await res.arrayBuffer())
+    const contentType = res.headers.get('content-type') || 'image/jpeg'
+    return `data:${contentType};base64,${buf.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
 const FOREST_800 = '#1e2e1a'
 const FOREST_600 = '#2a4a2a'
 const FOREST_EDGE = '#21351f'
@@ -84,9 +103,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const idParam = searchParams.get('id')
     const id = idParam ? parseInt(idParam, 10) : null
+    const bgParam = searchParams.get('bg')
 
     const noticia = await fetchNoticia(id)
     if (!noticia) throw new Error('Nenhuma noticia_externa encontrada')
+
+    const bgDataUri = await loadBackgroundDataUri(bgParam)
 
     const notoSans   = loadFont('noto-sans-regular.ttf')
     const dmSansBold = loadFont('dm-sans-800.ttf')
@@ -115,12 +137,21 @@ export async function GET(req: NextRequest) {
             position: 'relative',
           }}
         >
+          {bgDataUri ? (
+            <img
+              src={bgDataUri}
+              width={1080}
+              height={1920}
+              style={{ position: 'absolute', top: 0, left: 0, objectFit: 'cover' }}
+            />
+          ) : null}
+
           {topoTexture ? (
             <img
               src={topoTexture}
               width={1080}
               height={1920}
-              style={{ position: 'absolute', top: 0, left: 0, opacity: 0.55 }}
+              style={{ position: 'absolute', top: 0, left: 0, opacity: bgDataUri ? 0.22 : 0.55 }}
             />
           ) : null}
 
@@ -132,7 +163,9 @@ export async function GET(req: NextRequest) {
               width: 1080,
               height: 1920,
               display: 'flex',
-              background: `linear-gradient(180deg, rgba(18,25,15,0.18) 0%, rgba(18,25,15,0.05) 26%, rgba(18,25,15,0.38) 62%, rgba(13,16,10,0.74) 100%)`,
+              background: bgDataUri
+                ? `linear-gradient(180deg, rgba(13,16,10,0.55) 0%, rgba(13,16,10,0.30) 26%, rgba(13,16,10,0.55) 62%, rgba(9,11,7,0.92) 100%)`
+                : `linear-gradient(180deg, rgba(18,25,15,0.18) 0%, rgba(18,25,15,0.05) 26%, rgba(18,25,15,0.38) 62%, rgba(13,16,10,0.74) 100%)`,
             }}
           />
 

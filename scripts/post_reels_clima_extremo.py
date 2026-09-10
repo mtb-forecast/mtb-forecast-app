@@ -17,13 +17,23 @@ por ele (não busca nem resume de novo — zero custo extra de Tavily/LLM) e só
 cuida da parte de vídeo + publicação como Reels. Nunca reprocessa uma notícia
 que já tenha reels_postado_em preenchido.
 
-Vídeo: reaproveita a mesma imagem OG vertical (1080x1920) já usada pro
-Stories (/api/og/instagram/noticia-externa), anima com leve zoom (efeito Ken
-Burns, via ffmpeg zoompan) e adiciona uma trilha ambiente 100% sintetizada
-(ondas senoidais geradas pelo próprio ffmpeg — nunca uma faixa de música
-real, pra não ter risco nenhum de direito autoral). ffmpeg é instalado via
-apt-get no início do workflow (não vem mais pré-instalado no runner
-ubuntu-latest do GitHub Actions).
+Vídeo: reaproveita a mesma rota OG vertical (1080x1920) já usada pro Stories
+(/api/og/instagram/noticia-externa), mas passando um parâmetro extra `bg`
+com uma imagem gerada por IA (Pollinations.ai — gratuito, sem chave/cadastro)
+relacionada ao conteúdo da notícia (chuva, seca, calor etc.), pra ficar mais
+vivo que só o gradiente estático. O prompt em inglês da imagem é gerado a
+partir do texto da notícia via DeepSeek (fallback: heurística por palavra-
+chave se a chave não estiver configurada ou a chamada falhar — nunca quebra
+o pipeline por causa da imagem). A rota OG busca essa imagem server-side e
+cai de volta no gradiente puro se a busca falhar (ver route.tsx) — o Stories
+nunca usa `bg` e continua com o visual antigo, inalterado.
+
+Depois de composto (texto + imagem de fundo) pela rota OG, anima com leve
+zoom (efeito Ken Burns, via ffmpeg zoompan) e adiciona uma trilha ambiente
+100% sintetizada (ondas senoidais geradas pelo próprio ffmpeg — nunca uma
+faixa de música real, pra não ter risco nenhum de direito autoral). ffmpeg é
+instalado via apt-get no início do workflow (não vem mais pré-instalado no
+runner ubuntu-latest do GitHub Actions).
 
 Diferente do Stories, Reels aceita caption de verdade — o texto completo
 (frase de destaque + bullets + fontes) vai na legenda, não só embutido na
@@ -42,7 +52,8 @@ Env vars obrigatórias:
   SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 Env vars opcionais:
-  OG_API_BASE, INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_BUSINESS_ACCOUNT_ID
+  OG_API_BASE, INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_BUSINESS_ACCOUNT_ID,
+  DEEPSEEK_API_KEY (melhora o prompt da imagem de fundo; sem ela usa heurística)
 """
 
 import os
@@ -50,6 +61,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 from datetime import datetime, timezone
 
 import requests
@@ -62,7 +74,9 @@ SUPABASE_KEY   = os.environ.get("SUPABASE_SERVICE_KEY", "")
 OG_API_BASE    = os.environ.get("OG_API_BASE", "https://mtbforecaster.com.br").rstrip("/")
 IG_TOKEN       = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 IG_USER_ID     = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
+DEEPSEEK_KEY   = os.environ.get("DEEPSEEK_API_KEY", "")
 GRAPH_API      = "https://graph.facebook.com/v21.0"
+POLLINATIONS_API = "https://image.pollinations.ai/prompt/"
 
 ENABLED        = os.environ.get("REELS_CLIMA_EXTREMO_ENABLED", "1").strip() != "0"
 POST_INSTAGRAM = os.environ.get("REELS_CLIMA_EXTREMO_INSTAGRAM", "1").strip() != "0"
@@ -108,8 +122,83 @@ def _check_token() -> bool:
     return True
 
 
-def baixar_imagem_fundo(noticia_id: int, destino: str) -> None:
+_PALAVRAS_CHAVE_IMAGEM = [
+    (("seca", "estiagem", "sem chuva"), "severe drought, cracked dry earth, wilted vegetation, "
+        "harsh sunlight, brazilian countryside, dramatic cinematic photo"),
+    (("calor", "onda de calor", "temperatura recorde"), "brutal heatwave, shimmering heat haze over "
+        "a brazilian city skyline, intense sun, dramatic cinematic photo"),
+    (("frio", "geada", "baixas temperaturas"), "cold front, frost covered fields, grey misty morning "
+        "in southern brazil, dramatic cinematic photo"),
+    (("temporal", "chuva forte", "enchente", "alagamento", "tempestade"), "intense tropical storm, "
+        "heavy rain and lightning over a brazilian city, flooded street, dramatic cinematic photo"),
+    (("vento", "rajada", "vendaval"), "powerful windstorm bending trees, storm clouds over brazil, "
+        "dramatic cinematic photo"),
+]
+_PROMPT_FALLBACK = "dramatic extreme weather over Brazil, storm clouds, cinematic photo, moody lighting"
+
+
+def _prompt_heuristico(texto: str) -> str:
+    texto_lower = texto.lower()
+    for palavras, prompt in _PALAVRAS_CHAVE_IMAGEM:
+        if any(p in texto_lower for p in palavras):
+            return prompt
+    return _PROMPT_FALLBACK
+
+
+def _prompt_via_deepseek(texto: str) -> str | None:
+    if not DEEPSEEK_KEY:
+        return None
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{
+            "role": "user",
+            "content": (
+                "Baseado neste resumo de clima extremo no Brasil, escreva UM prompt em "
+                "inglês (máx. 30 palavras) pra um gerador de imagens, descrevendo uma cena "
+                "fotorrealista e cinematográfica do fenômeno climático descrito (chuva, seca, "
+                "calor, frio, vento etc.), sempre ambientada no Brasil. NUNCA inclua texto, "
+                "letras, palavras ou pessoas em close no prompt. Responda APENAS com o prompt, "
+                f"sem aspas, sem explicação.\n\nResumo: {texto}"
+            ),
+        }],
+        "max_tokens": 120,
+        "temperature": 0.7,
+    }
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {DEEPSEEK_KEY}"}
+    try:
+        r = requests.post("https://api.deepseek.com/chat/completions", json=payload, headers=headers, timeout=20)
+        if not r.ok:
+            print(f"[Reels Clima Extremo] DeepSeek prompt HTTP {r.status_code} — usando heurística")
+            log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+            return None
+        body = r.json()
+        prompt = body["choices"][0]["message"]["content"].strip().strip('"')
+        usage = body.get("usage", {})
+        log_api("deepseek", "chat_completions",
+                tokens_in=usage.get("prompt_tokens", 0),
+                tokens_out=usage.get("completion_tokens", 0), sucesso=1)
+        return prompt or None
+    except Exception as exc:
+        print(f"[Reels Clima Extremo] Erro ao gerar prompt via DeepSeek: {exc} — usando heurística")
+        log_api("deepseek", "chat_completions", sucesso=0, falhas=1)
+        return None
+
+
+def montar_url_imagem_ia(noticia: dict) -> str:
+    texto = noticia["frase_destaque"] + " " + " ".join(
+        b.get("texto", "") for b in noticia.get("bullets", [])
+    )
+    prompt = _prompt_via_deepseek(texto) or _prompt_heuristico(texto)
+    print(f"  ✓ Prompt da imagem de fundo: {prompt}")
+    prompt_encoded = urllib.parse.quote(prompt)
+    seed = noticia["id"]
+    return f"{POLLINATIONS_API}{prompt_encoded}?width=1080&height=1920&nologo=true&seed={seed}"
+
+
+def baixar_imagem_fundo(noticia_id: int, destino: str, bg_url: str | None) -> None:
     url = f"{OG_API_BASE}/api/og/instagram/noticia-externa?id={noticia_id}"
+    if bg_url:
+        url += f"&bg={urllib.parse.quote(bg_url, safe='')}"
     r = requests.get(url, timeout=60)
     if not r.ok or "image" not in r.headers.get("content-type", ""):
         raise RuntimeError(f"Falha ao baixar imagem de fundo: HTTP {r.status_code}")
@@ -263,7 +352,8 @@ def main() -> None:
         imagem_path = os.path.join(tmp, "fundo.png")
         video_path = os.path.join(tmp, "reels.mp4")
 
-        baixar_imagem_fundo(noticia_id, imagem_path)
+        bg_url = montar_url_imagem_ia(noticia)
+        baixar_imagem_fundo(noticia_id, imagem_path, bg_url)
         gerar_video(imagem_path, video_path)
 
         if DRY_RUN:

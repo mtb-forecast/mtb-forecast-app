@@ -308,7 +308,17 @@ já existente) em Reels em vez de só Stories.
 lê a última linha já gravada em `noticias_externas` (não busca nem resume de novo, zero
 custo extra de Tavily/LLM) e cuida só da parte de vídeo + publicação como Reels.
 - **Imagem de fundo**: reaproveita a mesma rota OG vertical (1080x1920) já usada pro
-  Stories (`/api/og/instagram/noticia-externa`) — nenhum template novo.
+  Stories (`/api/og/instagram/noticia-externa`) — nenhum template novo. A rota ganhou um
+  parâmetro opcional `bg=<url>` (busca a imagem server-side, embute como data URI, satori
+  não aceita `<img src>` remoto) — sem `bg`, o visual do Stories fica 100% inalterado.
+- **Imagem de fundo gerada por IA**: o Reels passa `bg=` apontando pro Pollinations.ai
+  (`https://image.pollinations.ai/prompt/<prompt>`), gratuito e sem chave/cadastro. O
+  prompt em inglês é gerado a partir do texto da notícia via DeepSeek (`DEEPSEEK_API_KEY`,
+  mesmo provider já usado no resumo); se a chave faltar ou a chamada falhar, cai numa
+  heurística por palavra-chave (seca/calor/frio/temporal/vento) — nunca quebra o pipeline
+  por causa da imagem. Se a busca do `bg` falhar na rota OG (timeout, Pollinations fora do
+  ar), o template cai de volta no gradiente puro — Reels degrada graciosamente, nunca falha
+  por causa da imagem de IA.
 - **Vídeo**: ffmpeg (instalado via `apt-get` no início do workflow — não vem mais
   pré-instalado no runner `ubuntu-latest`, ver `.github/workflows/reels-clima-extremo.yml`)
   anima a imagem com zoom
