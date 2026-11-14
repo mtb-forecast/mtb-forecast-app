@@ -11,6 +11,12 @@ async function sendMessage(token: string, chatId: number, text: string) {
 
 export async function POST(request: Request) {
   try {
+    const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET
+    const receivedSecret = request.headers.get('x-telegram-bot-api-secret-token')
+    if (!expectedSecret || receivedSecret !== expectedSecret) {
+      return NextResponse.json({ ok: false }, { status: 401 })
+    }
+
     const body = await request.json()
     const message = body?.message
     if (!message) return NextResponse.json({ ok: true })
