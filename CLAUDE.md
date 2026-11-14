@@ -83,6 +83,10 @@ Limite One Call 3.0 free: 1.000/dia. 4 execuções/dia ≈ 284 — folga confort
   - El Niño = seca (amazônica/nordestina/Cerrado) = threshold SOBE = modelo mais conservador (mult > 1.0)
   - La Niña = chuva = threshold DESCE = modelo mais permissivo (mult < 1.0)
 - SUL: El Niño 0.69–0.79, La Niña 1.22–1.37
+- SUDESTE: El Niño 0.72–0.82, La Niña 1.18–1.28 *(adicionada 14/11/2026 — antes caía no
+  fallback genérico de `enso_config`, não tinha calibração regional própria; valores
+  atenuados em relação ao Sul porque o sinal ENSO é historicamente mais forte e mais
+  consistente no Sul do que no Sudeste)*
 - NORTE: El Niño 1.18–1.25, La Niña 0.75–0.85
 - NORDESTE: El Niño 1.25–1.35, La Niña 0.70–0.80
 - CENTRO-OESTE: El Niño 1.08–1.12, La Niña 0.88–0.92 (efeito mais moderado que Norte/Nordeste,

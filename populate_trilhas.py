@@ -1,11 +1,17 @@
 import csv
 import json
+import os
+import sys
 import urllib.request
 import urllib.error
 
-SUPABASE_URL = "https://eydlkvrjopffyqpdstzh.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5ZGxrdnJqb3BmZnlxcGRzdHpoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODE4MDg1MSwiZXhwIjoyMDkzNzU2ODUxfQ.h6FpQDNmuXrcd-pJdd68Y8PTsj-CmCdUGmZWJ2zH280"
+SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").strip()
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 CSV_FILE = "trilhas.csv"
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente antes de rodar.")
+    sys.exit(1)
 
 
 def parse_optional_float(value: str):
